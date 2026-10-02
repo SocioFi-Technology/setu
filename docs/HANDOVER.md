@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5 and A6–A7 done; next A8–A11)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; next A8–A11)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -230,6 +230,44 @@ and "Slice A6–A7 session 2".
 - **Tests:** domain 140, api 121, contracts 2, i18n 3; `pnpm typecheck` 13/13; Playwright **48** (43 + 5 `a6-a7`),
   green twice in a row on 03/10/2026 after the review fixes (API on :4100, staff on :3300 — port 4000 held by E:healthcare).
 
+## Done (billing follow-ups, 03/10/2026) — not billed here, void, reconciliation, order refresh ✅
+One session, plan agreed with Kamrul (8 recommendations + the replacement chain + the design-round note). **ADR 0005.**
+- **Decision 98 — "Not billed here":** on an unpriced order line the cashier asks with a reason (≥10) → APPROVAL Task
+  kind `bill-elsewhere` (owner/admin, never their own, blocks Issue and locks lines while requested). Approved → the
+  line stays on the bill and the receipt as "Not billed here — <reason>", outside totals and VAT ("—"); the order stays
+  active. The database accepts the exclusion only through an approved Task of that bill naming that line.
+- **Void = INVOICE entered-in-error** (ADR 0005): owner/admin, reason ≥10, never a delete; refused with confirmed money
+  (refunds later), with a pending link, with an approval waiting or a reconciliation open. The number is kept and never
+  reused; the visit can get a new bill that says "This bill replaces the voided bill INV/…", and once it is issued every
+  voided bill of the visit shows "Replaced by INV/…" (the database checks the target). A voided bill shows no Paid / Due,
+  takes no payments, cannot retry a failed link; any PDF of it is stamped VOID.
+- **Reconciliation queue `bill/reconcile`** (owner only; **beyond the design handoff — the prototype gets it in the next
+  design round**; hand-added to `access-matrix.json` with a test): cases from late money on a failed / replaced link, a
+  different amount, a second payment, a TrxID paid on a replaced link, money on a bill that takes no payments. Each shows
+  why (bn/en), what the gateway reported, the payment and the bill. **Apply** only after the gateway, asked again,
+  confirms the same amount and TrxID for a payment of this bill that is still pending (any newer link is cancelled);
+  otherwise **resolve with a note**. While a case is open the bill and payment screens say "do not take money again" and
+  the link cannot be cancelled or the bill voided. A late callback for money already applied is a no-op.
+- **Order refresh (decision 99 prep):** opening a draft brings its order lines in line with the visit's placed orders
+  (audited with the lines removed / added); with a discount or approval on the bill it waits and Issue is blocked;
+  orders changed after issue are flagged on the issued bill (open question 109).
+- **Migrations:** `billing_followups` (enum value, columns), `billing_followups_guards` (split: a new enum value must be
+  committed before an index uses it — the first attempt rolled back completely and was marked rolled back),
+  `billing_followups_fixes` (review fixes in payment_guard, charge_item_guard, invoice_guard).
+- **Reviews:** security (1 high — retry on a voided bill; 2 medium; 5 low) and money / safety (1 high — void or cancel
+  while the owner is reconciling; 4 medium; lows) — all fixed in step 7.
+- **Hands-on test (03/10/2026)** as owner 01799000009 in the E2E clinic: approved the cashier's "Not billed here" on SGPT
+  (line shows the reason, total ৳1,250, Issue free); voided INV/26/0279 with a reason (number kept, banner), opened the
+  new bill ("replaces the voided bill INV/26/0279"), issued INV/26/0281, the voided bill links "Replaced by INV/26/0281";
+  applied a TrxID paid on a replaced link (bill INV/26/0280 → partially paid ৳300); resolved a ৳20-vs-৳200 case with a
+  note (Apply was disabled: "the amount does not match"); a draft whose RBS order was revoked (in the test database —
+  revoke comes with the lab slice) refreshed itself on open to ৳2,150. Found and fixed: a voided bill showed "Due".
+  Not fixed (test data): the E2E clinic's reconciliation queue holds ~45 old cases from test runs (open question 110).
+- **Tests:** domain 147, api 133, contracts 2, i18n 3; `pnpm typecheck` 13/13; Playwright **51** (48 + 3
+  `a6-followups`), E2E_RESULT_LINE.
+- Note on history: commit `2341bc3` (step 2) was made while one API test still expected the old guard message; fixed
+  in the next commit `d246dac`. From then on every commit was gated on the test command's exit code.
+
 ## How to run the journeys on this PC
 - Playwright's Chromium is installed (02/10/2026): plain `pnpm e2e` runs the journeys against `pnpm dev` (staff :3000,
   api :4000). The installed-Chrome route still works: `cd e2e` then `CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" pnpm exec playwright test -c pw.local.config.ts`.
@@ -284,9 +322,8 @@ and "Slice A6–A7 session 2".
 ## Next (in order)
 1. ~~`/slice A1-A3`~~ — done 02/10/2026.
 2. ~~`/slice A4-A5`~~ — done 02–03/10/2026 (three sessions). Kamrul to confirm open questions 68–82.
-3. ~~`/slice A6-A7`~~ — done 03/10/2026 (two sessions). Kamrul to confirm open questions 94–106.
-   **Billing follow-ups (before or beside A8):** bill void / entered-in-error (never a delete); the owner's
-   payment-reconciliation queue screen (decision 89); a way out for unpriced tests (open question 98).
+3. ~~`/slice A6-A7`~~ — done 03/10/2026 (two sessions) + ~~billing follow-ups~~ done 03/10/2026 (ADR 0005). Kamrul to
+   confirm open questions 107–113. Refunds (and voiding a bill that holds money) are a later slice.
 4. `/slice A8-A11` — lab.
 5. `/slice A12-A13` — doctor app layout, printing; run all of Journey A.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.

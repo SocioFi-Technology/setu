@@ -441,3 +441,36 @@ doctor's list puts waiting patients before completed visits; repeated entered-in
 ### Phase 2 list
 - Before the bKash sandbox: create the Payment row first and the provider link second (decision 90).
 - S3-compatible Storage adapter before staging (HANDOVER gap 2).
+
+### Decisions of 03/10/2026 (Kamrul) on items 94–106
+- All accepted as recorded.
+- 98: no on-the-spot pricing — "Not billed here" with owner/admin approval (built, ADR 0005); owner-set prices come
+  with the admin price-list screen in phase 2.
+
+## Billing follow-ups (ADR 0005) — 03/10/2026
+
+### Decided by Kamrul (03/10/2026, before the session)
+- Reconciliation queue: owner only. `bill/reconcile` added to the access matrix by hand; beyond the design handoff — the
+  prototype gets it in the next design round.
+- After a void the visit may get a new bill; it records which bill it replaces, the voided bill records its
+  replacement once issued; voided numbers are never reused.
+- Void refused while a link is pending ("cancel the link first"); "Not billed here" on order lines only; reconciliation
+  "apply" only on a pending payment; VOID stamped on any PDF of a voided bill; order refresh waits (Issue blocked) when
+  a discount or approval is on the bill, and adds newly placed orders otherwise.
+
+### Chosen conservatively by Claude — please confirm
+107. **Refunds, and voiding a bill that holds confirmed money,** are a later slice. Until then such a bill cannot be
+     voided; a wrong paid bill is handled by the owner outside Setu and noted (reconciliation "resolve" note).
+108. **Void is also refused while an approval waits on the bill or a reconciliation case is open** (security / money
+     reviews): decide those first, so nothing is left in a queue for a voided bill and no money is stranded.
+109. **Orders changed after a bill was issued** (an amended note adds a test) are flagged on the issued bill but not
+     added: if no money was taken, the owner or an admin voids and re-bills; otherwise tell the owner (an "additional
+     bill" for the same visit is a later decision — today one open bill per visit).
+110. **Test data:** the E2E clinic's reconciliation queue holds ~45 old cases from automated test runs (oldest first).
+     Suggest: the E2E reset resolves leftover cases as the E2E owner with the note "test run". Green Life is unaffected.
+111. **The reconciliation list checks without the gateway** (same bill, still pending, same amount); the gateway is
+     asked only when the owner presses Apply, so a case can still be refused at that moment ("the gateway does not
+     confirm it now").
+112. **"Not billed here" on an unpriced consultation** (a doctor without a fee) is not offered; the price list must have
+     the fee (phase 2 masters).
+113. **Accessibility:** labels wrap their inputs in the new forms; a screen-reader check is due in the accessibility pass.
