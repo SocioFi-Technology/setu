@@ -203,6 +203,8 @@ model Patient {
   relatedPersons     RelatedPerson[]
   encounters         Encounter[]
   observations       Observation[]
+  allergies          AllergyIntolerance[]
+  compositions       Composition[]
   @@unique([tenantId, facilityNo])
   @@index([tenantId, phone])
   @@index([tenantId, nameBn])
@@ -304,6 +306,7 @@ model Encounter {
   createdById    String
   createdAt      DateTime        @default(now())
   observations   Observation[]
+  compositions   Composition[]
   @@unique([tenantId, branchId, tokenDay, tokenNo])
   @@index([tenantId, branchId, tokenDay])
   @@index([tenantId, patientId])
@@ -409,4 +412,258 @@ model Observation {
   @@index([tenantId, patientId, code, effectiveAt])
   @@index([tenantId, encounterId])
   @@index([tenantId, batchId])
+}
+
+/* ───────────── Slice A5: consultation ───────────── */
+
+/// Sample catalogues per tenant, seeded from @setu/domain catalog.ts (NOT a drug database or a terminology server:
+/// pre-pilot, HANDOVER known gap 12). The API searches these; the prescription rules read `ingredients`/`classes`.
+model Icd11Code {
+  id           String @id @default(cuid())
+  tenantId     String
+  code         String
+  bn           String
+  en           String
+  aliases      String @default("")
+  /// unverified-prototype until a clinician checks it against the WHO ICD-11 browser (decision D2)
+  verification String @default("unverified-prototype")
+  @@unique([tenantId, code])
+}
+
+enum MealTiming {
+  before
+  after
+  with
+  any
+}
+
+model Medicine {
+  id           String     @id @default(cuid())
+  tenantId     String
+  /// Setu key from the sample list (e.g. "seclo"); never a DGDA number
+  key          String
+  brand        String
+  brandBn      String     @default("")
+  generic      String
+  strength     String
+  form         String
+  manufacturer String
+  ingredients  String[]
+  classes      String[]
+  defaultDose  String
+  defaultMeal  MealTiming
+  defaultDays  Int
+  /// true for every row until a licensed database replaces the sample list (decision D3)
+  sample       Boolean    @default(true)
+  active       Boolean    @default(true)
+  @@unique([tenantId, key])
+}
+
+model OrderableTest {
+  id       String  @id @default(cuid())
+  tenantId String
+  /// Setu key (cbc, rbs, elec, ...), not LOINC
+  code     String
+  nameEn   String
+  nameBn   String
+  /// lab | imaging | other
+  group    String
+  active   Boolean @default(true)
+  @@unique([tenantId, code])
+}
+
+/// ALLERGY machine states (@setu/domain machines.ts, ADR 0004).
+enum AllergyStatus {
+  active
+  entered_in_error @map("entered-in-error")
+}
+/// class = a drug class key (penicillin, sulfonamide); substance = an ingredient key; other = free text (not matchable)
+enum AllergyKind {
+  class
+  substance
+  other
+}
+enum AllergySeverity {
+  mild
+  moderate
+  severe
+  unknown
+}
+
+/// ADR 0004: never deleted, never edited; a wrong entry is marked entered-in-error with a reason (enforced by trigger).
+model AllergyIntolerance {
+  id             String          @id @default(cuid())
+  tenantId       String
+  organizationId String
+  patientId      String
+  patient        Patient         @relation(fields: [patientId], references: [id])
+  /// the visit during which it was recorded
+  encounterId    String?
+  kind           AllergyKind
+  /// class or ingredient key; null for free text
+  key            String?
+  labelBn        String
+  labelEn        String
+  reaction       String?
+  severity       AllergySeverity @default(unknown)
+  status         AllergyStatus   @default(active)
+  recordedById   String
+  recordedAt     DateTime        @default(now())
+  errorReason    String?
+  errorById      String?
+  errorAt        DateTime?
+  @@index([tenantId, patientId, status])
+}
+
+/// DOCUMENT machine states (@setu/domain machines.ts, ADR 0003).
+enum DocumentStatus {
+  draft
+  queued
+  final
+  amended
+  superseded
+  entered_in_error @map("entered-in-error")
+}
+
+/// A clinical note, one row per version (ADR 0003). v1 starts as a draft; signing (PIN + server) makes it final. An
+/// amendment is a new row (version + 1, `amendsId` = the version it amends, reason required) that signs to `amended`
+/// while the old row is superseded in the same transaction. Signed rows are never edited (trigger): only their status
+/// moves on to superseded / entered-in-error. Sections are JSON (@setu/domain NoteSections) with a source per section.
+model Composition {
+  id                      String              @id @default(cuid())
+  tenantId                String
+  organizationId          String
+  branchId                String
+  patientId               String
+  patient                 Patient             @relation(fields: [patientId], references: [id])
+  encounterId             String
+  encounter               Encounter           @relation(fields: [encounterId], references: [id])
+  /// consultation-note (others later: progress note, discharge summary, ...)
+  kind                    String              @default("consultation-note")
+  version                 Int
+  status                  DocumentStatus      @default(draft)
+  amendsId                String?             @unique
+  supersededById          String?
+  amendReason             String?
+  sections                Json
+  sectionSources          Json
+  /// check-and-set counter for draft saves (409 when another save came first)
+  rev                     Int                 @default(1)
+  authorId                String
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  signedAt                DateTime?
+  signedById              String?
+  aiReviewed              Boolean             @default(false)
+  uncodedAllergiesChecked Boolean             @default(false)
+  conditions              Condition[]
+  medications             MedicationRequest[]
+  orders                  ServiceRequest[]
+  @@unique([tenantId, encounterId, kind, version])
+  @@index([tenantId, patientId, status])
+}
+
+enum ConditionVerification {
+  provisional
+  confirmed
+}
+
+/// A diagnosis on one version of a note. Labels are copied from the tenant's Icd11Code row by the server.
+model Condition {
+  id                 String                @id @default(cuid())
+  tenantId           String
+  patientId          String
+  encounterId        String
+  compositionId      String
+  composition        Composition           @relation(fields: [compositionId], references: [id])
+  position           Int
+  code               String
+  codeSystem         String                @default("icd11")
+  /// copied from Icd11Code.verification (unverified-prototype) so prints and exports can say so
+  codeVerification   String
+  labelBn            String
+  labelEn            String
+  verificationStatus ConditionVerification @default(provisional)
+  createdAt          DateTime              @default(now())
+  @@index([tenantId, compositionId])
+  @@index([tenantId, patientId])
+}
+
+/// A prescription line on one version of a note. Medicine data is copied from the tenant's Medicine row by the server
+/// (the screen sends only the medicine key), so the sign check uses the server's ingredients and classes.
+model MedicationRequest {
+  id            String      @id @default(cuid())
+  tenantId      String
+  patientId     String
+  encounterId   String
+  compositionId String
+  composition   Composition @relation(fields: [compositionId], references: [id])
+  position      Int
+  medicineKey   String
+  brand         String
+  generic       String
+  strength      String
+  form          String
+  ingredients   String[]
+  classes       String[]
+  sample        Boolean     @default(true)
+  /// dose pattern m+n+e[+bed], e.g. 1+0+1
+  dose          String
+  meal          MealTiming
+  days          Int
+  quantity      Int
+  note          String?
+  keepBoth      Boolean     @default(false)
+  /// interaction rule ids the doctor acknowledged on this line
+  acks          String[]
+  createdAt     DateTime    @default(now())
+  @@index([tenantId, compositionId])
+  @@index([tenantId, patientId])
+}
+
+/// ORDER machine states (@setu/domain machines.ts).
+enum OrderStatus {
+  draft
+  active
+  centre_chosen      @map("centre-chosen")
+  accepted
+  partially_accepted @map("partially-accepted")
+  declined
+  in_progress        @map("in-progress")
+  partially_complete @map("partially-complete")
+  complete
+  revoked
+}
+enum OrderPriority {
+  routine
+  urgent
+  stat
+}
+
+/// A test ordered in a consultation. Belongs to the visit (the A6 bill and the A8 lab read it from there) and to the
+/// note version that placed it; draft until that version is signed (ORDER `order` -> active). An amendment can add
+/// orders but never removes one already placed (cancelling is ORDER `revoke`, in the lab slice). In-house only;
+/// network labs come with Journey E. No price until price lists exist (decision 29).
+model ServiceRequest {
+  id             String        @id @default(cuid())
+  tenantId       String
+  organizationId String
+  branchId       String
+  patientId      String
+  encounterId    String
+  compositionId  String
+  composition    Composition   @relation(fields: [compositionId], references: [id])
+  testCode       String
+  nameEn         String
+  nameBn         String
+  group          String
+  priority       OrderPriority @default(routine)
+  status         OrderStatus   @default(draft)
+  note           String?
+  orderedById    String
+  createdAt      DateTime      @default(now())
+  orderedAt      DateTime?
+  statusAt       DateTime      @default(now())
+  @@index([tenantId, encounterId])
+  @@index([tenantId, compositionId])
 }

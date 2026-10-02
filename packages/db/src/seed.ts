@@ -1,9 +1,55 @@
 /* Demo tenant used by dev, e2e and the journeys: Green Life Clinic, Mirpur (the prototype's sample facility).
    Sample people match the walkthrough so Playwright specs read like the journey text. */
 import { createHash } from "node:crypto";
+import { ICD11_SAMPLE, MEDICINES_SAMPLE, TESTS_SAMPLE, emptySections, rxQuantity } from "@setu/domain";
 import { owner as prisma } from "./owner.ts";
 
 const hash = (s: string) => createHash("sha256").update("dev-only:" + s).digest("hex"); // replaced by argon2 in the auth slice
+
+/* Slice A5: the sample catalogues from @setu/domain catalog.ts (labelled sample / unverified — never invented). */
+async function seedCatalogues(tenantId: string) {
+  for (const c of ICD11_SAMPLE) {
+    const data = { bn: c.bn, en: c.en, aliases: c.aliases, verification: c.verification };
+    await prisma.icd11Code.upsert({ where: { tenantId_code: { tenantId, code: c.code } }, update: data, create: { tenantId, code: c.code, ...data } });
+  }
+  for (const m of MEDICINES_SAMPLE) {
+    const data = { brand: m.brand, brandBn: m.brandBn, generic: m.generic, strength: m.strength, form: m.form, manufacturer: m.manufacturer, ingredients: m.ingredients, classes: m.classes, defaultDose: m.defaults.dose, defaultMeal: m.defaults.meal, defaultDays: m.defaults.days, sample: true };
+    await prisma.medicine.upsert({ where: { tenantId_key: { tenantId, key: m.id } }, update: data, create: { tenantId, key: m.id, ...data } });
+  }
+  for (const t of TESTS_SAMPLE) {
+    const data = { nameEn: t.nameEn, nameBn: t.nameBn, group: t.group };
+    await prisma.orderableTest.upsert({ where: { tenantId_code: { tenantId, code: t.code } }, update: data, create: { tenantId, code: t.code, ...data } });
+  }
+}
+
+/* Walkthrough A5: Rahima Khatun's allergies (Penicillin — rash, recorded 12/08/2026; Sulfa) and the signed note of her
+   12/08/2026 visit (diagnoses 5A11, BA00; Comet, Seclo, Amdocal — the prototype's "current medicines"). Synthetic. The
+   note is written as a draft with its items and then signed by the seeded doctor, the same order the API uses. */
+async function seedLastNote(tenantId: string, organizationId: string, branchId: string, idPrefix: string, doctorId: string) {
+  const patientId = `${idPrefix}p_rahima`, encounterId = `${idPrefix}enc_rahima_20260812`, at = new Date("2026-08-12T05:05:00Z");
+  for (const [id, key, labelBn, labelEn, reaction, severity] of [
+    [`${idPrefix}al_rahima_pen`, "penicillin", "পেনিসিলিন", "Penicillin", "rash", "moderate"],
+    [`${idPrefix}al_rahima_sulfa`, "sulfonamide", "সালফা", "Sulfa drugs", null, "unknown"],
+  ] as const) {
+    await prisma.allergyIntolerance.upsert({ where: { id }, update: {}, create: { id, tenantId, organizationId, patientId, encounterId, kind: "class", key, labelBn, labelEn, reaction, severity, recordedById: doctorId, recordedAt: at } });
+    if (!(await prisma.provenance.count({ where: { targetType: "AllergyIntolerance", targetId: id } })))
+      await prisma.provenance.create({ data: { tenantId, targetType: "AllergyIntolerance", targetId: id, activity: "record-allergy", agentId: doctorId, onBehalfOf: organizationId, source: "provider_verified", recorded: at, detail: { seeded: true } } });
+  }
+  const id = `${idPrefix}cmp_rahima_20260812`;
+  if (await prisma.composition.findUnique({ where: { id } })) return;
+  const sections = { ...emptySections(), complaints: [{ text: "Follow-up: diabetes and blood pressure", duration: null }], advice: "Continue medicines; diet and walking." };
+  await prisma.composition.create({ data: { id, tenantId, organizationId, branchId, patientId, encounterId, version: 1, status: "draft", sections: sections as object, sectionSources: {}, authorId: doctorId, createdAt: at } });
+  for (const [i, [code, verificationStatus]] of ([["5A11", "confirmed"], ["BA00", "confirmed"]] as const).entries()) {
+    const c = ICD11_SAMPLE.find((x) => x.code === code)!;
+    await prisma.condition.create({ data: { tenantId, patientId, encounterId, compositionId: id, position: i, code, codeVerification: c.verification, labelBn: c.bn, labelEn: c.en, verificationStatus } });
+  }
+  for (const [i, [key, dose, meal, days]] of ([["comet", "1+0+1", "after", 30], ["seclo", "1+0+0", "before", 30], ["amdocal", "0+0+1", "after", 30]] as const).entries()) {
+    const m = MEDICINES_SAMPLE.find((x) => x.id === key)!;
+    await prisma.medicationRequest.create({ data: { tenantId, patientId, encounterId, compositionId: id, position: i, medicineKey: key, brand: m.brand, generic: m.generic, strength: m.strength, form: m.form, ingredients: m.ingredients, classes: m.classes, dose, meal, days, quantity: rxQuantity(dose, days) } });
+  }
+  await prisma.composition.update({ where: { id }, data: { status: "final", signedAt: at, signedById: doctorId } });
+  await prisma.provenance.create({ data: { tenantId, targetType: "Composition", targetId: id, activity: "sign", agentId: doctorId, onBehalfOf: organizationId, source: "provider_verified", recorded: at, detail: { seeded: true, version: 1 } } });
+}
 
 async function main() {
   const tenant = await prisma.tenant.upsert({
@@ -108,6 +154,7 @@ async function main() {
     await prisma.provenance.create({ data: { tenantId, targetType: "Observation", targetId: batchId, activity: "record-vitals", agentId: nurseId, onBehalfOf: organizationId, source: "provider_verified", recorded: at, detail: { encounterId: encId, seeded: true } } });
   };
   await seedLastVisit(tenant.id, org.id, "l_branch_mirpur", "", "u_shirin");
+  await seedLastNote(tenant.id, org.id, "l_branch_mirpur", "", "u_selina");
   /* Two small tenants on the lower plans, so the plan-lock journey runs against the real database (one user each,
      on their own phone numbers: login refuses a phone+password that matches in more than one tenant). */
   const planDemos: [string, string, "clinic" | "lite", string, string, string, string, string, "nurse" | "doctor"][] = [
@@ -144,6 +191,8 @@ async function main() {
   }
   await seedFamily(E2E.tenant, "e2e_", "E2E");
   await seedLastVisit(E2E.tenant, E2E.org, E2E.branch, "e2e_", "u_e2e_nurse");
+  await seedLastNote(E2E.tenant, E2E.org, E2E.branch, "e2e_", "u_e2e_doctor");
+  for (const t of [tenant.id, "t_clinicdemo", "t_litedemo", E2E.tenant]) await seedCatalogues(t);
   await prisma.sequence.upsert({ where: { tenantId_name: { tenantId: E2E.tenant, name: "patient" } }, update: {}, create: { tenantId: E2E.tenant, name: "patient", value: 240210 } });
   console.log("seeded demo tenant: Green Life Clinic, Mirpur — 10 users (password setu1234, PIN 1234), 8 patients (5 share 01711-234567), Mirpur branch, ward 2A; plan demos: Clinic-plan nurse 01722000004, Lite-plan doctor 01733000002; E2E Test Clinic (tests only): 017990000xx; Rahima Khatun's previous visit 12/08/2026 with vitals");
 }
