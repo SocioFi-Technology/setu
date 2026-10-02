@@ -125,12 +125,15 @@ export function notBilledBlockers(a: { line: { source: "consultation" | "order" 
 }
 
 /** Void = INVOICE markError: owner/admin, reason, only draft or issued, never with confirmed money or a pending link. */
-export type VoidBlocker = "not_an_approver" | "not_voidable" | "has_confirmed_money" | "link_pending" | "reason_too_short";
-export function voidBlockers(a: { role: string; status: InvoiceState; confirmedPaisa: Paisa; pendingPayments: number; reason: string }): VoidBlocker[] {
+export type VoidBlocker = "not_an_approver" | "not_voidable" | "has_confirmed_money" | "link_pending" | "approval_pending" | "reason_too_short";
+/** `pendingApprovals`: approvals still requested on the bill — decide them first (security review: they must not be
+    left in the inbox of a voided bill). */
+export function voidBlockers(a: { role: string; status: InvoiceState; confirmedPaisa: Paisa; pendingPayments: number; pendingApprovals?: number; reason: string }): VoidBlocker[] {
   if (!(APPROVER_ROLES as readonly string[]).includes(a.role)) return ["not_an_approver"];
   if (a.confirmedPaisa > 0) return ["has_confirmed_money"];
   if (!can(INVOICE, a.status, "markError")) return ["not_voidable"];
   if (a.pendingPayments > 0) return ["link_pending"];
+  if ((a.pendingApprovals ?? 0) > 0) return ["approval_pending"];
   if (a.reason.trim().length < REASON_MIN) return ["reason_too_short"];
   return [];
 }

@@ -217,3 +217,64 @@ describe.runIf(db)("order refresh on a draft bill (decision 99 prep)", () => {
     expect((await post(`/v1/invoices/${view.invoice.id}/refresh-orders`, { rev: reopened.invoice.rev })).json()).toMatchObject({ code: "discount_present" });
   });
 });
+
+describe.runIf(db)("review fixes (security + money)", () => {
+  it("no retry on a voided bill (API and database); void is refused while an approval waits", async () => {
+    const { view } = await bill(["cbc", "sgpt"]);
+    const sgpt = lineOf(view, "test:sgpt");
+    await post(`/v1/invoices/${view.invoice.id}/lines/${sgpt.id}/not-billed`, { reason: "Sent to the partner lab, billed there", rev: view.invoice.rev });
+    expect((await post(`/v1/invoices/${view.invoice.id}/void`, { reason: "Opened on the wrong visit" }, "owner")).json()).toMatchObject({ code: "approval_pending" });
+    const b = await bill();
+    await issue(b.view.invoice.id, b.view.invoice.rev);
+    const p = (await post(`/v1/invoices/${b.view.invoice.id}/payments`, { method: "bkash", amountPaisa: 100_000 })).json().payment;
+    await post(`/v1/payments/${p.id}/cancel`);
+    expect((await post(`/v1/invoices/${b.view.invoice.id}/void`, { reason: "Billed on the wrong visit" }, "owner")).statusCode).toBe(200);
+    expect((await post(`/v1/payments/${p.id}/retry`)).json()).toMatchObject({ code: "not_payable" });
+    await expect(inTenant((tx) => tx.payment.update({ where: { id: p.id }, data: { status: "initiated", attempt: 2 } }))).rejects.toThrow(/not retried/);
+  });
+  it("while a reconciliation is open: the bill says so, its links cannot be cancelled and it cannot be voided; a repeated callback for applied money is a no-op", async () => {
+    const { view } = await bill();
+    await issue(view.invoice.id, view.invoice.rev);
+    const p = (await post(`/v1/invoices/${view.invoice.id}/payments`, { method: "bkash", amountPaisa: 100_000 })).json().payment;
+    const ref0 = (await inTenant((tx) => tx.payment.findFirst({ where: { id: p.id } })))!.providerRef!;
+    await post(`/v1/dev/fake-payments/${p.id}/failed`, {}, "cashier", null);
+    await post(`/v1/payments/${p.id}/retry`);
+    fakeProvider()!.simulate(ref0, "confirmed", { deliver: false });
+    const trx = (await fakeProvider()!.verify({ providerRef: ref0 }))!.trxId!;
+    await post(`/v1/payments/${p.id}/verify-trx`, { trxId: trx });
+    await post(`/v1/payments/${p.id}/verify-trx`, { trxId: trx }); // entered twice → still one case
+    expect(await inTenant((tx) => tx.task.count({ where: { kind: "payment-reconciliation", focusId: p.id } }))).toBe(1);
+    expect((await get(`/v1/invoices/${view.invoice.id}`)).json().reconciling).toBe(true);
+    expect((await post(`/v1/payments/${p.id}/cancel`)).json()).toMatchObject({ code: "reconciliation_open" });
+    const item = (await get("/v1/reconciliation", "owner")).json().items.find((i: { payment: { id: string } }) => i.payment.id === p.id);
+    await post(`/v1/reconciliation/${item.taskId}/apply`, {}, "owner");
+    expect((await get(`/v1/invoices/${view.invoice.id}`)).json().reconciling).toBe(false);
+    // the gateway's own callback for that old link arrives late: money already applied, not new money
+    const cb = fakeProvider()!.simulate(ref0, "confirmed")!;
+    expect((await app.inject({ method: "POST", url: "/v1/payments/callback/fake", payload: cb.body, headers: cb.headers })).json()).toEqual({ outcome: "noop", reason: "already-applied" });
+    expect(await inTenant((tx) => tx.task.count({ where: { kind: "payment-reconciliation", focusId: p.id } }))).toBe(1);
+  });
+  it("the database refuses a 'not billed here' without an approved Task for that line, and a replacement that is not an issued bill of the same visit", async () => {
+    const { view } = await bill(["sgpt"]);
+    const sgpt = lineOf(view, "test:sgpt");
+    await expect(inTenant((tx) => tx.chargeItem.update({ where: { id: sgpt.id }, data: { notBilledTaskId: "made-up", notBilledReason: "Sent to the partner lab", notBilledAt: new Date() } }))).rejects.toThrow(/approved bill-elsewhere/);
+    const v = await post(`/v1/invoices/${view.invoice.id}/void`, { reason: "Opened on the wrong visit" }, "owner");
+    expect(v.statusCode).toBe(200);
+    const other = await bill();
+    await expect(inTenant((tx) => tx.invoice.update({ where: { id: view.invoice.id }, data: { replacedById: other.view.invoice.id } }))).rejects.toThrow(/voided bill is never changed/);
+  });
+  it("A voided, its replacement B voided, then C issued: both A and B show 'Replaced by C'; reopening a draft audits which order lines changed", async () => {
+    const { enc, view: a } = await bill();
+    await post(`/v1/invoices/${a.invoice.id}/void`, { reason: "Opened on the wrong visit" }, "owner");
+    const b = (await post(`/v1/encounters/${enc}/invoice`)).json();
+    await post(`/v1/invoices/${b.invoice.id}/void`, { reason: "Opened twice by mistake" }, "owner");
+    const c = (await post(`/v1/encounters/${enc}/invoice`)).json();
+    const rbs = lineOf(c, "test:rbs");
+    await inTenant((tx) => tx.serviceRequest.update({ where: { id: rbs.sourceId! }, data: { status: "revoked", statusAt: new Date() } }));
+    const reopened = (await post(`/v1/encounters/${enc}/invoice`)).json();
+    const audit = await inTenant((tx) => tx.auditEvent.findFirst({ where: { entity: "Invoice", entityId: c.invoice.id, action: "update" }, orderBy: { at: "desc" } }));
+    expect(audit?.detail).toMatchObject({ event: "refresh-orders", removed: ["test:rbs"], added: [] });
+    const ci = await issue(c.invoice.id, reopened.invoice.rev);
+    for (const id of [a.invoice.id, b.invoice.id]) expect((await get(`/v1/invoices/${id}`)).json().invoice.replacedBy).toEqual({ id: c.invoice.id, number: ci.invoice.number });
+  });
+});

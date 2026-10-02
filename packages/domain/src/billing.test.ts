@@ -247,6 +247,7 @@ describe("billing follow-ups (ADR 0005)", () => {
     expect(voidBlockers({ ...ok, status: "partially-paid", confirmedPaisa: 30_000 })).toEqual(["has_confirmed_money"]);
     expect(voidBlockers({ ...ok, status: "balanced", confirmedPaisa: 230_000 })).toEqual(["has_confirmed_money"]);
     expect(voidBlockers({ ...ok, pendingPayments: 1 })).toEqual(["link_pending"]);
+    expect(voidBlockers({ ...ok, pendingApprovals: 1 })).toEqual(["approval_pending"]);
     expect(voidBlockers({ ...ok, status: "entered-in-error" })).toEqual(["not_voidable"]);
   });
   it("reconcile 'apply' only when the provider confirms the same amount and TrxID for a pending payment of this bill", async () => {

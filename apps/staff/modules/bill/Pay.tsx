@@ -131,6 +131,7 @@ function PayView({ id }: { id: string }) {
       </div>
       {!s.online && <Callout tone="warn" icon="cloud-off">{B("offline_banner")}</Callout>}
       {inv.status === "draft" && <Callout tone="warn" icon="file-warning">{B("pay_not_issued")}</Callout>}
+      {v.reconciling && <Callout tone="bad" icon="scale" data-testid="reconciling">{B("reconciling")}</Callout>}
       {stale && s.online && <Callout tone="warn" icon="refresh-cw" data-testid="pay-stale">{B("pay_stale", { at: M.time(updatedAt) })}</Callout>}
       {notice && <Callout tone="bad" icon="triangle-alert" data-testid="pay-notice">{B(notice)}</Callout>}
       {refused.map((q) => (
@@ -174,7 +175,7 @@ function PayView({ id }: { id: string }) {
                       <input className="input num" name={`trx-${p.id}`} style={{ width: 200 }} value={trx[p.id] ?? ""} onChange={(e) => setTrx((x) => ({ ...x, [p.id]: e.target.value.toUpperCase() }))} />
                     </label>
                     <Button size="sm" disabled={busy || !s.online || !(trx[p.id] ?? "").trim()} onClick={() => act(() => api.verifyTrx(p.id, (trx[p.id] ?? "").trim()))}>{B("pay_trx_verify")}</Button>
-                    <Button size="sm" variant="ghost" icon="x" data-testid="cancel-link" disabled={busy || !s.online} onClick={() => act(() => api.cancel(p.id))}>{B("pay_cancel")}</Button>
+                    <Button size="sm" variant="ghost" icon="x" data-testid="cancel-link" disabled={busy || !s.online || v.reconciling} onClick={() => act(() => api.cancel(p.id))}>{B("pay_cancel")}</Button>
                   </span>
                 )}
                 {waiting && FAKE_GATEWAY && (

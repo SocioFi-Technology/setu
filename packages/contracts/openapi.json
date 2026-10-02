@@ -17358,6 +17358,9 @@
                     "ordersChanged": {
                       "type": "boolean"
                     },
+                    "reconciling": {
+                      "type": "boolean"
+                    },
                     "payments": {
                       "type": "array",
                       "items": {
@@ -17633,6 +17636,7 @@
                     "issueBlockers",
                     "lineApprovals",
                     "ordersChanged",
+                    "reconciling",
                     "payments",
                     "summary",
                     "paidBy",
@@ -18411,6 +18415,9 @@
                     "ordersChanged": {
                       "type": "boolean"
                     },
+                    "reconciling": {
+                      "type": "boolean"
+                    },
                     "payments": {
                       "type": "array",
                       "items": {
@@ -18686,6 +18693,7 @@
                     "issueBlockers",
                     "lineApprovals",
                     "ordersChanged",
+                    "reconciling",
                     "payments",
                     "summary",
                     "paidBy",
@@ -19690,6 +19698,9 @@
                     "ordersChanged": {
                       "type": "boolean"
                     },
+                    "reconciling": {
+                      "type": "boolean"
+                    },
                     "payments": {
                       "type": "array",
                       "items": {
@@ -19965,6 +19976,7 @@
                     "issueBlockers",
                     "lineApprovals",
                     "ordersChanged",
+                    "reconciling",
                     "payments",
                     "summary",
                     "paidBy",
@@ -20937,6 +20949,9 @@
                     "ordersChanged": {
                       "type": "boolean"
                     },
+                    "reconciling": {
+                      "type": "boolean"
+                    },
                     "payments": {
                       "type": "array",
                       "items": {
@@ -21212,6 +21227,7 @@
                     "issueBlockers",
                     "lineApprovals",
                     "ordersChanged",
+                    "reconciling",
                     "payments",
                     "summary",
                     "paidBy",
@@ -22256,6 +22272,9 @@
                     "ordersChanged": {
                       "type": "boolean"
                     },
+                    "reconciling": {
+                      "type": "boolean"
+                    },
                     "payments": {
                       "type": "array",
                       "items": {
@@ -22531,6 +22550,7 @@
                     "issueBlockers",
                     "lineApprovals",
                     "ordersChanged",
+                    "reconciling",
                     "payments",
                     "summary",
                     "paidBy",
@@ -23499,6 +23519,9 @@
                     "ordersChanged": {
                       "type": "boolean"
                     },
+                    "reconciling": {
+                      "type": "boolean"
+                    },
                     "payments": {
                       "type": "array",
                       "items": {
@@ -23774,6 +23797,7 @@
                     "issueBlockers",
                     "lineApprovals",
                     "ordersChanged",
+                    "reconciling",
                     "payments",
                     "summary",
                     "paidBy",
@@ -24779,6 +24803,9 @@
                         "ordersChanged": {
                           "type": "boolean"
                         },
+                        "reconciling": {
+                          "type": "boolean"
+                        },
                         "payments": {
                           "type": "array",
                           "items": {
@@ -25054,6 +25081,7 @@
                         "issueBlockers",
                         "lineApprovals",
                         "ordersChanged",
+                        "reconciling",
                         "payments",
                         "summary",
                         "paidBy",
@@ -26090,6 +26118,9 @@
                     "ordersChanged": {
                       "type": "boolean"
                     },
+                    "reconciling": {
+                      "type": "boolean"
+                    },
                     "payments": {
                       "type": "array",
                       "items": {
@@ -26365,6 +26396,7 @@
                     "issueBlockers",
                     "lineApprovals",
                     "ordersChanged",
+                    "reconciling",
                     "payments",
                     "summary",
                     "paidBy",
@@ -27325,6 +27357,9 @@
                     "ordersChanged": {
                       "type": "boolean"
                     },
+                    "reconciling": {
+                      "type": "boolean"
+                    },
                     "payments": {
                       "type": "array",
                       "items": {
@@ -27600,6 +27635,7 @@
                     "issueBlockers",
                     "lineApprovals",
                     "ordersChanged",
+                    "reconciling",
                     "payments",
                     "summary",
                     "paidBy",
@@ -29306,6 +29342,9 @@
                         "ordersChanged": {
                           "type": "boolean"
                         },
+                        "reconciling": {
+                          "type": "boolean"
+                        },
                         "payments": {
                           "type": "array",
                           "items": {
@@ -29581,6 +29620,7 @@
                         "issueBlockers",
                         "lineApprovals",
                         "ordersChanged",
+                        "reconciling",
                         "payments",
                         "summary",
                         "paidBy",
@@ -30904,6 +30944,9 @@
                         "ordersChanged": {
                           "type": "boolean"
                         },
+                        "reconciling": {
+                          "type": "boolean"
+                        },
                         "payments": {
                           "type": "array",
                           "items": {
@@ -31179,6 +31222,7 @@
                         "issueBlockers",
                         "lineApprovals",
                         "ordersChanged",
+                        "reconciling",
                         "payments",
                         "summary",
                         "paidBy",
@@ -32366,6 +32410,9 @@
                         "ordersChanged": {
                           "type": "boolean"
                         },
+                        "reconciling": {
+                          "type": "boolean"
+                        },
                         "payments": {
                           "type": "array",
                           "items": {
@@ -32641,6 +32688,7 @@
                         "issueBlockers",
                         "lineApprovals",
                         "ordersChanged",
+                        "reconciling",
                         "payments",
                         "summary",
                         "paidBy",
@@ -33866,6 +33914,9 @@
                         "ordersChanged": {
                           "type": "boolean"
                         },
+                        "reconciling": {
+                          "type": "boolean"
+                        },
                         "payments": {
                           "type": "array",
                           "items": {
@@ -34141,6 +34192,7 @@
                         "issueBlockers",
                         "lineApprovals",
                         "ordersChanged",
+                        "reconciling",
                         "payments",
                         "summary",
                         "paidBy",
@@ -35226,6 +35278,9 @@
                         "ordersChanged": {
                           "type": "boolean"
                         },
+                        "reconciling": {
+                          "type": "boolean"
+                        },
                         "payments": {
                           "type": "array",
                           "items": {
@@ -35501,6 +35556,7 @@
                         "issueBlockers",
                         "lineApprovals",
                         "ordersChanged",
+                        "reconciling",
                         "payments",
                         "summary",
                         "paidBy",
@@ -36604,6 +36660,9 @@
                         "ordersChanged": {
                           "type": "boolean"
                         },
+                        "reconciling": {
+                          "type": "boolean"
+                        },
                         "payments": {
                           "type": "array",
                           "items": {
@@ -36879,6 +36938,7 @@
                         "issueBlockers",
                         "lineApprovals",
                         "ordersChanged",
+                        "reconciling",
                         "payments",
                         "summary",
                         "paidBy",
@@ -41040,6 +41100,9 @@
                     "ordersChanged": {
                       "type": "boolean"
                     },
+                    "reconciling": {
+                      "type": "boolean"
+                    },
                     "payments": {
                       "type": "array",
                       "items": {
@@ -41315,6 +41378,7 @@
                     "issueBlockers",
                     "lineApprovals",
                     "ordersChanged",
+                    "reconciling",
                     "payments",
                     "summary",
                     "paidBy",
@@ -42345,6 +42409,9 @@
                     "ordersChanged": {
                       "type": "boolean"
                     },
+                    "reconciling": {
+                      "type": "boolean"
+                    },
                     "payments": {
                       "type": "array",
                       "items": {
@@ -42620,6 +42687,7 @@
                     "issueBlockers",
                     "lineApprovals",
                     "ordersChanged",
+                    "reconciling",
                     "payments",
                     "summary",
                     "paidBy",
@@ -43511,6 +43579,9 @@
                     "ordersChanged": {
                       "type": "boolean"
                     },
+                    "reconciling": {
+                      "type": "boolean"
+                    },
                     "payments": {
                       "type": "array",
                       "items": {
@@ -43786,6 +43857,7 @@
                     "issueBlockers",
                     "lineApprovals",
                     "ordersChanged",
+                    "reconciling",
                     "payments",
                     "summary",
                     "paidBy",
@@ -44063,6 +44135,7 @@
                               "amount-mismatch",
                               "second-payment",
                               "earlier-link",
+                              "not-payable",
                               "other"
                             ]
                           },
@@ -44490,6 +44563,7 @@
                             "amount-mismatch",
                             "second-payment",
                             "earlier-link",
+                            "not-payable",
                             "other"
                           ]
                         },
@@ -45060,6 +45134,7 @@
                             "amount-mismatch",
                             "second-payment",
                             "earlier-link",
+                            "not-payable",
                             "other"
                           ]
                         },

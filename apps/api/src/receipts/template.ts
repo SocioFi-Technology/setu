@@ -111,7 +111,7 @@ export function receiptHtml(i: TemplateInput): string {
       <table class="meta small"><tr><td>${esc(L("r_receipt_no"))}</td><td class="num">${esc(i.number)}</td><td>${esc(L("r_bill_no"))}</td><td class="num">${esc(s.invoice.number)}</td></tr>
         <tr><td>${esc(L("r_date"))}</td><td class="num">${esc(when(i.createdAt))}</td><td>${esc(L("r_patient"))}</td><td>${esc(name(s.patient.nameBn, s.patient.nameEn))} · <span class="num">${esc(s.patient.facilityNo)}</span></td></tr></table>
       <table class="lines"><thead><tr><th>#</th><th>${esc(L("r_service"))}</th><th class="r">${esc(L("r_vat"))}</th><th class="r">${esc(L("r_amount"))}</th></tr></thead><tbody>
-        ${s.lines.map((l, n) => `<tr><td class="num">${num(n + 1)}</td><td>${lineName(l)}${l.qty > 1 ? ` <span class="num">×${num(l.qty)}</span>` : ""}</td><td class="r">${esc(vatLabel(l.vatRateBp))}</td><td class="r num">${lineAmount(l)}</td></tr>`).join("")}
+        ${s.lines.map((l, n) => `<tr><td class="num">${num(n + 1)}</td><td>${lineName(l)}${l.qty > 1 ? ` <span class="num">×${num(l.qty)}</span>` : ""}</td><td class="r">${l.notBilledReason ? "—" : esc(vatLabel(l.vatRateBp))}</td><td class="r num">${lineAmount(l)}</td></tr>`).join("")}
       </tbody></table>
       <table class="totals">${totals}</table>
       ${mushak ? `<table class="vat small"><tr><th>${esc(L("r_vat_breakdown"))}</th><th class="r">${esc(L("r_amount"))}</th><th class="r">${esc(L("r_vat"))}</th></tr>${s.vatByRate.map((v) => `<tr><td>${esc(vatLabel(v.rateBp))}</td><td class="r num">${esc(tk(v.netPaisa))}</td><td class="r num">${esc(tk(v.vatPaisa))}</td></tr>`).join("")}</table>` : ""}

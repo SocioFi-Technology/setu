@@ -83,6 +83,12 @@ export async function invoiceHere(tx: Tx, s: SessionData, id: string, lock = fal
 }
 /** Any approval still requested on the bill (discount or "Not billed here"): lines are locked and Issue is refused. */
 const requestedTask = (tx: Tx, invoiceId: string) => tx.task.findFirst({ where: { kind: { in: APPROVAL_KINDS }, focusId: invoiceId, status: "requested" } });
+/** An open reconciliation case on any payment of this bill: the owner is checking money for it (money review: no void,
+    no Cancel link, and the screens warn "do not take money again" until it is decided). */
+async function openReconciliation(tx: Tx, invoiceId: string): Promise<boolean> {
+  const pays = (await tx.payment.findMany({ where: { invoiceId }, select: { id: true } })).map((p) => p.id);
+  return pays.length > 0 && Boolean(await tx.task.findFirst({ where: { kind: RECONCILE_TASK, status: "requested", focusId: { in: pays } }, select: { id: true } }));
+}
 /** The visit's placed orders that belong on the bill, against the bill's order lines (ADR 0005, decision 99 prep). */
 async function ordersDiff(tx: Tx, inv: Inv) {
   const [orders, lines] = await Promise.all([
@@ -106,8 +112,10 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
   const task = tasks[0] ?? null;
   const who = await people(tx, [inv.discountAppliedById, inv.issuedById, inv.voidedById, e.practitionerId, task?.requestedById, task?.decidedById, ...pays.map((p) => p.createdById), ...lineTasks.flatMap((t) => [t.requestedById, t.decidedById])]);
   const lineTaskById = new Map(lineTasks.map((t) => [t.id, t]));
-  const od = inv.status === "draft" ? await ordersDiff(tx, inv) : null;
+  // Changed orders are worked out for issued bills too (money review: a test added after issue must not go unseen).
+  const od = inv.status !== "entered_in_error" && inv.status !== "cancelled" ? await ordersDiff(tx, inv) : null;
   const ordersChanged = Boolean(od && od.remove.length + od.add.length > 0);
+  const reconciling = await openReconciliation(tx, inv.id);
   const ref = (id: string | null) => (id ? chain.find((c) => c.id === id) ?? { id, number: null } : null);
   const rows = pays.map(toRow);
   const discountTask = inv.discountTaskId ? (task?.id === inv.discountTaskId ? task : await tx.task.findFirst({ where: { id: inv.discountTaskId } })) : null;
@@ -144,6 +152,7 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
         decidedBy: t.decidedById ? who(t.decidedById) : null, decidedAt: iso(t.decidedAt), decisionNote: t.decisionNote };
     }),
     ordersChanged,
+    reconciling,
     payments: pays.map((p) => toPaymentView(p, who)),
     summary: paymentSummary(inv.totalPaisa, rows),
     paidBy: paidBy(rows),
@@ -217,11 +226,11 @@ async function recompute(tx: Tx, inv: Inv, discountPaisa: number, patch: Partial
 }
 
 /** The visit's bill: created as a draft from the finished visit (consultation fee + active orders), or the existing one. */
-export async function createInvoice(tx: Tx, s: SessionData, encounterId: string, now: Date): Promise<{ inv: Inv; created: boolean; patientId: string }> {
+export async function createInvoice(tx: Tx, s: SessionData, encounterId: string, now: Date): Promise<{ inv: Inv; created: boolean; patientId: string; sync?: OrderSync }> {
   requireWriter(s);
   const e = await encounterHere(tx, s, encounterId);
   const existing = await tx.invoice.findFirst({ where: { encounterId: e.id, status: OPEN_BILL } });
-  if (existing) return { inv: await refreshIfPossible(tx, s, existing), created: false, patientId: e.patientId };
+  if (existing) { const r = await refreshIfPossible(tx, s, existing); return { inv: r.inv, created: false, patientId: e.patientId, sync: r.sync }; }
   if (e.status !== "finished") throw err(409, "visit_not_finished", "ডাক্তার নোটে স্বাক্ষর করার পর বিল হবে", "The bill is made after the doctor signs the note", { field: "encounter" });
   const defs = await tx.chargeItemDefinition.findMany({ where: { organizationId: s.organizationId, active: true } });
   const byCode = new Map(defs.map((d) => [d.code, d]));
@@ -254,10 +263,14 @@ export async function createInvoice(tx: Tx, s: SessionData, encounterId: string,
 
 /** Bring a draft's order lines in line with the visit's placed orders — only when nothing on the bill depends on the
     current lines (no discount applied, no approval requested); otherwise the view says ordersChanged and Issue waits. */
-async function syncDraft(tx: Tx, s: SessionData, inv: Inv): Promise<Inv> {
+export interface OrderSync { removed: string[]; added: string[] }
+const NO_SYNC: OrderSync = { removed: [], added: [] };
+async function syncDraft(tx: Tx, s: SessionData, inv: Inv): Promise<{ inv: Inv; sync: OrderSync }> {
   const d = await ordersDiff(tx, inv);
-  if (!d.remove.length && !d.add.length) return inv;
-  if (inv.discountPaisa > 0 || (await requestedTask(tx, inv.id))) return inv;
+  if (!d.remove.length && !d.add.length) return { inv, sync: NO_SYNC };
+  if (inv.discountPaisa > 0 || (await requestedTask(tx, inv.id))) return { inv, sync: NO_SYNC };
+  const gone = await tx.chargeItem.findMany({ where: { id: { in: d.remove } }, select: { code: true } });
+  const sync = { removed: gone.map((g) => g.code), added: d.orders.filter((o) => d.add.includes(o.id)).map((o) => `test:${o.testCode}`) };
   if (d.remove.length) await tx.chargeItem.deleteMany({ where: { id: { in: d.remove }, invoiceId: inv.id } });
   const defs = await tx.chargeItemDefinition.findMany({ where: { organizationId: s.organizationId, active: true, kind: "test" } });
   const byCode = new Map(defs.map((x) => [x.code, x]));
@@ -271,19 +284,19 @@ async function syncDraft(tx: Tx, s: SessionData, inv: Inv): Promise<Inv> {
       ...(def ? lineAmounts(def.unitPaisa, 1, def.vatRateBp) : { qty: 1 }),
     } });
   }
-  return recompute(tx, inv, 0);
+  return { inv: await recompute(tx, inv, 0), sync };
 }
-async function refreshIfPossible(tx: Tx, s: SessionData, inv: Inv): Promise<Inv> {
-  if (inv.status !== "draft" || !WRITE_ROLES.includes(s.role)) return inv;
+async function refreshIfPossible(tx: Tx, s: SessionData, inv: Inv): Promise<{ inv: Inv; sync: OrderSync }> {
+  if (inv.status !== "draft" || !WRITE_ROLES.includes(s.role)) return { inv, sync: NO_SYNC };
   await tx.$queryRaw`SELECT 1 FROM "Invoice" WHERE "id" = ${inv.id} FOR UPDATE`;
   return syncDraft(tx, s, (await tx.invoice.findFirst({ where: { id: inv.id } }))!);
 }
 /** POST /v1/invoices/:id/refresh-orders — the screen calls it when the view says the orders changed. */
-export async function refreshOrders(tx: Tx, s: SessionData, id: string, rev: number): Promise<{ inv: Inv; changed: boolean }> {
+export async function refreshOrders(tx: Tx, s: SessionData, id: string, rev: number): Promise<{ inv: Inv; changed: boolean; sync: OrderSync }> {
   const inv = await editableDraft(tx, s, id, rev);
   if (inv.discountPaisa > 0) throw discountFirst();
-  const next = await syncDraft(tx, s, inv);
-  return { inv: next, changed: next.rev !== inv.rev };
+  const r = await syncDraft(tx, s, inv);
+  return { inv: r.inv, changed: r.inv.rev !== inv.rev, sync: r.sync };
 }
 
 async function editableDraft(tx: Tx, s: SessionData, id: string, rev: number): Promise<Inv> {
@@ -480,7 +493,9 @@ export async function issueInvoice(tx: Tx, s: SessionData, id: string, rev: numb
   const n = await tx.invoice.updateMany({ where: { id: inv.id, rev: fresh.rev, status: "draft" }, data: { status, number, issuedAt: now, issuedById: s.userId, statusAt: now } });
   if (n.count !== 1) throw stale();
   // ADR 0005: the voided bill this one replaces now shows "Replaced by INV/…".
-  if (inv.replacesId) await tx.invoice.updateMany({ where: { id: inv.replacesId, status: "entered_in_error", replacedById: null }, data: { replacedById: inv.id } });
+  // Every voided bill of this visit still without a replacement now shows this one (money review: A voided, its
+  // replacement B voided too, then C — A must not lose its "Replaced by").
+  await tx.invoice.updateMany({ where: { encounterId: inv.encounterId, status: "entered_in_error", replacedById: null }, data: { replacedById: inv.id } });
   return (await tx.invoice.findFirst({ where: { id: inv.id } }))!;
 }
 
@@ -489,13 +504,17 @@ export async function voidInvoice(tx: Tx, s: SessionData, id: string, reason: st
   const inv = await invoiceHere(tx, s, id, true);
   const pays = await tx.payment.findMany({ where: { invoiceId: inv.id } });
   const b = voidBlockers({ role: s.role, status: dash<InvoiceState>(inv.status), confirmedPaisa: inv.paidPaisa,
-    pendingPayments: pays.filter((p) => ["initiated", "link_sent", "waiting_customer"].includes(p.status)).length, reason });
+    pendingPayments: pays.filter((p) => ["initiated", "link_sent", "waiting_customer"].includes(p.status)).length,
+    pendingApprovals: (await requestedTask(tx, inv.id)) ? 1 : 0, reason });
+  if (!b.length && (await openReconciliation(tx, inv.id)))
+    throw err(409, "reconciliation_open", "মালিক এই বিলের একটি পেমেন্ট মিলিয়ে দেখছেন — আগে সেটি সমাধান করুন", "The owner is checking a payment on this bill — resolve the reconciliation first");
   if (b.length) {
     const msg: Record<string, [number, string, string]> = {
       not_an_approver: [403, "শুধু মালিক বা অ্যাডমিন বিল বাতিল করতে পারেন", "Only the owner or an admin can void a bill"],
       has_confirmed_money: [409, "এই বিলে নিশ্চিত টাকা আছে — বাতিল করা যায় না (ফেরত পরের ধাপে)", "Confirmed money is on this bill — it cannot be voided (refunds come later)"],
       not_voidable: [409, "এই বিল বাতিল করা যায় না", "This bill cannot be voided"],
       link_pending: [409, "পেমেন্ট লিংক অপেক্ষমাণ — আগে লিংক বাতিল করুন", "A payment link is pending — cancel the link first"],
+      approval_pending: [409, "এই বিলে অনুমোদন অপেক্ষমাণ — আগে সিদ্ধান্ত দিন", "An approval is waiting on this bill — decide it first"],
       reason_too_short: [400, "কারণ লিখুন (অন্তত ১০ অক্ষর)", "Write a reason (at least 10 characters)"],
     };
     const [status, bn, en] = msg[b[0]!]!;
@@ -508,7 +527,7 @@ export async function voidInvoice(tx: Tx, s: SessionData, id: string, reason: st
 
 /* ───── payment reconciliation (decisions 89, 101; owner) ───── */
 const whyCodeOf = (r: string | null): ReconcileItem["whyCode"] =>
-  !r ? "other" : r.startsWith("money reported") ? "late-money" : r.startsWith("amount reported") ? "amount-mismatch" : r.startsWith("a second payment") ? "second-payment" : r.startsWith("TrxID paid on an earlier") ? "earlier-link" : "other";
+  !r ? "other" : r.startsWith("money reported on a bill that takes no payments") ? "not-payable" : r.startsWith("money reported") ? "late-money" : r.startsWith("amount reported") ? "amount-mismatch" : r.startsWith("a second payment") ? "second-payment" : r.startsWith("TrxID paid on an earlier") ? "earlier-link" : "other";
 async function reconcileItem(tx: Tx, s: SessionData, t: TaskRow): Promise<ReconcileItem | null> {
   const d = t.detail as unknown as ReconcileDetail;
   const p = t.focusId ? await tx.payment.findFirst({ where: { id: t.focusId, organizationId: s.organizationId } }) : null;
@@ -516,11 +535,12 @@ async function reconcileItem(tx: Tx, s: SessionData, t: TaskRow): Promise<Reconc
   const inv = await tx.invoice.findFirst({ where: { id: p.invoiceId } });
   const pt = inv ? await tx.patient.findFirst({ where: { id: inv.patientId } }) : null;
   if (!inv || !pt) return null;
-  const live = t.status === "requested" && d.providerRef ? await provider.verify({ providerRef: d.providerRef }) : null;
+  /* The list checks what it can without the gateway (same bill, still pending, same amount); the gateway itself is asked
+     only when the owner presses Apply (security review: no gateway call per row inside the read). */
   const applyBlockers = t.status !== "requested" ? [] : reconcileApplyBlockers({
     task: { providerRef: d.providerRef ?? "", trxId: d.trxId, amountPaisa: d.amountPaisa, invoiceId: d.invoiceId },
     payment: { status: dash<PaymentState>(p.status), amountPaisa: p.amountPaisa, invoiceId: p.invoiceId, providerRef: p.providerRef, supersededRefs: p.supersededRefs },
-    provider: live,
+    provider: { status: "confirmed", trxId: d.trxId ?? "pending-check", amountPaisa: d.amountPaisa ?? p.amountPaisa, providerRef: d.providerRef ?? "" },
   });
   const who = await people(tx, [d.resolution?.by]);
   return {
@@ -534,7 +554,9 @@ async function reconcileItem(tx: Tx, s: SessionData, t: TaskRow): Promise<Reconc
   };
 }
 export async function reconcileList(tx: Tx, s: SessionData, status: "requested" | "approved" | "rejected"): Promise<ReconcileList> {
-  const pays = (await tx.payment.findMany({ where: { organizationId: s.organizationId }, select: { id: true } })).map((p) => p.id);
+  const branch = await branchOf(tx, s);
+  const here = (await tx.invoice.findMany({ where: { organizationId: s.organizationId, branchId: branch.id }, select: { id: true } })).map((i) => i.id);
+  const pays = (await tx.payment.findMany({ where: { invoiceId: { in: here } }, select: { id: true } })).map((p) => p.id);
   const tasks = await tx.task.findMany({ where: { kind: RECONCILE_TASK, status, focusId: { in: pays } }, orderBy: { requestedAt: status === "requested" ? "asc" : "desc" }, take: 100 });
   const items: ReconcileItem[] = [];
   for (const t of tasks) { const i = await reconcileItem(tx, s, t); if (i) items.push(i); }
@@ -636,6 +658,7 @@ async function walletPaymentHere(tx: Tx, s: SessionData, paymentId: string) {
 /** A failed wallet payment: cancel the old link, PAYMENT `retry` (attempt + 1, old reference kept as superseded), new link. */
 export async function retryPayment(tx: Tx, s: SessionData, paymentId: string, now: Date): Promise<{ inv: Inv; payment: Pay }> {
   const { p, inv } = await walletPaymentHere(tx, s, paymentId);
+  if (inv.status !== "issued" && inv.status !== "partially_paid") throw err(409, "not_payable", "এই বিলে আর টাকা নেওয়া যায় না", "This bill takes no more payments");
   const status = undash<"initiated">(transition("PAYMENT", PAYMENT, dash<PaymentState>(p.status), "retry"));
   const others = (await tx.payment.findMany({ where: { invoiceId: inv.id, id: { not: p.id } } })).map(toRow);
   if (p.amountPaisa > paymentSummary(inv.totalPaisa, others).openPaisa) throw err(409, "amount_over_open", "বকেয়ার চেয়ে বেশি (অপেক্ষমাণ পেমেন্টসহ)", "More than is still due (counting pending payments)", { field: "amountPaisa" });
@@ -655,6 +678,8 @@ export async function verifyTrx(tx: Tx, s: SessionData, paymentId: string, trxId
   // Paid on a link that was replaced (review A6–A7): never applied here and never "does not match" either — the owner
   // reconciles it, and the cashier must not ask the patient to pay again.
   if (st && st.status === "confirmed" && p.supersededRefs.includes(st.providerRef)) {
+    const open = await tx.task.findFirst({ where: { kind: RECONCILE_TASK, focusId: p.id, status: "requested" } });
+    if (open && (open.detail as unknown as ReconcileDetail).providerRef === st.providerRef) return { inv, payment: p, outcome: "earlier-link" };
     await tx.task.create({ data: {
       tenantId: s.tenantId, kind: RECONCILE_TASK, status: "requested", focusId: p.id, reason: "TrxID paid on an earlier, replaced payment link", requestedById: s.userId, requestedAt: now,
       detail: { providerRef: st.providerRef, trxId: st.trxId, amountPaisa: st.amountPaisa, paymentAmountPaisa: p.amountPaisa, invoiceId: inv.id } as object,
@@ -672,6 +697,7 @@ export async function verifyTrx(tx: Tx, s: SessionData, paymentId: string, trxId
     another method (review A6–A7: a link with no callback must not block the bill forever). */
 export async function cancelPayment(tx: Tx, s: SessionData, paymentId: string, now: Date): Promise<{ inv: Inv; payment: Pay; outcome: "cancelled" | "confirmed" }> {
   const { p, inv } = await walletPaymentHere(tx, s, paymentId);
+  if (await openReconciliation(tx, inv.id)) throw err(409, "reconciliation_open", "মালিক এই বিলের একটি পেমেন্ট মিলিয়ে দেখছেন — লিংক বাতিল করা যাবে না", "The owner is checking a payment on this bill — the link cannot be cancelled now");
   if (!["initiated", "link_sent", "waiting_customer"].includes(p.status)) throw err(409, "not_pending", "এই পেমেন্ট আর অপেক্ষমাণ নয়", "This payment is no longer pending");
   const st = p.providerRef ? await provider.verify({ providerRef: p.providerRef }) : null;
   if (st?.status === "confirmed" && st.trxId && st.amountPaisa === p.amountPaisa) {
@@ -708,6 +734,11 @@ export async function handleProviderEvent(tx: Tx, tenantId: string, paymentId: s
 
   // Decided again after the lock (security review A6–A7): a Retry may have replaced the link since the lookup.
   if (p.providerRef !== ev.providerRef) superseded = true;
+  // Money already applied from this link (owner reconciliation) arriving again is a repeat, not new money.
+  if (p.status === "confirmed" && ev.kind === "confirmed" && ev.trxId && p.trxId === ev.trxId) {
+    await record("noop", "already-applied");
+    return { body: { outcome: "noop", reason: "already-applied" }, audit: audit("noop", "already-applied") };
+  }
   let decision = decideProviderEvent(dash<PaymentState>(p.status), ev.kind as ProviderEventKind);
   if (decision.outcome === "noop" && p.status === "confirmed" && ev.kind === "confirmed" && ev.trxId && p.trxId && ev.trxId !== p.trxId) {
     await reconcile("a second payment reported on a payment already confirmed");
@@ -729,6 +760,11 @@ export async function handleProviderEvent(tx: Tx, tenantId: string, paymentId: s
       await reconcile("amount reported by the provider differs from the payment");
       await record("refused", "amount-mismatch");
       return { body: { outcome: "refused", reason: "amount-mismatch" }, audit: audit("refused", "amount-mismatch") };
+    }
+    if (inv.status !== "issued" && inv.status !== "partially_paid") {
+      await reconcile("money reported on a bill that takes no payments");
+      await record("refused", "bill-not-payable");
+      return { body: { outcome: "refused", reason: "bill-not-payable" }, audit: audit("refused", "bill-not-payable") };
     }
     await confirmPayment(tx, p, inv, null, st.trxId, now);
   } else {

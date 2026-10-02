@@ -92,9 +92,11 @@ export async function billingRoutes(app: FastifyInstance) {
     return command(req, reply, async (tx, s) => {
       const r = await createInvoice(tx, s, id, new Date());
       const view = await invoiceView(tx, s, r.inv);
+      const synced = r.sync && r.sync.removed.length + r.sync.added.length > 0;
       return { status: r.created ? 201 : 200, body: view, audit: r.created
         ? [{ action: "create", entity: "Invoice", entityId: r.inv.id, patientId: r.patientId, detail: { encounterId: id, lines: view.lines.map((l) => ({ source: l.source, code: l.code, unitPaisa: l.unitPaisa })), totalPaisa: view.invoice.totalPaisa } }]
-        : [{ action: "view", entity: "Invoice", entityId: r.inv.id, patientId: r.patientId }] };
+        : [{ action: "view", entity: "Invoice", entityId: r.inv.id, patientId: r.patientId },
+           ...(synced ? [{ action: "update", entity: "Invoice", entityId: r.inv.id, patientId: r.patientId, detail: { event: "refresh-orders", removed: r.sync!.removed, added: r.sync!.added, totalPaisa: view.invoice.totalPaisa } }] : [])] };
     });
   });
   app.post("/v1/invoices/:id/lines", { config: { ownTx: true } }, async (req, reply): Promise<InvoiceView> => {
@@ -171,7 +173,7 @@ export async function billingRoutes(app: FastifyInstance) {
     const { rev } = RevRequest.parse(req.body);
     return command(req, reply, async (tx, s) => {
       const r = await refreshOrders(tx, s, id, rev);
-      return { body: await invoiceView(tx, s, r.inv), audit: r.changed ? [{ action: "update", entity: "Invoice", entityId: id, patientId: r.inv.patientId, detail: { event: "refresh-orders", totalPaisa: r.inv.totalPaisa } }] : [] };
+      return { body: await invoiceView(tx, s, r.inv), audit: r.changed ? [{ action: "update", entity: "Invoice", entityId: id, patientId: r.inv.patientId, detail: { event: "refresh-orders", removed: r.sync.removed, added: r.sync.added, totalPaisa: r.inv.totalPaisa } }] : [] };
     });
   });
   app.post("/v1/invoices/:id/void", { config: { ownTx: true } }, async (req, reply): Promise<InvoiceView> => {
@@ -200,7 +202,7 @@ export async function billingRoutes(app: FastifyInstance) {
         const r = await decideReconcile(tx, s, id, action, note, new Date());
         return { body: { item: r.item }, audit: [
           { action: "update", entity: "Task", entityId: id, patientId: r.patientId, detail: { kind: "payment-reconciliation", event: action, paymentId: r.item.payment.id, invoiceId: r.invoiceId, note: note ?? null } },
-          ...(action === "apply" ? [{ action: "update", entity: "Payment", entityId: r.item.payment.id, patientId: r.patientId, detail: { event: "confirm-by-reconciliation", taskId: id, trxId: r.item.reported.trxId } }] : []),
+          ...(action === "apply" ? [{ action: "update", entity: "Payment", entityId: r.item.payment.id, patientId: r.patientId, detail: { event: "confirm-by-reconciliation", taskId: id, trxId: r.item.reported.trxId, newerLinkCancelled: true } }] : []),
         ] };
       });
     });

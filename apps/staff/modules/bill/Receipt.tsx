@@ -89,7 +89,7 @@ function ReceiptScreen({ id }: { id: string }) {
       <Card style={{ display: "flex", flexDirection: "column", gap: 6, padding: 16 }} data-testid="receipt-summary">
         <b>{s.lang === "bn" ? snap.seller.nameBn ?? snap.seller.nameEn : snap.seller.nameEn}</b>
         <span className="t-small">{B("r_bill_no")} <span className="num">{snap.invoice.number}</span> · {M.name(snap.patient)} · <span className="num">{snap.patient.facilityNo}</span></span>
-        {snap.lines.map((l, n) => <span key={n} style={{ display: "flex", justifyContent: "space-between" }}><span>{s.lang === "bn" ? l.nameBn : l.nameEn}{l.qty > 1 ? ` ×${s.n(l.qty)}` : ""}</span><span className="num">{M.tk(l.grossPaisa)}</span></span>)}
+        {snap.lines.map((l, n) => <span key={n} style={{ display: "flex", justifyContent: "space-between" }}><span>{s.lang === "bn" ? l.nameBn : l.nameEn}{l.qty > 1 ? ` ×${s.n(l.qty)}` : ""}{l.notBilledReason ? ` — ${B("nb_line", { reason: l.notBilledReason })}` : ""}</span><span className="num">{l.notBilledReason ? "—" : M.tk(l.grossPaisa)}</span></span>)}
         <span style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid var(--border-subtle)", paddingTop: 6 }}><span>{B("subtotal")}</span><span className="num">{M.tk(snap.subtotalPaisa)}</span></span>
         {snap.discountPaisa > 0 && <span style={{ display: "flex", justifyContent: "space-between" }}><span>{B("discount")}</span><span className="num">− {M.tk(snap.discountPaisa)}</span></span>}
         <span style={{ display: "flex", justifyContent: "space-between" }}><span>{B("vat")}</span><span className="num">{M.tk(snap.vatPaisa)}</span></span>

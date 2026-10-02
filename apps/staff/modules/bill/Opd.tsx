@@ -183,7 +183,10 @@ function BillView({ id }: { id: string }) {
         </Callout>
       )}
       {inv.replaces && <Callout icon="history" data-testid="replaces">{B("replaces", { number: inv.replaces.number ?? B("draft_word") })}</Callout>}
+      {v.reconciling && <Callout tone="bad" icon="scale" data-testid="reconciling">{B("reconciling")}</Callout>}
       {v.ordersChanged && draft && (inv.discountPaisa > 0 || waiting) && <Callout tone="warn" icon="refresh-cw" data-testid="orders-changed">{B("orders_changed")}</Callout>}
+      {v.ordersChanged && draft && !(inv.discountPaisa > 0 || waiting) && <Callout tone="warn" icon="refresh-cw" data-testid="orders-changed">{B("orders_changed_retry")}</Callout>}
+      {v.ordersChanged && !draft && !voided && <Callout tone="warn" icon="refresh-cw" data-testid="orders-after-issue">{B("orders_after_issue")}</Callout>}
       {stale && s.online && <Callout tone="warn" icon="refresh-cw" data-testid="bill-stale">{B("bill_stale", { at: M.time(updatedAt) })}</Callout>}
       <span className="t-small t-muted">{B("sample_prices")}</span>
 
@@ -227,7 +230,7 @@ function BillView({ id }: { id: string }) {
                   ) : s.n(l.qty)}
                 </td>
                 <td className="num" style={{ textAlign: "right" }}>{l.notBilled ? "—" : l.unitPaisa === null ? <Pill tone="bad" icon="circle-alert">{B("no_price")}</Pill> : M.tk(l.unitPaisa)}</td>
-                <td>{l.vatRateBp === 0 ? B("vat_exempt") : `${s.n(l.vatRateBp / 100)}%`}</td>
+                <td>{l.notBilled ? "—" : l.vatRateBp === 0 ? B("vat_exempt") : `${s.n(l.vatRateBp / 100)}%`}</td>
                 {inv.discountPaisa > 0 && <td className="num" style={{ textAlign: "right" }}>{l.discountPaisa ? `− ${M.tk(l.discountPaisa)}` : "—"}</td>}
                 <td className="num" style={{ textAlign: "right" }}><b>{l.notBilled ? "—" : M.tk(l.totalPaisa)}</b></td>
                 <td>{l.editable && editable && <Button size="sm" variant="ghost" icon="trash-2" disabled={busy} onClick={() => run(() => api.removeLine(id, l.id, inv.rev))}>{B("remove")}</Button>}</td>
@@ -310,9 +313,10 @@ function BillView({ id }: { id: string }) {
           <span style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid var(--border-subtle)", paddingTop: 6, fontSize: 18 }} data-total="total">
             <b>{B("total")}</b><b className="num" data-testid="bill-total">{M.tk(inv.totalPaisa)}</b>
           </span>
-          <span style={{ display: "flex", justifyContent: "space-between" }} data-total="paid"><span>{B("paid")}</span><span className="num">{M.tk(inv.paidPaisa)}</span></span>
-          <span style={{ display: "flex", justifyContent: "space-between" }} data-total="due"><span>{B("due")}</span><b className="num">{M.tk(inv.totalPaisa - inv.paidPaisa)}</b></span>
-          <span className="t-small t-muted">{B("in_words")}: {M.words(inv.totalPaisa)}</span>
+          {/* a voided bill is owed nothing (hands-on test: "Due ৳1,250" on a voided bill misled) */}
+          {!voided && <span style={{ display: "flex", justifyContent: "space-between" }} data-total="paid"><span>{B("paid")}</span><span className="num">{M.tk(inv.paidPaisa)}</span></span>}
+          {!voided && <span style={{ display: "flex", justifyContent: "space-between" }} data-total="due"><span>{B("due")}</span><b className="num">{M.tk(inv.totalPaisa - inv.paidPaisa)}</b></span>}
+          {!voided && <span className="t-small t-muted">{B("in_words")}: {M.words(inv.totalPaisa)}</span>}
           {draft && writer && (
             <>
               {v.issueBlockers.map((b) => <Callout key={b} tone="warn" icon="circle-alert">{B(`blocker_${b}`)}</Callout>)}

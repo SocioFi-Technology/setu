@@ -86,6 +86,8 @@ export const InvoiceView = z.object({
   })),
   /** the visit's placed orders differ from the bill's order lines (refresh when the bill can change; else Issue is blocked) */
   ordersChanged: z.boolean(),
+  /** the owner is reconciling a payment on this bill: do not take money again until it is decided */
+  reconciling: z.boolean(),
   payments: z.array(PaymentView),
   summary: PaymentSummaryView,
   paidBy: PaidByView,
@@ -219,7 +221,7 @@ export const ReconcileQuery = z.object({ status: ApprovalStatus.default("request
 export const ReconcileItem = z.object({
   taskId: z.string(), status: ApprovalStatus, why: z.string(), createdAt: z.string(),
   /** why the case was opened, as a code the screen shows in Bangla / English */
-  whyCode: z.enum(["late-money", "amount-mismatch", "second-payment", "earlier-link", "other"]),
+  whyCode: z.enum(["late-money", "amount-mismatch", "second-payment", "earlier-link", "not-payable", "other"]),
   /** what the gateway reported */
   reported: z.object({ providerRef: z.string().nullable(), trxId: z.string().nullable(), amountPaisa: Paisa.nullable() }),
   payment: z.object({ id: z.string(), method: PaymentMethod, status: PaymentStatus, amountPaisa: Paisa, trxId: z.string().nullable(), attempt: z.number().int() }),
