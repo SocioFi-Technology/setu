@@ -8,13 +8,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ConsultationView, TestList, VitalsView } from "@setu/contracts";
 import { parseComplaint, signBlockers, type SectionKey } from "@setu/domain";
-import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
+import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, useToast } from "@setu/ui";
 import { ApiFailure, cons, vitals as vitalsApi } from "../../lib/api";
 import { deviceDraft, dropDeviceDraft, flush, saveDeviceDraft, type DeviceDraft } from "../../lib/outbox";
 import { useSession } from "../../lib/session";
 import { AiPanel, type AiInsert } from "./Ai";
 import { AllergyStrip } from "./Allergies";
-import { bodyOf, consUrl, factsOf, formOf, rxLinesOf, useBanner, useC, useFmt, type Dx, type Form } from "./common";
+import { bodyOf, changedParts, consUrl, factsOf, formOf, isForm, rxLinesOf, useBanner, useC, useFmt, type Dx, type Form } from "./common";
 import { RxBuilder } from "./Rx";
 import { SignSheet } from "./SignSheet";
 import { ConsultWorklist } from "./Worklist";
@@ -59,6 +59,7 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
   const editable = !view.readOnly && draft.status === "draft" && draft.author.id === s.me?.userId;
   const [form, setForm] = useState<Form>(() => formOf(draft));
   const [conflict, setConflict] = useState<DeviceDraft | null>(() => { const d = deviceDraft(id); return d?.conflict ? d : null; });
+  const [confirmLoad, setConfirmLoad] = useState(false);
 
   /* ── autosave ── */
   const revRef = useRef(draft.rev);
@@ -70,6 +71,11 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
   const saving = useRef(false), again = useRef(false);
   /** what the server holds, as a save body: a render that changes nothing (React dev runs effects twice) saves nothing */
   const lastSaved = useRef(JSON.stringify(bodyOf(form)));
+  /** a copy of this note went to the device: the server's rev must be read back before the next save (the outbox may
+      have sent the copy in the background meanwhile — clinical review A5, the reconnect race) */
+  const deviceKept = useRef(Boolean(deviceDraft(id) && !deviceDraft(id)!.conflict));
+  /** the conflict copy the doctor chose to load: dropped only once the server accepts it */
+  const pendingDrop = useRef(false);
 
   /** The server's version replaces the screen's (after a 409 stale, or a device copy that lost a conflict). */
   const adoptServer = useCallback(async () => {
@@ -83,11 +89,12 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
       The outbox may already have sent it when the browser came back online — then only the rev is read back. */
   const syncDevice = useCallback(async (): Promise<void> => {
     const before = deviceDraft(id);
-    if (before?.conflict) return;
-    if (before) await flush();
+    const sending = Boolean(before && !before.conflict);
+    if (sending) await flush();
     const after = deviceDraft(id);
-    if (after?.conflict) { setConflict(after); await adoptServer(); return; }
-    if (after) { setSync({ st: "device" }); return; } // still offline or the server is down
+    if (after && !after.conflict) { setSync({ st: "device" }); return; } // still offline or the server is down
+    deviceKept.current = false;
+    if (sending && after?.conflict) { setConflict(after); await adoptServer(); return; }
     const v = await cons.view(encounterId);
     if (!v.draft) { router.replace(consUrl("signed", encounterId)); return; }
     revRef.current = v.draft.rev; setView(v); lastSaved.current = JSON.stringify(bodyOf(formOf(v.draft)));
@@ -99,20 +106,29 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
     window.clearTimeout(timer.current); timer.current = undefined;
     if (saving.current) { again.current = true; return false; }
     const f = formRef.current, body = bodyOf(f), snap = JSON.stringify(body), key = crypto.randomUUID();
-    const toDevice = (k?: string) => { saveDeviceDraft({ compositionId: id, encounterId, baseRev: revRef.current, body, form: f }, k); setSync({ st: "device" }); };
+    const toDevice = (k?: string) => { saveDeviceDraft({ compositionId: id, encounterId, baseRev: revRef.current, body, form: f }, k); deviceKept.current = true; setSync({ st: "device" }); };
     if (!navigator.onLine) { toDevice(); return false; }
     const waiting = deviceDraft(id);
-    if (waiting && !waiting.conflict) { await syncDevice(); return syncRef.current.st === "saved"; }
+    if (deviceKept.current || (waiting && !waiting.conflict)) { await syncDevice(); return syncRef.current.st === "saved"; }
     saving.current = true; setSync({ st: "saving" });
     try {
       const c = await cons.save(id, { ...body, rev: revRef.current }, key);
       revRef.current = c.rev; lastSaved.current = snap;
-      if (!deviceDraft(id)?.conflict) dropDeviceDraft(id);
+      if (pendingDrop.current || !deviceDraft(id)?.conflict) { dropDeviceDraft(id); pendingDrop.current = false; }
       if (JSON.stringify(bodyOf(formRef.current)) === snap) { setSync({ st: "saved", at: c.updatedAt }); return true; }
       again.current = true; return false;
     } catch (e) {
       if (e instanceof ApiFailure) {
-        if (e.status === 409 && e.body.code === "stale") { toast(C("stale_reloaded"), "refresh-cw"); await adoptServer(); }
+        if (e.status === 409 && e.body.code === "stale") {
+          // Clinical review A5: what the doctor typed is kept as a device copy before the server's version is shown.
+          const mine = formRef.current;
+          saveDeviceDraft({ compositionId: id, encounterId, baseRev: revRef.current, body: bodyOf(mine), form: mine, conflict: true });
+          pendingDrop.current = false;
+          await adoptServer();
+          const d = deviceDraft(id);
+          if (d && JSON.stringify(d.body) !== lastSaved.current) setConflict(d);
+          else { dropDeviceDraft(id); setConflict(null); toast(C("stale_reloaded"), "refresh-cw"); }
+        }
         else if (e.status === 409 && e.body.code === "not_draft") { router.replace(consUrl("signed", encounterId)); }
         else setSync({ st: "failed", msg: s.L(e.body.message_bn, e.body.message_en) });
         return false;
@@ -131,14 +147,28 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
     timer.current = window.setTimeout(() => void save(), 1200);
   }, [form]); // eslint-disable-line react-hooks/exhaustive-deps
   // Back online with a device copy waiting: send it.
-  useEffect(() => { if (s.online && syncRef.current.st === "device") void syncDevice(); }, [s.online, syncDevice]);
+  useEffect(() => { if (s.online && (syncRef.current.st === "device" || deviceKept.current)) void syncDevice(); }, [s.online, syncDevice]);
+  // Allergies (or the note) may change elsewhere while the doctor writes (a nurse records one): re-read on return.
+  useEffect(() => {
+    const back = () => { if (document.visibilityState === "visible" && navigator.onLine) void cons.view(encounterId).then(setView).catch(() => {}); };
+    window.addEventListener("focus", back); document.addEventListener("visibilitychange", back);
+    return () => { window.removeEventListener("focus", back); document.removeEventListener("visibilitychange", back); };
+  }, [encounterId, setView]);
   // Leaving the screen with an unsaved change: save now; closing the tab asks first. A draft already kept on this device
   // does not ask (it is kept until sent; sign-out clears it, as decided).
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent) => { if (["dirty", "saving", "failed"].includes(syncRef.current.st)) e.preventDefault(); };
     window.addEventListener("beforeunload", warn);
-    return () => { window.removeEventListener("beforeunload", warn); if (timer.current !== undefined && syncRef.current.st === "dirty") void save(); };
-  }, [save]);
+    return () => {
+      window.removeEventListener("beforeunload", warn);
+      // Clinical review A5: leaving with text the server has not confirmed keeps it on the device first, then sends it.
+      if (editable && (timer.current !== undefined || syncRef.current.st === "failed")) {
+        window.clearTimeout(timer.current);
+        const f = formRef.current;
+        if (saveDeviceDraft({ compositionId: id, encounterId, baseRev: revRef.current, body: bodyOf(f), form: f })) void flush();
+      }
+    };
+  }, [editable, id, encounterId]);
 
   const upd = (fn: (f: Form) => Form) => { if (editable) setForm(fn); };
   const setSection = <K extends keyof Form["sections"]>(k: K, v: Form["sections"][K]) => upd((f) => ({ ...f, sections: { ...f.sections, [k]: v } }));
@@ -210,11 +240,25 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
           <span style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {C("device_conflict", { at: F.time(conflict.at) })}
             <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <Button size="sm" onClick={() => { const d = conflict; dropDeviceDraft(id); setConflict(null); if (d.form) upd(() => d.form as Form); }}>{C("device_load")}</Button>
+              {editable && isForm(conflict.form) && <Button size="sm" onClick={() => setConfirmLoad(true)}>{C("device_load")}</Button>}
               <Button size="sm" variant="ghost" onClick={() => { dropDeviceDraft(id); setConflict(null); }}>{C("device_discard")}</Button>
             </span>
           </span>
         </Callout>
+      )}
+
+      {confirmLoad && conflict && isForm(conflict.form) && (
+        <Dialog open onClose={() => setConfirmLoad(false)} label={C("device_load_title")} width={520}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }} data-testid="device-load-confirm">
+            <b className="t-h3">{C("device_load_title")}</b>
+            <span>{C("device_load_body", { at: F.time(conflict.at) })}</span>
+            <span className="t-small"><b>{C("device_load_parts")}</b> {changedParts(conflict.form, form).map((k) => C(k)).join(", ") || "—"}</span>
+            <span style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <Button onClick={() => setConfirmLoad(false)}>{C("cancel")}</Button>
+              <Button variant="danger" onClick={() => { const d = conflict; setConfirmLoad(false); setConflict(null); pendingDrop.current = true; upd(() => d.form as Form); }}>{C("device_load_confirm")}</Button>
+            </span>
+          </div>
+        </Dialog>
       )}
 
       <AllergyStrip view={view} editable={!view.readOnly} onChanged={refresh} />
@@ -274,7 +318,7 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
         )}
       </div>
       {signing && (
-        <SignSheet view={view} draft={draft} form={form} rev={() => revRef.current} ensureSaved={ensureSaved} onClose={() => setSigning(false)}
+        <SignSheet view={view} draft={draft} form={form} rev={() => revRef.current} ensureSaved={ensureSaved} onClose={() => { setSigning(false); void refresh().catch(() => {}); }}
           onSigned={(v) => { dropDeviceDraft(id); lastSaved.current = JSON.stringify(bodyOf(formRef.current)); setSync({ st: "saved", at: v.current?.signedAt ?? new Date().toISOString() }); setView(v); router.push(consUrl("signed", encounterId)); }} />
       )}
     </div>

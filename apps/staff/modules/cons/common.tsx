@@ -1,6 +1,6 @@
 "use client";
 /* Shared by the consultation screens (slice A5): strings, the editable form and its mapping to the API, the banner. */
-import type { AllergyView, CompositionView, ConsultationView, MedicineSearch, SaveDraftRequest } from "@setu/contracts";
+import { SaveDraftRequest, type AllergyView, type CompositionView, type ConsultationView, type MedicineSearch } from "@setu/contracts";
 import type { AllergyFact, NoteSections, RxLine, SectionSources } from "@setu/domain";
 import { format } from "@setu/domain";
 import { fill } from "@setu/i18n";
@@ -49,6 +49,30 @@ export const bodyOf = (f: Form): Omit<SaveDraftRequest, "rev"> => ({
   medications: f.lines.map((l) => ({ medicineKey: l.medicine.key, dose: l.dose, meal: l.meal, days: l.days, ...(l.note.trim() ? { note: l.note.trim() } : {}), ...(l.keepBoth ? { keepBoth: true } : {}), ...(l.acks.length ? { acks: l.acks } : {}) })),
   orders: f.orders.filter((o) => !o.placed).map((o) => ({ testCode: o.testCode, priority: o.priority, ...(o.note.trim() ? { note: o.note.trim() } : {}) })),
 });
+
+/** A device copy read back from localStorage is untrusted (security review A5): only a well-formed form is loaded. */
+export function isForm(x: unknown): x is Form {
+  const f = x as Form | null;
+  return Boolean(f && typeof f === "object" && f.sections && Array.isArray(f.sections.complaints) && typeof f.sections.history === "string"
+    && f.sections.exam && typeof f.sections.advice === "string" && typeof f.sections.followUp === "string" && f.sources && typeof f.sources === "object"
+    && Array.isArray(f.diagnoses) && Array.isArray(f.orders) && Array.isArray(f.lines)
+    && f.lines.every((l) => l && typeof l.uid === "string" && l.medicine && typeof l.medicine.key === "string" && Array.isArray(l.medicine.ingredients) && Array.isArray(l.medicine.classes))
+    && SaveDraftRequest.omit({ rev: true }).safeParse(bodyOf(f)).success);
+}
+/** Which parts of the note differ between two copies (string keys of the section titles). */
+export function changedParts(a: Form, b: Form): string[] {
+  const x = bodyOf(a), y = bodyOf(b), same = (p: unknown, q: unknown) => JSON.stringify(p) === JSON.stringify(q);
+  const out: string[] = [];
+  if (!same(x.sections.complaints, y.sections.complaints)) out.push("sec_complaints");
+  if (!same(x.sections.history, y.sections.history)) out.push("sec_history");
+  if (!same(x.sections.exam, y.sections.exam)) out.push("sec_exam");
+  if (!same(x.diagnoses, y.diagnoses)) out.push("sec_dx");
+  if (!same(x.orders, y.orders)) out.push("sec_orders");
+  if (!same(x.medications, y.medications)) out.push("sec_rx");
+  if (!same(x.sections.advice, y.sections.advice)) out.push("sec_advice");
+  if (!same(x.sections.followUp, y.sections.followUp)) out.push("sec_followup");
+  return out;
+}
 
 /** The prescription as the @setu/domain checks see it (the same functions the sign route runs on the server's data). */
 export const rxLinesOf = (lines: Line[]): RxLine[] =>

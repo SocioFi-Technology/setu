@@ -9,6 +9,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { CapabilityModule } from "@setu/contracts";
 import { PLAN_NAME, PLAN_RANK, ROLE_NAME, type Plan } from "@setu/domain";
 import { Dialog, Icon, IconButton, OfflineBanner, PatientHeaderBanner, Segmented } from "@setu/ui";
+import { deviceDraftCount } from "../lib/outbox";
 import { useSession } from "../lib/session";
 import { RefusedSync } from "./RefusedSync";
 
@@ -19,6 +20,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const [pal, setPal] = useState(false); const [palQ, setPalQ] = useState(""); const [palSel, setPalSel] = useState(0);
   const [searchOpen, setSearchOpen] = useState(false); const [q, setQ] = useState("");
   const [closed, setClosed] = useState<Record<string, boolean>>({});
+  const [unsent, setUnsent] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null); const palRef = useRef<HTMLInputElement>(null);
   const { L, lang, n } = s;
   const bn = lang === "bn";
@@ -105,9 +107,21 @@ export function Shell({ children }: { children: ReactNode }) {
             <span style={{ font: "600 13px/16px var(--font-sans)", whiteSpace: "nowrap" }}>{meName}</span>
             <span className="t-muted" style={{ font: "400 11px/14px var(--font-sans)", whiteSpace: "nowrap" }}>{roleName}</span>
           </span>
-          <IconButton icon="log-out" label={t.logout} onClick={() => void s.logout()} />
+          <IconButton icon="log-out" label={t.logout} onClick={() => void s.logout().then((done) => { if (!done) setUnsent(true); })} />
         </div>
       </header>
+
+      {/* Clinical review A5: unsent note drafts are never deleted at sign-out without asking. */}
+      <Dialog open={unsent} onClose={() => setUnsent(false)} label={s.t("shellApp", "unsent_title")} width={480}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }} data-testid="unsent-drafts">
+          <b className="t-h3">{s.t("shellApp", "unsent_title")}</b>
+          <span>{s.t("shellApp", "unsent_body").replace("{n}", s.n(deviceDraftCount()))}</span>
+          <span style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+            <button type="button" className="btn btn-primary" onClick={() => setUnsent(false)}>{s.t("shellApp", "unsent_stay")}</button>
+            <button type="button" className="btn btn-danger" onClick={() => void s.logout(true)}>{s.t("shellApp", "unsent_signout")}</button>
+          </span>
+        </div>
+      </Dialog>
 
       <Dialog open={pal} onClose={() => setPal(false)} label={t.palette}>
         <div className="dialog-head">

@@ -55,6 +55,8 @@ describe("dose", () => {
     expect(dose("1-0-1")).toMatchObject({ ok: true, perDay: 2 });
     expect(dose("½+½+½+½")).toMatchObject({ ok: true, perDay: 2 });
     expect(dose("1+1").ok).toBe(false);
+    expect(dose("0+0+0")).toMatchObject({ ok: false, perDay: 0 }); // clinical review A5: not a dose
+    expect(dose("০+০+০+০").ok).toBe(false);
   });
 });
 describe("time", () => {

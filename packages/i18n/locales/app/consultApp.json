@@ -39,6 +39,10 @@
   "device_conflict": ["{at}-এ এই ডিভাইসে রাখা পরিবর্তন সার্ভারে যায়নি — এর মধ্যে নোটটি অন্য জায়গায় বদলেছে। সার্ভারের সংস্করণ দেখানো হচ্ছে।", "Changes kept on this device at {at} did not reach the server — the note changed elsewhere in the meantime. The server's version is shown."],
   "device_load": ["ডিভাইসের কপি নোটে আনুন", "Load the device copy into the note"],
   "device_discard": ["ডিভাইসের কপি মুছুন", "Discard the device copy"],
+  "device_load_title": ["ডিভাইসের কপি দিয়ে বদলাবেন?", "Replace with the device copy?"],
+  "device_load_body": ["{at}-এর ডিভাইস কপি নোটে আসবে এবং সার্ভারের নতুন সংস্করণের নিচের অংশগুলো বদলে যাবে। সার্ভার সংরক্ষণ না করা পর্যন্ত ডিভাইসের কপি থাকবে।", "The device copy from {at} goes into the note and replaces these parts of the server's newer version. The device copy is kept until the server saves it."],
+  "device_load_parts": ["যে অংশ আলাদা:", "Parts that differ:"],
+  "device_load_confirm": ["ডিভাইসের কপি দিয়ে বদলান", "Replace with the device copy"],
   "stale_reloaded": ["নোটটি অন্য জায়গায় বদলেছে — সর্বশেষটি খোলা হলো", "The note changed elsewhere — the latest version is open"],
 
   "sec_complaints": ["প্রধান অভিযোগ", "Chief complaints"],

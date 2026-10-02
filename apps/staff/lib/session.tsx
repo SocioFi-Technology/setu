@@ -6,7 +6,7 @@ import { format } from "@setu/domain";
 import { t as tr } from "@setu/i18n";
 import type { BannerPatient } from "@setu/ui";
 import { api } from "./api";
-import { clearDraftsForOwner, clearRefusedForOwner, onOutbox, pendingCount, refusedItems, setOutboxOwner } from "./outbox";
+import { clearDraftsForOwner, clearRefusedForOwner, deviceDraftCount, flush, onOutbox, pendingCount, refusedItems, setOutboxOwner } from "./outbox";
 
 export type Lang = "bn" | "en";
 export type Numerals = "bn" | "en";
@@ -20,7 +20,10 @@ interface Session {
   /** digits in the chosen numerals (never applied to identifiers like GLC-240117 or INV/25/0938) */
   n: (v: string | number) => string;
   t: (ns: string, key: string) => string;
-  refresh: () => Promise<void>; logout: () => Promise<void>;
+  refresh: () => Promise<void>;
+  /** Sign out. Unsent consultation drafts on this device are sent first; if some still cannot be sent, nothing happens
+      and it answers false so the shell can ask (clinical review A5). With force it signs out and deletes them. */
+  logout: (force?: boolean) => Promise<boolean>;
 }
 const Ctx = createContext<Session>(null as unknown as Session);
 const read = (k: string, d: string) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } };
@@ -71,7 +74,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     n: (v) => convertDigits(v, numerals === "bn"),
     t: (ns, key) => tr(lang, ns, key),
     refresh,
-    logout: async () => { clearRefusedForOwner(); clearDraftsForOwner(); setOutboxOwner(null); await api.logout(); setMe(null); setCaps(null); location.href = "/login"; },
+    logout: async (force = false) => {
+      if (!force) { await Promise.race([flush(), new Promise((r) => setTimeout(r, 4000))]); if (deviceDraftCount() > 0) return false; }
+      clearRefusedForOwner(); clearDraftsForOwner(); setOutboxOwner(null); await api.logout(); setMe(null); setCaps(null); location.href = "/login";
+      return true;
+    },
   }), [me, caps, loading, lang, numerals, online, queued, refused, patient, refresh]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -1,5 +1,5 @@
 "use client";
-import type { SaveDraftRequest } from "@setu/contracts";
+import { SaveDraftRequest } from "@setu/contracts";
 /* Offline outbox (CLAUDE.md rule 1: a write is pending until the server acknowledges it). A write that cannot reach the
    server is kept on this device with its Idempotency-Key and replayed, in order, when the browser is back online —
    the key makes a replay safe. Screens show "Saved on this device · not synced" for it, never "Saved". */
@@ -10,10 +10,19 @@ const listeners = new Set<(pending: number, refused: number) => void>();
 /* Each queued write belongs to the user + tenant + facility that made it; it is only ever replayed under that same
    session (security review A1–A3: a shared desk PC must never send one user's registration under another login). */
 let owner: string | null = null;
+const LAST_OWNER = "setu.outbox.lastOwner";
 export function setOutboxOwner(o: { userId: string; tenantId: string; organizationId: string } | null) {
   owner = o ? `${o.tenantId}:${o.organizationId}:${o.userId}` : null;
+  if (owner) try { localStorage.setItem(LAST_OWNER, owner); } catch {}
+  drafts(); // security review A5: expired device drafts go at app start and at every sign-in, not only when used
   save(load());
   if (owner) void flush();
+}
+/** The session expired without a sign-out (security review A5): the last user's device drafts go as at sign-out. */
+export function clearDraftsForLastOwner() {
+  let last: string | null = null;
+  try { last = localStorage.getItem(LAST_OWNER); } catch {}
+  if (last) storeDrafts(rawDrafts().filter((x) => x.owner !== last));
 }
 
 /* Pending writes expire after 24 h; refused ones (no body any more) stay listed for 7 days so none disappears unseen. */
@@ -111,13 +120,19 @@ function notify() { save(load()); }
 /** Keeps the latest unsent draft of a note on this device. False when nobody is signed in (nothing is kept).
     `key`: pass the key of a save that failed on the network, so a replay of that same body is the same request (if the
     server did commit it, the replay returns the stored answer instead of a false conflict). A changed body needs a new key. */
-export function saveDeviceDraft(d: Pick<DeviceDraft, "compositionId" | "encounterId" | "baseRev" | "body" | "form">, key: string = crypto.randomUUID()): boolean {
+export function saveDeviceDraft(d: Pick<DeviceDraft, "compositionId" | "encounterId" | "baseRev" | "body" | "form" | "conflict">, key: string = crypto.randomUUID()): boolean {
   if (!owner) return false;
   const o = owner;
-  storeDrafts([...drafts().filter((x) => !(x.owner === o && x.compositionId === d.compositionId)), { ...d, owner: o, key, at: new Date().toISOString() }]);
+  const all = drafts();
+  const prev = all.find((x) => x.owner === o && x.compositionId === d.compositionId);
+  // The 24 h limit counts from the first change the server has not seen, not from the latest one (clinical review A5).
+  const at = prev?.at ?? new Date().toISOString();
+  storeDrafts([...all.filter((x) => x !== prev), { ...d, owner: o, key, at }]);
   notify();
   return true;
 }
+/** This user's consultation drafts not yet on the server (incl. conflict copies). */
+export const deviceDraftCount = () => myDrafts(drafts()).length;
 export const deviceDraft = (compositionId: string): DeviceDraft | null => myDrafts(drafts()).find((x) => x.compositionId === compositionId) ?? null;
 export function dropDeviceDraft(compositionId: string) { if (owner) { const o = owner; storeDrafts(drafts().filter((x) => !(x.owner === o && x.compositionId === compositionId))); notify(); } }
 /** Sign-out: this user's device drafts go with the session (a shared PC keeps no note text of theirs). */
@@ -125,6 +140,12 @@ export function clearDraftsForOwner() { if (owner) { const o = owner; storeDraft
 
 async function flushDrafts(): Promise<void> {
   for (const d of myDrafts(drafts()).filter((x) => !x.conflict)) {
+    // Only a well-formed note body is ever sent (security review A5: localStorage is not trusted input).
+    if (!SaveDraftRequest.omit({ rev: true }).safeParse(d.body).success || !Number.isInteger(d.baseRev)) {
+      storeDrafts(rawDrafts().filter((x) => !(x.owner === d.owner && x.key === d.key)));
+      save([...load(), { id: crypto.randomUUID(), owner: d.owner, method: "PUT", path: `/v1/compositions/${d.compositionId}`, body: null, key: d.key, label: "note_draft", at: new Date().toISOString(), error: "Note draft on this device was damaged — not sent", errorBn: "এই ডিভাইসের নোটের খসড়া নষ্ট — পাঠানো হয়নি", status: 0 }]);
+      continue;
+    }
     let r: Response;
     try {
       r = await fetch("/api" + `/v1/compositions/${encodeURIComponent(d.compositionId)}`, { method: "PUT", credentials: "include", headers: { "content-type": "application/json", "idempotency-key": d.key }, body: JSON.stringify({ ...d.body, rev: d.baseRev }) });

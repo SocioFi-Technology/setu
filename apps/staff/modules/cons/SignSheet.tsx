@@ -6,7 +6,7 @@
    of the stored hash). Never offered offline (decision 25). */
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CompositionView, ConsultationView } from "@setu/contracts";
-import { aiSections, format, signBlockers, type SignBlocker } from "@setu/domain";
+import { aiSections, format, rxQuantity, signBlockers, type SignBlocker } from "@setu/domain";
 import { Button, Dialog } from "@setu/ui";
 import { ApiFailure, cons } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -92,7 +92,9 @@ export function SignSheet({ view, draft, form, rev, ensureSaved, onClose, onSign
           <b className="t-small">{C("ss_final")}</b>
           <span className="t-small">{C("ss_complaints")}: {form.sections.complaints.map((c) => c.text).join(", ") || "—"}</span>
           <span className="t-small">{C("ss_dx")}: {form.diagnoses.map((d) => `${d.code} ${s.L(d.labelBn, d.labelEn)}${d.verificationStatus === "provisional" ? ` (${C("dx_provisional")})` : ""}`).join(", ") || "—"}</span>
-          <span className="t-small">{C("ss_rx")}: {form.lines.map((l) => `${l.medicine.form} ${l.medicine.brand} ${l.medicine.strength} ${s.n(l.dose)}`).join(", ") || "—"}</span>
+          <span className="t-small" style={{ display: "flex", flexDirection: "column" }}>{C("ss_rx")}: {form.lines.length === 0 ? "—" : form.lines.map((l) => (
+            <span key={l.uid} data-sheet-rx={l.medicine.key}>• {l.medicine.form} {l.medicine.brand} {l.medicine.strength} · <span className="num">{s.n(l.dose)}</span> · {C(`meal_${l.meal}`)} · {C("rx_days")} {s.n(l.days)} · {C("rx_qty")} {s.n(rxQuantity(l.dose, l.days) || "—")}</span>
+          ))}</span>
           <span className="t-small">{C("ss_orders")}: {form.orders.map((o) => s.L(o.nameBn, o.nameEn)).join(", ") || "—"}</span>
         </div>
 
@@ -117,7 +119,7 @@ export function SignSheet({ view, draft, form, rev, ensureSaved, onClose, onSign
 
         <label className="field" style={{ maxWidth: 220 }}>
           <span>{C("pin")}</span>
-          <input ref={pinRef} className="input num" name="sign-pin" type="password" inputMode="numeric" autoComplete="off" maxLength={4} value={pin} disabled={busy || !s.online}
+          <input ref={pinRef} className="input num" name="sign-pin" type="password" inputMode="numeric" autoComplete="one-time-code" maxLength={4} value={pin} disabled={busy || !s.online}
             onChange={(e) => setPin(e.target.value.replace(/[^0-9০-৯]/g, ""))} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void submit(); } }} />
         </label>
         <span className="t-small">{s.me ? s.L(s.me.nameBn, s.me.nameEn) : ""}</span>

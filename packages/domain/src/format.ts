@@ -84,7 +84,10 @@ export const phone = (raw: string, bn?: boolean): { text: string; valid: boolean
 /** Dose pattern "১+০+১" (morning+noon+night); accepts 1+0+1, 1-0-1, ½ and 4-slot patterns. */
 export const dose = (raw: string): { ok: boolean; parts: string[]; perDay: number; bn: string } => {
   const parts = toEn(raw).replace(/[-–\s]+/g, "+").split("+").filter((x) => x !== "");
-  const ok = (parts.length === 3 || parts.length === 4) && parts.every((p) => /^(\d(\.5)?|½)$/.test(p));
+  const shape = (parts.length === 3 || parts.length === 4) && parts.every((p) => /^(\d(\.5)?|½)$/.test(p));
   const nums = parts.map((p) => (p === "½" ? 0.5 : parseFloat(p)));
-  return { ok, parts, perDay: ok ? nums.reduce((a, b) => a + b, 0) : 0, bn: toBn(parts.join("+")) };
+  const perDay = shape ? nums.reduce((a, b) => a + b, 0) : 0;
+  // Clinical review A5: 0+0+0 is not a dose (a 0-tablet line must never be signable). A per-dose cap is for a clinician.
+  const ok = shape && perDay > 0;
+  return { ok, parts, perDay: ok ? perDay : 0, bn: toBn(parts.join("+")) };
 };

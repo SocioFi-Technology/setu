@@ -83,6 +83,9 @@ describe("dose, days and quantity", () => {
     expect(rxQuantity("½+0+½", 3)).toBe(3);
     expect(rxQuantity("abc", 3)).toBe(0);
     expect(rxBlockers([line("napa", { dose: "1+1" })], []).map((w) => w.kind)).toEqual(["dose-invalid"]);
+    // Clinical review A5: a 0-tablet line (0+0+0) blocks the sign like any other invalid dose; its quantity is 0.
+    expect(rxBlockers([line("napa", { dose: "0+0+0" })], []).map((w) => w.kind)).toEqual(["dose-invalid"]);
+    expect(rxQuantity("0+0+0", 5)).toBe(0);
   });
   it("days must be a whole number from 1 to 365", () => {
     for (const days of [0, -1, 1.5, 366]) expect(rxBlockers([line("napa", { days })], []).map((w) => w.kind)).toEqual(["days-invalid"]);

@@ -39,6 +39,22 @@
     "ভাইটাল",
     "Vitals"
   ],
+  "unsent_title": [
+    "পাঠানো হয়নি এমন নোট আছে",
+    "Notes not sent yet"
+  ],
+  "unsent_body": [
+    "এই ডিভাইসে {n}টি পরামর্শ নোটের খসড়া সার্ভারে পৌঁছায়নি। লগআউট করলে সেগুলো মুছে যাবে।",
+    "{n} consultation note draft(s) on this device have not reached the server. Signing out deletes them."
+  ],
+  "unsent_stay": [
+    "লগইন থাকুন",
+    "Stay signed in"
+  ],
+  "unsent_signout": [
+    "লগআউট করে মুছে দিন",
+    "Sign out and delete them"
+  ],
   "label_note_draft": [
     "পরামর্শ নোটের খসড়া",
     "Consultation note draft"

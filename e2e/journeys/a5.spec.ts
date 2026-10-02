@@ -242,9 +242,52 @@ test("A5: device drafts are cleared at sign-out (shared PC)", async ({ page, req
   await addComplaint(page, "Back pain 1w");
   await expect(sync(page)).toHaveAttribute("data-sync", "device", { timeout: 5_000 });
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("setu.cons.drafts") ?? "[]").length)).toBe(1);
+  // Clinical review A5: sign-out tries to send it first, then asks before deleting what could not be sent.
   await page.getByRole("button", { name: "Sign out" }).click();
+  const ask = page.getByTestId("unsent-drafts");
+  await expect(ask).toContainText("1 consultation note draft(s) on this device have not reached the server. Signing out deletes them.");
+  await ask.getByRole("button", { name: "Stay signed in" }).click();
+  await expect(page.getByTestId("rx-search")).toBeVisible();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByTestId("unsent-drafts").getByRole("button", { name: "Sign out and delete them" }).click();
   await page.waitForURL("**/login**");
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("setu.cons.drafts") ?? "[]").length)).toBe(0);
+});
+
+test("A5 conflict: typing over a newer server version is kept as a device copy; loading it asks first and replaces the server's", async ({ page, request }) => {
+  const visit = await newPatientVisit(request, "conflict");
+  await login(page, DOCTOR);
+  await page.goto(`/m/cons/draft?enc=${visit.id}`);
+  await synced(page);
+  // The note changes somewhere else (another tab of the same doctor) while this screen still holds the old rev.
+  const v = await (await page.request.get(`/api/v1/encounters/${visit.id}/consultation`)).json();
+  const other = { sections: { ...v.draft.sections, history: "Written in the other tab" }, sectionSources: {}, diagnoses: [], medications: [], orders: [] };
+  expect((await page.request.put(`/api/v1/compositions/${v.draft.id}`, { data: { rev: v.draft.rev, ...other }, headers: { "idempotency-key": crypto.randomUUID() } })).status()).toBe(200);
+  await addComplaint(page, "Typed on this screen 2d");
+  const conflict = page.getByTestId("device-conflict");
+  await expect(conflict).toContainText("did not reach the server — the note changed elsewhere");
+  await expect(page.getByRole("textbox", { name: "History" })).toHaveValue("Written in the other tab"); // the server's version is shown
+  await expect(page.getByTestId("complaints")).not.toContainText("Typed on this screen");
+  await conflict.getByRole("button", { name: "Load the device copy into the note" }).click();
+  const confirm = page.getByTestId("device-load-confirm");
+  await expect(confirm).toContainText("Parts that differ: Chief complaints, History");
+  await confirm.getByRole("button", { name: "Replace with the device copy" }).click();
+  await expect(page.getByTestId("complaints")).toContainText("Typed on this screen");
+  await expect.poll(async () => JSON.stringify((await (await page.request.get(`/api/v1/encounters/${visit.id}/consultation`)).json()).draft.sections.complaints), { timeout: 10_000 })
+    .toContain("Typed on this screen");
+  await synced(page);
+  // The device copy went only after the server accepted it.
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("setu.cons.drafts") ?? "[]").length)).toBe(0);
+});
+
+test("A5 / clinical review: a 0+0+0 dose blocks signing", async ({ page, request }) => {
+  const visit = await newPatientVisit(request, "dose");
+  await login(page, DOCTOR);
+  await page.goto(`/m/cons/draft?enc=${visit.id}`);
+  await prescribe(page, "napa", "napa");
+  await page.locator('[data-rx-line="napa"] input[name=rx-dose]').fill("0+0+0");
+  await expect(page.locator('[data-rx-line="napa"] [data-warning="dose-invalid"]')).toHaveAttribute("data-blocking", "true");
+  await expect(page.getByTestId("sign-open")).toContainText(/Resolve \d warning\(s\)/);
 });
 
 test("A5 AI panel: text inserted from the draft must be reviewed before signing; the scribe consent tick is disabled", async ({ page, request }) => {
