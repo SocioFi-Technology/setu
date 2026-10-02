@@ -6,3 +6,6 @@ export * from "./patient.js";
 export * from "./queue.js";
 export * from "./vitals.js";
 export * from "./documents.js";
+export * from "./catalog.js";
+export * from "./prescription.js";
+export * from "./consultation.js";

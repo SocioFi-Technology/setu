@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BED, CLAIM, DISCHARGE, DOCUMENT, PAYMENT, TransitionError, can, transition } from "./machines.js";
+import { ALLERGY, BED, CLAIM, DISCHARGE, DOCUMENT, ENCOUNTER, ORDER, PAYMENT, TransitionError, can, transition } from "./machines.js";
 
 describe("document", () => {
   it("offline sign is queued, never final, until the server acks (rule 1)", () => {
@@ -23,6 +23,22 @@ describe("document", () => {
       expect(can(DOCUMENT, "superseded", ev)).toBe(false);
       expect(can(DOCUMENT, "entered-in-error", ev)).toBe(false);
     }
+  });
+});
+describe("allergy (ADR 0004)", () => {
+  it("an active allergy can only be marked entered-in-error; that is terminal", () => {
+    expect(transition("allergy", ALLERGY, "active", "markError")).toBe("entered-in-error");
+    expect(can(ALLERGY, "entered-in-error", "markError")).toBe(false);
+  });
+});
+describe("consultation flow (slice A5)", () => {
+  it("opening moves a waiting or vitals-done visit to with-doctor; signing finishes it; orders go draft → active", () => {
+    expect(transition("encounter", ENCOUNTER, "arrived", "start")).toBe("in-progress");
+    expect(transition("encounter", ENCOUNTER, "triaged", "start")).toBe("in-progress");
+    expect(can(ENCOUNTER, "in-progress", "start")).toBe(false); // re-opening is a no-op in the route, not a transition
+    expect(transition("encounter", ENCOUNTER, "in-progress", "finish")).toBe("finished");
+    expect(can(ENCOUNTER, "triaged", "finish")).toBe(false);
+    expect(transition("order", ORDER, "draft", "order")).toBe("active");
   });
 });
 describe("discharge (walkthrough B9/B10)", () => {

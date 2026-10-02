@@ -106,7 +106,13 @@ export const ENCOUNTER: Table<EncounterState, EncounterEvent> = {
   "entered-in-error": {},
 };
 
-export type BedState = "vacant" | "reserved" | "occupied" | "discharge-pending" | "cleaning" | "blocked";
+/* AllergyIntolerance (ADR 0004): never deleted or edited; a wrong entry is marked entered-in-error with a reason and a
+   correct one is recorded as a new row. Only `active` allergies feed the prescription check. */
+export type AllergyState = "active" | "entered-in-error";
+export type AllergyEvent = "markError";
+export const ALLERGY: Table<AllergyState, AllergyEvent> = { active: { markError: "entered-in-error" }, "entered-in-error": {} };
+
+export type BedState ="vacant" | "reserved" | "occupied" | "discharge-pending" | "cleaning" | "blocked";
 export type BedEvent = "reserve" | "occupy" | "release" | "startDischarge" | "leave" | "markReady" | "block" | "unblock";
 export const BED: Table<BedState, BedEvent> = {
   vacant: { reserve: "reserved", occupy: "occupied", block: "blocked" },
