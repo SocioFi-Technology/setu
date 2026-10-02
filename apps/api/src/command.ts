@@ -26,7 +26,8 @@ const dbOff = () => err(503, "db_off", "ডাটাবেস চালু ন�
 const isUniqueViolation = (e: unknown) => typeof e === "object" && e !== null && (e as { code?: string }).code === "P2002";
 
 /** A write. Requires an Idempotency-Key: a replay returns the stored response without running `fn` again. */
-export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (tx: Tx, s: SessionData) => Promise<CommandResult<T>>): Promise<T> {
+/** `hashOmit`: request-body fields left out of the stored body hash (a signing PIN is never stored, not even hashed). */
+export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (tx: Tx, s: SessionData) => Promise<CommandResult<T>>, opts: { hashOmit?: string[] } = {}): Promise<T> {
   const s = requireSession(req);
   req.txManaged = true;
   const key = req.headers["idempotency-key"];
@@ -37,7 +38,10 @@ export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (
   /* A key is scoped to this user and this exact URL, and bound to the request body: reusing it for another request is
      refused rather than answered with someone else's stored response. */
   const route = `${req.method} ${(req.url ?? "").split("?")[0]} #${s.userId}`;
-  const hash = createHash("sha256").update(JSON.stringify(req.body ?? null)).digest("hex");
+  const hashed = opts.hashOmit?.length && req.body && typeof req.body === "object"
+    ? Object.fromEntries(Object.entries(req.body as Record<string, unknown>).filter(([k]) => !opts.hashOmit!.includes(k)))
+    : (req.body ?? null);
+  const hash = createHash("sha256").update(JSON.stringify(hashed)).digest("hex");
   type Stored = { hash: string; body: T };
   const { forTenant } = await import("@setu/db");
   const find = (tx: Tx) => tx.idempotencyKey.findUnique({ where: { tenantId_key_route: { tenantId: s.tenantId, key, route } } });
