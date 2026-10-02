@@ -118,6 +118,8 @@ Still open:
 - **21** (02/10/2026, Kamrul): one patient record per tenant across its branches; cross-owner sharing only via Connected Care with consent.
 - **17, 18, 19, 22, 23** (02/10/2026, Kamrul): agreed; scheduled for the start of A4–A5 (18 with an ADR).
 - **20, 24** (02/10/2026, Kamrul): agreed; pre-pilot security pass.
+- **25–36, D1–D5** (02/10/2026, Kamrul): approved before slice A4–A5 started.
+- **45, 46, 47, 49** (02/10/2026, Kamrul): see "Decisions of 02/10/2026 on items 45–49" (slice A4–A5).
 - **Decided at the start of A1–A3** (02/10/2026, Kamrul): token per branch per day, under-18 guardian blocks the save, same-script name search, queue board with call / next / no-show, no new state machines.
 
 ## Slice A4–A5 (vitals, consultation, sign/amend) — decided by Kamrul 02/10/2026 before the slice started
@@ -203,3 +205,23 @@ moved into `@setu/domain` `signDocument` (ADR 0003 updated).
     care-relationship rule (28) to the consultation and this read.
 51. **Branch:** visits and vitals use the organisation's first branch (gap 8, "branch choice"); real branch isolation
     needs the branch on the session.
+
+### Decisions of 02/10/2026 (Kamrul) on items 45–49 — built the same day
+- **46 → default thresholds = prototype + standard adult NEWS2 bands**, whichever flags first, labelled "default
+  thresholds, pending clinician sign-off" in the code (`packages/domain/src/vitals.ts` header) and on the vitals
+  screen. Critical (NEWS2 3 points): systolic ≤ 90, pulse ≤ 40, temperature ≤ 35.0 °C (95.0 °F), SpO₂ ≤ 91 %; plus
+  the prototype's ≥ 180/120, pulse > 120, ≥ 103 °F. Warnings (NEWS2 1–2): systolic 91–110, pulse 41–50 or > 90,
+  temperature ≤ 36.0 °C (96.8 °F) or ≥ 38.1 °C, SpO₂ 92–95 %; plus the prototype's ≥ 140/90 and ≥ 100.4 °F.
+  NEWS2 has no glucose band (glucose stays on the prototype's rules; critical-high glucose still needs a clinician)
+  and no NEWS2 total is computed (respiratory rate, consciousness and oxygen are not captured). The under-18 "adult
+  ranges" note stays. Clinician sign-off of the thresholds and paediatric ranges is on the pre-pilot list (HANDOVER).
+  Note for the clinician: the NEWS2 warning bands flag more OPD patients than the prototype did (e.g. pulse 91–100,
+  systolic 101–110) — alarm fatigue is part of the sign-off.
+- **47 → yes, now:** a "Critical vital sign" flag on the queue card when any vital in the visit was critical (a calmer
+  re-measure does not clear it); the same flag at the top of the consultation screen in A5; an active notification to
+  the doctor comes with the Doctor App inbox in A12.
+- **45 → yes:** earlier readings from the owner's other branches and facilities are shown read-only, labelled with the
+  branch name (consistent with decision 21; other tenants never — RLS).
+- **49 → only for undoing a "Link anyway":** the existing override entry in the admin queue changes to "Link undone"
+  with the reason and who undid it (no new Task); the admin marks it reviewed. An ordinary undo is audit-only.
+

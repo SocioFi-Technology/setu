@@ -180,24 +180,24 @@
     "High — 140/90 mmHg or above"
   ],
   "c_bp_low": [
-    "কম — সিস্টোলিক ৯০-এর নিচে",
-    "Low — below 90 systolic"
+    "কম — সিস্টোলিক ১১০ বা কম",
+    "Low — systolic 110 or below"
   ],
   "c_pulse_impossible": [
     "মানটি সম্ভব নয় — আবার মাপুন",
     "Not plausible — re-measure"
   ],
   "c_pulse_critical": [
-    "খুব দ্রুত — ডাক্তারকে জানান",
-    "Very fast — tell the doctor"
+    "খুব দ্রুত (১২০-এর বেশি) — ডাক্তারকে জানান",
+    "Very fast (above 120) — tell the doctor"
   ],
   "c_pulse_high": [
-    "দ্রুত — ১০০-এর বেশি",
-    "Fast — above 100 bpm"
+    "দ্রুত — ৯০-এর বেশি",
+    "Fast — above 90 bpm"
   ],
   "c_pulse_low": [
-    "ধীর — ৫০-এর কম",
-    "Slow — below 50 bpm"
+    "ধীর — ৫০ বা কম",
+    "Slow — 50 bpm or below"
   ],
   "c_temp_impossible": [
     "এই তাপমাত্রা সম্ভব নয় — মান দেখুন; খুব কম হলে এখনই ডাক্তারকে জানান",
@@ -212,8 +212,8 @@
     "Fever — 100.4 °F or more"
   ],
   "c_temp_low": [
-    "তাপমাত্রা কম",
-    "Low temperature"
+    "তাপমাত্রা কম — ৯৬.৮ °F বা কম",
+    "Low temperature — 96.8 °F or below"
   ],
   "c_spo2_over_100": [
     "১০০% এর বেশি হয় না",
@@ -224,12 +224,12 @@
     "Not plausible — re-measure; if confirmed, tell the doctor now"
   ],
   "c_spo2_critical": [
-    "খুব কম — এখনই ডাক্তারকে জানান",
-    "Very low — tell the doctor now"
+    "খুব কম (৯১% বা কম) — এখনই ডাক্তারকে জানান",
+    "Very low (91% or below) — tell the doctor now"
   ],
   "c_spo2_low": [
-    "কম — ৯৫%-এর নিচে",
-    "Low — below 95%"
+    "কম — ৯৫% বা কম",
+    "Low — 95% or below"
   ],
   "c_rbs_impossible": [
     "মানটি সম্ভব নয় — আবার মাপুন",
@@ -362,5 +362,25 @@
   "adult_ranges": [
     "সীমাগুলো প্রাপ্তবয়স্কের জন্য — শিশুর ক্ষেত্রে ডাক্তার দেখবেন",
     "Ranges are for adults — for children the doctor decides"
+  ],
+  "c_bp_critical_low": [
+    "খুব কম (সিস্টোলিক ৯০ বা কম) — এখনই ডাক্তারকে জানান",
+    "Very low (systolic 90 or below) — tell the doctor now"
+  ],
+  "c_pulse_critical_low": [
+    "খুব ধীর (৪০ বা কম) — এখনই ডাক্তারকে জানান",
+    "Very slow (40 or below) — tell the doctor now"
+  ],
+  "c_temp_critical_low": [
+    "খুব কম তাপমাত্রা (৯৫.০ °F বা কম) — এখনই ডাক্তারকে জানান",
+    "Very low temperature (95.0 °F or below) — tell the doctor now"
+  ],
+  "default_thresholds": [
+    "ডিফল্ট সীমা (প্রোটোটাইপ + প্রাপ্তবয়স্ক NEWS2) — চিকিৎসকের অনুমোদন বাকি",
+    "Default thresholds (prototype + adult NEWS2) — pending clinician sign-off"
+  ],
+  "other_branch": [
+    "{branch}",
+    "{branch}"
   ]
 }

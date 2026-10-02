@@ -56,11 +56,15 @@ Plan agreed with Kamrul: two sessions (decision D5). Decisions D1–D4 and items
   a reason, signs to `amended`.
 - **Reviews:** security (pass, 4 medium / 4 low) and clinical safety (glucose mg/dL slip, BP flags, offline ordering,
   unit hints, BMI, child labels, outbox expiry) — fixes landed; the rest is `docs/open-questions.md` 45–51.
-- **Tests:** domain 77, api 61 (incl. 13 vitals + cross-tenant, 4 follow-ups), i18n 3, contracts 2; Playwright 29
-  (13 shell + 12 `a1-a3` + 4 `a4`), green twice in a row on 02/10/2026.
+- **Kamrul's decisions on 45–49 (same day):** default thresholds = prototype + adult NEWS2 (labelled pending clinician
+  sign-off); "Critical vital sign" flag on the queue card; earlier readings from the owner's other branches shown
+  read-only with the branch name; undoing a Link anyway turns its admin-queue entry into "Link undone + reason".
+- **Tests:** domain 78, api 64, i18n 3, contracts 2; Playwright 29 (13 shell + 12 `a1-a3` + 4 `a4`) with plain
+  `pnpm e2e`, green twice in a row on 02/10/2026.
 
 ## How to run the journeys on this PC
-- Playwright's bundled Chromium is not installed; use the installed Chrome: `cd e2e` then `CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" pnpm exec playwright test -c pw.local.config.ts`.
+- Playwright's Chromium is installed (02/10/2026): plain `pnpm e2e` runs the journeys against `pnpm dev` (staff :3000,
+  api :4000). The installed-Chrome route still works: `cd e2e` then `CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" pnpm exec playwright test -c pw.local.config.ts`.
 - Older dev servers were holding ports 3000/3001/3100 on 02/10/2026 (the one on 3100 had crashed). A journey server can
   now run beside them with its own build folder: `cd apps/staff` then `NEXT_DIST_DIR=.next-e2e pnpm exec next dev -p 3200`,
   and `STAFF_URL=http://localhost:3200` for Playwright. Next rewrites `apps/staff/tsconfig.json` and `next-env.d.ts`
@@ -90,7 +94,9 @@ Plan agreed with Kamrul: two sessions (decision D5). Decisions D1–D4 and items
       API or a local extract.
     - Medicines: a licensed drug database with DGDA numbers + clinician-approved allergy/interaction rules; the demo
       list's class matching is a demo check only.
-    - Vitals limits: a clinician reviews `packages/domain/src/vitals.ts` (adult-only; no paediatric ranges yet).
+    - Vitals limits (decision 46): clinician sign-off of the default thresholds (prototype + adult NEWS2) in
+      `packages/domain/src/vitals.ts`, a critical-high glucose, and paediatric/infant ranges (none yet; under 18 the
+      screen says the ranges are for adults).
 11. **Patients are per tenant** (decided 02/10/2026, open question 21): one record shared across an owner's branches; between different owners only through Connected Care with consent (Journey E), never by default.
 
 ## Next (in order)

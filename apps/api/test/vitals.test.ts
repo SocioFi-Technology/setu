@@ -141,6 +141,32 @@ describe.runIf(db)("A4 vitals: impossible values are refused, abnormal ones warn
   });
 });
 
+describe.runIf(db)("decisions of 02/10/2026 (open questions 45, 47)", () => {
+  it("47: a visit with a critical vital sign is flagged on the queue card, even after a calmer re-measure", async () => {
+    const enc = await newVisit();
+    expect((await get("/v1/queue", "desk")).json().columns.flatMap((c: { items: unknown[] }) => c.items).find((i: { id: string }) => i.id === enc).vitalsFlag).toBeNull();
+    await post(`/v1/encounters/${enc}/vitals`, { values: { spo2: 88 }, effectiveAt: new Date(Date.now() - 60_000).toISOString() });
+    await post(`/v1/encounters/${enc}/vitals`, { values: { spo2: 97 }, effectiveAt: now() });
+    const item = (await get("/v1/queue", "desk")).json().columns.flatMap((c: { items: unknown[] }) => c.items).find((i: { id: string }) => i.id === enc);
+    expect(item).toMatchObject({ column: "vitals", vitalsFlag: "critical" });
+  });
+  it("45: a reading from another branch of this owner is shown read-only with that branch's name", async () => {
+    const enc = await newVisit();
+    const patientId = (await db!.forTenant("t_e2e", (tx) => tx.encounter.findFirst({ where: { id: enc } })))!.patientId;
+    // An earlier visit at a second branch of the same tenant (test fixture, written under the tenant's own context).
+    await db!.forTenant("t_e2e", async (tx) => {
+      await tx.location.upsert({ where: { id: "l_branch_e2e_b" }, update: {}, create: { id: "l_branch_e2e_b", tenantId: "t_e2e", organizationId: "o_e2e", kind: "branch", name: "Test branch B", nameBn: "টেস্ট শাখা বি" } });
+      const other = await tx.encounter.create({ data: { tenantId: "t_e2e", organizationId: "o_e2e", branchId: "l_branch_e2e_b", patientId, status: "finished", token: "A-900", tokenNo: randomInt(1000, 1_000_000), tokenDay: "2026-09-01", createdById: "u_e2e_nurse" } });
+      await tx.observation.create({ data: { tenantId: "t_e2e", organizationId: "o_e2e", branchId: "l_branch_e2e_b", patientId, encounterId: other.id, batchId: `vb_test_${RUN}`, code: "pulse", value: 77, unit: "/min", interpretation: "N", recordedById: "u_e2e_nurse", effectiveAt: new Date(Date.now() - 86_400_000) } });
+    });
+    const prev = (await get(`/v1/encounters/${enc}/vitals`)).json().previous;
+    expect(prev.find((o: { code: string }) => o.code === "pulse")).toMatchObject({ value: 77, otherBranch: true, branch: { name: "Test branch B" } });
+    // the doctor's read is audited with the earlier batch it revealed
+    const audit = await db!.forTenant("t_e2e", (tx) => tx.auditEvent.findFirst({ where: { action: "view", entity: "Observation", patientId }, orderBy: { at: "desc" } }));
+    expect(JSON.stringify(audit!.detail)).toContain(`vb_test_${RUN}`);
+  });
+});
+
 describe.runIf(db)("A4 vitals: cross-tenant denial", () => {
   it("another tenant's nurse cannot read or record this clinic's visit, and does not see it on the worklist", async () => {
     const enc = await newVisit();

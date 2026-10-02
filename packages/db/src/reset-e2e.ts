@@ -14,5 +14,10 @@ for (const [id, identityConfidence] of Object.entries(FAMILY))
   await db.patient.updateMany({ where: { id, tenantId: T }, data: { linkedToId: null, identityConfidence } });
 // Open reviews on the family are closed as rejected (requested → rejected is an APPROVAL transition).
 const n = await db.task.updateMany({ where: { tenantId: T, kind: "patient-link-review", status: "requested", focusId: { in: Object.keys(FAMILY) } }, data: { status: "rejected", decisionNote: "e2e reset", decidedAt: new Date() } });
+// Link-anyway overrides the desk undid in earlier runs (decision 49) are marked reviewed so they leave the admin queue.
+const undone = (await db.task.findMany({ where: { tenantId: T, kind: "patient-link-review", status: "approved", decisionNote: "link-anyway" } }))
+  .filter((t) => { const d = (t.detail ?? {}) as { undo?: unknown; review?: unknown }; return d.undo && !d.review; });
+for (const t of undone)
+  await db.task.update({ where: { id: t.id }, data: { detail: { ...(t.detail as object), review: { by: "e2e-reset", at: new Date().toISOString(), outcome: "undo-reviewed", reason: "e2e reset" } } } });
 await db.$disconnect();
-console.log(`E2E Test Clinic reset: walkthrough family restored, ${n.count} open review(s) closed`);
+console.log(`E2E Test Clinic reset: walkthrough family restored, ${n.count} open review(s) closed, ${undone.length} undone override(s) marked reviewed`);

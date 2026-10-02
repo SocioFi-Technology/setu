@@ -3420,6 +3420,15 @@
                               "call"
                             ]
                           }
+                        },
+                        "vitalsFlag": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "critical"
+                          ]
                         }
                       },
                       "required": [
@@ -3434,7 +3443,8 @@
                         "arrivedAt",
                         "calledAt",
                         "statusAt",
-                        "actions"
+                        "actions",
+                        "vitalsFlag"
                       ]
                     }
                   },
@@ -3693,6 +3703,15 @@
                               "call"
                             ]
                           }
+                        },
+                        "vitalsFlag": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "critical"
+                          ]
                         }
                       },
                       "required": [
@@ -3707,7 +3726,8 @@
                         "arrivedAt",
                         "calledAt",
                         "statusAt",
-                        "actions"
+                        "actions",
+                        "vitalsFlag"
                       ]
                     },
                     "patient": {
@@ -4155,6 +4175,15 @@
                                       "call"
                                     ]
                                   }
+                                },
+                                "vitalsFlag": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "enum": [
+                                    "critical"
+                                  ]
                                 }
                               },
                               "required": [
@@ -4169,7 +4198,8 @@
                                 "arrivedAt",
                                 "calledAt",
                                 "statusAt",
-                                "actions"
+                                "actions",
+                                "vitalsFlag"
                               ]
                             }
                           }
@@ -4382,6 +4412,15 @@
                           "call"
                         ]
                       }
+                    },
+                    "vitalsFlag": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "critical"
+                      ]
                     }
                   },
                   "required": [
@@ -4396,7 +4435,8 @@
                     "arrivedAt",
                     "calledAt",
                     "statusAt",
-                    "actions"
+                    "actions",
+                    "vitalsFlag"
                   ]
                 }
               }
@@ -4484,7 +4524,52 @@
                             "type": "string",
                             "enum": [
                               "review",
-                              "override"
+                              "override",
+                              "undone"
+                            ]
+                          },
+                          "undo": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "reason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              },
+                              "by": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "reason",
+                              "at",
+                              "by"
                             ]
                           },
                           "subject": {
@@ -4863,6 +4948,7 @@
                         "required": [
                           "taskId",
                           "kind",
+                          "undo",
                           "subject",
                           "candidate",
                           "reason",
@@ -5100,7 +5186,8 @@
                       "type": "string",
                       "enum": [
                         "unlinked",
-                        "kept"
+                        "kept",
+                        "reviewed"
                       ]
                     }
                   },
@@ -5429,7 +5516,8 @@
                       "type": "string",
                       "enum": [
                         "unlinked",
-                        "kept"
+                        "kept",
+                        "reviewed"
                       ]
                     }
                   },
@@ -6000,13 +6088,43 @@
                           },
                           "effectiveAt": {
                             "type": "string"
+                          },
+                          "branch": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "nameBn"
+                            ]
+                          },
+                          "otherBranch": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
                           "code",
                           "value",
                           "unit",
-                          "effectiveAt"
+                          "effectiveAt",
+                          "branch",
+                          "otherBranch"
                         ]
                       }
                     }

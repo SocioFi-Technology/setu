@@ -142,6 +142,7 @@ describe.runIf(db)("A1–A3 follow-ups decided 02/10/2026 (open questions 17, 18
   it("17: the undo lists visits opened on the linked record since the link; they stay where they are", async () => {
     // Close any visit Rahima already has today so a new one can be opened on her record after the link.
     await db!.forTenant("t_e2e", (tx) => tx.encounter.updateMany({ where: { patientId: "e2e_p_rahima", status: { in: ["arrived", "triaged", "in_progress"] } }, data: { status: "cancelled", cancelReason: "test reset" } }));
+    const t0 = new Date();
     const link = await post("/v1/patients/e2e_p_rbegum/match-decisions", { decision: "linkAnyway", candidateId: "e2e_p_rahima", reason: `Same woman, husband says ${RUN}` });
     expect(link.statusCode).toBe(200);
     const v = await post("/v1/encounters", { patientId: "e2e_p_rbegum" });
@@ -157,6 +158,22 @@ describe.runIf(db)("A1–A3 follow-ups decided 02/10/2026 (open questions 17, 18
     expect(prov).toMatchObject({ source: "desk_decision", reason: `Wrong record, re-checked ${RUN}` }); // 18 / ADR 0002
     expect((prov!.detail as { visitsSince: string[] }).visitsSince).toEqual([v.json().encounter.id]);
     await post(`/v1/encounters/${v.json().encounter.id}/actions`, { action: "noShow" });
+    // Decision 49: the override entry in the admin queue now reads "undone" with the reason; no new Task.
+    const tasks = await db!.forTenant("t_e2e", (tx) => tx.task.count({ where: { focusId: "e2e_p_rbegum", requestedAt: { gte: t0 } } }));
+    expect(tasks).toBe(1);
+    const item = (await get("/v1/reviews/duplicates", "admin")).json().items.find((i: { taskId: string }) => i.taskId === link.json().taskId);
+    expect(item).toMatchObject({ kind: "undone", undo: { reason: `Wrong record, re-checked ${RUN}`, by: { nameEn: "Test Receptionist" } } });
+    const done = await post(`/v1/reviews/${link.json().taskId}/keep`, {}, "admin");
+    expect(done.statusCode).toBe(200); expect(done.json().outcome).toBe("reviewed");
+    expect((await get("/v1/reviews/duplicates", "admin")).json().items.map((i: { taskId: string }) => i.taskId)).not.toContain(link.json().taskId);
+  });
+  it("49: an ordinary undo (Send for review) is audit-only — nothing in the admin queue says undone", async () => {
+    const r = await post("/v1/patients/e2e_p_rbegum/match-decisions", { decision: "review", candidateId: "e2e_p_rahima" });
+    expect((await post("/v1/patients/e2e_p_rbegum/match-decisions/undo", {})).statusCode).toBe(200);
+    const items = (await get("/v1/reviews/duplicates", "admin")).json().items;
+    expect(items.find((i: { taskId: string }) => i.taskId === r.json().taskId)).toBeUndefined();
+    const audit = await db!.forTenant("t_e2e", (tx) => tx.auditEvent.findFirst({ where: { entityId: "e2e_p_rbegum", action: "update" }, orderBy: { at: "desc" } }));
+    expect(JSON.stringify(audit!.detail)).toContain('"decision":"undo"');
   });
   it("17: only the person who decided, or an admin, may undo", async () => {
     const r = await post("/v1/patients/e2e_p_rbegum/match-decisions", { decision: "review", candidateId: "e2e_p_rahima" }, "admin");

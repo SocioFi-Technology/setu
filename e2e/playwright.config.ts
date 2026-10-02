@@ -7,7 +7,8 @@ export default defineConfig({
   timeout: 30_000,
   use: { baseURL: process.env.STAFF_URL ?? "http://localhost:3000", trace: "retain-on-failure" },
   projects: [
-    { name: "desktop-1440", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 1000 } } },
+    // @phone specs run only in the phone project (as in pw.local.config.ts).
+    { name: "desktop-1440", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 1000 } }, grepInvert: /@phone/ },
     { name: "phone-390", use: { ...devices["iPhone 13"], browserName: "chromium" }, grep: /@phone/ },
   ],
 });

@@ -97,6 +97,14 @@ test.describe("A2 duplicate review", () => {
     await undoBtn.click();
     await expect(page.getByTestId("decision")).toHaveCount(0);
     await expect(actions.getByRole("button", { name: "Link anyway" })).toBeEnabled();
+    // Decision 49: the admin's override entry now reads "Link undone" with the reason; the admin marks it reviewed.
+    await login(page, ADMIN);
+    await page.goto("/m/fd/match");
+    const row = page.locator('[data-kind="undone"]').filter({ hasText: `Wrong Rahima, re-checked ${RUN}` });
+    await expect(row).toContainText("Link undone");
+    await expect(row.getByTestId("undo-line")).toContainText("Test Receptionist");
+    await row.getByRole("button", { name: "Mark reviewed" }).click();
+    await expect(row).toHaveCount(0);
   });
   test("A2: Send for review, then Undo", async ({ page }) => {
     await login(page);

@@ -60,15 +60,20 @@ export async function vitalsView(tx: Tx, s: SessionData, encounterId: string) {
   // "Current" = the most recently *measured* batch: an offline tablet syncing late must not hide a newer reading.
   const latest = await tx.observation.findFirst({ where: { encounterId: e.id, category: "vital-signs", status: { not: "entered_in_error" } }, orderBy: [{ effectiveAt: "desc" }, { recordedAt: "desc" }] });
   const current = latest ? await batchOf(tx, latest.batchId) : null;
-  // The previous value per code from earlier visits at this facility (DISTINCT ON keeps one row per code, newest
-  // first). Readings from the tenant's other facilities are not shown (security review; open question 45).
+  // The previous value per code from earlier visits anywhere in this tenant (DISTINCT ON keeps one row per code,
+  // newest first). One patient record per tenant (decision 21); readings from another branch or facility are shown
+  // read-only with that branch's name (decision of 02/10/2026, open question 45). Other tenants: never (RLS).
   const prev = await tx.observation.findMany({
-    where: { patientId: e.patientId, organizationId: s.organizationId, category: "vital-signs", status: { not: "entered_in_error" }, encounterId: { not: e.id } },
+    where: { patientId: e.patientId, category: "vital-signs", status: { not: "entered_in_error" }, encounterId: { not: e.id } },
     orderBy: [{ code: "asc" }, { effectiveAt: "desc" }], distinct: ["code"],
   });
+  const branches = new Map((await tx.location.findMany({ where: { id: { in: [...new Set(prev.map((o) => o.branchId))] } }, select: { id: true, name: true, nameBn: true } })).map((b) => [b.id, b]));
   return {
     encounter: toVitalsEncounter(e), current,
-    previous: prev.map((o) => ({ code: o.code, value: o.value, unit: o.unit, effectiveAt: o.effectiveAt.toISOString() })),
+    previous: prev.map((o) => ({
+      code: o.code, value: o.value, unit: o.unit, effectiveAt: o.effectiveAt.toISOString(),
+      branch: branches.get(o.branchId) ?? null, otherBranch: o.branchId !== e.branchId,
+    })),
     /** for the view audit: which earlier batches were revealed */
     previousBatches: [...new Set(prev.map((o) => o.batchId))],
   };

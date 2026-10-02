@@ -116,6 +116,7 @@ export function FrontDeskQueue() {
                       <span style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         <b className="num" style={{ whiteSpace: "nowrap" }}>{i.token}</b>
                         {justRegistered === i.id && <Pill tone="info" icon="sparkles">{T("just_registered")}</Pill>}
+                        {i.vitalsFlag === "critical" && <span data-testid="critical-flag"><Pill tone="bad" icon="siren">{T("critical_vitals")}</Pill></span>}
                       </span>
                       <span style={{ fontWeight: 600 }}>{name(i)}</span>
                       <span className="t-small t-muted">{L.age(i.patient)} {L.sex(i.patient.sex)} · {T(`visit_${i.visitType}`)}</span>

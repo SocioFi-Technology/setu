@@ -58,7 +58,7 @@ export async function frontDeskRoutes(app: FastifyInstance) {
     const { taskId } = req.params as { taskId: string };
     return command(req, reply, async (tx, s) => {
       const r = await keepOverride(tx, s, taskId, new Date());
-      return { body: { taskId: r.taskId, subject: toSummary(r.subject), outcome: "kept" }, audit: [{ action: "update", entity: "Task", entityId: taskId, patientId: r.subject.id, detail: { decision: "keep-link" } }] };
+      return { body: { taskId: r.taskId, subject: toSummary(r.subject), outcome: r.outcome }, audit: [{ action: "update", entity: "Task", entityId: taskId, patientId: r.subject.id, detail: { decision: r.outcome === "kept" ? "keep-link" : "undo-reviewed" } }] };
     });
   });
 

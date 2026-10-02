@@ -155,6 +155,8 @@ export const QueueItem = z.object({
   statusAt: z.string(),
   /** What the board may do next; the server applies these through the ENCOUNTER machine. */
   actions: z.array(QueueAction),
+  /** "critical" when any vital sign recorded in this visit was critical (HH/LL) — decision 47 of 02/10/2026. */
+  vitalsFlag: z.enum(["critical"]).nullable(),
 });
 export type QueueItem = z.infer<typeof QueueItem>;
 
@@ -179,11 +181,13 @@ export const QueueActionRequest = z.object({ action: QueueAction });
 
 /* Decision 16 (02/10/2026): "Link anyway" stays immediate; an admin reviews it afterwards and can unlink. */
 export const UnlinkRequest = z.object({ reason: z.string().max(500) });
-export const ReviewKind = z.enum(["review", "override"]);
+export const ReviewKind = z.enum(["review", "override", "undone"]);
 export const ReviewItem = z.object({
   taskId: z.string(),
-  /** review = "Send for review" (still open); override = "Link anyway" (linked with override, awaiting admin review). */
+  /** review = "Send for review" (still open); override = "Link anyway" (linked with override, awaiting admin review);
+      undone = a Link anyway the desk has since undone, with its reason (decision 49), awaiting admin review. */
   kind: ReviewKind,
+  undo: z.object({ reason: z.string().nullable(), at: z.string(), by: z.object({ id: z.string(), nameBn: z.string(), nameEn: z.string() }).nullable() }).nullable(),
   subject: PatientSummary,
   candidate: PatientSummary.nullable(),
   reason: z.string().nullable(),
@@ -194,5 +198,5 @@ export const ReviewItem = z.object({
 export type ReviewItem = z.infer<typeof ReviewItem>;
 export const ReviewQueueResponse = z.object({ items: z.array(ReviewItem) });
 export type ReviewQueueResponse = z.infer<typeof ReviewQueueResponse>;
-export const ReviewOutcomeResponse = z.object({ taskId: z.string().nullable(), subject: PatientSummary, outcome: z.enum(["unlinked", "kept"]) });
+export const ReviewOutcomeResponse = z.object({ taskId: z.string().nullable(), subject: PatientSummary, outcome: z.enum(["unlinked", "kept", "reviewed"]) });
 export type ReviewOutcomeResponse = z.infer<typeof ReviewOutcomeResponse>;

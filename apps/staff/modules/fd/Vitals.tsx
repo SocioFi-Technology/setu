@@ -120,7 +120,9 @@ function VitalsEntry({ encounterId }: { encounterId: string }) {
     const p = fl.code.map(prev);
     if (!p[0]) return V("no_last");
     const v = fl.f === "bp" ? `${s.n(p[0].value)}/${p[1] ? s.n(p[1].value) : "—"}` : s.n(p[0].value);
-    return V("last", { v, d: dm(p[0].effectiveAt) });
+    // From another branch or facility of this owner: shown read-only with that branch's name (decision 45).
+    const where = p[0].otherBranch && p[0].branch ? ` · ${s.lang === "bn" ? p[0].branch.nameBn ?? p[0].branch.name : p[0].branch.name}` : "";
+    return V("last", { v, d: dm(p[0].effectiveAt) }) + where;
   };
   const status = (fl: VitalField) => a.fields.find((x) => x.field === fl);
   const wPrev = prev("body-weight"); const wNow = values.weight;
@@ -142,6 +144,7 @@ function VitalsEntry({ encounterId }: { encounterId: string }) {
       {!s.online && <Callout tone="warn" icon="cloud-off">{V("offline_banner")}</Callout>}
       {closed && <Callout tone="warn" icon="lock">{V("visit_closed")}</Callout>}
       {minor && <Callout icon="baby">{V("adult_ranges")}</Callout>}
+      <span className="t-small t-muted" data-testid="default-thresholds">{V("default_thresholds")}</span>
       {view.current && save.st !== "saved" && <span className="t-small t-muted">{V("saved_before", { at: format.dateTime(view.current.recordedAt, s.numerals === "bn") })}</span>}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 12 }}>

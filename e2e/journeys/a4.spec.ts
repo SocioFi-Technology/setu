@@ -36,6 +36,7 @@ test("A4: impossible values block the save, abnormal ones warn in text, Saved on
   await page.locator(`[data-vitals-token="${visit.token}"]`).click();
   await expect(page.locator(".pt-banner")).toContainText("Rahima Khatun");
   await expect(page.getByTestId("vitals-stamp")).toHaveText("Not saved yet · Recording as Test Nurse");
+  await expect(page.getByTestId("default-thresholds")).toHaveText("Default thresholds (prototype + adult NEWS2) — pending clinician sign-off");
   await expect(card(page, "bp")).toContainText(/Last: \d+\/\d+ · \d\d\/\d\d/);
 
   // Impossible: the prototype's error demo (994 °F) and SpO₂ over 100 — save is blocked.
@@ -52,7 +53,7 @@ test("A4: impossible values block the save, abnormal ones warn in text, Saved on
   await page.getByRole("textbox", { name: "SpO₂" }).fill("98");
   await page.getByRole("textbox", { name: "Systolic" }).fill("150");
   await page.getByRole("textbox", { name: "Diastolic" }).fill("95");
-  await page.getByRole("textbox", { name: "Pulse" }).fill("96");
+  await page.getByRole("textbox", { name: "Pulse" }).fill("84");
   await page.getByRole("textbox", { name: "Weight" }).fill("58");
   await page.getByRole("textbox", { name: "Height" }).fill("152");
   await expect(card(page, "bp")).toContainText("High — 140/90 mmHg or above");
@@ -69,6 +70,7 @@ test("A4: impossible values block the save, abnormal ones warn in text, Saved on
   await login(page, DESK);
   await page.goto(`/m/fd/queue?sel=${visit.id}`);
   await expect(page.locator('[data-column="vitals"]')).toContainText(visit.token);
+  await expect(page.locator(`[data-token-id="${visit.id}"]`).getByTestId("critical-flag")).toHaveCount(0);
 });
 
 test("A4 offline: the batch waits on the device as 'not synced' and is stored when back online", async ({ page, request }) => {
@@ -105,6 +107,10 @@ test("A4 / clinical review: glucose that may be in mg/dL needs a re-checked tick
   await expect(save).toBeEnabled();
   await save.click();
   await expect(page.getByTestId("vitals-stamp")).toContainText("server confirmed");
+  // Decision 47: a critical value (glucose 32, re-checked) flags the token on the desk's queue.
+  await login(page, DESK);
+  await page.goto(`/m/fd/queue?sel=${visit.id}`);
+  await expect(page.locator(`[data-token-id="${visit.id}"]`).getByTestId("critical-flag")).toHaveText("Critical vital sign");
 });
 
 test("A4: the doctor cannot open the vitals station (role)", async ({ page }) => {

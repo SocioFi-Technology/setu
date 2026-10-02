@@ -46,7 +46,7 @@ export function ReviewQueue() {
   useEffect(() => { s.setPatient(null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const name = (p: { nameBn: string; nameEn: string | null }) => (s.lang === "bn" ? p.nameBn : p.nameEn ?? p.nameBn);
   const keep = async (i: ReviewItem) => {
-    try { await fd.keep(i.taskId); toast(T("kept_done"), "check"); await load(); }
+    try { await fd.keep(i.taskId); toast(T(i.kind === "undone" ? "reviewed_done" : "kept_done"), "check"); await load(); }
     catch (e) { toast(e instanceof ApiFailure ? s.L(e.body.message_bn, e.body.message_en) : T("error_generic"), "triangle-alert"); }
   };
 
@@ -62,17 +62,19 @@ export function ReviewQueue() {
       {items?.map((i) => (
         <Card key={i.taskId} data-review={i.taskId} data-kind={i.kind} style={{ display: "flex", flexDirection: "column", gap: 8, padding: 16 }}>
           <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            {i.kind === "override" ? <Pill tone="warn" icon="link-2">{T("linked_with_override")}</Pill> : <Pill tone="info" icon="send">{T("waiting_for_review")}</Pill>}
+            {i.kind === "override" ? <Pill tone="warn" icon="link-2">{T("linked_with_override")}</Pill> : i.kind === "undone" ? <Pill tone="neu" icon="undo-2">{T("link_undone")}</Pill> : <Pill tone="info" icon="send">{T("waiting_for_review")}</Pill>}
             <b>{name(i.subject)}</b><span className="t-small t-muted num">{i.subject.facilityNo} · {L.age(i.subject)} {L.sex(i.subject.sex)}</span>
             {i.candidate && <><span className="t-muted">→</span><b>{name(i.candidate)}</b><span className="t-small t-muted num">{i.candidate.facilityNo} · {L.age(i.candidate)} {L.sex(i.candidate.sex)}</span></>}
           </span>
           {i.conflicts.length > 0 && <span className="t-small">{T("conflicts_note", { n: i.conflicts.length })}: {i.conflicts.map((f) => T(`f_${f}`)).join(", ")}</span>}
           {i.reason && <span className="t-small">{T("reason_label").replace(" *", "")}: “{i.reason}”</span>}
+          {i.undo && <span className="t-small" data-testid="undo-line">{T("undo_reason_line", { reason: i.undo.reason ?? "—", name: i.undo.by ? (s.lang === "bn" ? i.undo.by.nameBn : i.undo.by.nameEn) : "—" })}</span>}
           <span className="t-small t-muted">{i.requestedBy ? (s.lang === "bn" ? i.requestedBy.nameBn : i.requestedBy.nameEn) : "—"} · <span className="num">{s.n(new Date(i.requestedAt).toLocaleString("en-GB", { timeZone: "Asia/Dhaka", dateStyle: "short", timeStyle: "short" }))}</span></span>
           <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Button size="sm" icon="git-compare" onClick={() => router.push(`/m/fd/match?id=${i.subject.id}`)}>{T("open_review")}</Button>
             {isAdmin && i.kind === "override" && <Button size="sm" variant="danger" icon="unlink" onClick={() => setUnlinking(i)}>{T("unlink")}</Button>}
             {isAdmin && i.kind === "override" && <Button size="sm" icon="check" onClick={() => void keep(i)}>{T("keep_link")}</Button>}
+            {isAdmin && i.kind === "undone" && <Button size="sm" icon="check" onClick={() => void keep(i)}>{T("mark_reviewed")}</Button>}
           </span>
         </Card>
       ))}

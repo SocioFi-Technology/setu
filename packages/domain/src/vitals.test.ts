@@ -28,25 +28,32 @@ describe("vitals: abnormal values warn with text, they do not block", () => {
     expect(lv({ bpSys: 150, bpDia: 95 }, "bp")).toMatchObject({ level: "high", interpretation: "H" });
     expect(lv({ bpSys: 185, bpDia: 100 }, "bp")).toMatchObject({ level: "critical", interpretation: "HH" });
     expect(lv({ bpSys: 130, bpDia: 121 }, "bp")).toMatchObject({ level: "critical" });
-    expect(lv({ bpSys: 85, bpDia: 60 }, "bp")).toMatchObject({ level: "low", interpretation: "L" });
+    expect(lv({ bpSys: 105, bpDia: 60 }, "bp")).toMatchObject({ level: "low", interpretation: "L" });
     expect(lv({ bpSys: 120, bpDia: 80 }, "bp")).toMatchObject({ level: "normal", interpretation: "N" });
   });
-  it("pulse: > 120 critical, > 100 fast, < 50 slow", () => {
+  it("pulse: > 120 critical, > 90 fast (NEWS2), ≤ 50 slow, ≤ 40 critical", () => {
     expect(lv({ pulse: 124 }, "pulse")?.level).toBe("critical");
-    expect(lv({ pulse: 101 }, "pulse")?.level).toBe("high");
-    expect(lv({ pulse: 100 }, "pulse")?.level).toBe("normal");
+    expect(lv({ pulse: 91 }, "pulse")?.level).toBe("high");
+    expect(lv({ pulse: 90 }, "pulse")?.level).toBe("normal");
     expect(lv({ pulse: 48 }, "pulse")?.level).toBe("low");
+    expect(lv({ pulse: 40 }, "pulse")).toMatchObject({ level: "critical", interpretation: "LL" });
   });
-  it("temperature (°F): ≥ 103 critical, ≥ 100.4 fever, < 95 low", () => {
+  it("temperature (°F): ≥ 103 critical, ≥ 100.4 fever, ≤ 96.8 low, ≤ 95.0 critical (NEWS2 ≤ 35.0 °C)", () => {
     expect(lv({ temp: 103 }, "temp")?.level).toBe("critical");
     expect(lv({ temp: 100.4 }, "temp")?.level).toBe("high");
     expect(lv({ temp: 99.4 }, "temp")?.level).toBe("normal");
-    expect(lv({ temp: 94 }, "temp")?.level).toBe("low");
+    expect(lv({ temp: 96.8 }, "temp")?.level).toBe("low");
+    expect(lv({ temp: 95 }, "temp")).toMatchObject({ level: "critical", interpretation: "LL" });
   });
-  it("SpO₂: < 90 critical (LL), < 95 low", () => {
-    expect(lv({ spo2: 88 }, "spo2")).toMatchObject({ level: "critical", interpretation: "LL" });
-    expect(lv({ spo2: 94 }, "spo2")?.level).toBe("low");
-    expect(lv({ spo2: 98 }, "spo2")?.level).toBe("normal");
+  it("SpO₂ (NEWS2 scale 1): ≤ 91 critical (LL), ≤ 95 low", () => {
+    expect(lv({ spo2: 91 }, "spo2")).toMatchObject({ level: "critical", interpretation: "LL" });
+    expect(lv({ spo2: 95 }, "spo2")?.level).toBe("low");
+    expect(lv({ spo2: 96 }, "spo2")?.level).toBe("normal");
+  });
+  it("BP (NEWS2): systolic ≤ 90 is critical low; 91–110 low", () => {
+    expect(lv({ bpSys: 85, bpDia: 50 }, "bp")).toMatchObject({ level: "critical", code: "bp_critical_low", interpretation: "LL" });
+    expect(lv({ bpSys: 110, bpDia: 70 }, "bp")?.level).toBe("low");
+    expect(lv({ bpSys: 111, bpDia: 70 }, "bp")?.level).toBe("normal");
   });
   it("RBS (mmol/L): < 2.8 critical, < 3.9 low, random ≥ 11.1 / fasting ≥ 7.0 high", () => {
     expect(lv({ rbs: 2.5 }, "rbs")).toMatchObject({ level: "critical", interpretation: "LL" });
@@ -56,7 +63,7 @@ describe("vitals: abnormal values warn with text, they do not block", () => {
     expect(lv({ rbs: 7.2, rbsMode: "random" }, "rbs")?.level).toBe("normal");
   });
   it("the summary counts out-of-range values and flags a critical one", () => {
-    const a = assessVitals({ bpSys: 150, bpDia: 95, pulse: 96, temp: 99.4, spo2: 98, rbs: 11.2, weight: 58, height: 152 });
+    const a = assessVitals({ bpSys: 150, bpDia: 95, pulse: 84, temp: 99.4, spo2: 98, rbs: 11.2, weight: 58, height: 152 });
     expect(a.blocked).toBe(false);
     expect(a.outOfRange).toBe(2);
     expect(a.critical).toBe(false);
@@ -96,7 +103,8 @@ describe("parsing typed values", () => {
 describe("clinical review fixes (02/10/2026)", () => {
   it("systolic and diastolic are flagged separately: 150/80 stores the 80 as normal", () => {
     expect(bpComponents(150, 80)).toEqual({ sys: "H", dia: "N" });
-    expect(bpComponents(85, 60)).toEqual({ sys: "L", dia: "N" });
+    expect(bpComponents(85, 60)).toEqual({ sys: "LL", dia: "N" });
+    expect(bpComponents(105, 60)).toEqual({ sys: "L", dia: "N" });
     expect(bpComponents(130, 121)).toEqual({ sys: "N", dia: "HH" });
   });
   it("glucose typed in mg/dL: above 40 is blocked with a unit message; 25–40 needs a re-checked tick", () => {

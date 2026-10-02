@@ -56,7 +56,12 @@ export const VitalsView = z.object({
   encounter: VitalsEncounter,
   current: VitalsBatch.nullable(),
   /** Latest value per code from earlier visits, with when it was measured. */
-  previous: z.array(z.object({ code: z.string(), value: z.number(), unit: z.string(), effectiveAt: z.string() })),
+  previous: z.array(z.object({
+    code: z.string(), value: z.number(), unit: z.string(), effectiveAt: z.string(),
+    /** where it was measured; `otherBranch` = not this visit's branch (shown read-only with the branch name) */
+    branch: z.object({ id: z.string(), name: z.string(), nameBn: z.string().nullable() }).nullable(),
+    otherBranch: z.boolean(),
+  })),
 });
 export type VitalsView = z.infer<typeof VitalsView>;
 

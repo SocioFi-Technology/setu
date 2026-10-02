@@ -251,7 +251,12 @@ export async function undoDecision(tx: Tx, s: SessionData, subjectId: string, re
     const t = await tx.task.findFirst({ where: { id: d.taskId } });
     if (t?.status === "requested")
       await tx.task.update({ where: { id: t.id }, data: { status: transition("approval", APPROVAL, "requested", "reject"), decidedById: s.userId, decidedAt: now, decisionNote: "withdrawn" } });
-    // An approved link-anyway Task stays approved (APPROVAL has no way back); this undo row records the unlink.
+    // An approved link-anyway Task stays approved (APPROVAL has no way back). Undoing a Link anyway updates that
+    // override entry in the admin queue to "undone + reason" (decision 49); an ordinary undo is audit-only.
+    else if (t && last.activity === "link-anyway" && t.status === "approved") {
+      const detail = { ...((t.detail ?? {}) as ReviewDetail), undo: { by: s.userId, at: now.toISOString(), reason } };
+      await tx.task.update({ where: { id: t.id }, data: { detail: detail as object } });
+    }
   }
   // Visits opened on the linked record in between stay where they are (open question 17); the undo records them.
   const visitsSince = view.visitsSince.map((v) => v.encounterId);
@@ -299,7 +304,7 @@ export async function branchOf(tx: Tx, s: SessionData) {
 }
 
 type EncounterRow = NonNullable<Awaited<ReturnType<Tx["encounter"]["findFirst"]>>> & { patient: PatientRow };
-export const toQueueItem = (e: EncounterRow): QueueItem => {
+export const toQueueItem = (e: EncounterRow, critical: Set<string> = new Set()): QueueItem => {
   const status = dash<EncounterState>(e.status);
   const p = toSummary(e.patient);
   return {
@@ -307,8 +312,15 @@ export const toQueueItem = (e: EncounterRow): QueueItem => {
     patient: { id: p.id, facilityNo: p.facilityNo, nameBn: p.nameBn, nameEn: p.nameEn, sex: p.sex, birthDate: p.birthDate, approxAgeYears: p.approxAgeYears, approxAgeMonths: p.approxAgeMonths, approxAgeAt: p.approxAgeAt, identityConfidence: p.identityConfidence },
     arrivedAt: iso(e.arrivedAt), calledAt: iso(e.calledAt), statusAt: e.statusAt.toISOString(),
     actions: [...(status === "arrived" || status === "triaged" ? (["call"] as const) : []), ...frontDeskActions(status).map((a) => a.key)],
+    vitalsFlag: critical.has(e.id) ? "critical" : null,
   };
 };
+/** Visits with any critical vital sign (HH/LL) — any batch in the visit, so a calmer re-measure never hides it. */
+export async function criticalVisits(tx: Tx, encounterIds: string[]): Promise<Set<string>> {
+  if (!encounterIds.length) return new Set();
+  const rows = await tx.observation.findMany({ where: { encounterId: { in: encounterIds }, interpretation: { in: ["HH", "LL"] }, status: { not: "entered_in_error" } }, select: { encounterId: true }, distinct: ["encounterId"] });
+  return new Set(rows.map((r) => r.encounterId));
+}
 const encounterInclude = { patient: { include: patientInclude } };
 
 export async function createVisit(tx: Tx, s: SessionData, patientId: string, visitType: string, now: Date) {
@@ -332,7 +344,8 @@ export async function createVisit(tx: Tx, s: SessionData, patientId: string, vis
 export async function queueBoard(tx: Tx, s: SessionData, day: string) {
   const branch = await branchOf(tx, s);
   const rows = (await tx.encounter.findMany({ where: { branchId: branch.id, tokenDay: day }, include: encounterInclude, orderBy: { tokenNo: "asc" } })) as EncounterRow[];
-  const items = rows.map(toQueueItem);
+  const critical = await criticalVisits(tx, rows.map((r) => r.id));
+  const items = rows.map((r) => toQueueItem(r, critical));
   const { QUEUE_COLUMNS } = await import("@setu/domain");
   return {
     day, branch: { id: branch.id, name: branch.name, nameBn: branch.nameBn },
@@ -349,7 +362,7 @@ export async function queueAction(tx: Tx, s: SessionData, encounterId: string, a
   if (action === "call") {
     if (from !== "arrived" && from !== "triaged") throw err(409, "invalid_transition", "এই অবস্থায় ডাকা যায় না", "Cannot call a patient in this state");
     const u = await tx.encounter.update({ where: { id: e.id }, data: { calledAt: now }, include: encounterInclude });
-    return { item: toQueueItem(u as EncounterRow), from, event: "call" };
+    return { item: toQueueItem(u as EncounterRow, await criticalVisits(tx, [e.id])), from, event: "call" };
   }
   const a = frontDeskActions(from).find((x) => x.key === action);
   if (!a) throw err(409, "invalid_transition", "এই অবস্থায় এটি করা যায় না", "That step is not allowed from this state");
@@ -358,11 +371,16 @@ export async function queueAction(tx: Tx, s: SessionData, encounterId: string, a
   const n = await tx.encounter.updateMany({ where: { id: e.id, status: e.status }, data: { status: under<DbEncounterStatus>(to), statusAt: now, ...(action === "noShow" ? { cancelReason: "no-show" } : {}) } });
   if (n.count !== 1) throw err(409, "stale", "অন্য কেউ আগেই বদলেছেন — আবার দেখুন", "Someone else changed this token first — refresh");
   const u = await tx.encounter.findFirst({ where: { id: e.id }, include: encounterInclude });
-  return { item: toQueueItem(u as EncounterRow), from, event: a.event };
+  return { item: toQueueItem(u as EncounterRow, await criticalVisits(tx, [e.id])), from, event: a.event };
 }
 
 /* ───── admin after-the-fact review (decision 16, 02/10/2026) ───── */
-type ReviewDetail = { conflicts?: string[]; fields?: unknown; review?: { by: string; at: string; outcome: "unlinked" | "kept"; reason?: string | null } };
+type ReviewDetail = {
+  conflicts?: string[]; fields?: unknown;
+  review?: { by: string; at: string; outcome: "unlinked" | "kept" | "undo-reviewed"; reason?: string | null };
+  /** The desk undid this Link anyway (decision 49 of 02/10/2026): the entry stays in the admin queue as "undone". */
+  undo?: { by: string; at: string; reason: string | null };
+};
 const isOpenOverride = (t: { status: string; decisionNote: string | null; detail: unknown }) =>
   t.status === "approved" && t.decisionNote === "link-anyway" && !(t.detail as ReviewDetail | null)?.review;
 
@@ -372,22 +390,26 @@ export async function reviewQueue(tx: Tx) {
   const live = tasks.filter((t) => t.status === "requested" || isOpenOverride(t));
   const ids = [...new Set(live.flatMap((t) => [t.focusId, t.candidateId]).filter((x): x is string => Boolean(x)))];
   const patients = new Map(((await tx.patient.findMany({ where: { id: { in: ids } }, include: patientInclude })) as PatientRow[]).map((p) => [p.id, p]));
-  const users = new Map((await tx.user.findMany({ where: { id: { in: [...new Set(live.map((t) => t.requestedById))] } }, select: { id: true, nameBn: true, nameEn: true } })).map((u) => [u.id, u]));
+  const userIds = [...new Set(live.flatMap((t) => [t.requestedById, (t.detail as ReviewDetail | null)?.undo?.by]).filter((x): x is string => Boolean(x)))];
+  const users = new Map((await tx.user.findMany({ where: { id: { in: userIds } }, select: { id: true, nameBn: true, nameEn: true } })).map((u) => [u.id, u]));
   return live.flatMap((t) => {
     const subject = t.focusId ? patients.get(t.focusId) : undefined;
     if (!subject) return [];
-    // An override whose link was undone since is no longer an override.
-    if (t.status === "approved" && subject.linkedToId !== t.candidateId) return [];
+    const undo = (t.detail as ReviewDetail | null)?.undo ?? null;
+    // An override undone at the desk stays as "undone + reason" until an admin has looked at it (decision 49).
+    // One whose link changed any other way (e.g. relinked elsewhere) is no longer an override.
+    if (t.status === "approved" && !undo && subject.linkedToId !== t.candidateId) return [];
     const candidate = t.candidateId ? patients.get(t.candidateId) : undefined;
     return [{
-      taskId: t.id, kind: (t.status === "requested" ? "review" : "override") as "review" | "override",
+      taskId: t.id, kind: (t.status === "requested" ? "review" : undo ? "undone" : "override") as "review" | "override" | "undone",
+      undo: undo ? { reason: undo.reason, at: undo.at, by: users.get(undo.by) ?? null } : null,
       subject: toSummary(subject), candidate: candidate ? toSummary(candidate) : null, reason: t.reason,
       conflicts: ((t.detail as ReviewDetail | null)?.conflicts ?? []) as never[], requestedBy: users.get(t.requestedById) ?? null, requestedAt: t.requestedAt.toISOString(),
     }];
   });
 }
 
-const markReviewed = async (tx: Tx, s: SessionData, taskId: string, outcome: "unlinked" | "kept", reason: string | null, now: Date) => {
+const markReviewed = async (tx: Tx, s: SessionData, taskId: string, outcome: "unlinked" | "kept" | "undo-reviewed", reason: string | null, now: Date) => {
   const t = await tx.task.findFirst({ where: { id: taskId } });
   if (!t) return;
   const detail = { ...((t.detail ?? {}) as ReviewDetail), review: { by: s.userId, at: now.toISOString(), outcome, reason } };
@@ -413,13 +435,19 @@ export async function unlinkPatient(tx: Tx, s: SessionData, subjectId: string, r
   return { subject: await getPatient(tx, subject.id), taskId: open[0]?.id ?? null, unlinkedFrom: from };
 }
 
-/** Admin: the override was right — keep the link and take it off the review queue. */
+/** Admin: the override was right — keep the link and take it off the review queue. For an override the desk has
+    since undone, this marks the undo as reviewed (decision 49). */
 export async function keepOverride(tx: Tx, s: SessionData, taskId: string, now: Date) {
   const t = await tx.task.findFirst({ where: { id: taskId, kind: REVIEW } });
   if (!t || !isOpenOverride(t) || !t.focusId) throw err(409, "not_an_open_override", "এটি রিভিউয়ের অপেক্ষায় থাকা লিংক নয়", "This is not a link awaiting review");
   const subject = await getPatient(tx, t.focusId);
+  if ((t.detail as ReviewDetail | null)?.undo) {
+    await markReviewed(tx, s, t.id, "undo-reviewed", null, now);
+    await tx.provenance.create({ data: { tenantId: s.tenantId, targetType: "Patient", targetId: subject.id, activity: "link-reviewed", agentId: s.userId, onBehalfOf: s.organizationId, source: "desk_decision", detail: { taskId: t.id, outcome: "undo-reviewed" } as object } });
+    return { subject, taskId: t.id, outcome: "reviewed" as const };
+  }
   if (subject.linkedToId !== t.candidateId) throw err(409, "not_an_open_override", "এটি রিভিউয়ের অপেক্ষায় থাকা লিংক নয়", "This is not a link awaiting review");
   await markReviewed(tx, s, t.id, "kept", null, now);
   await tx.provenance.create({ data: { tenantId: s.tenantId, targetType: "Patient", targetId: subject.id, activity: "link-reviewed", agentId: s.userId, onBehalfOf: s.organizationId, source: "desk_decision", detail: { taskId: t.id, outcome: "kept" } as object } });
-  return { subject, taskId: t.id };
+  return { subject, taskId: t.id, outcome: "kept" as const };
 }
