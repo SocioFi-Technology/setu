@@ -13,6 +13,6 @@ export default async function globalSetup() {
   const ctx = await request.newContext({ baseURL });
   const login = await ctx.post("/api/v1/auth/login", { data: { identifier: "01799000001", password: "setu1234" } });
   if (!login.ok()) throw new Error(`global-setup: E2E receptionist cannot sign in (${login.status()}) — is the stack running and seeded?`);
-  for (const path of ["/", "/m/fd/search", "/m/fd/match", "/m/fd/register", "/m/fd/queue", "/m/fd/vitals", "/m/cons/draft", "/m/cons/signed", "/m/cons/amended", "/m/bill/opd", "/m/bill/pay", "/m/bill/receipt", "/m/bill/approvals"]) await ctx.get(path, { timeout: 120_000 });
+  for (const path of ["/", "/m/fd/search", "/m/fd/match", "/m/fd/register", "/m/fd/queue", "/m/fd/vitals", "/m/cons/draft", "/m/cons/signed", "/m/cons/amended", "/m/bill/opd", "/m/bill/pay", "/m/bill/receipt", "/m/bill/approvals", "/m/bill/reconcile"]) await ctx.get(path, { timeout: 120_000 });
   await ctx.dispose();
 }
