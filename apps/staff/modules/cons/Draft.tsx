@@ -79,17 +79,18 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
     revRef.current = v.draft.rev; setForm(f); setView(v); setSync({ st: "saved", at: v.draft.updatedAt });
   }, [encounterId, router, setView]);
 
-  /** A device copy of this note waits: send it first (with the rev it was based on), then carry on from the server. */
+  /** A device copy of this note waits: send it first (with the rev it was based on), then carry on from the server.
+      The outbox may already have sent it when the browser came back online — then only the rev is read back. */
   const syncDevice = useCallback(async (): Promise<void> => {
     const before = deviceDraft(id);
-    if (!before || before.conflict) return;
-    await flush();
+    if (before?.conflict) return;
+    if (before) await flush();
     const after = deviceDraft(id);
     if (after?.conflict) { setConflict(after); await adoptServer(); return; }
     if (after) { setSync({ st: "device" }); return; } // still offline or the server is down
     const v = await cons.view(encounterId);
     if (!v.draft) { router.replace(consUrl("signed", encounterId)); return; }
-    revRef.current = v.draft.rev; setView(v); lastSaved.current = JSON.stringify(before.body);
+    revRef.current = v.draft.rev; setView(v); lastSaved.current = JSON.stringify(bodyOf(formOf(v.draft)));
     if (JSON.stringify(bodyOf(formRef.current)) === lastSaved.current) setSync({ st: "saved", at: v.draft.updatedAt });
     else void save(); // typed more since the device copy
   }, [id, encounterId, adoptServer, router, setView]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -131,9 +132,10 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
   }, [form]); // eslint-disable-line react-hooks/exhaustive-deps
   // Back online with a device copy waiting: send it.
   useEffect(() => { if (s.online && syncRef.current.st === "device") void syncDevice(); }, [s.online, syncDevice]);
-  // Leaving the screen with an unsaved change: save now; closing the tab asks first.
+  // Leaving the screen with an unsaved change: save now; closing the tab asks first. A draft already kept on this device
+  // does not ask (it is kept until sent; sign-out clears it, as decided).
   useEffect(() => {
-    const warn = (e: BeforeUnloadEvent) => { if (syncRef.current.st !== "saved") e.preventDefault(); };
+    const warn = (e: BeforeUnloadEvent) => { if (["dirty", "saving", "failed"].includes(syncRef.current.st)) e.preventDefault(); };
     window.addEventListener("beforeunload", warn);
     return () => { window.removeEventListener("beforeunload", warn); if (timer.current !== undefined && syncRef.current.st === "dirty") void save(); };
   }, [save]);
