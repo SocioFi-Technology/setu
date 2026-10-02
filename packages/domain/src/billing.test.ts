@@ -213,5 +213,8 @@ describe("typed amounts → paisa (no floating point)", () => {
     expect(parsePercentBp("10")).toBe(1000);
     expect(parsePercentBp("2.5")).toBe(250);
     expect(parsePercentBp("100.01")).toBeNull();
+    const { paisaToInput } = await import("./money.js");
+    expect([paisaToInput(230_000), paisaToInput(50_050), paisaToInput(7)]).toEqual(["2300", "500.50", "0.07"]);
+    expect(parseTaka(paisaToInput(123_456))).toBe(123_456);
   });
 });

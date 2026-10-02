@@ -132,6 +132,26 @@ describe.runIf(db)("A7 receipts", () => {
   });
 });
 
+describe.runIf(db)("A7 receipts — review and hands-on fixes", () => {
+  it("a change only in pending money does not make a new receipt number", async () => {
+    const id = await issuedBill();
+    await post(`/v1/invoices/${id}/payments`, { method: "cash", amountPaisa: 30_000, tenderedPaisa: 30_000 });
+    const a = (await post(`/v1/invoices/${id}/receipts`)).json().receipt;
+    await post(`/v1/invoices/${id}/payments`, { method: "bkash", amountPaisa: 100_000 }); // pending only
+    const b = await post(`/v1/invoices/${id}/receipts`);
+    expect(b.statusCode).toBe(200);
+    expect(b.json().receipt.id).toBe(a.id);
+  });
+  it("the verify page's date is the receipt's own UTC time (hands-on: it showed the UTC clock as Dhaka time)", async () => {
+    const id = await issuedBill();
+    await post(`/v1/invoices/${id}/payments`, { method: "cash", amountPaisa: 230_000, tenderedPaisa: 230_000 });
+    const rc = (await post(`/v1/invoices/${id}/receipts`)).json().receipt;
+    // another visitor behind the staff app's proxy: the rate limit is per visitor (the earlier test used up its own)
+    const v = (await app.inject({ method: "GET", url: `/v1/verify/rc/${rc.verifyUrl.split("/").pop()}`, headers: { "x-forwarded-for": "203.0.113.9" } })).json();
+    expect(Math.abs(Date.parse(v.date) - Date.parse(rc.createdAt))).toBeLessThan(1000);
+  });
+});
+
 describe("receipt template", () => {
   const snapshot: ReceiptSnapshot = {
     seller: { nameEn: "Clinic", nameBn: "ক্লিনিক", address: null, vatBin: null, vatBinSample: false },
@@ -154,6 +174,14 @@ describe("receipt template", () => {
     expect(dup).toContain("DUPLICATE #2");
     expect(dup).toContain("অনুলিপি · DUPLICATE");
     expect(dup).toContain("Printer jam");
+  });
+  it("Mushak-6.3 only on the receipt that settles the bill; a part-payment receipt is a money receipt", () => {
+    const p = { copy: 0, reason: null, printedAt: new Date(), printedBy };
+    const seller = { ...snapshot.seller, vatBin: "000123456-0101", vatBinSample: true };
+    const part = receiptHtml({ ...base, snapshot: { ...snapshot, seller, paidPaisa: 10_000, duePaisa: 35_000 }, print: p });
+    expect(part).not.toContain("Mushak-6.3");
+    expect(part).toContain("MONEY RECEIPT");
+    expect(part).toContain("Amount received in words: One hundred taka only");
   });
   it("prints the Mushak-6.3 title and BIN only when the facility has a BIN", () => {
     const p = { copy: 0, reason: null, printedAt: new Date(), printedBy };

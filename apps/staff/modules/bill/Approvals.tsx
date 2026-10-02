@@ -35,7 +35,8 @@ export function BillApprovals() {
   };
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
-      if (!focus || tab !== "requested" || (e.target as HTMLElement).tagName === "TEXTAREA" || (e.target as HTMLElement).tagName === "INPUT") return;
+      if (!focus || busy || tab !== "requested" || (e.target as HTMLElement).tagName === "TEXTAREA" || (e.target as HTMLElement).tagName === "INPUT") return;
+      if (list?.items.find((x) => x.taskId === focus)?.requestedBy.id === s.me?.userId) return; // never your own request
       if (e.key === "a" || e.key === "A") { e.preventDefault(); void decide(focus, "approve"); }
       if (e.key === "r" || e.key === "R") { e.preventDefault(); void decide(focus, "reject"); }
     };

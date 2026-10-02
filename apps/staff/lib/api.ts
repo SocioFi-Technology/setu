@@ -92,6 +92,7 @@ export const bill = {
   approvals: (status: "requested" | "approved" | "rejected") => call<ApprovalList>("GET", "/v1/approvals?status=" + status),
   decide: (taskId: string, decision: "approve" | "reject", note: string, key: string) => call<ApprovalDecisionResponse>("POST", `/v1/approvals/${enc(taskId)}/${decision}`, note ? { note } : {}, key),
   pay: (id: string, body: NewPaymentRequest, key: string) => write<PaymentResponse>("POST", `/v1/invoices/${enc(id)}/payments`, body, "payment", key),
+  cancel: (paymentId: string) => call<PaymentResponse>("POST", `/v1/payments/${enc(paymentId)}/cancel`, {}, crypto.randomUUID()),
   retry: (paymentId: string) => call<PaymentResponse>("POST", `/v1/payments/${enc(paymentId)}/retry`, {}, crypto.randomUUID()),
   verifyTrx: (paymentId: string, trxId: string) => call<PaymentResponse>("POST", `/v1/payments/${enc(paymentId)}/verify-trx`, { trxId }, crypto.randomUUID()),
   /** dev and tests only: the fake gateway plays the customer (the API refuses it with a real provider or in production) */

@@ -29,7 +29,7 @@ export const Lang = z.enum(["bn", "en"]);
 export const PhoneDigits = z.string().regex(/^1[3-9]\d{8}$/, "invalid_bd_mobile");
 
 /** Money on the wire is integer paisa. */
-export const Paisa = z.number().int().nonnegative();
+export const Paisa = z.number().int().nonnegative().max(1_000_000_000); // ৳1 crore: @setu/domain MAX_PAISA, inside Postgres integer
 
 export const Cursor = z.object({ cursor: z.string().optional(), limit: z.number().int().min(1).max(100).default(25) });
 export const Page = <T extends z.ZodTypeAny>(item: T) => z.object({ items: z.array(item), next: z.string().nullable() });

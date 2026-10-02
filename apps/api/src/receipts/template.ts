@@ -39,6 +39,8 @@ export function qrSvg(text: string): string {
   return q.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
 }
 
+const fillT = (lang: "bn" | "en", key: string, vars: Record<string, string>) => t(lang, "billingApp", key).replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? vars[k]! : m));
+
 export function receiptHtml(i: TemplateInput): string {
   const s = i.snapshot;
   const bnDigits = i.lang === "bn";
@@ -65,16 +67,22 @@ export function receiptHtml(i: TemplateInput): string {
   const paidLine = s.paidBy.paid.map((p) => `${esc(method(p.method))} ${esc(tk(p.amountPaisa))}${p.trxId ? ` (${esc(L("r_trx"))} ${esc(p.trxId)})` : p.reference ? ` (${esc(p.reference)})` : ""}`).join(" + ") || "—";
   const pendingLine = s.paidBy.pending.map((p) => `${esc(method(p.method))} ${esc(tk(p.amountPaisa))} ${esc(L("r_pending"))}`).join(" · ");
   const discLine = s.discount && s.discountPaisa > 0
-    ? esc(L("r_disc_line", { amount: tk(s.discountPaisa), category: L(`cat_${s.discount.category}`) })) + (s.discount.approvedBy ? ` · ${esc(L("r_disc_approved", { name: name(s.discount.approvedBy.nameBn, s.discount.approvedBy.nameEn) }))}` : "")
+    ? (i.lang === "both"
+      ? `${esc(fillT("bn", "r_disc_line", { amount: tk(s.discountPaisa), category: t("bn", "billingApp", `cat_${s.discount.category}`) }))}${s.discount.approvedBy ? ` · ${esc(fillT("bn", "r_disc_approved", { name: s.discount.approvedBy.nameBn }))}` : ""}<br>`
+        + `${esc(fillT("en", "r_disc_line", { amount: tk(s.discountPaisa), category: t("en", "billingApp", `cat_${s.discount.category}`) }))}${s.discount.approvedBy ? ` · ${esc(fillT("en", "r_disc_approved", { name: s.discount.approvedBy.nameEn }))}` : ""}`
+      : esc(L("r_disc_line", { amount: tk(s.discountPaisa), category: L(`cat_${s.discount.category}`) })) + (s.discount.approvedBy ? ` · ${esc(L("r_disc_approved", { name: name(s.discount.approvedBy.nameBn, s.discount.approvedBy.nameEn) }))}` : ""))
     : "";
   const reprintLine = dup
     ? Ls("r_reprinted", { n: num(i.print.copy), at: when(i.print.printedAt), name: name(i.print.printedBy.nameBn, i.print.printedBy.nameEn), reason: L(`rr_${i.print.reason}`) })
     : Ls("r_printed", { at: when(i.print.printedAt), name: name(i.print.printedBy.nameBn, i.print.printedBy.nameEn) });
-  const mushak = Boolean(s.seller.vatBin);
+  /* Mushak-6.3 (VAT invoice) is printed once per bill — on the receipt that settles it — so two part-payments never
+     make two VAT invoices for one sale (review A6–A7; accountant to confirm pre-pilot). Other receipts are money
+     receipts. Needs the facility's BIN. */
+  const mushak = Boolean(s.seller.vatBin) && s.duePaisa === 0;
   const bin = s.seller.vatBin ? `${esc(L("r_bin"))} ${esc(s.seller.vatBin)}${s.seller.vatBinSample ? ` (${esc(L("r_sample"))})` : ""}` : "";
   const title = i.format === "a5" && mushak ? L("r_vat_invoice") : L("r_money_receipt");
   const dupTitle = dup ? `<div class="dup">${esc(L("r_duplicate"))} #${num(i.print.copy)}</div>` : "";
-  const watermark = dup ? `<div class="wm" aria-hidden="true">অনুলিপি · DUPLICATE</div>` : "";
+  const watermark = dup ? `<div class="wm" aria-hidden="true">${esc(t("bn", "billingApp", "r_duplicate"))} · ${esc(t("en", "billingApp", "r_duplicate"))}</div>` : "";
   const totals = [
     [L("r_subtotal"), tk(s.subtotalPaisa)],
     ...(s.discountPaisa > 0 ? [[L("r_discount"), `− ${tk(s.discountPaisa)}`]] : []),
@@ -83,9 +91,10 @@ export function receiptHtml(i: TemplateInput): string {
     [L("r_paid"), tk(s.paidPaisa)],
     [L("r_due"), tk(s.duePaisa)],
   ].map(([k, v, cls]) => `<tr class="${cls ?? ""}"><td>${esc(k)}</td><td class="r num">${esc(v)}</td></tr>`).join("");
-  const wordsHtml = i.lang === "en" ? `<div>${esc(L("r_in_words"))}: ${esc(words("en"))}</div>`
-    : i.lang === "bn" ? `<div>${esc(L("r_in_words"))}: ${esc(words("bn"))}</div>`
-    : `<div>কথায়: ${esc(words("bn"))}</div><div>In words: ${esc(words("en"))}</div>`;
+  // The words are of the money received on this receipt, and say so (review A6–A7).
+  const wordsHtml = i.lang === "en" ? `<div>${esc(t("en", "billingApp", "r_in_words"))}: ${esc(words("en"))}</div>`
+    : i.lang === "bn" ? `<div>${esc(t("bn", "billingApp", "r_in_words"))}: ${esc(words("bn"))}</div>`
+    : `<div>${esc(t("bn", "billingApp", "r_in_words"))}: ${esc(words("bn"))}</div><div>${esc(t("en", "billingApp", "r_in_words"))}: ${esc(words("en"))}</div>`;
   const qr = `<div class="qr">${qrSvg(i.verifyUrl)}</div>`;
 
   const page = i.format === "a5"
@@ -128,7 +137,7 @@ export function receiptHtml(i: TemplateInput): string {
     .num{font-variant-numeric:tabular-nums}.r{text-align:right}.c{text-align:center}.muted{color:#333}
     h1{margin:3mm 0 1mm}table{width:100%;border-collapse:collapse}td,th{padding:1px 2px;vertical-align:top;text-align:left}
     .head{display:flex;justify-content:space-between;gap:4mm;border-bottom:0.5pt solid #000;padding-bottom:2mm}
-    .lines thead th{border-bottom:0.5pt solid #000}.totals{margin-top:2mm}.totals tr.strong td{font-weight:700;border-top:0.5pt solid #000}
+    .meta td:nth-child(odd){white-space:nowrap;padding-right:3mm}.lines thead th{border-bottom:0.5pt solid #000}.totals{margin-top:2mm}.totals tr.strong td{font-weight:700;border-top:0.5pt solid #000}
     .vat{margin-top:2mm}.words{margin:2mm 0}.foot{display:flex;justify-content:space-between;margin-top:6mm}.sign{text-align:right}
     .qr svg{width:100%;height:100%;display:block}
     .dup{font-weight:700;letter-spacing:.5px;margin-bottom:1mm}hr{border:0;border-top:0.5pt dashed #000;margin:1.5mm 0}

@@ -841,6 +841,8 @@ model Payment {
   statusAt       DateTime      @default(now())
   @@unique([provider, providerRef])
   @@index([tenantId, invoiceId])
+  /// callbacks for an earlier (superseded) link are looked up by reference
+  @@index([supersededRefs], type: Gin)
 }
 
 /// Every provider callback, once (unique per provider event id): a repeat is answered from here and changes nothing.

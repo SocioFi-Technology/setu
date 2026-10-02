@@ -84,7 +84,11 @@ function BillView({ id }: { id: string }) {
 
   // A refresh that fails (offline, server away) keeps the last bill on screen; only a first load that fails shows the error.
   const have = useRef(false);
-  const load = useCallback(async () => { try { setV(await api.view(id)); have.current = true; } catch { if (!have.current) setFailed(true); } }, [id]);
+  const [stale, setStale] = useState(false); const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    try { setV(await api.view(id)); have.current = true; setStale(false); setUpdatedAt(new Date().toISOString()); }
+    catch { if (!have.current) setFailed(true); else setStale(true); }
+  }, [id]);
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { banner(v); }, [v?.encounter.patient.id, s.lang, s.numerals]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => s.setPatient(null), []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -154,6 +158,7 @@ function BillView({ id }: { id: string }) {
       </div>
       {!s.online && <Callout tone="warn" icon="cloud-off">{B("offline_banner")}</Callout>}
       {!writer && <Callout icon="eye">{B("view_only")}</Callout>}
+      {stale && s.online && <Callout tone="warn" icon="refresh-cw" data-testid="bill-stale">{B("bill_stale", { at: M.time(updatedAt) })}</Callout>}
       <span className="t-small t-muted">{B("sample_prices")}</span>
 
       <Card style={{ padding: 0, overflowX: "auto" }}>

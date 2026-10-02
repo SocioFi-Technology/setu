@@ -8,10 +8,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { InvoiceView, NewPaymentRequest } from "@setu/contracts";
-import { PAYMENT_METHODS, isWallet, parseTaka, type PaymentMethod } from "@setu/domain";
+import { PAYMENT_METHODS, isWallet, paisaToInput, parseTaka, type PaymentMethod } from "@setu/domain";
 import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
 import { bill as api } from "../../lib/api";
-import { onOutbox, outboxItems } from "../../lib/outbox";
+import { dismissRefused, onOutbox, outboxItems } from "../../lib/outbox";
 import { useSession } from "../../lib/session";
 import { INVOICE_TONE, PAY_TONE, useB, useBanner, useErr, useMoney } from "./common";
 
@@ -38,17 +38,32 @@ function PayView({ id }: { id: string }) {
 
   // A refresh that fails (offline, server away) keeps the last bill on screen; only a first load that fails shows the error.
   const have = useRef(false);
-  const load = useCallback(async () => { try { const x = await api.view(id); have.current = true; setV(x); return x; } catch { if (!have.current) setFailed(true); return null; } }, [id]);
+  /* A refresh that fails while there is a bill on screen marks it stale (review A6–A7): the last update time is shown and
+     taking payment pauses until a refresh succeeds, so nobody works from old Paid / Still-to-take figures. */
+  const [stale, setStale] = useState(false); const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    try { const x = await api.view(id); have.current = true; setV(x); setStale(false); setUpdatedAt(new Date().toISOString()); return x; }
+    catch { if (!have.current) setFailed(true); else setStale(true); return null; }
+  }, [id]);
+  useEffect(() => { if (!stale || !s.online) return; const t = setInterval(() => void load(), 5000); return () => clearInterval(t); }, [stale, s.online, load]);
+  const [notice, setNotice] = useState<string | null>(null);
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { banner(v); }, [v?.encounter.patient.id, s.lang, s.numerals]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => s.setPatient(null), []); // eslint-disable-line react-hooks/exhaustive-deps
   // Writes for this bill still waiting on this device (offline cash or links): listed, never counted as paid.
-  const readQueue = useCallback(() => setQueued(outboxItems().filter((i) => i.path === `/v1/invoices/${encodeURIComponent(id)}/payments` && !i.error)), [id]);
+  const [refused, setRefused] = useState(() => [] as ReturnType<typeof outboxItems>);
+  const readQueue = useCallback(() => {
+    const mine = outboxItems().filter((i) => i.path === `/v1/invoices/${encodeURIComponent(id)}/payments`);
+    setQueued(mine.filter((i) => !i.error)); setRefused(mine.filter((i) => i.error));
+  }, [id]);
   useEffect(() => { readQueue(); return onOutbox(() => { readQueue(); void load(); }); }, [readQueue, load]);
   const pending = v?.payments.some((p) => ["initiated", "link-sent", "waiting-customer"].includes(p.status));
   useEffect(() => { if (!pending) return; const t = setInterval(() => void load(), 3000); return () => clearInterval(t); }, [pending, load]);
   // The amount box starts at what can still be taken.
-  useEffect(() => { if (v && amount === "") setAmount(String(v.summary.openPaisa / 100)); }, [v?.summary.openPaisa]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Money queued on this device counts against what can still be taken (review A6–A7: never collect the same cash twice).
+  const queuedPaisa = queued.reduce((a, q) => a + ((q.body as NewPaymentRequest | null)?.amountPaisa ?? 0), 0);
+  const openShown = v ? Math.max(0, v.summary.openPaisa - queuedPaisa) : 0;
+  useEffect(() => { if (v && amount === "") setAmount(openShown > 0 ? paisaToInput(openShown) : ""); }, [openShown]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const amountPaisa = parseTaka(amount);
   const tenderedPaisa = parseTaka(tendered);
@@ -70,6 +85,7 @@ function PayView({ id }: { id: string }) {
       setV(r.data.view);
     } catch (e) { toast(E(e), "triangle-alert"); await load(); } finally { setBusy(false); }
   };
+  const NOTICE: Record<string, string> = { "paid-on-earlier-link": "pay_earlier_link", "paid-meanwhile": "pay_paid_meanwhile" };
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       const m = KEYS[e.key];
@@ -80,7 +96,11 @@ function PayView({ id }: { id: string }) {
   });
   const act = async (f: () => Promise<{ view: InvoiceView } | unknown>) => {
     setBusy(true);
-    try { const r = await f(); if (r && typeof r === "object" && "view" in r) setV((r as { view: InvoiceView }).view); else await load(); }
+    try {
+      const r = await f();
+      if (r && typeof r === "object" && "view" in r) { setV((r as { view: InvoiceView }).view); const n = (r as { notice?: string }).notice; setNotice(n ? NOTICE[n] ?? null : null); }
+      else await load();
+    }
     catch (e) { toast(E(e), "triangle-alert"); await load(); } finally { setBusy(false); }
   };
   const makeReceipt = async () => {
@@ -96,7 +116,7 @@ function PayView({ id }: { id: string }) {
   const open = inv.status === "issued" || inv.status === "partially-paid";
   const methodLabel = (m: string) => B(`m_${m}`);
   const queuedCash = queued.filter((q) => (q.body as NewPaymentRequest | null)?.method === "cash");
-  const canSubmit = open && !busy && amountPaisa !== null && amountPaisa > 0 && amountPaisa <= sum.openPaisa
+  const canSubmit = open && !busy && !(stale && s.online) && amountPaisa !== null && amountPaisa > 0 && amountPaisa <= openShown
     && (method !== "cash" || (change !== null && change >= 0)) && ((method !== "card" && method !== "bank") || ref.trim().length > 0)
     && (s.online || method === "cash" || isWallet(method));
 
@@ -111,9 +131,17 @@ function PayView({ id }: { id: string }) {
       </div>
       {!s.online && <Callout tone="warn" icon="cloud-off">{B("offline_banner")}</Callout>}
       {inv.status === "draft" && <Callout tone="warn" icon="file-warning">{B("pay_not_issued")}</Callout>}
+      {stale && s.online && <Callout tone="warn" icon="refresh-cw" data-testid="pay-stale">{B("pay_stale", { at: M.time(updatedAt) })}</Callout>}
+      {notice && <Callout tone="bad" icon="triangle-alert" data-testid="pay-notice">{B(notice)}</Callout>}
+      {refused.map((q) => (
+        <Callout key={q.id} tone="bad" icon="circle-x" data-testid="pay-refused">
+          {B("pay_refused", { what: q.summary ? `${methodLabel(q.summary.method)} ${M.tk(q.summary.amountPaisa)}` : q.label, reason: s.L(q.errorBn ?? q.error ?? "", q.error ?? "") })}
+          {" "}<Button size="sm" onClick={() => { dismissRefused(q.id); readQueue(); }}>{B("dismiss")}</Button>
+        </Callout>
+      ))}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12 }} data-testid="pay-summary">
-        {([["pay_due", sum.duePaisa, "due"], ["pay_confirmed", sum.confirmedPaisa, "confirmed"], ["pay_pending", sum.pendingPaisa, "pending"], ["pay_open", sum.openPaisa, "open"]] as const).map(([k, p, t]) => (
+        {([["pay_due", sum.duePaisa, "due"], ["pay_confirmed", sum.confirmedPaisa, "confirmed"], ["pay_pending", sum.pendingPaisa + queuedPaisa, "pending"], ["pay_open", openShown, "open"]] as const).map(([k, p, t]) => (
           <Card key={k} style={{ padding: 12, display: "flex", flexDirection: "column", gap: 2 }} data-sum={t}><span className="t-small t-muted">{B(k)}</span><b className="num" style={{ fontSize: 20 }}>{M.tk(p)}</b></Card>
         ))}
       </div>
@@ -129,9 +157,10 @@ function PayView({ id }: { id: string }) {
                   <Pill tone={PAY_TONE[p.status] ?? "neu"}>{B(`pst_${p.status}`)}</Pill>
                   <span className="t-small t-muted">{B("pay_by", { name: M.name(p.createdBy), at: M.time(p.createdAt) })}</span>
                 </span>
-                {p.method === "cash" && p.changePaisa !== null && <span className="t-small">{B("pay_tendered")}: <span className="num">{M.tk(p.tenderedPaisa ?? 0)}</span> · {B("pay_change")}: <b className="num">{M.tk(p.changePaisa)}</b></span>}
+                {p.method === "cash" && p.changePaisa !== null && <span className="t-small">{B("pay_tendered_short")}: <span className="num">{M.tk(p.tenderedPaisa ?? 0)}</span> · {B("pay_change")}: <b className="num">{M.tk(p.changePaisa)}</b></span>}
                 {p.reference && <span className="t-small">{B("pay_ref", { ref: p.reference })}</span>}
                 {p.status === "confirmed" && p.trxId && <span className="t-small" data-testid="trx">{B("pay_confirmed_by", { trx: p.trxId })}</span>}
+                {p.status === "failed" && p.failReason === "cancelled-by-cashier" && <span className="t-small">{B("pay_cancelled")}</span>}
                 {waiting && <span className="t-small" role="status">{B("pay_waiting", { last4: p.phoneLast4 ?? "—", at: M.time(p.linkExpiresAt) })}</span>}
                 {p.status === "failed" && (
                   <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -145,6 +174,7 @@ function PayView({ id }: { id: string }) {
                       <input className="input num" name={`trx-${p.id}`} style={{ width: 200 }} value={trx[p.id] ?? ""} onChange={(e) => setTrx((x) => ({ ...x, [p.id]: e.target.value.toUpperCase() }))} />
                     </label>
                     <Button size="sm" disabled={busy || !s.online || !(trx[p.id] ?? "").trim()} onClick={() => act(() => api.verifyTrx(p.id, (trx[p.id] ?? "").trim()))}>{B("pay_trx_verify")}</Button>
+                    <Button size="sm" variant="ghost" icon="x" data-testid="cancel-link" disabled={busy || !s.online} onClick={() => act(() => api.cancel(p.id))}>{B("pay_cancel")}</Button>
                   </span>
                 )}
                 {waiting && FAKE_GATEWAY && (
@@ -182,7 +212,7 @@ function PayView({ id }: { id: string }) {
                 <label className="field t-small">{B("pay_tendered")}
                   <input name="pay-tendered" className="input num" inputMode="decimal" style={{ width: 160 }} value={tendered} onChange={(e) => { setTendered(e.target.value); setKey(crypto.randomUUID()); }} />
                 </label>
-                {quick.map((p) => <Button key={p} size="sm" onClick={() => { setTendered(String(p / 100)); setKey(crypto.randomUUID()); }}>{M.tk(p)}</Button>)}
+                {quick.map((p) => <Button key={p} size="sm" onClick={() => { setTendered(paisaToInput(p)); setKey(crypto.randomUUID()); }}>{M.tk(p)}</Button>)}
                 <span data-testid="pay-change">{change === null ? `${B("pay_change")}: —` : change >= 0 ? <>{B("pay_change")}: <b className="num">{M.tk(change)}</b></> : <span style={{ color: "var(--status-bad-fg)" }}>{B("pay_short", { amount: M.tk(-change) })}</span>}</span>
               </>
             )}
@@ -193,6 +223,8 @@ function PayView({ id }: { id: string }) {
             )}
             {isWallet(method) && <span className="t-small t-muted">{B("pay_link_to")}</span>}
           </div>
+          {amountPaisa !== null && amountPaisa > openShown && <span className="t-small" style={{ color: "var(--status-bad-fg)" }} data-testid="pay-over">{B("pay_over_hint", { amount: M.tk(openShown) })}</span>}
+          {amountPaisa !== null && amountPaisa > 0 && amountPaisa < openShown && <span className="t-small" data-testid="pay-part">{B("pay_part_hint", { amount: M.tk(sum.duePaisa - queuedPaisa - amountPaisa) })}</span>}
           <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Button variant="primary" icon={isWallet(method) ? "send" : "banknote"} kbd="Ctrl ↵" data-testid="pay-submit" disabled={!canSubmit} onClick={() => void submit()}>
               {busy ? B("waiting_server") : isWallet(method) ? B("pay_send_link") : method === "cash" ? B("pay_take_cash") : method === "card" ? B("pay_take_card") : B("pay_take_bank")}
@@ -204,7 +236,7 @@ function PayView({ id }: { id: string }) {
 
       <Card style={{ display: "flex", flexDirection: "column", gap: 8, padding: 16 }} data-testid="paid-by">
         <span><b>{B("paid_by")}:</b>{" "}
-          <span data-testid="paid-line">{v.paidBy.paid.length ? v.paidBy.paid.map((p) => `${methodLabel(p.method)} ${M.tk(p.amountPaisa)}${p.trxId ? ` (TrxID ${p.trxId})` : p.reference ? ` (${p.reference})` : ""}`).join(" + ") : "—"}</span>
+          <span data-testid="paid-line">{v.paidBy.paid.length ? v.paidBy.paid.map((p) => `${methodLabel(p.method)} ${M.tk(p.amountPaisa)}${p.trxId ? ` (${B("r_trx")} ${p.trxId})` : p.reference ? ` (${p.reference})` : ""}`).join(" + ") : "—"}</span>
           {v.paidBy.pending.length > 0 && <span data-testid="pending-line"> · {v.paidBy.pending.map((p) => `${methodLabel(p.method)} ${M.tk(p.amountPaisa)} ${B("pending_word")}`).join(" · ")}</span>}
         </span>
         {sum.pendingPaisa > 0 && <span className="t-small t-muted">{B("pay_partial_rule")}</span>}

@@ -250,7 +250,9 @@ describe.runIf(db)("A7 payments", () => {
     await expect(inTenant((tx) => tx.payment.update({ where: { id: p.id }, data: { status: "failed" } }))).rejects.toThrow(/confirmed payment is never changed/);
     await expect(inTenant((tx) => tx.payment.delete({ where: { id: p.id } }))).rejects.toThrow();
     expect((await get(`/v1/invoices/${view.invoice.id}`)).json().invoice).toMatchObject({ status: "balanced", paidPaisa: 230_000 });
-    expect(await inTenant((tx) => tx.auditEvent.count({ where: { entity: "Payment", entityId: p.id, userId: null } }))).toBe(3);
+    // two real callbacks (no session: the provider is the actor) + the dev route's event, audited as the cashier
+    expect(await inTenant((tx) => tx.auditEvent.count({ where: { entity: "Payment", entityId: p.id, userId: null } }))).toBe(2);
+    expect(await inTenant((tx) => tx.auditEvent.count({ where: { entity: "Payment", entityId: p.id, userId: "u_e2e_cashier", action: "provider-event" } }))).toBe(1);
   });
   it("a forged or unknown callback is refused", async () => {
     const { view } = await newBill();
@@ -326,5 +328,67 @@ describe.runIf(db)("A7 payments", () => {
     ]);
     expect([x.statusCode, y.statusCode].sort()).toEqual([201, 409]);
     expect((await get(`/v1/invoices/${id}`)).json().invoice).toMatchObject({ status: "balanced", paidPaisa: 230_000 });
+  });
+});
+
+describe.runIf(db)("A6–A7 review fixes", () => {
+  it("a test cannot be added at the desk (only through the doctor's order): no second CBC", async () => {
+    const { view } = await newBill();
+    expect((await post(`/v1/invoices/${view.invoice.id}/lines`, { code: "test:cbc", rev: view.invoice.rev })).json()).toMatchObject({ code: "no_such_item" });
+    const items = (await get("/v1/charge-definitions?q=")).json().items as { kind: string }[];
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.every((i) => i.kind === "service")).toBe(true);
+  });
+  it("Cancel link: an unpaid link fails and frees the amount; a link the patient already paid is confirmed instead", async () => {
+    const { view } = await newBill();
+    await issue(view.invoice.id, view.invoice.rev);
+    const a = (await post(`/v1/invoices/${view.invoice.id}/payments`, { method: "bkash", amountPaisa: 100_000 })).json().payment;
+    const c = await post(`/v1/payments/${a.id}/cancel`);
+    expect(c.json().payment).toMatchObject({ status: "failed", failReason: "cancelled-by-cashier" });
+    expect(c.json().view.summary).toMatchObject({ pendingPaisa: 0, openPaisa: 230_000 });
+    const b = (await post(`/v1/invoices/${view.invoice.id}/payments`, { method: "bkash", amountPaisa: 100_000 })).json().payment;
+    await fake(b.id, "confirmed", { deliver: false });
+    const c2 = await post(`/v1/payments/${b.id}/cancel`);
+    expect(c2.json()).toMatchObject({ notice: "paid-meanwhile", payment: { status: "confirmed" } });
+    expect((await post(`/v1/payments/${b.id}/cancel`)).json()).toMatchObject({ code: "not_pending" });
+  });
+  it("a TrxID paid on a replaced link is never applied and never 'does not match': it is reconciled", async () => {
+    const { view } = await newBill();
+    await issue(view.invoice.id, view.invoice.rev);
+    const p = (await post(`/v1/invoices/${view.invoice.id}/payments`, { method: "bkash", amountPaisa: 100_000 })).json().payment;
+    const oldRef = (await refOf(p.id)).providerRef!;
+    await fake(p.id, "failed");
+    await post(`/v1/payments/${p.id}/retry`);
+    fakeProvider()!.simulate(oldRef, "confirmed", { deliver: false });
+    const trx = (await fakeProvider()!.verify({ providerRef: oldRef }))!.trxId!;
+    const r = await post(`/v1/payments/${p.id}/verify-trx`, { trxId: trx });
+    expect(r.json()).toMatchObject({ notice: "paid-on-earlier-link", payment: { status: "link-sent" } });
+    expect(await inTenant((tx) => tx.task.count({ where: { kind: "payment-reconciliation", focusId: p.id } }))).toBe(1);
+  });
+  it("a second 'confirmed' with another TrxID on a confirmed payment is reconciled, not ignored", async () => {
+    const { view } = await newBill();
+    await issue(view.invoice.id, view.invoice.rev);
+    const p = (await post(`/v1/invoices/${view.invoice.id}/payments`, { method: "bkash", amountPaisa: 230_000 })).json().payment;
+    const ref = (await refOf(p.id)).providerRef!;
+    await callback(fakeProvider()!.simulate(ref, "confirmed")!);
+    const forged = JSON.stringify({ eventId: `EV-${RUN}-2`, providerRef: ref, kind: "confirmed", trxId: "ZZZZZZZZZZ", amountPaisa: 230_000 });
+    const r = await callback({ body: forged, headers: { "content-type": "application/json", "x-fake-signature": fakeProvider()!.sign(forged) } });
+    expect(r.json()).toEqual({ outcome: "refused", reason: "second-payment" });
+    expect(await inTenant((tx) => tx.task.count({ where: { kind: "payment-reconciliation", focusId: p.id } }))).toBe(1);
+  });
+  it("the fake gateway route is off unless FAKE_PAYMENTS_DEV_ROUTE=1 (never in production)", async () => {
+    const { config: c } = await import("../src/config.js");
+    expect(c.fakePaymentsDevRoute).toBe(true); // vitest.config sets the flag
+    expect(process.env.NODE_ENV).not.toBe("production");
+  });
+  it("the dev route acts only on this branch's payments and audits the user who pressed it", async () => {
+    const { view } = await newBill();
+    await issue(view.invoice.id, view.invoice.rev);
+    const p = (await post(`/v1/invoices/${view.invoice.id}/payments`, { method: "bkash", amountPaisa: 230_000 })).json().payment;
+    expect((await post(`/v1/dev/fake-payments/${p.id}/confirmed`, {}, "otherCashier", null)).statusCode).toBe(404);
+    await fake(p.id, "confirmed");
+    const a = await inTenant((tx) => tx.auditEvent.findFirst({ where: { entity: "Payment", entityId: p.id, action: "update" }, orderBy: { at: "desc" } }));
+    expect(a).toMatchObject({ userId: "u_e2e_cashier" });
+    expect((a!.detail as { fakeGateway?: boolean }).fakeGateway).toBe(true);
   });
 });

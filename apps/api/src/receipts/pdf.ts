@@ -9,7 +9,7 @@ const launch = () => (browser ??= chromium.launch({ headless: true, ...(process.
 
 export async function htmlToPdf(html: string, paper: "a5" | "thermal"): Promise<Uint8Array> {
   const b = await launch();
-  const ctx = await b.newContext();
+  const ctx = await b.newContext({ javaScriptEnabled: false });
   await ctx.route("**/*", (r) => r.abort());
   try {
     const page = await ctx.newPage();

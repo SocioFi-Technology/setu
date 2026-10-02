@@ -68,8 +68,10 @@ export async function createReceipt(tx: Tx, s: SessionData, invoiceId: string, n
     throw err(409, "nothing_paid", "নিশ্চিত পেমেন্ট নেই — রসিদ হয় না", "Nothing confirmed yet — no receipt");
   const v = await invoiceView(tx, s, inv);
   const last = await tx.receipt.findFirst({ where: { invoiceId: inv.id }, orderBy: { createdAt: "desc" } });
+  // Only confirmed money makes a new receipt: a change in what is pending alone does not (review A6–A7: two valid
+  // receipt numbers for the same money).
   const sameAsLast = last && last.paidPaisa === inv.paidPaisa
-    && JSON.stringify((last.snapshot as unknown as ReceiptSnapshot).paidBy) === JSON.stringify(v.paidBy);
+    && JSON.stringify((last.snapshot as unknown as ReceiptSnapshot).paidBy.paid) === JSON.stringify(v.paidBy.paid);
   if (last && sameAsLast) return { r: last, created: false };
 
   const org = await tx.organization.findFirst({ where: { id: s.organizationId } });

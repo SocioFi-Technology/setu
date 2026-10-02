@@ -45,3 +45,5 @@ export function parsePercentBp(input: string): number | null {
   const bp = Number(m[1]) * 100 + Number((m[2] ?? "").padEnd(2, "0"));
   return bp <= 10_000 ? bp : null;
 }
+/** Paisa → what goes into an amount box ("2300", "500.5" → "500.50"), from integers only. */
+export const paisaToInput = (p: Paisa): string => `${Math.floor(assertPaisa(p) / 100)}${p % 100 ? "." + String(p % 100).padStart(2, "0") : ""}`;

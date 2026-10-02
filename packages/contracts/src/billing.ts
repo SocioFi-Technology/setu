@@ -133,7 +133,12 @@ export const NewPaymentRequest = z.object({
 });
 export type NewPaymentRequest = z.infer<typeof NewPaymentRequest>;
 export const VerifyTrxRequest = z.object({ trxId: z.string().trim().regex(/^[A-Z0-9]{8,20}$/i, "invalid_trx_id") });
-export const PaymentResponse = z.object({ payment: PaymentView, view: InvoiceView });
+export const PaymentResponse = z.object({
+  payment: PaymentView, view: InvoiceView,
+  /** paid-on-earlier-link: a TrxID paid on a replaced link — the owner reconciles it, do not ask for the money again;
+      paid-meanwhile: "Cancel link" found the money had arrived, so the payment was confirmed instead */
+  notice: z.enum(["paid-on-earlier-link", "paid-meanwhile"]).optional(),
+});
 export type PaymentResponse = z.infer<typeof PaymentResponse>;
 
 /** Provider callback answer. 200 for every well-signed event, so the gateway stops retrying: `applied` moved the

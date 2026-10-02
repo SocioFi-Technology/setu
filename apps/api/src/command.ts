@@ -27,7 +27,8 @@ const isUniqueViolation = (e: unknown) => typeof e === "object" && e !== null &&
 
 /** A write. Requires an Idempotency-Key: a replay returns the stored response without running `fn` again. */
 /** `hashOmit`: request-body fields left out of the stored body hash (a signing PIN is never stored, not even hashed). */
-export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (tx: Tx, s: SessionData) => Promise<CommandResult<T>>, opts: { hashOmit?: string[] } = {}): Promise<T> {
+/** `txTimeoutMs`: a longer transaction for work that waits on something slow inside it (rendering a receipt PDF). */
+export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (tx: Tx, s: SessionData) => Promise<CommandResult<T>>, opts: { hashOmit?: string[]; txTimeoutMs?: number } = {}): Promise<T> {
   const s = requireSession(req);
   req.txManaged = true;
   const key = req.headers["idempotency-key"];
@@ -61,7 +62,7 @@ export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (
       await writeAudit(tx, req, s, r.audit);
       await tx.idempotencyKey.create({ data: { tenantId: s.tenantId, key, route, statusCode: status, response: { hash, body: r.body } as object } });
       return { replayed: false as const, status, body: r.body };
-    }));
+    }, { timeoutMs: opts.txTimeoutMs }));
   } catch (e) {
     // Two requests with the same key raced: the loser rolls back entirely and answers with the winner's response.
     if (!isUniqueViolation(e)) throw e;

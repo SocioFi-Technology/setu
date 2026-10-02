@@ -155,7 +155,9 @@ export async function billingWorklist(tx: Tx, s: SessionData, now: Date): Promis
 
 export async function chargeDefinitions(tx: Tx, s: SessionData, q: string): Promise<ChargeDefinitionList> {
   const t = q.trim().toLowerCase();
-  const rows = await tx.chargeItemDefinition.findMany({ where: { organizationId: s.organizationId, active: true, kind: { in: ["service", "test"] } }, orderBy: [{ kind: "desc" }, { nameEn: "asc" }] });
+  // Desk items are services only: a test reaches the bill through the doctor's order, never typed in at the desk (review
+  // A6–A7: a second CBC, or a test the lab never receives an order for).
+  const rows = await tx.chargeItemDefinition.findMany({ where: { organizationId: s.organizationId, active: true, kind: "service" }, orderBy: { nameEn: "asc" } });
   return { items: rows.filter((r) => !t || `${r.nameEn} ${r.nameBn} ${r.code}`.toLowerCase().includes(t)).slice(0, 20)
     .map((r) => ({ code: r.code, kind: r.kind, nameEn: r.nameEn, nameBn: r.nameBn, unitPaisa: r.unitPaisa, vatRateBp: r.vatRateBp, sample: r.sample })) };
 }
@@ -229,7 +231,7 @@ function lineAmounts(unitPaisa: number, qty: number, vatRateBp: number) {
 export async function addDeskLine(tx: Tx, s: SessionData, id: string, code: string, qty: number, rev: number): Promise<Inv> {
   const inv = await editableDraft(tx, s, id, rev);
   if (inv.discountPaisa > 0) throw discountFirst();
-  const d = await tx.chargeItemDefinition.findFirst({ where: { organizationId: s.organizationId, code, active: true, kind: { in: ["service", "test"] } } });
+  const d = await tx.chargeItemDefinition.findFirst({ where: { organizationId: s.organizationId, code, active: true, kind: "service" } });
   if (!d) throw err(404, "no_such_item", "তালিকায় এই সেবা নেই", "This item is not on the price list", { field: "code" });
   const same = await tx.chargeItem.findFirst({ where: { invoiceId: inv.id, source: "desk", code } });
   if (same) {
@@ -304,7 +306,8 @@ async function approvalItem(tx: Tx, s: SessionData, t: TaskRow, now: Date): Prom
   const p = await tx.patient.findFirst({ where: { id: inv.patientId } });
   if (!p) return null;
   const day = dhakaDay(now);
-  const mine = await tx.task.findMany({ where: { kind: DISCOUNT_TASK, requestedById: t.requestedById, requestedAt: { gte: new Date(`${day}T00:00:00+06:00`) } }, select: { detail: true } });
+  const here = (await tx.invoice.findMany({ where: { organizationId: s.organizationId }, select: { id: true } })).map((i) => i.id);
+  const mine = await tx.task.findMany({ where: { kind: DISCOUNT_TASK, requestedById: t.requestedById, focusId: { in: here }, requestedAt: { gte: new Date(`${day}T00:00:00+06:00`) } }, select: { detail: true } });
   const who = await people(tx, [t.requestedById, t.decidedById]);
   return {
     ...toApprovalView(t, who),
@@ -315,7 +318,9 @@ async function approvalItem(tx: Tx, s: SessionData, t: TaskRow, now: Date): Prom
 }
 
 export async function approvalList(tx: Tx, s: SessionData, status: "requested" | "approved" | "rejected", now: Date): Promise<ApprovalList> {
-  const tasks = await tx.task.findMany({ where: { kind: DISCOUNT_TASK, status }, orderBy: { requestedAt: status === "requested" ? "asc" : "desc" }, take: 100 });
+  // Only this facility's bills (security review A6–A7: other facilities' tasks must not crowd the list out).
+  const here = (await tx.invoice.findMany({ where: { organizationId: s.organizationId }, select: { id: true } })).map((i) => i.id);
+  const tasks = await tx.task.findMany({ where: { kind: DISCOUNT_TASK, status, focusId: { in: here } }, orderBy: { requestedAt: status === "requested" ? "asc" : "desc" }, take: 100 });
   const items: ApprovalItem[] = [];
   for (const t of tasks) { const i = await approvalItem(tx, s, t, now); if (i) items.push(i); }
   return { items };
@@ -446,19 +451,47 @@ export async function retryPayment(tx: Tx, s: SessionData, paymentId: string, no
 
 /** The cashier typed the TrxID from the patient's phone: confirm only if the provider says that TrxID paid this link,
     in full. */
-export async function verifyTrx(tx: Tx, s: SessionData, paymentId: string, trxId: string, now: Date): Promise<{ inv: Inv; payment: Pay; outcome: "confirmed" | "already" }> {
+export async function verifyTrx(tx: Tx, s: SessionData, paymentId: string, trxId: string, now: Date): Promise<{ inv: Inv; payment: Pay; outcome: "confirmed" | "already" | "earlier-link" }> {
   const { p, inv } = await walletPaymentHere(tx, s, paymentId);
   if (p.status === "confirmed") return { inv, payment: p, outcome: "already" };
   const st = await provider.verify({ trxId });
+  // Paid on a link that was replaced (review A6–A7): never applied here and never "does not match" either — the owner
+  // reconciles it, and the cashier must not ask the patient to pay again.
+  if (st && st.status === "confirmed" && p.supersededRefs.includes(st.providerRef)) {
+    await tx.task.create({ data: {
+      tenantId: s.tenantId, kind: RECONCILE_TASK, status: "requested", focusId: p.id, reason: "TrxID paid on an earlier, replaced payment link", requestedById: s.userId, requestedAt: now,
+      detail: { providerRef: st.providerRef, trxId: st.trxId, amountPaisa: st.amountPaisa, paymentAmountPaisa: p.amountPaisa, invoiceId: inv.id } as object,
+    } });
+    return { inv, payment: p, outcome: "earlier-link" };
+  }
   if (!st || st.providerRef !== p.providerRef || st.status !== "confirmed" || st.amountPaisa !== p.amountPaisa || !st.trxId)
     throw err(422, "trx_not_matched", "এই TrxID এই পেমেন্টের সাথে মেলেনি", "This TrxID does not match this payment", { field: "trxId" });
   await confirmPayment(tx, p, inv, s.userId, st.trxId, now);
   return { inv: (await tx.invoice.findFirst({ where: { id: inv.id } }))!, payment: (await tx.payment.findFirst({ where: { id: p.id } }))!, outcome: "confirmed" };
 }
 
+/** The cashier gives up on a wallet link (patient never paid, link expired): ask the provider first — money that did
+    arrive is confirmed, never thrown away; otherwise cancel the link and PAYMENT `fail`, which frees the amount for
+    another method (review A6–A7: a link with no callback must not block the bill forever). */
+export async function cancelPayment(tx: Tx, s: SessionData, paymentId: string, now: Date): Promise<{ inv: Inv; payment: Pay; outcome: "cancelled" | "confirmed" }> {
+  const { p, inv } = await walletPaymentHere(tx, s, paymentId);
+  if (!["initiated", "link_sent", "waiting_customer"].includes(p.status)) throw err(409, "not_pending", "এই পেমেন্ট আর অপেক্ষমাণ নয়", "This payment is no longer pending");
+  const st = p.providerRef ? await provider.verify({ providerRef: p.providerRef }) : null;
+  if (st?.status === "confirmed" && st.trxId && st.amountPaisa === p.amountPaisa) {
+    await confirmPayment(tx, p, inv, s.userId, st.trxId, now);
+    return { inv: (await tx.invoice.findFirst({ where: { id: inv.id } }))!, payment: (await tx.payment.findFirst({ where: { id: p.id } }))!, outcome: "confirmed" };
+  }
+  if (st?.status === "confirmed") throw err(409, "paid_differently", "গেটওয়ে অন্য পরিমাণ জানাচ্ছে — মালিককে জানান", "The gateway reports a different amount — tell the owner");
+  if (p.providerRef) await provider.cancel(p.providerRef);
+  const status = undash<"failed">(transition("PAYMENT", PAYMENT, dash<PaymentState>(p.status), "fail"));
+  await tx.payment.update({ where: { id: p.id }, data: { status, failReason: "cancelled-by-cashier", statusAt: now } });
+  return { inv: (await tx.invoice.findFirst({ where: { id: inv.id } }))!, payment: (await tx.payment.findFirst({ where: { id: p.id } }))!, outcome: "cancelled" };
+}
+
 /* ───── provider callbacks (no session: forTenant with the tenant from payment_ref_lookup) ───── */
 export interface CallbackResult { body: ProviderCallbackResponse; audit: AuditEntry[] }
-export async function handleProviderEvent(tx: Tx, tenantId: string, paymentId: string, superseded: boolean, ev: ProviderWebhook, now: Date): Promise<CallbackResult> {
+export async function handleProviderEvent(tx: Tx, tenantId: string, paymentId: string, supersededAtLookup: boolean, ev: ProviderWebhook, now: Date): Promise<CallbackResult> {
+  let superseded = supersededAtLookup;
   const prior = await tx.providerEvent.findUnique({ where: { provider_eventId: { provider: provider.name, eventId: ev.eventId } } });
   if (prior) return { body: { outcome: "noop", reason: "repeat" }, audit: [] };
   const p0 = await tx.payment.findFirst({ where: { id: paymentId } });
@@ -476,7 +509,14 @@ export async function handleProviderEvent(tx: Tx, tenantId: string, paymentId: s
   const audit = (outcome: string, reason?: string, extra: Record<string, unknown> = {}): AuditEntry[] =>
     [{ action: outcome === "applied" ? "update" : "provider-event", entity: "Payment", entityId: p.id, patientId: p.patientId, detail: { actor: `provider:${provider.name}`, kind: ev.kind, outcome, reason, eventId: ev.eventId, ...extra } }];
 
+  // Decided again after the lock (security review A6–A7): a Retry may have replaced the link since the lookup.
+  if (p.providerRef !== ev.providerRef) superseded = true;
   let decision = decideProviderEvent(dash<PaymentState>(p.status), ev.kind as ProviderEventKind);
+  if (decision.outcome === "noop" && p.status === "confirmed" && ev.kind === "confirmed" && ev.trxId && p.trxId && ev.trxId !== p.trxId) {
+    await reconcile("a second payment reported on a payment already confirmed");
+    await record("refused", "second-payment");
+    return { body: { outcome: "refused", reason: "second-payment" }, audit: audit("refused", "second-payment") };
+  }
   if (superseded) decision = ev.kind === "confirmed" ? { outcome: "refused", reason: "late-confirm" } : { outcome: "refused", reason: "out-of-order" };
   if (decision.outcome !== "apply") {
     const reason = decision.outcome === "refused" ? decision.reason : "same-state";

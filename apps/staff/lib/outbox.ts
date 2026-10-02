@@ -3,7 +3,9 @@ import { SaveDraftRequest } from "@setu/contracts";
 /* Offline outbox (CLAUDE.md rule 1: a write is pending until the server acknowledges it). A write that cannot reach the
    server is kept on this device with its Idempotency-Key and replayed, in order, when the browser is back online —
    the key makes a replay safe. Screens show "Saved on this device · not synced" for it, never "Saved". */
-export interface OutboxItem { id: string; owner: string; method: string; path: string; body: unknown; key: string; label: string; at: string; error?: string; errorBn?: string; status?: number }
+export interface OutboxItem { id: string; owner: string; method: string; path: string; body: unknown; key: string; label: string; at: string; error?: string; errorBn?: string; status?: number;
+  /** kept when a payment is refused (method and amount, no patient data): money in the drawer must never vanish unrecorded */
+  summary?: { method: string; amountPaisa: number } }
 const KEY = "setu.outbox";
 const MAX_AGE_MS = 24 * 3600_000;
 const listeners = new Set<(pending: number, refused: number) => void>();
@@ -80,8 +82,11 @@ async function flushWrites(): Promise<void> {
     else {
       let msg = r.statusText, msgBn: string | undefined;
       try { const b = (await r.json()) as { message_en?: string; message_bn?: string }; msg = b.message_en ?? msg; msgBn = b.message_bn; } catch {}
-      // The refused write's body (patient details, values) is dropped: only what staff need to find it is kept.
-      save(rest.map((x) => (x.id === it.id ? { ...x, body: null, error: msg, errorBn: msgBn, status: r.status } : x)));
+      // The refused write's body (patient details, values) is dropped: only what staff need to find it is kept — for a
+      // payment, its method and amount (review A6–A7: refused offline cash must stay visible with its amount).
+      const b = it.body as { method?: unknown; amountPaisa?: unknown } | null;
+      const summary = it.label === "payment" && b && typeof b.method === "string" && Number.isSafeInteger(b.amountPaisa) ? { method: b.method, amountPaisa: b.amountPaisa as number } : undefined;
+      save(rest.map((x) => (x.id === it.id ? { ...x, body: null, error: msg, errorBn: msgBn, status: r.status, ...(summary ? { summary } : {}) } : x)));
     }
   }
 }

@@ -17,12 +17,12 @@ export type Tx = PrismaClient;
  * Runs `fn` inside a transaction with the Postgres session variable `app.tenant_id` set,
  * which the row-level-security policies read. Every request handler and every job uses this.
  */
-export async function forTenant<T>(tenantId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+export async function forTenant<T>(tenantId: string, fn: (tx: Tx) => Promise<T>, opts: { timeoutMs?: number } = {}): Promise<T> {
   if (!tenantId) throw new Error("forTenant: tenantId is required");
   return prisma.$transaction(async (tx: unknown) => {
     await (tx as PrismaClient).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
     return fn(tx as unknown as Tx);
-  });
+  }, opts.timeoutMs ? { timeout: opts.timeoutMs, maxWait: 5_000 } : undefined);
 }
 
 export interface LoginCandidate {
@@ -46,5 +46,8 @@ export async function paymentRefLookup(provider: string, providerRef: string): P
     the patient. SECURITY DEFINER; the only pre-tenant read the verify route makes. */
 export async function receiptVerifyLookup(code: string): Promise<{ facilityEn: string; facilityBn: string | null; number: string; createdAt: string; paidPaisa: number } | null> {
   const rows = await prisma.$queryRaw<{ hit: { facilityEn: string; facilityBn: string | null; number: string; createdAt: string; paidPaisa: number } | null }[]>`SELECT receipt_verify_lookup(${code}::text) AS hit`;
-  return rows[0]?.hit ?? null;
+  const hit = rows[0]?.hit ?? null;
+  // A timestamp inside jsonb comes back without a time zone; the column holds UTC (hands-on test 03/10/2026: the
+  // verify page showed the UTC clock as Dhaka time).
+  return hit ? { ...hit, createdAt: /[zZ]|[+-]\d\d:?\d\d$/.test(hit.createdAt) ? hit.createdAt : `${hit.createdAt}Z` } : null;
 }

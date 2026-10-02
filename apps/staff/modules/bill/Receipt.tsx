@@ -90,11 +90,14 @@ function ReceiptScreen({ id }: { id: string }) {
         <b>{s.lang === "bn" ? snap.seller.nameBn ?? snap.seller.nameEn : snap.seller.nameEn}</b>
         <span className="t-small">{B("r_bill_no")} <span className="num">{snap.invoice.number}</span> · {M.name(snap.patient)} · <span className="num">{snap.patient.facilityNo}</span></span>
         {snap.lines.map((l, n) => <span key={n} style={{ display: "flex", justifyContent: "space-between" }}><span>{s.lang === "bn" ? l.nameBn : l.nameEn}{l.qty > 1 ? ` ×${s.n(l.qty)}` : ""}</span><span className="num">{M.tk(l.grossPaisa)}</span></span>)}
-        <span style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid var(--border-subtle)", paddingTop: 6 }}><b>{B("total")}</b><b className="num">{M.tk(r.totalPaisa)}</b></span>
+        <span style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid var(--border-subtle)", paddingTop: 6 }}><span>{B("subtotal")}</span><span className="num">{M.tk(snap.subtotalPaisa)}</span></span>
+        {snap.discountPaisa > 0 && <span style={{ display: "flex", justifyContent: "space-between" }}><span>{B("discount")}</span><span className="num">− {M.tk(snap.discountPaisa)}</span></span>}
+        <span style={{ display: "flex", justifyContent: "space-between" }}><span>{B("vat")}</span><span className="num">{M.tk(snap.vatPaisa)}</span></span>
+        <span style={{ display: "flex", justifyContent: "space-between" }}><b>{B("total")}</b><b className="num">{M.tk(r.totalPaisa)}</b></span>
         <span style={{ display: "flex", justifyContent: "space-between" }}><span>{B("paid")}</span><span className="num" data-testid="receipt-paid">{M.tk(r.paidPaisa)}</span></span>
         <span style={{ display: "flex", justifyContent: "space-between" }}><span>{B("due")}</span><span className="num">{M.tk(r.duePaisa)}</span></span>
-        <span className="t-small">{B("in_words")}: {M.words(r.paidPaisa)}</span>
-        <span className="t-small" data-testid="receipt-paid-by"><b>{B("paid_by")}:</b> {snap.paidBy.paid.map((p) => `${B(`m_${p.method}`)} ${M.tk(p.amountPaisa)}${p.trxId ? ` (TrxID ${p.trxId})` : ""}`).join(" + ") || "—"}
+        <span className="t-small">{B("rc_received_words")}: {M.words(r.paidPaisa)}</span>
+        <span className="t-small" data-testid="receipt-paid-by"><b>{B("paid_by")}:</b> {snap.paidBy.paid.map((p) => `${B(`m_${p.method}`)} ${M.tk(p.amountPaisa)}${p.trxId ? ` (${B("r_trx")} ${p.trxId})` : p.reference ? ` (${p.reference})` : ""}`).join(" + ") || "—"}
           {snap.paidBy.pending.length > 0 && ` · ${snap.paidBy.pending.map((p) => `${B(`m_${p.method}`)} ${M.tk(p.amountPaisa)} ${B("pending_word")}`).join(" · ")}`}</span>
         <span className="t-small t-muted">{B("rc_verify_url")}: <a href={r.verifyUrl} target="_blank" rel="noreferrer" data-testid="verify-url">{r.verifyUrl}</a></span>
       </Card>
@@ -140,7 +143,7 @@ function ReceiptScreen({ id }: { id: string }) {
           {v.prints.map((p) => (
             <span key={p.id} className="t-small" data-copy={p.copy}>
               {p.copy === 0 ? B("rc_audit_original", { name: M.name(p.printedBy), at: M.dateTime(p.printedAt) }) : B("rc_audit_dup", { n: p.copy, reason: B(`rr_${p.reason}`), name: M.name(p.printedBy), at: M.dateTime(p.printedAt) })}
-              {" · "}<a href={`/api${p.pdfUrl}`} target="_blank" rel="noreferrer">PDF</a>
+              {" · "}<a href={`/api${p.pdfUrl}`} target="_blank" rel="noreferrer">{B("rc_pdf")}</a>
             </span>
           ))}
         </Card>

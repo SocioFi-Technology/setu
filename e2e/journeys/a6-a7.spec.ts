@@ -174,6 +174,13 @@ test("A7: a bKash payment whose callback is lost is confirmed with the TrxID fro
   await page.getByTestId("pay-submit").click();
   const ng = page.locator('[data-payment="nagad"]');
   await expect(ng).toHaveAttribute("data-status", "link-sent");
+  // A link nobody pays can be cancelled: the amount is free again for another method (review A6–A7).
+  await ng.getByTestId("cancel-link").click();
+  await expect(ng).toHaveAttribute("data-status", "failed");
+  await expect(ng).toContainText("Link cancelled — take another method");
+  await expect(page.locator('[data-sum="open"]')).toContainText("৳ 2,300");
+  await ng.getByRole("button", { name: "Resend link" }).click();
+  await expect(ng).toHaveAttribute("data-status", "link-sent");
   await ng.getByRole("button", { name: "Payment fails" }).click();
   await expect(ng).toHaveAttribute("data-status", "failed");
   await ng.getByRole("button", { name: "Resend link" }).click();
@@ -209,6 +216,11 @@ test("A7 offline: cash is recorded on this device, a provisional receipt has no 
   // No QR: the only drawing allowed is the icon on the Print button.
   expect(await prov.evaluate((el) => [...el.querySelectorAll("svg, img, canvas")].filter((x) => !x.closest("button")).length)).toBe(0);
   await expect(page.getByTestId("make-receipt")).toBeDisabled();
+  // Queued cash counts against what is left: the same money cannot be collected twice (review A6–A7).
+  await expect(page.locator('[data-sum="open"]')).toContainText("৳ 0");
+  await page.fill("input[name=pay-amount]", "2300");
+  await expect(page.getByTestId("pay-over")).toContainText("Only ৳ 0 can still be taken");
+  await expect(page.getByTestId("pay-submit")).toBeDisabled();
   await context.setOffline(false);
   await expect(page.locator('[data-payment="cash"]')).toHaveAttribute("data-status", "confirmed", { timeout: 15_000 });
   await expect(page.getByTestId("provisional-receipt")).toHaveCount(0);

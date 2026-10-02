@@ -16,7 +16,7 @@ import { command, query } from "../command.js";
 import { config } from "../config.js";
 import { err, forbidden } from "../errors.js";
 import {
-  addDeskLine, addPayment, approvalList, billingWorklist, chargeDefinitions, createInvoice, decideDiscount, handleProviderEvent, invoiceView, removeDiscount, removeLine,
+  addDeskLine, addPayment, approvalList, billingWorklist, cancelPayment, chargeDefinitions, createInvoice, decideDiscount, handleProviderEvent, invoiceView, removeDiscount, removeLine,
   invoiceHere, issueInvoice, requestDiscount, retryPayment, setLineQty, verifyTrx,
 } from "../modules/billing.js";
 import { createReceipt, printPdf, printReceipt, receiptList, receiptView } from "../modules/receipts.js";
@@ -28,11 +28,21 @@ function requireBill(req: FastifyRequest, screen: "opd" | "pay" | "receipt" | "a
   if (!d.allowed) throw forbidden(d.reason ?? "unknown");
   return s;
 }
+type SessionRole = ReturnType<typeof requireSession>["role"];
+/* Rate-limit key for the public verify page: behind the staff app's proxy (a loopback or private address) the first
+   X-Forwarded-For entry is the visitor; anything else is keyed on its own address, so a direct caller cannot pick its key
+   (security review A6–A7: one shared limit for every patient). */
+function clientKey(req: FastifyRequest): string {
+  const fromProxy = /^(::1|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::ffff:127\.)/.test(req.ip);
+  const xff = req.headers["x-forwarded-for"];
+  const first = (Array.isArray(xff) ? xff[0] : xff)?.split(",")[0]?.trim();
+  return fromProxy && first ? first : req.ip;
+}
 const isUnique = (e: unknown) => typeof e === "object" && e !== null && (e as { code?: string }).code === "P2002";
 
 /** Handle one verified provider event under the payment's tenant. A second delivery of the same event racing the
     first loses on the unique (provider, eventId) and answers noop. */
-async function processCallback(req: FastifyRequest, ev: ProviderWebhook): Promise<ProviderCallbackResponse> {
+async function processCallback(req: FastifyRequest, ev: ProviderWebhook, actor: { userId: string; role: SessionRole } | null = null): Promise<ProviderCallbackResponse> {
   if (!config.dbEnabled) throw err(503, "db_off", "ডাটাবেস চালু নেই", "The database is not running");
   const { forTenant, paymentRefLookup } = await import("@setu/db");
   const hit = await paymentRefLookup(payments.name, ev.providerRef);
@@ -41,8 +51,8 @@ async function processCallback(req: FastifyRequest, ev: ProviderWebhook): Promis
     return await forTenant(hit.tenantId, async (tx) => {
       const r = await handleProviderEvent(tx, hit.tenantId, hit.paymentId, hit.superseded, ev, new Date());
       for (const a of r.audit) await tx.auditEvent.create({ data: {
-        tenantId: hit.tenantId, userId: null, role: null, action: a.action, entity: a.entity, entityId: a.entityId, patientId: a.patientId, ip: req.ip,
-        detail: { route: req.routeOptions.url, method: req.method, ...(a.detail ?? {}) } as object,
+        tenantId: hit.tenantId, userId: actor?.userId ?? null, role: actor?.role ?? null, action: a.action, entity: a.entity, entityId: a.entityId, patientId: a.patientId, ip: req.ip,
+        detail: { route: req.routeOptions.url, method: req.method, ...(a.detail ?? {}), ...(actor ? { simulatedBy: actor.userId, fakeGateway: true } : {}) } as object,
       } });
       return r.body;
     });
@@ -191,6 +201,15 @@ export async function billingRoutes(app: FastifyInstance) {
       return { body: { payment: view.payments.find((p) => p.id === id)!, view }, audit: [{ action: "update", entity: "Payment", entityId: id, patientId: r.inv.patientId, detail: { event: "retry", attempt: r.payment.attempt } }] };
     });
   });
+  app.post("/v1/payments/:id/cancel", { config: { ownTx: true } }, async (req, reply): Promise<PaymentResponse> => {
+    requireBill(req, "pay");
+    const { id } = req.params as { id: string };
+    return command(req, reply, async (tx, s) => {
+      const r = await cancelPayment(tx, s, id, new Date());
+      const view = await invoiceView(tx, s, r.inv);
+      return { body: { payment: view.payments.find((p) => p.id === id)!, view, ...(r.outcome === "confirmed" ? { notice: "paid-meanwhile" as const } : {}) }, audit: [{ action: "update", entity: "Payment", entityId: id, patientId: r.inv.patientId, detail: { event: "cancel-link", outcome: r.outcome } }] };
+    });
+  });
   app.post("/v1/payments/:id/verify-trx", { config: { ownTx: true } }, async (req, reply): Promise<PaymentResponse> => {
     requireBill(req, "pay");
     const { id } = req.params as { id: string };
@@ -198,7 +217,7 @@ export async function billingRoutes(app: FastifyInstance) {
     return command(req, reply, async (tx, s) => {
       const r = await verifyTrx(tx, s, id, trxId.toUpperCase(), new Date());
       const view = await invoiceView(tx, s, r.inv);
-      return { body: { payment: view.payments.find((p) => p.id === id)!, view }, audit: [{ action: "update", entity: "Payment", entityId: id, patientId: r.inv.patientId, detail: { event: "verify-trx", outcome: r.outcome } }] };
+      return { body: { payment: view.payments.find((p) => p.id === id)!, view, ...(r.outcome === "earlier-link" ? { notice: "paid-on-earlier-link" as const } : {}) }, audit: [{ action: "update", entity: "Payment", entityId: id, patientId: r.inv.patientId, detail: { event: "verify-trx", outcome: r.outcome } }] };
     });
   });
 
@@ -240,7 +259,7 @@ export async function billingRoutes(app: FastifyInstance) {
         action: r.print.copy === 0 ? "print" : "reprint", entity: "Receipt", entityId: id, patientId: r.r.patientId,
         detail: { number: r.r.number, copy: r.print.copy, reason: r.print.reason, format: r.print.format, lang: r.print.lang },
       }] };
-    });
+    }, { txTimeoutMs: 30_000 });
   });
   app.get("/v1/receipts/:id/prints/:printId/pdf", async (req, reply) => {
     requireBill(req, "receipt");
@@ -254,7 +273,7 @@ export async function billingRoutes(app: FastifyInstance) {
   });
 
   /* ── public receipt check (the QR): no session, rate-limited, facility / number / date / amount only ── */
-  app.get("/v1/verify/rc/:code", { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (req, reply): Promise<VerifyResponse> => {
+  app.get("/v1/verify/rc/:code", { config: { rateLimit: { max: 20, timeWindow: "1 minute", keyGenerator: clientKey } } }, async (req, reply): Promise<VerifyResponse> => {
     const code = VerifyCode.safeParse((req.params as { code: string }).code.toUpperCase());
     if (!config.dbEnabled) throw err(503, "db_off", "ডাটাবেস চালু নেই", "The database is not running");
     reply.header("cache-control", "no-store");
@@ -278,13 +297,15 @@ export async function billingRoutes(app: FastifyInstance) {
   });
 
   /* ── dev and tests only: play the customer's side of the fake provider (never with a real provider or in production) ── */
-  if (fakeProvider() && process.env.NODE_ENV !== "production") {
+  if (fakeProvider() && config.fakePaymentsDevRoute) {
     app.post("/v1/dev/fake-payments/:id/:kind", async (req) => {
       requireBill(req, "pay");
       const { id, kind } = z.object({ id: z.string(), kind: FakeProviderEventKind }).parse(req.params);
       const o = z.object({ deliver: z.boolean().default(true), amountPaisa: z.number().int().positive().optional() }).parse(req.body ?? {});
+      const s0 = requireSession(req);
       const ref = await query(req, async (tx, s) => {
-        const p = await tx.payment.findFirst({ where: { id, organizationId: s.organizationId }, select: { providerRef: true } });
+        const p = await tx.payment.findFirst({ where: { id, organizationId: s.organizationId }, select: { providerRef: true, invoiceId: true } });
+        if (p) await invoiceHere(tx, s, p.invoiceId); // this facility and branch only
         return { body: p?.providerRef ?? null, audit: [] };
       });
       if (!ref) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
@@ -292,7 +313,7 @@ export async function billingRoutes(app: FastifyInstance) {
       // A "lost" callback: nothing reaches the API; the TrxID is what the patient would read on their phone.
       if (!cb) return { delivered: false, trxId: (await fakeProvider()!.verify({ providerRef: ref }))?.trxId ?? null };
       const ev = fakeProvider()!.parseWebhook(cb.headers, cb.body);
-      return { delivered: true, trxId: cb.trxId, ...(await processCallback(req, ev)) };
+      return { delivered: true, trxId: cb.trxId, ...(await processCallback(req, ev, { userId: s0.userId, role: s0.role })) };
     });
   }
 }
