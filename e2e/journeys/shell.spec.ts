@@ -34,11 +34,13 @@ test("role denied → Permission-denied panel (prototype state)", async ({ page 
   await login(page, "01711000002"); await page.goto("/m/fd/register");
   await expect(page.locator("h2")).toHaveText(/প্রবেশাধিকার নেই/);
 });
+/* Plan demos are seeded tenants (Shapla Clinic on Clinic, Meghna Hospital on Hospital Lite), so this runs against the
+   real database too — the login page's demo-plan picker only exists when the database is off. */
 test("Clinic plan locks IPD/nursing/ER for a nurse; Lite locks OT for a doctor", async ({ page }) => {
-  await login(page, "01711000004", "Clinic");
+  await login(page, "01722000004");
   await expect(page.locator("nav .lock-tag")).toHaveCount(3);
   await page.goto("/m/nur/ward"); await expect(page.locator("h2")).toContainText("এই প্ল্যানে নেই");
-  await login(page, "01711000002", "Hospital Lite");
+  await login(page, "01733000002");
   await expect(page.locator("nav a.nav-item.locked")).toHaveCount(3);
   await expect(page.locator(".nav-foot")).toContainText("Hospital Pro");
 });

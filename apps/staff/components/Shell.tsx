@@ -37,7 +37,7 @@ export function Shell({ children }: { children: ReactNode }) {
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       const tg = (e.target as HTMLElement)?.tagName, inField = tg === "INPUT" || tg === "TEXTAREA" || tg === "SELECT";
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPal(true); setPalQ(""); setPalSel(0); setSearchOpen(false); setTimeout(() => palRef.current?.focus(), 30); return; }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPal(true); setPalQ(""); setPalSel(0); setSearchOpen(false); return; }
       if (e.key === "F2") { e.preventDefault(); setPal(false); setSearchOpen(true); setTimeout(() => searchRef.current?.focus(), 30); return; }
       if (e.key === "Escape") { setSearchOpen(false); return; }
       if (e.key === "/" && !inField && curMod !== "cons") { e.preventDefault(); setSearchOpen(true); setTimeout(() => searchRef.current?.focus(), 30); }
@@ -89,7 +89,7 @@ export function Shell({ children }: { children: ReactNode }) {
             </div>
           )}
         </div>
-        <button type="button" className="btn btn-sm" style={{ height: 40, color: "var(--text-secondary)" }} aria-label={t.palette} title={t.palette + " · Ctrl+K"} onClick={() => { setPal(true); setPalQ(""); setPalSel(0); setTimeout(() => palRef.current?.focus(), 30); }}>
+        <button type="button" className="btn btn-sm" style={{ height: 40, color: "var(--text-secondary)" }} aria-label={t.palette} title={t.palette + " · Ctrl+K"} onClick={() => { setPal(true); setPalQ(""); setPalSel(0); }}>
           <Icon name="command" size={15} /><kbd className="kbd">Ctrl K</kbd>
         </button>
         <span style={{ marginLeft: "auto" }} />
@@ -110,7 +110,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <Dialog open={pal} onClose={() => setPal(false)} label={t.palette}>
         <div className="dialog-head">
           <Icon name="command" size={17} style={{ color: "var(--text-muted)" }} />
-          <input ref={palRef} data-palette="1" aria-label={t.palette} placeholder={t.palPh} value={palQ} onChange={(e) => { setPalQ(e.target.value); setPalSel(0); }}
+          <input ref={palRef} autoFocus data-palette="1" aria-label={t.palette} placeholder={t.palPh} value={palQ} onChange={(e) => { setPalQ(e.target.value); setPalSel(0); }}
             onKeyDown={(e) => { if (e.key === "ArrowDown") { e.preventDefault(); setPalSel(Math.min(psel + 1, palItems.length - 1)); } else if (e.key === "ArrowUp") { e.preventDefault(); setPalSel(Math.max(psel - 1, 0)); } else if (e.key === "Enter" && palItems[psel]) { e.preventDefault(); go(palItems[psel].href); } }} />
           <kbd className="kbd">Esc</kbd>
         </div>

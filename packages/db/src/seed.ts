@@ -60,8 +60,21 @@ async function main() {
       create: { id, tenantId: tenant.id, facilityNo, nameBn, nameEn, sex, birthDate: new Date(dob), phone, phoneOwner: "shared", district: "Dhaka", upazila: "Mirpur", identityConfidence: "verified", identityMethod: "desk" },
     });
   }
+  /* Two small tenants on the lower plans, so the plan-lock journey runs against the real database (one user each,
+     on their own phone numbers: login refuses a phone+password that matches in more than one tenant). */
+  const planDemos: [string, string, "clinic" | "lite", string, string, string, string, string, "nurse" | "doctor"][] = [
+    ["t_clinicdemo", "o_clinicdemo", "clinic", "Shapla Clinic (Clinic plan demo)", "শাপলা ক্লিনিক", "u_clinic_nurse", "রুনা বেগম", "Runa Begum", "nurse"],
+    ["t_litedemo", "o_litedemo", "lite", "Meghna Hospital (Hospital Lite demo)", "মেঘনা হাসপাতাল", "u_lite_doctor", "ডা. ফাহিম আহমেদ", "Dr. Fahim Ahmed", "doctor"],
+  ];
+  const planPhones: Record<string, string> = { u_clinic_nurse: "01722000004", u_lite_doctor: "01733000002" };
+  for (const [tid, oid, plan, name, nameBn, uid, uBn, uEn, role] of planDemos) {
+    await prisma.tenant.upsert({ where: { id: tid }, update: {}, create: { id: tid, name, plan } });
+    await prisma.organization.upsert({ where: { id: oid }, update: {}, create: { id: oid, tenantId: tid, name, nameBn } });
+    await prisma.user.upsert({ where: { id: uid }, update: {}, create: { id: uid, tenantId: tid, nameBn: uBn, nameEn: uEn, phone: planPhones[uid], passwordHash: hash("setu1234"), pinHash: hash("1234") } });
+    await prisma.practitionerRole.upsert({ where: { userId_organizationId_role: { userId: uid, organizationId: oid, role } }, update: {}, create: { tenantId: tid, userId: uid, organizationId: oid, role } });
+  }
   await prisma.sequence.upsert({ where: { tenantId_name: { tenantId: tenant.id, name: "patient" } }, update: {}, create: { tenantId: tenant.id, name: "patient", value: 240210 } });
-  console.log("seeded demo tenant: Green Life Clinic, Mirpur — 10 users (password setu1234, PIN 1234), 4 patients, ward 2A");
+  console.log("seeded demo tenant: Green Life Clinic, Mirpur — 10 users (password setu1234, PIN 1234), 4 patients, ward 2A; plan demos: Clinic-plan nurse 01722000004, Lite-plan doctor 01733000002");
 }
 
 main().finally(() => prisma.$disconnect());
