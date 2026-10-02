@@ -3,7 +3,7 @@
 ## What this is
 Setu Health is a Bangla-first clinic and hospital platform for Bangladesh: a staff web app (front desk, OPD consultation, billing, lab, pharmacy, IPD, nursing, ER/OT, owner dashboard, admin), a doctor app, a patient app, and a connected-care network (portable lab orders, shared records with consent). It is sold as three plans: Clinic, Hospital Lite, Hospital Pro. Each clinic or hospital is a tenant.
 
-The signed-off prototype lives in `docs/prototype/` (reference only — never import from it). The product spec is `docs/design-handoff/`: **`domain-model.md` is the source of truth for entities and state machines**, `shell-roles-plans.md` for roles × screens × plans, `screens.md`/`sitemap.json` for routes, `i18n/` for every user-facing string, `print-specs.md` for printed documents. The build order is `docs/BUILD-PLAN.md`.
+The signed-off prototype lives in `docs/prototype/` (reference only — never import from it). The product spec is `docs/design-handoff/`: **`domain-model.md` is the source of truth for entities and state machines**, `shell-roles-plans.md` for roles × screens × plans, `screens.md`/`sitemap.json` for routes, `i18n/` for every user-facing string, `print-specs.md` for printed documents. The build order is `docs/BUILD-PLAN.md`. **Current state, known gaps and what comes next: `docs/HANDOVER.md`** — read it at the start of a session and update it when a slice lands.
 
 ## Hard constraints (from the domain model — enforce server-side, reflect in UI)
 1. **Server confirmation.** A write is `pending` locally until the API acknowledges it. The UI never shows Signed / Sent / Paid / Saved for a pending write; it shows "Not yet synced".
