@@ -41,3 +41,10 @@ export async function paymentRefLookup(provider: string, providerRef: string): P
   const rows = await prisma.$queryRaw<{ hit: { tenantId: string; paymentId: string; superseded: boolean } | null }[]>`SELECT payment_ref_lookup(${provider}::text, ${providerRef}::text) AS hit`;
   return rows[0]?.hit ?? null;
 }
+
+/** The public receipt verify page (slice A6–A7): facility, receipt number, date and amount for a verify code — never
+    the patient. SECURITY DEFINER; the only pre-tenant read the verify route makes. */
+export async function receiptVerifyLookup(code: string): Promise<{ facilityEn: string; facilityBn: string | null; number: string; createdAt: string; paidPaisa: number } | null> {
+  const rows = await prisma.$queryRaw<{ hit: { facilityEn: string; facilityBn: string | null; number: string; createdAt: string; paidPaisa: number } | null }[]>`SELECT receipt_verify_lookup(${code}::text) AS hit`;
+  return rows[0]?.hit ?? null;
+}

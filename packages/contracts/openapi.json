@@ -32233,6 +32233,2825 @@
           }
         }
       }
+    },
+    "/v1/invoices/{id}/receipts": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "the bill's receipts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "number": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "paidPaisa": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "duePaisa": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "prints": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "number",
+                          "createdAt",
+                          "paidPaisa",
+                          "duePaisa",
+                          "prints"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "nothing paid since: the same receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "receipt": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "number": {
+                          "type": "string"
+                        },
+                        "invoiceId": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "paidPaisa": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "totalPaisa": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "duePaisa": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "verifyUrl": {
+                          "type": "string"
+                        },
+                        "snapshot": {
+                          "type": "object",
+                          "properties": {
+                            "seller": {
+                              "type": "object",
+                              "properties": {
+                                "nameEn": {
+                                  "type": "string"
+                                },
+                                "nameBn": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "address": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "vatBin": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "vatBinSample": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "nameEn",
+                                "nameBn",
+                                "address",
+                                "vatBin",
+                                "vatBinSample"
+                              ]
+                            },
+                            "invoice": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "number": {
+                                  "type": "string"
+                                },
+                                "issuedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "number",
+                                "issuedAt"
+                              ]
+                            },
+                            "patient": {
+                              "type": "object",
+                              "properties": {
+                                "nameBn": {
+                                  "type": "string"
+                                },
+                                "nameEn": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "facilityNo": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "nameBn",
+                                "nameEn",
+                                "facilityNo"
+                              ]
+                            },
+                            "lines": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  },
+                                  "qty": {
+                                    "type": "integer"
+                                  },
+                                  "unitPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "vatRateBp": {
+                                    "type": "integer"
+                                  },
+                                  "grossPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "discountPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "netPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "vatPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "totalPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  }
+                                },
+                                "required": [
+                                  "nameBn",
+                                  "nameEn",
+                                  "qty",
+                                  "unitPaisa",
+                                  "vatRateBp",
+                                  "grossPaisa",
+                                  "discountPaisa",
+                                  "netPaisa",
+                                  "vatPaisa",
+                                  "totalPaisa"
+                                ]
+                              }
+                            },
+                            "subtotalPaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "discountPaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "vatPaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "totalPaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "paidPaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "duePaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "vatByRate": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "rateBp": {
+                                    "type": "integer"
+                                  },
+                                  "netPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "vatPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  }
+                                },
+                                "required": [
+                                  "rateBp",
+                                  "netPaisa",
+                                  "vatPaisa"
+                                ]
+                              }
+                            },
+                            "discount": {
+                              "type": [
+                                "object",
+                                "null"
+                              ],
+                              "properties": {
+                                "category": {
+                                  "type": "string",
+                                  "enum": [
+                                    "poor",
+                                    "staff",
+                                    "doctor",
+                                    "ff",
+                                    "corp"
+                                  ]
+                                },
+                                "reason": {
+                                  "type": "string"
+                                },
+                                "approvedBy": {
+                                  "type": [
+                                    "object",
+                                    "null"
+                                  ],
+                                  "properties": {
+                                    "nameBn": {
+                                      "type": "string"
+                                    },
+                                    "nameEn": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "nameBn",
+                                    "nameEn"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "category",
+                                "reason",
+                                "approvedBy"
+                              ]
+                            },
+                            "paidBy": {
+                              "type": "object",
+                              "properties": {
+                                "paid": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "method": {
+                                        "type": "string",
+                                        "enum": [
+                                          "cash",
+                                          "card",
+                                          "bank",
+                                          "bkash",
+                                          "nagad"
+                                        ]
+                                      },
+                                      "amountPaisa": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "trxId": {
+                                        "type": "string"
+                                      },
+                                      "reference": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "method",
+                                      "amountPaisa"
+                                    ]
+                                  }
+                                },
+                                "pending": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "method": {
+                                        "type": "string",
+                                        "enum": [
+                                          "cash",
+                                          "card",
+                                          "bank",
+                                          "bkash",
+                                          "nagad"
+                                        ]
+                                      },
+                                      "amountPaisa": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      }
+                                    },
+                                    "required": [
+                                      "method",
+                                      "amountPaisa"
+                                    ]
+                                  }
+                                }
+                              },
+                              "required": [
+                                "paid",
+                                "pending"
+                              ]
+                            },
+                            "cashier": {
+                              "type": "object",
+                              "properties": {
+                                "nameBn": {
+                                  "type": "string"
+                                },
+                                "nameEn": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "nameBn",
+                                "nameEn"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "seller",
+                            "invoice",
+                            "patient",
+                            "lines",
+                            "subtotalPaisa",
+                            "discountPaisa",
+                            "vatPaisa",
+                            "totalPaisa",
+                            "paidPaisa",
+                            "duePaisa",
+                            "vatByRate",
+                            "discount",
+                            "paidBy",
+                            "cashier"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "number",
+                        "invoiceId",
+                        "createdAt",
+                        "paidPaisa",
+                        "totalPaisa",
+                        "duePaisa",
+                        "verifyUrl",
+                        "snapshot"
+                      ]
+                    },
+                    "prints": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "copy": {
+                            "type": "integer"
+                          },
+                          "reason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "lost",
+                              "jam",
+                              "corp",
+                              "ins"
+                            ]
+                          },
+                          "format": {
+                            "type": "string",
+                            "enum": [
+                              "a5",
+                              "thermal"
+                            ]
+                          },
+                          "lang": {
+                            "type": "string",
+                            "enum": [
+                              "both",
+                              "bn",
+                              "en"
+                            ]
+                          },
+                          "printedBy": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "printedAt": {
+                            "type": "string"
+                          },
+                          "pdfUrl": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "copy",
+                          "reason",
+                          "format",
+                          "lang",
+                          "printedBy",
+                          "printedAt",
+                          "pdfUrl"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "receipt",
+                    "prints"
+                  ]
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "new receipt RCPT/yy/nnnn (immutable copy)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "receipt": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "number": {
+                          "type": "string"
+                        },
+                        "invoiceId": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "paidPaisa": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "totalPaisa": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "duePaisa": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "verifyUrl": {
+                          "type": "string"
+                        },
+                        "snapshot": {
+                          "type": "object",
+                          "properties": {
+                            "seller": {
+                              "type": "object",
+                              "properties": {
+                                "nameEn": {
+                                  "type": "string"
+                                },
+                                "nameBn": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "address": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "vatBin": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "vatBinSample": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "nameEn",
+                                "nameBn",
+                                "address",
+                                "vatBin",
+                                "vatBinSample"
+                              ]
+                            },
+                            "invoice": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "number": {
+                                  "type": "string"
+                                },
+                                "issuedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "number",
+                                "issuedAt"
+                              ]
+                            },
+                            "patient": {
+                              "type": "object",
+                              "properties": {
+                                "nameBn": {
+                                  "type": "string"
+                                },
+                                "nameEn": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "facilityNo": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "nameBn",
+                                "nameEn",
+                                "facilityNo"
+                              ]
+                            },
+                            "lines": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  },
+                                  "qty": {
+                                    "type": "integer"
+                                  },
+                                  "unitPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "vatRateBp": {
+                                    "type": "integer"
+                                  },
+                                  "grossPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "discountPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "netPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "vatPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "totalPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  }
+                                },
+                                "required": [
+                                  "nameBn",
+                                  "nameEn",
+                                  "qty",
+                                  "unitPaisa",
+                                  "vatRateBp",
+                                  "grossPaisa",
+                                  "discountPaisa",
+                                  "netPaisa",
+                                  "vatPaisa",
+                                  "totalPaisa"
+                                ]
+                              }
+                            },
+                            "subtotalPaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "discountPaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "vatPaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "totalPaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "paidPaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "duePaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "vatByRate": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "rateBp": {
+                                    "type": "integer"
+                                  },
+                                  "netPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "vatPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  }
+                                },
+                                "required": [
+                                  "rateBp",
+                                  "netPaisa",
+                                  "vatPaisa"
+                                ]
+                              }
+                            },
+                            "discount": {
+                              "type": [
+                                "object",
+                                "null"
+                              ],
+                              "properties": {
+                                "category": {
+                                  "type": "string",
+                                  "enum": [
+                                    "poor",
+                                    "staff",
+                                    "doctor",
+                                    "ff",
+                                    "corp"
+                                  ]
+                                },
+                                "reason": {
+                                  "type": "string"
+                                },
+                                "approvedBy": {
+                                  "type": [
+                                    "object",
+                                    "null"
+                                  ],
+                                  "properties": {
+                                    "nameBn": {
+                                      "type": "string"
+                                    },
+                                    "nameEn": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "nameBn",
+                                    "nameEn"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "category",
+                                "reason",
+                                "approvedBy"
+                              ]
+                            },
+                            "paidBy": {
+                              "type": "object",
+                              "properties": {
+                                "paid": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "method": {
+                                        "type": "string",
+                                        "enum": [
+                                          "cash",
+                                          "card",
+                                          "bank",
+                                          "bkash",
+                                          "nagad"
+                                        ]
+                                      },
+                                      "amountPaisa": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "trxId": {
+                                        "type": "string"
+                                      },
+                                      "reference": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "method",
+                                      "amountPaisa"
+                                    ]
+                                  }
+                                },
+                                "pending": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "method": {
+                                        "type": "string",
+                                        "enum": [
+                                          "cash",
+                                          "card",
+                                          "bank",
+                                          "bkash",
+                                          "nagad"
+                                        ]
+                                      },
+                                      "amountPaisa": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      }
+                                    },
+                                    "required": [
+                                      "method",
+                                      "amountPaisa"
+                                    ]
+                                  }
+                                }
+                              },
+                              "required": [
+                                "paid",
+                                "pending"
+                              ]
+                            },
+                            "cashier": {
+                              "type": "object",
+                              "properties": {
+                                "nameBn": {
+                                  "type": "string"
+                                },
+                                "nameEn": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "nameBn",
+                                "nameEn"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "seller",
+                            "invoice",
+                            "patient",
+                            "lines",
+                            "subtotalPaisa",
+                            "discountPaisa",
+                            "vatPaisa",
+                            "totalPaisa",
+                            "paidPaisa",
+                            "duePaisa",
+                            "vatByRate",
+                            "discount",
+                            "paidBy",
+                            "cashier"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "number",
+                        "invoiceId",
+                        "createdAt",
+                        "paidPaisa",
+                        "totalPaisa",
+                        "duePaisa",
+                        "verifyUrl",
+                        "snapshot"
+                      ]
+                    },
+                    "prints": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "copy": {
+                            "type": "integer"
+                          },
+                          "reason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "lost",
+                              "jam",
+                              "corp",
+                              "ins"
+                            ]
+                          },
+                          "format": {
+                            "type": "string",
+                            "enum": [
+                              "a5",
+                              "thermal"
+                            ]
+                          },
+                          "lang": {
+                            "type": "string",
+                            "enum": [
+                              "both",
+                              "bn",
+                              "en"
+                            ]
+                          },
+                          "printedBy": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "printedAt": {
+                            "type": "string"
+                          },
+                          "pdfUrl": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "copy",
+                          "reason",
+                          "format",
+                          "lang",
+                          "printedBy",
+                          "printedAt",
+                          "pdfUrl"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "receipt",
+                    "prints"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/receipts/{id}": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "receipt and its prints",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "receipt": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "number": {
+                          "type": "string"
+                        },
+                        "invoiceId": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "paidPaisa": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "totalPaisa": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "duePaisa": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "verifyUrl": {
+                          "type": "string"
+                        },
+                        "snapshot": {
+                          "type": "object",
+                          "properties": {
+                            "seller": {
+                              "type": "object",
+                              "properties": {
+                                "nameEn": {
+                                  "type": "string"
+                                },
+                                "nameBn": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "address": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "vatBin": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "vatBinSample": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "nameEn",
+                                "nameBn",
+                                "address",
+                                "vatBin",
+                                "vatBinSample"
+                              ]
+                            },
+                            "invoice": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "number": {
+                                  "type": "string"
+                                },
+                                "issuedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "number",
+                                "issuedAt"
+                              ]
+                            },
+                            "patient": {
+                              "type": "object",
+                              "properties": {
+                                "nameBn": {
+                                  "type": "string"
+                                },
+                                "nameEn": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "facilityNo": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "nameBn",
+                                "nameEn",
+                                "facilityNo"
+                              ]
+                            },
+                            "lines": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  },
+                                  "qty": {
+                                    "type": "integer"
+                                  },
+                                  "unitPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "vatRateBp": {
+                                    "type": "integer"
+                                  },
+                                  "grossPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "discountPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "netPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "vatPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "totalPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  }
+                                },
+                                "required": [
+                                  "nameBn",
+                                  "nameEn",
+                                  "qty",
+                                  "unitPaisa",
+                                  "vatRateBp",
+                                  "grossPaisa",
+                                  "discountPaisa",
+                                  "netPaisa",
+                                  "vatPaisa",
+                                  "totalPaisa"
+                                ]
+                              }
+                            },
+                            "subtotalPaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "discountPaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "vatPaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "totalPaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "paidPaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "duePaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "vatByRate": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "rateBp": {
+                                    "type": "integer"
+                                  },
+                                  "netPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "vatPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  }
+                                },
+                                "required": [
+                                  "rateBp",
+                                  "netPaisa",
+                                  "vatPaisa"
+                                ]
+                              }
+                            },
+                            "discount": {
+                              "type": [
+                                "object",
+                                "null"
+                              ],
+                              "properties": {
+                                "category": {
+                                  "type": "string",
+                                  "enum": [
+                                    "poor",
+                                    "staff",
+                                    "doctor",
+                                    "ff",
+                                    "corp"
+                                  ]
+                                },
+                                "reason": {
+                                  "type": "string"
+                                },
+                                "approvedBy": {
+                                  "type": [
+                                    "object",
+                                    "null"
+                                  ],
+                                  "properties": {
+                                    "nameBn": {
+                                      "type": "string"
+                                    },
+                                    "nameEn": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "nameBn",
+                                    "nameEn"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "category",
+                                "reason",
+                                "approvedBy"
+                              ]
+                            },
+                            "paidBy": {
+                              "type": "object",
+                              "properties": {
+                                "paid": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "method": {
+                                        "type": "string",
+                                        "enum": [
+                                          "cash",
+                                          "card",
+                                          "bank",
+                                          "bkash",
+                                          "nagad"
+                                        ]
+                                      },
+                                      "amountPaisa": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "trxId": {
+                                        "type": "string"
+                                      },
+                                      "reference": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "method",
+                                      "amountPaisa"
+                                    ]
+                                  }
+                                },
+                                "pending": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "method": {
+                                        "type": "string",
+                                        "enum": [
+                                          "cash",
+                                          "card",
+                                          "bank",
+                                          "bkash",
+                                          "nagad"
+                                        ]
+                                      },
+                                      "amountPaisa": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      }
+                                    },
+                                    "required": [
+                                      "method",
+                                      "amountPaisa"
+                                    ]
+                                  }
+                                }
+                              },
+                              "required": [
+                                "paid",
+                                "pending"
+                              ]
+                            },
+                            "cashier": {
+                              "type": "object",
+                              "properties": {
+                                "nameBn": {
+                                  "type": "string"
+                                },
+                                "nameEn": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "nameBn",
+                                "nameEn"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "seller",
+                            "invoice",
+                            "patient",
+                            "lines",
+                            "subtotalPaisa",
+                            "discountPaisa",
+                            "vatPaisa",
+                            "totalPaisa",
+                            "paidPaisa",
+                            "duePaisa",
+                            "vatByRate",
+                            "discount",
+                            "paidBy",
+                            "cashier"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "number",
+                        "invoiceId",
+                        "createdAt",
+                        "paidPaisa",
+                        "totalPaisa",
+                        "duePaisa",
+                        "verifyUrl",
+                        "snapshot"
+                      ]
+                    },
+                    "prints": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "copy": {
+                            "type": "integer"
+                          },
+                          "reason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "lost",
+                              "jam",
+                              "corp",
+                              "ins"
+                            ]
+                          },
+                          "format": {
+                            "type": "string",
+                            "enum": [
+                              "a5",
+                              "thermal"
+                            ]
+                          },
+                          "lang": {
+                            "type": "string",
+                            "enum": [
+                              "both",
+                              "bn",
+                              "en"
+                            ]
+                          },
+                          "printedBy": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "printedAt": {
+                            "type": "string"
+                          },
+                          "pdfUrl": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "copy",
+                          "reason",
+                          "format",
+                          "lang",
+                          "printedBy",
+                          "printedAt",
+                          "pdfUrl"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "receipt",
+                    "prints"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/receipts/{id}/print": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "a5",
+                      "thermal"
+                    ],
+                    "default": "a5"
+                  },
+                  "lang": {
+                    "type": "string",
+                    "enum": [
+                      "both",
+                      "bn",
+                      "en"
+                    ],
+                    "default": "both"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "lost",
+                      "jam",
+                      "corp",
+                      "ins"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "original (copy 0) or DUPLICATE #n with a reason; audited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "print": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "copy": {
+                          "type": "integer"
+                        },
+                        "reason": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "lost",
+                            "jam",
+                            "corp",
+                            "ins"
+                          ]
+                        },
+                        "format": {
+                          "type": "string",
+                          "enum": [
+                            "a5",
+                            "thermal"
+                          ]
+                        },
+                        "lang": {
+                          "type": "string",
+                          "enum": [
+                            "both",
+                            "bn",
+                            "en"
+                          ]
+                        },
+                        "printedBy": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "nameBn": {
+                              "type": "string"
+                            },
+                            "nameEn": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "nameBn",
+                            "nameEn"
+                          ]
+                        },
+                        "printedAt": {
+                          "type": "string"
+                        },
+                        "pdfUrl": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "copy",
+                        "reason",
+                        "format",
+                        "lang",
+                        "printedBy",
+                        "printedAt",
+                        "pdfUrl"
+                      ]
+                    },
+                    "view": {
+                      "type": "object",
+                      "properties": {
+                        "receipt": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "number": {
+                              "type": "string"
+                            },
+                            "invoiceId": {
+                              "type": "string"
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "paidPaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "totalPaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "duePaisa": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "verifyUrl": {
+                              "type": "string"
+                            },
+                            "snapshot": {
+                              "type": "object",
+                              "properties": {
+                                "seller": {
+                                  "type": "object",
+                                  "properties": {
+                                    "nameEn": {
+                                      "type": "string"
+                                    },
+                                    "nameBn": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "address": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "vatBin": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "vatBinSample": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "nameEn",
+                                    "nameBn",
+                                    "address",
+                                    "vatBin",
+                                    "vatBinSample"
+                                  ]
+                                },
+                                "invoice": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "number": {
+                                      "type": "string"
+                                    },
+                                    "issuedAt": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "number",
+                                    "issuedAt"
+                                  ]
+                                },
+                                "patient": {
+                                  "type": "object",
+                                  "properties": {
+                                    "nameBn": {
+                                      "type": "string"
+                                    },
+                                    "nameEn": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "facilityNo": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "nameBn",
+                                    "nameEn",
+                                    "facilityNo"
+                                  ]
+                                },
+                                "lines": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "nameBn": {
+                                        "type": "string"
+                                      },
+                                      "nameEn": {
+                                        "type": "string"
+                                      },
+                                      "qty": {
+                                        "type": "integer"
+                                      },
+                                      "unitPaisa": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "vatRateBp": {
+                                        "type": "integer"
+                                      },
+                                      "grossPaisa": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "discountPaisa": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "netPaisa": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "vatPaisa": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "totalPaisa": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      }
+                                    },
+                                    "required": [
+                                      "nameBn",
+                                      "nameEn",
+                                      "qty",
+                                      "unitPaisa",
+                                      "vatRateBp",
+                                      "grossPaisa",
+                                      "discountPaisa",
+                                      "netPaisa",
+                                      "vatPaisa",
+                                      "totalPaisa"
+                                    ]
+                                  }
+                                },
+                                "subtotalPaisa": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "discountPaisa": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "vatPaisa": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "totalPaisa": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "paidPaisa": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "duePaisa": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "vatByRate": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "rateBp": {
+                                        "type": "integer"
+                                      },
+                                      "netPaisa": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "vatPaisa": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      }
+                                    },
+                                    "required": [
+                                      "rateBp",
+                                      "netPaisa",
+                                      "vatPaisa"
+                                    ]
+                                  }
+                                },
+                                "discount": {
+                                  "type": [
+                                    "object",
+                                    "null"
+                                  ],
+                                  "properties": {
+                                    "category": {
+                                      "type": "string",
+                                      "enum": [
+                                        "poor",
+                                        "staff",
+                                        "doctor",
+                                        "ff",
+                                        "corp"
+                                      ]
+                                    },
+                                    "reason": {
+                                      "type": "string"
+                                    },
+                                    "approvedBy": {
+                                      "type": [
+                                        "object",
+                                        "null"
+                                      ],
+                                      "properties": {
+                                        "nameBn": {
+                                          "type": "string"
+                                        },
+                                        "nameEn": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "nameBn",
+                                        "nameEn"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "category",
+                                    "reason",
+                                    "approvedBy"
+                                  ]
+                                },
+                                "paidBy": {
+                                  "type": "object",
+                                  "properties": {
+                                    "paid": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "method": {
+                                            "type": "string",
+                                            "enum": [
+                                              "cash",
+                                              "card",
+                                              "bank",
+                                              "bkash",
+                                              "nagad"
+                                            ]
+                                          },
+                                          "amountPaisa": {
+                                            "type": "integer",
+                                            "minimum": 0
+                                          },
+                                          "trxId": {
+                                            "type": "string"
+                                          },
+                                          "reference": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "method",
+                                          "amountPaisa"
+                                        ]
+                                      }
+                                    },
+                                    "pending": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "method": {
+                                            "type": "string",
+                                            "enum": [
+                                              "cash",
+                                              "card",
+                                              "bank",
+                                              "bkash",
+                                              "nagad"
+                                            ]
+                                          },
+                                          "amountPaisa": {
+                                            "type": "integer",
+                                            "minimum": 0
+                                          }
+                                        },
+                                        "required": [
+                                          "method",
+                                          "amountPaisa"
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "paid",
+                                    "pending"
+                                  ]
+                                },
+                                "cashier": {
+                                  "type": "object",
+                                  "properties": {
+                                    "nameBn": {
+                                      "type": "string"
+                                    },
+                                    "nameEn": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "nameBn",
+                                    "nameEn"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "seller",
+                                "invoice",
+                                "patient",
+                                "lines",
+                                "subtotalPaisa",
+                                "discountPaisa",
+                                "vatPaisa",
+                                "totalPaisa",
+                                "paidPaisa",
+                                "duePaisa",
+                                "vatByRate",
+                                "discount",
+                                "paidBy",
+                                "cashier"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "number",
+                            "invoiceId",
+                            "createdAt",
+                            "paidPaisa",
+                            "totalPaisa",
+                            "duePaisa",
+                            "verifyUrl",
+                            "snapshot"
+                          ]
+                        },
+                        "prints": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "copy": {
+                                "type": "integer"
+                              },
+                              "reason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "enum": [
+                                  "lost",
+                                  "jam",
+                                  "corp",
+                                  "ins"
+                                ]
+                              },
+                              "format": {
+                                "type": "string",
+                                "enum": [
+                                  "a5",
+                                  "thermal"
+                                ]
+                              },
+                              "lang": {
+                                "type": "string",
+                                "enum": [
+                                  "both",
+                                  "bn",
+                                  "en"
+                                ]
+                              },
+                              "printedBy": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "printedAt": {
+                                "type": "string"
+                              },
+                              "pdfUrl": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "copy",
+                              "reason",
+                              "format",
+                              "lang",
+                              "printedBy",
+                              "printedAt",
+                              "pdfUrl"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "receipt",
+                        "prints"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "print",
+                    "view"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/receipts/{id}/prints/{printId}/pdf": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "printId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "the stored PDF",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/verify/rc/{code}": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9A-HJKMNP-TV-Z]{16,40}$"
+            },
+            "required": true,
+            "name": "code",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "public, rate-limited: facility, number, date, amount only",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "facilityEn": {
+                      "type": "string"
+                    },
+                    "facilityBn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "number": {
+                      "type": "string"
+                    },
+                    "date": {
+                      "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "facilityEn",
+                    "facilityBn",
+                    "number",
+                    "date",
+                    "amountPaisa"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "webhooks": {}

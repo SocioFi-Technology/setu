@@ -386,3 +386,9 @@ doctor's list puts waiting patients before completed visits; repeated entered-in
 93. **The first billing migration was applied before its SQL could be appended**, so RLS, checks and triggers are in
     the follow-up migration `billing_guards` (an applied migration is never edited). Both are needed together on any
     database.
+
+### Decisions of 03/10/2026 (Kamrul) on items 83–93
+- All accepted as recorded.
+- 89: **the owner works the payment-reconciliation queue** for now (the Clinic plan has no accountant role); add an
+  accountant role when the Hospital plans need it. The queue screen is a **billing follow-up**, not part of A6–A7.
+- 90: **phase 2 list (before the bKash sandbox):** create the Payment row first and the provider link second.

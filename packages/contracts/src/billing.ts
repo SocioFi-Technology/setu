@@ -142,3 +142,49 @@ export type PaymentResponse = z.infer<typeof PaymentResponse>;
 export const ProviderCallbackResponse = z.object({ outcome: z.enum(["applied", "noop", "refused"]), reason: z.string().optional() });
 export type ProviderCallbackResponse = z.infer<typeof ProviderCallbackResponse>;
 export const FakeProviderEventKind = z.enum(["opened", "confirmed", "failed"]);
+
+/* ── receipts (session 2). A receipt is an immutable copy of what is printed; prints are logged (copy 0 = original,
+   n ≥ 1 = DUPLICATE #n with a reason). The public verify page shows only facility, receipt number, date, amount. ── */
+export const ReceiptLang = z.enum(["both", "bn", "en"]);
+export const ReceiptFormat = z.enum(["a5", "thermal"]);
+export const ReprintReason = z.enum(["lost", "jam", "corp", "ins"]);
+export const ReceiptSnapshot = z.object({
+  seller: z.object({ nameEn: z.string(), nameBn: z.string().nullable(), address: z.string().nullable(), vatBin: z.string().nullable(), vatBinSample: z.boolean() }),
+  invoice: z.object({ id: z.string(), number: z.string(), issuedAt: z.string() }),
+  patient: z.object({ nameBn: z.string(), nameEn: z.string().nullable(), facilityNo: z.string() }),
+  lines: z.array(z.object({
+    nameBn: z.string(), nameEn: z.string(), qty: z.number().int(), unitPaisa: Paisa, vatRateBp: z.number().int(),
+    grossPaisa: Paisa, discountPaisa: Paisa, netPaisa: Paisa, vatPaisa: Paisa, totalPaisa: Paisa,
+  })),
+  subtotalPaisa: Paisa, discountPaisa: Paisa, vatPaisa: Paisa, totalPaisa: Paisa, paidPaisa: Paisa, duePaisa: Paisa,
+  /** sums of line paisa per VAT rate (Mushak-6.3 breakdown) */
+  vatByRate: z.array(z.object({ rateBp: z.number().int(), netPaisa: Paisa, vatPaisa: Paisa })),
+  discount: z.object({ category: DiscountCategory, reason: z.string(), approvedBy: z.object({ nameBn: z.string(), nameEn: z.string() }).nullable() }).nullable(),
+  paidBy: PaidByView,
+  cashier: z.object({ nameBn: z.string(), nameEn: z.string() }),
+});
+export type ReceiptSnapshot = z.infer<typeof ReceiptSnapshot>;
+export const ReceiptPrintView = z.object({
+  id: z.string(), copy: z.number().int(), reason: ReprintReason.nullable(), format: ReceiptFormat, lang: ReceiptLang,
+  printedBy: Person, printedAt: z.string(), pdfUrl: z.string(),
+});
+export type ReceiptPrintView = z.infer<typeof ReceiptPrintView>;
+export const ReceiptView = z.object({
+  receipt: z.object({
+    id: z.string(), number: z.string(), invoiceId: z.string(), createdAt: z.string(), paidPaisa: Paisa, totalPaisa: Paisa, duePaisa: Paisa,
+    /** what the QR encodes */
+    verifyUrl: z.string(),
+    snapshot: ReceiptSnapshot,
+  }),
+  prints: z.array(ReceiptPrintView),
+});
+export type ReceiptView = z.infer<typeof ReceiptView>;
+export const ReceiptList = z.object({ items: z.array(z.object({ id: z.string(), number: z.string(), createdAt: z.string(), paidPaisa: Paisa, duePaisa: Paisa, prints: z.number().int() })) });
+export type ReceiptList = z.infer<typeof ReceiptList>;
+export const PrintRequest = z.object({ format: ReceiptFormat.default("a5"), lang: ReceiptLang.default("both"), reason: ReprintReason.optional() });
+export type PrintRequest = z.infer<typeof PrintRequest>;
+export const PrintResponse = z.object({ print: ReceiptPrintView, view: ReceiptView });
+export type PrintResponse = z.infer<typeof PrintResponse>;
+export const VerifyCode = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{16,40}$/);
+export const VerifyResponse = z.object({ facilityEn: z.string(), facilityBn: z.string().nullable(), number: z.string(), date: z.string(), amountPaisa: Paisa });
+export type VerifyResponse = z.infer<typeof VerifyResponse>;

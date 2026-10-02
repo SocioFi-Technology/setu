@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import { ZodError } from "zod";
 import { TransitionError } from "@setu/domain";
 import { config } from "./config.js";
@@ -20,6 +21,8 @@ export async function buildApp() {
   const app = Fastify({ logger: process.env.NODE_ENV === "test" ? false : { serializers: { req: (r) => ({ method: r.method, url: (r.url ?? "").split("?")[0], id: r.id }) } } });
   await app.register(cors, { origin: [/^http:\/\/localhost:\d+$/], credentials: true });
   await app.register(cookie, { secret: config.sessionSecret });
+  /* Only routes that opt in are limited (the public receipt check). */
+  await app.register(rateLimit, { global: false });
   sessionPlugin(app);
   auditPlugin(app);
   idempotencyPlugin(app);

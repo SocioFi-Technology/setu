@@ -6,7 +6,7 @@
    payment_ref_lookup, and the event is handled in forTenant with its own audit row. */
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import {
-  AddLineRequest, ApprovalQuery, ApproveRequest, ChargeDefinitionQuery, DiscountRequest, FakeProviderEventKind, NewPaymentRequest, RejectRequest, RevRequest, SetQtyRequest, VerifyTrxRequest,
+  AddLineRequest, ApprovalQuery, PrintRequest, VerifyCode, type PrintResponse, type ReceiptList, type ReceiptView, type VerifyResponse, ApproveRequest, ChargeDefinitionQuery, DiscountRequest, FakeProviderEventKind, NewPaymentRequest, RejectRequest, RevRequest, SetQtyRequest, VerifyTrxRequest,
   type ApprovalDecisionResponse, type ApprovalList, type BillingWorklist, type ChargeDefinitionList, type DiscountResponse, type InvoiceView, type PaymentResponse, type ProviderCallbackResponse,
 } from "@setu/contracts";
 import { authorize } from "@setu/domain";
@@ -19,6 +19,7 @@ import {
   addDeskLine, addPayment, approvalList, billingWorklist, chargeDefinitions, createInvoice, decideDiscount, handleProviderEvent, invoiceView, removeDiscount, removeLine,
   invoiceHere, issueInvoice, requestDiscount, retryPayment, setLineQty, verifyTrx,
 } from "../modules/billing.js";
+import { createReceipt, printPdf, printReceipt, receiptList, receiptView } from "../modules/receipts.js";
 import { requireSession } from "../plugins/session.js";
 
 function requireBill(req: FastifyRequest, screen: "opd" | "pay" | "receipt" | "approvals") {
@@ -199,6 +200,67 @@ export async function billingRoutes(app: FastifyInstance) {
       const view = await invoiceView(tx, s, r.inv);
       return { body: { payment: view.payments.find((p) => p.id === id)!, view }, audit: [{ action: "update", entity: "Payment", entityId: id, patientId: r.inv.patientId, detail: { event: "verify-trx", outcome: r.outcome } }] };
     });
+  });
+
+  /* ── receipts (cashier, owner, admin) ── */
+  app.get("/v1/invoices/:id/receipts", async (req): Promise<ReceiptList> => {
+    requireBill(req, "receipt");
+    const { id } = req.params as { id: string };
+    return query(req, async (tx, s) => {
+      const r = await receiptList(tx, s, id);
+      return { body: r.list, audit: [{ action: "view", entity: "Receipt", patientId: r.patientId, detail: { invoiceId: id, count: r.list.items.length } }] };
+    });
+  });
+  app.post("/v1/invoices/:id/receipts", { config: { ownTx: true } }, async (req, reply): Promise<ReceiptView> => {
+    requireBill(req, "receipt");
+    const { id } = req.params as { id: string };
+    return command(req, reply, async (tx, s) => {
+      const r = await createReceipt(tx, s, id, new Date());
+      return { status: r.created ? 201 : 200, body: await receiptView(tx, r.r), audit: [{ action: r.created ? "create" : "view", entity: "Receipt", entityId: r.r.id, patientId: r.r.patientId, detail: { invoiceId: id, number: r.r.number, paidPaisa: r.r.paidPaisa } }] };
+    });
+  });
+  app.get("/v1/receipts/:id", async (req): Promise<ReceiptView> => {
+    requireBill(req, "receipt");
+    const { id } = req.params as { id: string };
+    return query(req, async (tx, s) => {
+      const r = await tx.receipt.findFirst({ where: { id, organizationId: s.organizationId } });
+      if (!r) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
+      await invoiceHere(tx, s, r.invoiceId);
+      return { body: await receiptView(tx, r), audit: [{ action: "view", entity: "Receipt", entityId: id, patientId: r.patientId }] };
+    });
+  });
+  app.post("/v1/receipts/:id/print", { config: { ownTx: true } }, async (req, reply): Promise<PrintResponse> => {
+    requireBill(req, "receipt");
+    const { id } = req.params as { id: string };
+    const body = PrintRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => {
+      const r = await printReceipt(tx, s, id, body, new Date());
+      const view = await receiptView(tx, r.r);
+      return { status: 201, body: { print: view.prints.find((p) => p.id === r.print.id)!, view }, audit: [{
+        action: r.print.copy === 0 ? "print" : "reprint", entity: "Receipt", entityId: id, patientId: r.r.patientId,
+        detail: { number: r.r.number, copy: r.print.copy, reason: r.print.reason, format: r.print.format, lang: r.print.lang },
+      }] };
+    });
+  });
+  app.get("/v1/receipts/:id/prints/:printId/pdf", async (req, reply) => {
+    requireBill(req, "receipt");
+    const { id, printId } = req.params as { id: string; printId: string };
+    const r = await query(req, async (tx, s) => {
+      const x = await printPdf(tx, s, id, printId);
+      return { body: x, audit: [{ action: "view", entity: "ReceiptPrint", entityId: printId, patientId: x.r.patientId, detail: { receiptId: id, copy: x.print.copy } }] };
+    });
+    const fileName = `${r.r.number.replace(/\//g, "-")}${r.print.copy ? `-DUPLICATE-${r.print.copy}` : ""}.pdf`;
+    return reply.header("content-type", "application/pdf").header("content-disposition", `inline; filename="${fileName}"`).header("cache-control", "no-store").send(Buffer.from(r.bytes));
+  });
+
+  /* ── public receipt check (the QR): no session, rate-limited, facility / number / date / amount only ── */
+  app.get("/v1/verify/rc/:code", { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (req, reply): Promise<VerifyResponse> => {
+    const code = VerifyCode.safeParse((req.params as { code: string }).code.toUpperCase());
+    if (!config.dbEnabled) throw err(503, "db_off", "ডাটাবেস চালু নেই", "The database is not running");
+    reply.header("cache-control", "no-store");
+    const hit = code.success ? await (await import("@setu/db")).receiptVerifyLookup(code.data) : null;
+    if (!hit) throw err(404, "not_found", "এই কোডের কোনো রসিদ পাওয়া যায়নি", "No receipt found for this code");
+    return { facilityEn: hit.facilityEn, facilityBn: hit.facilityBn, number: hit.number, date: new Date(hit.createdAt).toISOString(), amountPaisa: hit.paidPaisa };
   });
 
   /* ── provider callbacks: raw body for the signature, no session ── */

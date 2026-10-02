@@ -65,6 +65,14 @@ r.registerPath({ method: "post", path: "/v1/invoices/{id}/payments", request: { 
 r.registerPath({ method: "post", path: "/v1/payments/{id}/retry", request: { params: pid, headers: idem }, responses: { 200: { description: "failed wallet payment: new link sent", ...json(C.PaymentResponse) }, 403: err, 409: err } });
 r.registerPath({ method: "post", path: "/v1/payments/{id}/verify-trx", request: { params: pid, headers: idem, body: json(C.VerifyTrxRequest) }, responses: { 200: { description: "checked with the provider", ...json(C.PaymentResponse) }, 403: err, 409: err, 422: err } });
 r.registerPath({ method: "post", path: "/v1/payments/callback/{provider}", request: { params: z.object({ provider: z.string() }) }, responses: { 200: { description: "signed provider event recorded once", ...json(C.ProviderCallbackResponse) }, 401: err, 404: err } });
+/* Receipts (slice A6–A7 session 2). */
+const pr = z.object({ id: z.string(), printId: z.string() });
+r.registerPath({ method: "get", path: "/v1/invoices/{id}/receipts", request: { params: pid }, responses: { 200: { description: "the bill's receipts", ...json(C.ReceiptList) }, 403: err, 404: err } });
+r.registerPath({ method: "post", path: "/v1/invoices/{id}/receipts", request: { params: pid, headers: idem }, responses: { 201: { description: "new receipt RCPT/yy/nnnn (immutable copy)", ...json(C.ReceiptView) }, 200: { description: "nothing paid since: the same receipt", ...json(C.ReceiptView) }, 409: err } });
+r.registerPath({ method: "get", path: "/v1/receipts/{id}", request: { params: pid }, responses: { 200: { description: "receipt and its prints", ...json(C.ReceiptView) }, 403: err, 404: err } });
+r.registerPath({ method: "post", path: "/v1/receipts/{id}/print", request: { params: pid, headers: idem, body: json(C.PrintRequest) }, responses: { 201: { description: "original (copy 0) or DUPLICATE #n with a reason; audited", ...json(C.PrintResponse) }, 409: err } });
+r.registerPath({ method: "get", path: "/v1/receipts/{id}/prints/{printId}/pdf", request: { params: pr }, responses: { 200: { description: "the stored PDF", content: { "application/pdf": { schema: z.string() } } }, 404: err } });
+r.registerPath({ method: "get", path: "/v1/verify/rc/{code}", request: { params: z.object({ code: C.VerifyCode }) }, responses: { 200: { description: "public, rate-limited: facility, number, date, amount only", ...json(C.VerifyResponse) }, 404: err, 429: err } });
 const doc = new OpenApiGeneratorV31(r.definitions).generateDocument({ openapi: "3.1.0", info: { title: "Setu Health API", version: "0.0.1" }, servers: [{ url: "/" }] });
 writeFileSync(new URL("../openapi.json", import.meta.url), JSON.stringify(doc, null, 2));
 console.log("wrote packages/contracts/openapi.json");

@@ -12,6 +12,8 @@ export const config = {
   /** When no database URL is set (first run, CI without Docker) the API serves /health and the demo login from memory. */
   dbEnabled: Boolean(process.env.DATABASE_URL_APP),
   version: process.env.npm_package_version ?? "0.0.1",
+  /** What a receipt's QR opens: the staff app's public page /verify/rc/<code> (no login, no patient details). */
+  verifyBaseUrl: (process.env.VERIFY_BASE_URL ?? "http://localhost:3000/verify/rc").replace(/\/+$/, ""),
   adapters: { payments: process.env.PAYMENTS_PROVIDER ?? "fake", sms: process.env.SMS_PROVIDER ?? "fake", ai: process.env.AI_PROVIDER ?? "fake" },
 };
 

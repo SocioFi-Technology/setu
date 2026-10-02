@@ -863,3 +863,48 @@ model ProviderEvent {
   @@unique([provider, eventId])
   @@index([tenantId, paymentId])
 }
+
+/// A money receipt (slice A6–A7 session 2): an immutable copy of what was printed — bill lines, totals, confirmed
+/// payments and pending wallet amounts at that moment — numbered RCPT/yy/nnnn per facility per year from Sequence in
+/// the same transaction. `verifyCode` (≥16 random characters, never sequential) is what the QR's public verify URL
+/// carries; the verify page shows only facility, receipt number, date and amount. Never updated or deleted.
+model Receipt {
+  id             String   @id @default(cuid())
+  tenantId       String
+  organizationId String
+  invoiceId      String
+  patientId      String
+  number         String
+  verifyCode     String   @unique
+  /// paid to date (confirmed money only) and still due, in paisa, as printed
+  paidPaisa      Int
+  totalPaisa     Int
+  duePaisa       Int
+  /// everything the receipt prints (seller, patient, lines, totals, paid by, pending, cashier)
+  snapshot       Json
+  createdById    String
+  createdAt      DateTime @default(now())
+  prints         ReceiptPrint[]
+  @@unique([tenantId, organizationId, number])
+  @@index([tenantId, invoiceId])
+}
+
+/// Every print of a receipt: copy 0 = the original, n ≥ 1 = "DUPLICATE #n" with a reason. Append-only; the PDF itself
+/// sits in Storage under `storageKey`.
+model ReceiptPrint {
+  id          String   @id @default(cuid())
+  tenantId    String
+  receiptId   String
+  receipt     Receipt  @relation(fields: [receiptId], references: [id])
+  copy        Int
+  reason      String?
+  /// a5 | thermal
+  format      String
+  /// both | bn | en
+  lang        String
+  storageKey  String
+  printedById String
+  printedAt   DateTime @default(now())
+  @@unique([receiptId, copy])
+  @@index([tenantId, receiptId])
+}

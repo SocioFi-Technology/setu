@@ -44,6 +44,12 @@ importers:
       fastify:
         specifier: ^5.1.0
         version: 5.12.5
+      playwright-core:
+        specifier: 1.63.0
+        version: 1.63.0
+      qrcode-generator:
+        specifier: 2.0.4
+        version: 2.0.4
       zod:
         specifier: ^3.23.0
         version: 3.25.76
@@ -1374,6 +1380,9 @@ packages:
   pure-rand@6.1.0:
     resolution: {integrity: sha512-bVWawvoZoBYpp6yIoQtQXHZjmz35RSVHnUOTefl8Vcjr8snTPY1wnpSPMWekcFwbxI6gtmT7rSYPFvz71ldiOA==}
 
+  qrcode-generator@2.0.4:
+    resolution: {integrity: sha512-mZSiP6RnbHl4xL2Ap5HfkjLnmxfKcPWpWe/c+5XxCuetEenqmNFf1FH/ftXPCtFG5/TDobjsjz6sSNL0Sr8Z9g==}
+
   quick-format-unescaped@4.0.4:
     resolution: {integrity: sha512-tYC1Q1hgyRuHgloV/YXs2w15unPVh8qfu/qCTfhTYamaw7fyhumKa2yGpdSo87vY32rIclj+4fWYQXUMs9EHvg==}
 
@@ -2554,6 +2563,8 @@ snapshots:
   process-warning@5.1.0: {}
 
   pure-rand@6.1.0: {}
+
+  qrcode-generator@2.0.4: {}
 
   quick-format-unescaped@4.0.4: {}
 
