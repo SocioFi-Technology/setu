@@ -279,3 +279,58 @@ moved into `@setu/domain` `signDocument` (ADR 0003 updated).
     again; it signs nothing new. The PIN itself is never stored, not even inside the request hash.
 67. **No prices on medicines either** (the prototype shows a price per tablet); prices come with the pharmacy/price
     lists.
+
+
+## Slice A4–A5 session 3 (consultation screens) — 02–03/10/2026
+
+### Decided by Kamrul (02/10/2026, before the session)
+- **Hands-on test in the E2E Test Clinic** as doctor 01799000002, penicillin allergy recorded on Karim; nothing
+  permanent is created in Green Life (the demo clinic people see).
+- **E2E clinic reset without deleting anything:** allergies recorded by test runs are marked entered-in-error, leftover
+  visits are closed through the normal ENCOUNTER transitions, every run uses fresh visits and no spec depends on
+  counts. No purge and no safety trigger switched off, not even in the test clinic.
+
+### Chosen conservatively by Claude — please confirm
+68. **Device copy vs a newer server version:** the screen shows the server's version and offers "Load the device copy
+    into the note" or "Discard the device copy". Loading replaces the note's text with the device copy (on the
+    doctor's click only); there is no automatic merge.
+69. **Keys:** "/" jumps to the medicine search only outside a text box (inside one it types a slash); Ctrl+Enter opens
+    the sign sheet and never signs by itself (the PIN is always asked); keys do nothing while a dialog is open.
+70. **One Idempotency-Key per opening of the sign sheet:** a wrong PIN then the right one is the same request;
+    closing and reopening the sheet starts a new request.
+71. **Brand names stay in English on prescription lines and warnings** in both languages (as printed on
+    prescriptions, and the same after a reload); Bangla brand names are used only to help the search.
+72. **Record allergy / Entered in error are also on the signed-note screen** for the visit's doctor (an allergy belongs
+    to the patient; the API already allows it on a finished visit for that doctor).
+73. **Signing out with a draft not yet sent** clears it without asking (your decision: cleared at sign-out). The top
+    bar's "not synced" count includes device drafts, so it is visible before signing out. Should sign-out warn "N
+    unsent drafts will be lost"? Your call.
+74. **A session that expires without signing out** leaves that user's device draft on the browser, unreadable to other
+    users, until it expires at 24 h (then only a "not sent within 24 hours" line without the text remains).
+75. **A consultation cannot be opened offline** (the note is read from the server); a note already open keeps working
+    offline as a device draft.
+76. **The AI draft reads the note as saved on the server**, so text typed in the last second before pressing it may
+    not be included.
+77. **Leftover test visits in the E2E clinic** are closed with cancel (waiting / vitals done) or markError (with
+    doctor) — never finish, which only signing does.
+
+### From the reviews and the hands-on test of session 3 (03/10/2026)
+Fixed in the session (commits "step 8" and "step 9"): typing is kept as a device copy when the server holds a newer
+version, and loading that copy asks first; sign-out sends unsent drafts first and asks before deleting them; leaving
+the editor keeps unconfirmed text on the device; 0+0+0 is not a dose; allergies are re-read when the window regains
+focus and after the sign sheet closes; expired drafts are removed at app start; an expired session clears the last
+user's drafts; device drafts are schema-checked before they are sent or loaded; the reset refuses a non-local
+database, filters by tenant, acts as the E2E admin and audits; PIN autocomplete off for password managers; the
+doctor's list puts waiting patients before completed visits; repeated entered-in-error allergies are grouped.
+
+78. **Needs a clinician (pre-pilot):** a per-dose cap (today any single digit per dose is accepted, e.g. 9+9+9), and
+    the dose formats beyond tablet/capsule counts (syrup in ml, drops, injections, "as needed").
+79. **Pre-pilot security pass (HANDOVER gap 10):** encrypt device drafts with a key bound to the server session (or
+    sign them), so a copy left in a browser is useless to anyone else and a planted copy is never sent; queued
+    writes in the older outbox (registration, vitals) keep their bodies after sign-out for the same user — same fix.
+80. **Test clinic only:** visits the reset closes (cancelled / entered-in-error) show in the queue's "No-show"
+    column. Harmless in t_e2e; a real "cancelled" column comes with the queue follow-ups (gap 8).
+81. **Signing out while offline** fails (the server cannot be told), and the user stays signed in on that screen —
+    behaviour from before this slice. Suggest: sign out locally and clear the cookie when back online.
+82. **The AI context includes the patient's free text** (complaints, allergy reactions) — fine for FakeAi; before a
+    real model is connected it must be passed as data, never as instructions (security review).

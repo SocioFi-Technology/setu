@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 02/10/2026 (slice A1–A3 done; A4–A5 sessions 1 and 2 of 3 done)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3 and A4–A5 done; next A6–A7)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -108,6 +108,48 @@ the reviews and the hands-on test. Kamrul's decisions for this session: open que
 - Note on history: commit `dbc5a5d` (step 4) does not build on its own — its service file imports `adapters/ai.ts` and
   `modules/pin.ts`, which arrived one commit later in `38a2c1c` (step 5). Every later commit builds.
 
+## Done (slice A4–A5, session 3 of 3, 02–03/10/2026) — consultation screens (A5 plan steps 7–10) ✅
+Slice A4–A5 is **done**. Kamrul's decisions for this session: hands-on test in the E2E Test Clinic (penicillin on
+Karim); the E2E reset never deletes and never switches a safety trigger off (open questions, session 3).
+- **Screens** (`apps/staff/modules/cons/`, registered in `registry.tsx`, strings in `locales/app/consultApp.json`):
+  - `cons/draft` without `?enc` = today's list (with doctor → waiting, critical first → completed); with `?enc` = the
+    note: complaints (`parseComplaint`, bn digits), history, exam, vitals read-only with flags, diagnosis search bn/en
+    (provisional by default, "code not verified (sample list)"), test orders (placed ones locked), Rx builder
+    (`Rx.tsx`: `rxWarnings` as the doctor types — allergy Remove only, same medicine Remove / Keep both, same class,
+    interaction Acknowledge, dose and days; footnotes "sample list" and "tablet/capsule counts only"), allergy strip
+    (`Allergies.tsx`: Record allergy, Entered in error with a reason ≥ 10; never NKDA), AI panel (`Ai.tsx`: "draft — not
+    a diagnosis", inserted text marks the section ai-draft; the scribe consent tick is disabled "not available yet"),
+    current medicines and past diagnoses, sign sheet (`SignSheet.tsx`).
+  - `cons/signed` (server-confirmed time, signer, registration only when stored with "not verified", Amend) and
+    `cons/amended` (every version with its status, reason, "Replaced by vN").
+  - Keys: "/" focuses the Rx search outside a text box (#9), Ctrl+Enter opens the sign sheet, Alt+1…9 sections, Esc.
+- **Rule 1 on screen:** autosave with check-and-set on `rev`; the status reads "Not yet synced" until the server
+  answers; the sign sheet says "Waiting for server — still a draft" until the API answers; there is no client-side
+  signed state; offline: "Draft on this device — not sent", Sign disabled "Sign when back online".
+- **Device drafts** (`apps/staff/lib/outbox.ts`): per user + tenant + facility, at most 24 h from the first unsent
+  change (then a listed "not sent" line without the text), replayed with their base rev (409 keeps a conflict copy,
+  never overwrites the server), schema-checked before sending or loading; sign-out sends them first and asks before
+  deleting any; an expired session clears them; leaving the editor keeps unconfirmed text on the device.
+- **API fix:** two opens at the same moment (double click) were a 409; the doctor's own winning open is now the
+  ordinary re-open (test added). `@setu/domain` `format.dose`: 0+0+0 is not a dose (screen and sign route).
+- **E2E reset** (`packages/db/src/reset-e2e.ts`): allergies runs recorded on the family → entered-in-error (Rahima's
+  seeded two recorded again if needed), leftover visits closed via ENCOUNTER cancel / markError, as the E2E admin,
+  audited; refuses a non-local database unless `E2E_RESET_ALLOWED=1`. First run closed 385 leftover test visits.
+- **UI package:** Callout has a danger tone and passes attributes; the patient banner wraps at tablet width.
+- **Reviews:** clinical safety (verdict FAIL on three ways to lose edits — all fixed: conflict copy, confirm before
+  loading it, sign-out warning; plus 0+0+0, stale allergies, leave-the-screen copy, reset actor) and security (pass;
+  medium items fixed except draft encryption → pre-pilot gap 10). Open questions 68–82.
+- **Hands-on test (03/10/2026)** as doctor 01799000002 at 1024 px on Karim: penicillin recorded from the strip;
+  amoxicillin blocked on screen, on the sign sheet and by the server (422); "/" → Rx search; Napa + Ace → Keep both;
+  wrong PIN ("4 tries left", still a draft) then the right PIN with the same Idempotency-Key → signed; amended (Ace 3 →
+  5 days), v2 "Amended", v1 "Superseded — replaced by v2"; Completed on the desk's queue. Found and fixed: finished
+  visits listed before the waiting patient, the entered-in-error list repeating "Penicillin" seven times, no inner
+  padding in the new dialogs (regression specs added).
+- **Tests:** domain 111, api 84 (+1 concurrent open), contracts 2, i18n 3; typecheck 12/12 plus `@setu/db` tsc
+  (its `prisma generate` step fails with EPERM while the API dev server holds the Prisma engine — stop the API to run
+  the full `pnpm typecheck`); Playwright **43** (16 shell + 12 `a1-a3` + 4 `a4` + 11 `a5`), green twice in a row on
+  03/10/2026.
+
 ## How to run the journeys on this PC
 - Playwright's Chromium is installed (02/10/2026): plain `pnpm e2e` runs the journeys against `pnpm dev` (staff :3000,
   api :4000). The installed-Chrome route still works: `cd e2e` then `CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" pnpm exec playwright test -c pw.local.config.ts`.
@@ -116,6 +158,11 @@ the reviews and the hands-on test. Kamrul's decisions for this session: open que
   and `STAFF_URL=http://localhost:3200` for Playwright. Next rewrites `apps/staff/tsconfig.json` and `next-env.d.ts`
   for that folder when it starts: restore them (`git checkout -- apps/staff/tsconfig.json apps/staff/next-env.d.ts`)
   before committing. Stop old `next dev` processes before `pnpm dev`.
+- **03/10/2026: port 4000 was held by another project's NestJS server** (`E:\healthcare`), so the Setu API ran on
+  4100 beside it: `cd apps/api` then `API_PORT=4100 pnpm exec tsx watch src/server.ts`, and the journey staff server
+  `cd apps/staff` then `API_URL=http://localhost:4100 NEXT_DIST_DIR=.next-e2e pnpm exec next dev -p 3300`, with
+  `STAFF_URL=http://localhost:3300 pnpm e2e`. If `next dev` stops answering after a CSS change in `packages/ui`,
+  restart it.
 - API contract test files run one at a time (`apps/api/vitest.config.ts`): they share the E2E family.
 - **Tests never touch the demo clinic.** The API contract tests and the Playwright journeys that create patients or visits sign in to the seeded **E2E Test Clinic** (`t_e2e`, users 01799000001 receptionist / …02 doctor / …09 owner / …10 admin, prefix `E2E-`, same walkthrough family). Playwright's `e2e/global-setup.ts` runs `pnpm db:reset-e2e` (restores the family, closes open reviews) and warms the dev server. The cross-tenant fixtures in the Hospital Lite demo are deleted after each API run. Green Life (`t_greenlife`) stays at its 8 seeded patients and an empty queue; the test patients made before 02/10/2026 evening were removed.
 - Shell specs still sign in as Green Life users; they only read.
@@ -134,7 +181,9 @@ the reviews and the hands-on test. Kamrul's decisions for this session: open que
 10. **Pre-pilot security pass** (decided 02/10/2026, open questions 20 and 24):
     - composite `(tenantId, id)` foreign keys for Patient.linkedToId, Task.focusId/candidateId, Provenance.targetId and Encounter.patientId (defence in depth beside RLS);
     - `pnpm db:migrate` must stop sending the `setu_app` password in plain text (SCRAM hash, or statement logging off);
-    - together with gap 3 (argon2id) and gap 4 (PIN tries in Redis).
+    - together with gap 3 (argon2id) and gap 4 (PIN tries in Redis);
+    - device drafts and queued outbox writes encrypted (or signed) with a key bound to the server session, so a copy
+      left in a browser is unreadable and a planted copy is never sent (security review A5, open question 79).
 12. **Pre-pilot clinical content (decisions D2, D3 of 02/10/2026):**
     - ICD-11: a clinician verifies the 10 seeded codes against the WHO ICD-11 browser; production source = WHO ICD-11
       API or a local extract.
@@ -146,24 +195,15 @@ the reviews and the hands-on test. Kamrul's decisions for this session: open que
     - Vitals limits (decision 46): clinician sign-off of the default thresholds (prototype + adult NEWS2) in
       `packages/domain/src/vitals.ts`, a critical-high glucose, and paediatric/infant ranges (none yet; under 18 the
       screen says the ranges are for adults).
+    - **Dose formats beyond tablets (syrup, drops, injection) are not yet accepted** (Kamrul, 03/10/2026): the Rx
+      builder takes only tablet/capsule counts like 1+0+1 (`packages/domain/src/format.ts` `dose`; the screen says so
+      under the prescription). A clinician decides the formats (ml, drops, IU, "as needed") and a per-dose cap
+      (open question 78).
 11. **Patients are per tenant** (decided 02/10/2026, open question 21): one record shared across an owner's branches; between different owners only through Connected Care with consent (Journey E), never by default.
 
 ## Next (in order)
 1. ~~`/slice A1-A3`~~ — done 02/10/2026.
-2. `/slice A4-A5` — sessions 1 (follow-ups + vitals) and 2 (consultation backend, plan steps 1–6) done 02/10/2026.
-   **Session 3 next — plan steps 7–10:**
-   - Run `pnpm e2e` first (not re-run in session 2).
-   - Screens `cons/draft` (worklist → note: complaint, history, exam, vitals read-only, diagnosis search bn/en, orders,
-     Rx builder with the warnings from `rxWarnings`, Record allergy + entered-in-error, AI panel "draft — not a
-     diagnosis" with the scribe's "Patient agreed to recording" tick shown disabled "not available yet", sign sheet with
-     PIN showing "Waiting for server — still a draft" until the API answers, "Sign when back online" offline),
-     `cons/signed`, `cons/amended` (version history); "/" focuses the Rx search (#9), Ctrl+Enter sign, Alt+1…9, Esc.
-     Register in `apps/staff/modules/registry.tsx`; strings in `packages/i18n/locales/app/consultApp.json`.
-   - Offline drafts (Kamrul 02/10/2026): stored per user on the device, cleared at sign-out, kept at most 24 h; never
-     sign offline.
-   - `e2e/journeys/a5.spec.ts` (+ #9, #16 regressions, 1024 px) as the E2E doctor on Rahima Khatun; extend
-     `db:reset-e2e` so her allergies and visits start clean.
-   - Clinical-safety and security reviews, hands-on test as the doctor, HANDOVER, commit, push.
+2. ~~`/slice A4-A5`~~ — done 02–03/10/2026 (three sessions). Kamrul to confirm open questions 68–82.
 3. `/slice A6-A7` — billing, payments (FakeProvider), receipt PDF (+ gap 2).
 4. `/slice A8-A11` — lab.
 5. `/slice A12-A13` — doctor app layout, printing; run all of Journey A.
