@@ -113,7 +113,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
       {/* Clinical review A5: unsent note drafts are never deleted at sign-out without asking. */}
       <Dialog open={unsent} onClose={() => setUnsent(false)} label={s.t("shellApp", "unsent_title")} width={480}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }} data-testid="unsent-drafts">
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 20 }} data-testid="unsent-drafts">
           <b className="t-h3">{s.t("shellApp", "unsent_title")}</b>
           <span>{s.t("shellApp", "unsent_body").replace("{n}", s.n(deviceDraftCount()))}</span>
           <span style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>

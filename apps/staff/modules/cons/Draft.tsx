@@ -249,7 +249,7 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
 
       {confirmLoad && conflict && isForm(conflict.form) && (
         <Dialog open onClose={() => setConfirmLoad(false)} label={C("device_load_title")} width={520}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }} data-testid="device-load-confirm">
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 20 }} data-testid="device-load-confirm">
             <b className="t-h3">{C("device_load_title")}</b>
             <span>{C("device_load_body", { at: F.time(conflict.at) })}</span>
             <span className="t-small"><b>{C("device_load_parts")}</b> {changedParts(conflict.form, form).map((k) => C(k)).join(", ") || "—"}</span>

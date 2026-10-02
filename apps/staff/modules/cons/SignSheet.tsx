@@ -84,7 +84,7 @@ export function SignSheet({ view, draft, form, rev, ensureSaved, onClose, onSign
 
   return (
     <Dialog open onClose={() => { if (phase.st !== "waiting") onClose(); }} label={C("ss_title")} width={620}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }} data-testid="sign-sheet">
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 20, maxHeight: "85vh", overflowY: "auto" }} data-testid="sign-sheet">
         <b className="t-h3">{draft.amendsId ? C("sign_amend") : C("ss_title")}</b>
         <span className="t-small t-muted num">{s.L(p.nameBn, p.nameEn ?? p.nameBn)} · {p.facilityNo} · {C("token", { t: view.encounter.token })}</span>
 

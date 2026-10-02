@@ -36,7 +36,8 @@ export function AllergyStrip({ view, editable, onChanged }: { view: Consultation
         </span>
       ))}
       <span style={{ marginLeft: "auto" }} />
-      {errored.length > 0 && <span className="t-small t-muted" data-testid="allergy-errored">{C("al_errors", { list: errored.map(label).join(", ") })}</span>}
+      {/* Hands-on test 03/10/2026: repeated entries are grouped ("Penicillin ×7"), not listed seven times. */}
+      {errored.length > 0 && <span className="t-small t-muted" data-testid="allergy-errored">{C("al_errors", { list: [...errored.reduce((m, a) => m.set(label(a), (m.get(label(a)) ?? 0) + 1), new Map<string, number>())].map(([l, n]) => (n > 1 ? `${l} ×${s.n(n)}` : l)).join(", ") })}</span>}
       {editable && (
         <Button size="sm" icon="plus" disabled={!s.online} title={s.online ? undefined : C("needs_connection")} onClick={() => setRecording(true)}>{C("al_record")}</Button>
       )}
@@ -73,7 +74,7 @@ function RecordAllergy({ view, onClose, onSaved }: { view: ConsultationView; onC
   const cap = (k: string) => k.charAt(0).toUpperCase() + k.slice(1);
   return (
     <Dialog open onClose={onClose} label={C("al_record")} width={520}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }} data-testid="record-allergy">
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 20 }} data-testid="record-allergy">
         <b className="t-h3">{C("al_record")}</b>
         <Segmented label={C("al_kind")} value={kind} onChange={(v) => { setKind(v); setKey(""); }}
           options={[{ value: "class", label: C("al_kind_class") }, { value: "substance", label: C("al_kind_substance") }, { value: "other", label: C("al_kind_other") }]} />
@@ -125,7 +126,7 @@ function MarkError({ allergy, encounterId, onClose, onSaved }: { allergy: Allerg
   };
   return (
     <Dialog open onClose={onClose} label={C("al_error_title")} width={520}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }} data-testid="mark-allergy-error">
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 20 }} data-testid="mark-allergy-error">
         <b className="t-h3">{C("al_error_title")}</b>
         <span className="allergy" style={{ alignSelf: "flex-start" }}><Icon name="triangle-alert" size={13} />{s.L(allergy.labelBn, allergy.labelEn)}</span>
         <span className="t-small">{C("al_error_body")}</span>

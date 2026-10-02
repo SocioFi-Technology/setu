@@ -9,6 +9,12 @@ import { useSession } from "../../lib/session";
 import { useLabels } from "../fd/common";
 import { consUrl, useC, useFmt } from "./common";
 
+/* Hands-on test 03/10/2026: finished visits came first (token order) and pushed the waiting patient off the screen.
+   Order: with this doctor → waiting (critical first) → completed; token order within each group. */
+const RANK: Record<string, number> = { "in-progress": 0, triaged: 1, arrived: 1, finished: 2 };
+const ordered = (items: Worklist["items"]) =>
+  items.map((x, i) => ({ x, i })).sort((a, b) => (RANK[a.x.status] ?? 3) - (RANK[b.x.status] ?? 3) || Number(b.x.critical) - Number(a.x.critical) || a.i - b.i).map((y) => y.x);
+
 export function ConsultWorklist() {
   const s = useSession(); const C = useC(); const F = useFmt(); const L = useLabels(); const router = useRouter();
   const [w, setW] = useState<Worklist | null>(null); const [failed, setFailed] = useState(false);
@@ -22,7 +28,7 @@ export function ConsultWorklist() {
         <>
           <span className="t-muted">{C("worklist_hint")}</span>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
-            {w.items.map((i) => (
+            {ordered(w.items).map((i) => (
               <button key={i.id} type="button" className="card" data-cons-token={i.token} data-status={i.status}
                 onClick={() => router.push(consUrl(i.signed && !i.hasDraft ? "signed" : "draft", i.id))}
                 style={{ display: "flex", flexDirection: "column", gap: 6, padding: 14, textAlign: "left", cursor: "pointer" }}>

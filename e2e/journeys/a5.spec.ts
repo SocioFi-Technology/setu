@@ -342,6 +342,35 @@ test("A5 allergy strip: Mark entered in error keeps the allergy on the record an
   await expect(page.getByTestId("allergy-errored")).toHaveText("Entered in error: Amoxicillin");
   await expect(page.getByTestId("allergy-none")).toBeVisible();
   await expect(page.locator('[data-rx-line="fimoxyl"] [data-warning="allergy"]')).toHaveCount(0);
+  // Hands-on test 03/10/2026: repeated entries are grouped; the dialogs have inner padding like the rest of the app.
+  await page.getByRole("button", { name: "Record allergy" }).click();
+  expect(await page.getByTestId("record-allergy").evaluate((e) => getComputedStyle(e).paddingLeft)).toBe("20px");
+  await dlg.getByRole("radio", { name: "Substance" }).click();
+  await dlg.locator("select[name=allergy-key]").selectOption("amoxicillin");
+  await dlg.getByRole("button", { name: "Save" }).click();
+  await page.getByRole("button", { name: "Entered in error: Amoxicillin" }).click();
+  await mark.locator("textarea[name=allergy-error-reason]").fill("Recorded on the wrong patient again");
+  await mark.getByRole("button", { name: "Mark entered in error" }).click();
+  await expect(page.getByTestId("allergy-errored")).toHaveText("Entered in error: Amoxicillin ×2");
+});
+
+test("A5 hands-on regression: the doctor's list shows waiting patients before completed visits", async ({ page, request }) => {
+  const done = await newPatientVisit(request, "listdone");
+  await login(page, DOCTOR);
+  await page.goto(`/m/cons/draft?enc=${done.id}`);
+  await addComplaint(page, "Cold 2d");
+  await addDiagnosis(page, "pharyngitis", "CA02");
+  await synced(page);
+  await openSheet(page);
+  await signWithPin(page);
+  await page.waitForURL(/\/m\/cons\/signed\?enc=/);
+  const waiting = await newPatientVisit(request, "listwait"); // a later token than the finished one
+  await page.goto("/m/cons/draft");
+  await expect(page.locator(`[data-cons-token="${waiting.token}"]`)).toBeVisible();
+  const order = await page.locator("[data-cons-token]").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.status));
+  const firstFinished = order.indexOf("finished");
+  const lastOpen = Math.max(order.lastIndexOf("arrived"), order.lastIndexOf("triaged"), order.lastIndexOf("in-progress"));
+  expect(firstFinished).toBeGreaterThan(lastOpen);
 });
 
 test("A5 care relationship: another doctor cannot open a visit assigned to the first", async ({ page, request }) => {

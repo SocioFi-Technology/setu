@@ -93,7 +93,7 @@ function AmendDialog({ c, onClose, onDone }: { c: CompositionView; onClose: () =
   };
   return (
     <Dialog open onClose={onClose} label={C("amend_title")} width={520}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }} data-testid="amend-dialog">
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 20 }} data-testid="amend-dialog">
         <b className="t-h3">{C("amend_title")}</b>
         <span className="t-small">{C("amend_body", { v: c.version })}</span>
         <label className="field">
