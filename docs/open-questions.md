@@ -474,3 +474,53 @@ doctor's list puts waiting patients before completed visits; repeated entered-in
 112. **"Not billed here" on an unpriced consultation** (a doctor without a fee) is not offered; the price list must have
      the fee (phase 2 masters).
 113. **Accessibility:** labels wrap their inputs in the new forms; a screen-reader check is due in the accessibility pass.
+
+### Decisions of 03/10/2026 (Kamrul) on items 107–113
+- All accepted as recorded.
+- 110: yes — the E2E reset resolves leftover reconciliation cases in the E2E clinic as the E2E owner with the note
+  "test run" (done in slice A8–A11 session 1, step 0). Green Life is unaffected.
+
+## Slice A8–A11 session 1 (lab backend) — 03/10/2026
+
+### Decided by Kamrul (03/10/2026, before the session)
+Plan in two sessions: session 1 = domain rules, schema, contracts, routes and tests for order / specimen / result /
+validation / release and ORDER revoke; session 2 = lab screens, delivery and retry screens, the A8–A11 journey spec,
+reviews, hands-on test as the lab technologist and the pathologist in the E2E clinic. Safety rules given with the
+prompt: a result is never overwritten (a correction is a new Observation version, the old one entered-in-error with a
+reason, the ordering doctor notified, a released report that changes gets a new version marked "Corrected"); a critical
+call-back is a recorded event that must exist before clinical validation of any HH/LL result, and nothing critical is
+released automatically; reference ranges and critical thresholds are a seeded sample labelled "pending clinician
+sign-off"; release needs technical verify and clinical validation by users with the right roles, and the same person
+may not do both unless the facility allows it (default: not allowed on the Hospital plans, allowed on Clinic); every
+message is logged with its status, SMS text has no result values and no diagnosis, and a retry keeps the message id;
+the lab's read of earlier results for the delta check is audited like any PHI view.
+
+Plan decisions (all as recommended unless noted):
+- D1 **Ranges:** the prototype's single ranges are seeded as adult ranges (Hb 12.0–15.5 as adult female only). Where
+  the sample list has no range (men for Hb, under 18 for everything) the screen says "no reference range in the sample
+  list" and shows no H/L flag; critical thresholds still apply, marked "adult". **Added:** wherever an adult-female
+  range is shown or printed it is labelled "adult female range" next to the value, so a reader never takes it for the
+  patient's own range. Clinician sign-off: pre-pilot list.
+- D2 **Impossible values:** only non-numbers and negatives are blocked; a critical value (HH/LL) must be typed twice.
+  Clinician plausibility limits: pre-pilot list.
+- D3 **Report per visit with partial release (changed by Kamrul):** one report per visit covering its lab tests.
+  Validated tests can be released early as "PRELIMINARY — n of m tests pending"; the report becomes final when every
+  test not cancelled is validated; a critical result never waits on another tube. Each release (preliminary, final,
+  corrected) is a new report version.
+- D4 **Corrections:** values are saved together at "Send for verification"; any change after that is a correction
+  with a reason, a new Observation version, and verify + validate again. The ordering doctor is notified once the
+  result had been released (when the correction starts and when the corrected version is released).
+- D5 **Order cancellation (ORDER revoke):** only before the first tube is collected; by the ordering doctor, the lab
+  technologist or the pathologist (not admin); a lab cancellation notifies the ordering doctor's inbox. **Added:** a
+  reason of at least 10 characters, audited, and it triggers billing's order refresh (decision 99).
+- D6 **Doctor's inbox** is sent automatically on every release; SMS and the patient app are manual sends; the
+  patient-app channel records "available in the app" until Journey D; WhatsApp and print are not offered yet.
+- D7 **Payment is not required before collection** in this slice; the bill's status is shown on the row; a facility
+  setting comes later.
+- D8 **Offline:** collect, reject and receive go through the outbox; results, verify, validate, call-back, release and
+  sending need a connection.
+- D9 **Call-back and release** by the lab technologist or the pathologist; recipients from the prototype (ordering
+  doctor, duty doctor, the patient when no doctor can be reached); a corrected value that is still critical needs a new
+  call-back. **Added:** a call-back record stores the recipient's role and name, the time, the caller and a
+  read-back-confirmed tick; attempts that reached no one are logged as attempts and do not unblock validation.
+- D10 **The lab report PDF with QR** comes with A12–A13 (printing); this slice shows the report on screen.

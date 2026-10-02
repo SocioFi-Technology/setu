@@ -188,11 +188,14 @@ async function main() {
   await prisma.tenant.upsert({ where: { id: E2E.tenant }, update: { patientNoPrefix: "E2E" }, create: { id: E2E.tenant, name: "E2E Test Clinic", plan: "pro", patientNoPrefix: "E2E" } });
   await prisma.organization.upsert({ where: { id: E2E.org }, update: {}, create: { id: E2E.org, tenantId: E2E.tenant, name: "E2E Test Clinic", nameBn: "ই২ই টেস্ট ক্লিনিক" } });
   await prisma.location.upsert({ where: { id: E2E.branch }, update: {}, create: { id: E2E.branch, tenantId: E2E.tenant, organizationId: E2E.org, kind: "branch", name: "Test branch", nameBn: "টেস্ট শাখা" } });
-  const e2eUsers: [string, string, string, string, "receptionist" | "doctor" | "nurse" | "cashier" | "owner" | "admin"][] = [
+  const e2eUsers: [string, string, string, string, "receptionist" | "doctor" | "nurse" | "labTech" | "pathologist" | "cashier" | "owner" | "admin"][] = [
     ["u_e2e_desk", "টেস্ট রিসেপশন", "Test Receptionist", "01799000001", "receptionist"],
     ["u_e2e_doctor", "ডা. টেস্ট", "Dr. Test", "01799000002", "doctor"],
     ["u_e2e_doctor2", "ডা. টেস্ট দুই", "Dr. Test Two", "01799000003", "doctor"],
     ["u_e2e_nurse", "টেস্ট নার্স", "Test Nurse", "01799000004", "nurse"],
+    // Slice A8–A11: the plan is Hospital Pro, so technical verify and clinical validation need two different people.
+    ["u_e2e_labtech", "টেস্ট টেকনোলজিস্ট", "Test Lab Technologist", "01799000005", "labTech"],
+    ["u_e2e_path", "ডা. টেস্ট প্যাথলজিস্ট", "Dr. Test Pathologist", "01799000006", "pathologist"],
     ["u_e2e_cashier", "টেস্ট ক্যাশিয়ার", "Test Cashier", "01799000008", "cashier"],
     ["u_e2e_owner", "টেস্ট মালিক", "Test Owner", "01799000009", "owner"],
     ["u_e2e_admin", "টেস্ট অ্যাডমিন", "Test Admin", "01799000010", "admin"],

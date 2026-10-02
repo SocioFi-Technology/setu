@@ -1,7 +1,7 @@
 /* `pnpm db:reset-e2e`: puts the E2E Test Clinic's walkthrough family back to its seeded state (no links, seeded
    identity confidence, no open reviews) before a journey run. Touches only tenant t_e2e; never the demo clinic.
    Patients and visits the tests create stay in t_e2e, out of the demo clinic's queue. */
-import { ALLERGY, ENCOUNTER, transition, type EncounterState } from "@setu/domain";
+import { ALLERGY, APPROVAL, ENCOUNTER, transition, type EncounterState } from "@setu/domain";
 import { owner as db } from "./owner.ts";
 
 const T = "t_e2e";
@@ -64,6 +64,17 @@ for (const e of open) {
   await db.encounter.updateMany({ where: { id: e.id, tenantId: T, status: e.status }, data: { status: to as "cancelled" | "entered_in_error", statusAt: now } });
   audit.push({ action: "update", entity: "Encounter", entityId: e.id, patientId: e.patientId, detail: { event: CLOSE[e.status], to, e2eReset: true } });
 }
+/* Decision 110 (Kamrul 03/10/2026): payment-reconciliation cases left open by earlier automated runs are resolved as
+   the E2E owner with the note "test run" (APPROVAL requested → rejected, the same outcome as the owner's "resolve with
+   a note"). Nothing is applied and no money moves. */
+const RECONCILE_BY = "u_e2e_owner";
+const cases = await db.task.findMany({ where: { tenantId: T, kind: "payment-reconciliation", status: "requested" } });
+for (const t of cases) {
+  const status = transition("approval", APPROVAL, "requested", "reject");
+  const resolution = { action: "resolved", note: "test run", by: RECONCILE_BY, at: now.toISOString() };
+  const u = await db.task.updateMany({ where: { id: t.id, tenantId: T, status: "requested" }, data: { status, decidedById: RECONCILE_BY, decidedAt: now, decisionNote: "test run", detail: { ...((t.detail ?? {}) as object), resolution } } });
+  if (u.count) await db.auditEvent.create({ data: { tenantId: T, userId: RECONCILE_BY, role: "owner", at: now, action: "update", entity: "Task", entityId: t.id, detail: { route: "pnpm db:reset-e2e", event: "reject", resolution: "resolved", note: "test run", e2eReset: true } } });
+}
 if (audit.length) await db.auditEvent.createMany({ data: audit.map((a) => ({ tenantId: T, userId: RESET_BY, role: "admin" as const, at: now, ...a, detail: { route: "pnpm db:reset-e2e", ...a.detail } })) });
 await db.$disconnect();
-console.log(`E2E Test Clinic reset: walkthrough family restored, ${n.count} open review(s) closed, ${undone.length} undone override(s) marked reviewed, ${extra.length} test allerg(ies) marked entered-in-error, ${restored} seeded allerg(ies) recorded again, ${open.length} leftover visit(s) closed`);
+console.log(`E2E Test Clinic reset: walkthrough family restored, ${n.count} open review(s) closed, ${undone.length} undone override(s) marked reviewed, ${extra.length} test allerg(ies) marked entered-in-error, ${restored} seeded allerg(ies) recorded again, ${open.length} leftover visit(s) closed, ${cases.length} reconciliation case(s) resolved "test run"`);
