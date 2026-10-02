@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canLinkDirectly, compareRecords, concernsOf, isCandidate, linkAnywayAllowed, linkBlocked, normalizeName, normalizePhone, validateRegistration, type MatchRecord, type RegistrationInput } from "./patient.js";
+import { canLinkDirectly, compareRecords, concernsOf, isCandidate, linkAnywayAllowed, linkBlocked, normalizeName, normalizePhone, undoReasonOk, undoRule, validateRegistration, type MatchRecord, type RegistrationInput } from "./patient.js";
 
 const TODAY = new Date("2026-09-29T06:00:00Z");
 const empty: RegistrationInput = { nameBn: "", dobMode: "dob" };
@@ -47,6 +47,14 @@ describe("registration validation (walkthrough A3, issue #5)", () => {
     expect(fields(child)).toEqual(["guardianName", "guardianRelationship"]);
     expect(validateRegistration({ ...child, guardian: { name: "আব্দুল করিম", relationship: "father" } }, TODAY)).toEqual([]);
     expect(fields({ ...ok, dobMode: "age", dob: undefined, ageYears: "9" })).toEqual(["guardianName", "guardianRelationship"]);
+  });
+  it("no own phone (open question 23): a relative's number needs that person's name and relationship; no number at all still blocks", () => {
+    expect(fields({ ...ok, phoneOwner: "family" })).toEqual(["guardianName", "guardianRelationship"]);
+    expect(codeOf({ ...ok, phoneOwner: "guardian" }, "guardianName")).toBe("phone_owner_name_required");
+    expect(validateRegistration({ ...ok, phoneOwner: "other", guardian: { name: "করিম মিয়া", relationship: "other" } }, TODAY)).toEqual([]);
+    expect(codeOf({ ...ok, phone: "", phoneOwner: "family", guardian: { name: "করিম মিয়া", relationship: "son" } }, "phone")).toBe("phone_required");
+    // a minor keeps the guardian wording
+    expect(codeOf({ ...ok, dob: "01/05/2017", phoneOwner: "family" }, "guardianName")).toBe("guardian_name_required");
   });
   it("an ID number, when given, must have the right number of digits", () => {
     expect(codeOf({ ...ok, idType: "nid", idNo: "12345" }, "idNo")).toBe("id_format");
@@ -139,5 +147,20 @@ describe("field-level comparison (walkthrough A2, issue #4)", () => {
     const parentNew: MatchRecord = { nameBn: "আব্দুল করিম", sex: "male", birthDate: "1979-02-02", phone: "1711234567", district: "Dhaka" };
     const childOnFile: MatchRecord = { nameBn: "সুমাইয়া আক্তার", sex: "female", birthDate: "2017-05-01", guardianName: "আব্দুল করিম", phone: "1711234567", district: "Dhaka" };
     expect(compareRecords(parentNew, childOnFile, NOW).isGuardian).toBe(true); // registering the parent; the child's record names them
+  });
+});
+
+describe("undo of a desk decision (open question 17)", () => {
+  it("only the person who decided, or an admin, may undo", () => {
+    expect(undoRule("link", "u1", "u1", "receptionist").allowed).toBe(true);
+    expect(undoRule("link", "u1", "u2", "receptionist").allowed).toBe(false);
+    expect(undoRule("review-requested", "u1", "u2", "admin").allowed).toBe(true);
+  });
+  it("undoing a Link anyway needs a ≥10-character reason; links warn about visits opened in between", () => {
+    expect(undoRule("link-anyway", "u1", "u1", "receptionist")).toMatchObject({ reasonRequired: true, warnsVisits: true });
+    expect(undoRule("review-requested", "u1", "u1", "receptionist")).toMatchObject({ reasonRequired: false, warnsVisits: false });
+    expect(undoReasonOk("link-anyway", "  short ")).toBe(false);
+    expect(undoReasonOk("link-anyway", "wrong person, checked NID")).toBe(true);
+    expect(undoReasonOk("link", undefined)).toBe(true);
   });
 });

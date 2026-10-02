@@ -2,14 +2,14 @@
    nav uses), runs in one transaction (command/query) under RLS, and audits what it reveals or changes. */
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import {
-  CreateVisitRequest, MatchDecisionRequest, PatientSearchQuery, QueueActionRequest, RegisterRequest, RegistrationInput, UnlinkRequest,
-  type CreateVisitResponse, type MatchDecisionResponse, type PatientMatches, type ReviewOutcomeResponse, type ReviewQueueResponse, type PatientSearchResponse, type QueueItem, type QueueResponse, type RegisterResponse,
+  CreateVisitRequest, MatchDecisionRequest, PatientSearchQuery, QueueActionRequest, RegisterRequest, RegistrationInput, UndoRequest, UnlinkRequest,
+  type CreateVisitResponse, type MatchDecisionResponse, type MatchPreviewResponse, type PatientMatches, type ReviewOutcomeResponse, type ReviewQueueResponse, type PatientSearchResponse, type QueueItem, type QueueResponse, type RegisterResponse,
 } from "@setu/contracts";
 import { authorize, dhakaDay, format, validateRegistration } from "@setu/domain";
 import { command, query } from "../command.js";
 import { err, forbidden } from "../errors.js";
 import {
-  createVisit, decide, draftToMatchRecord, findCandidates, keepOverride, patientMatches, queueAction, queueBoard, registerPatient, reviewQueue, searchPatients, toSummary, undoDecision, unlinkPatient,
+  createVisit, decide, draftToMatchRecord, findCandidates, keepOverride, patientMatches, toPreviewCandidate, queueAction, queueBoard, registerPatient, reviewQueue, searchPatients, toSummary, undoDecision, unlinkPatient,
 } from "../modules/frontdesk.js";
 import { requireSession } from "../plugins/session.js";
 
@@ -76,19 +76,22 @@ export async function frontDeskRoutes(app: FastifyInstance) {
   app.get("/v1/patients/:id/matches", async (req): Promise<PatientMatches> => {
     requireScreen(req, "match");
     const { id } = req.params as { id: string };
-    return query(req, async (tx) => {
-      const r = await patientMatches(tx, id, new Date());
+    return query(req, async (tx, s) => {
+      const r = await patientMatches(tx, s, id, new Date());
       return { body: r, audit: [{ action: "view", entity: "Patient", entityId: id, patientId: id, detail: { purpose: "match", candidates: r.candidates.map((c) => c.patient.id) } }] };
     });
   });
 
   /* A3 — the register screen's live duplicate check for an unsaved form. A read: nothing is stored. */
-  app.post("/v1/patients/match-preview", async (req) => {
+  app.post("/v1/patients/match-preview", async (req): Promise<MatchPreviewResponse> => {
     requireScreen(req, "register", "match");
     const draft = RegistrationInput.parse(req.body);
     return query(req, async (tx) => {
-      const candidates = await findCandidates(tx, draftToMatchRecord(draft, new Date()), null, new Date());
-      return { body: { candidates }, audit: candidates.length ? [{ action: "view", entity: "Patient", detail: { purpose: "duplicate-check", candidates: candidates.map((c) => c.patient.id) } }] : [] };
+      const now = new Date();
+      const found = await findCandidates(tx, draftToMatchRecord(draft, now), null, now);
+      // Reduced fields only (open question 19): phone, address and guardian stay on the match screen.
+      const candidates = found.map((c) => toPreviewCandidate(c, now));
+      return { body: { candidates }, audit: candidates.length ? [{ action: "view", entity: "Patient", detail: { purpose: "duplicate-check", fields: "reduced", candidates: candidates.map((c) => c.patient.id) } }] : [] };
     });
   });
 
@@ -110,10 +113,11 @@ export async function frontDeskRoutes(app: FastifyInstance) {
   app.post("/v1/patients/:id/match-decisions/undo", { config: { ownTx: true } }, async (req, reply): Promise<MatchDecisionResponse> => {
     requireScreen(req, "match");
     const { id } = req.params as { id: string };
+    const { reason } = UndoRequest.parse(req.body ?? {});
     return command(req, reply, async (tx, s) => {
-      const r = await undoDecision(tx, s, id, new Date());
+      const r = await undoDecision(tx, s, id, reason, new Date());
       const subject = toSummary(r.subject);
-      return { body: { decision: "undo", subject, continueWith: subject, taskId: null, conflicts: [] }, audit: [{ action: "update", entity: "Patient", entityId: id, patientId: id, detail: { decision: "undo", undone: r.undone } }] };
+      return { body: { decision: "undo", subject, continueWith: subject, taskId: null, conflicts: [] }, audit: [{ action: "update", entity: "Patient", entityId: id, patientId: id, detail: { decision: "undo", undone: r.undone, reason: r.reason, visitsSince: r.visitsSince } }] };
     });
   });
 

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>Setu Health — Design System · Data table</title>
+<link rel="stylesheet" href="styles.css">
+<script src="lib/setu-format.js"></script>
+</helmet>
+<div data-theme="{{ theme }}" style="background:var(--surface-page);color:var(--text-primary);min-height:100vh;font-family:var(--font-sans)">
+<header style="position:sticky;top:0;z-index:10;background:var(--surface-card);border-bottom:1px solid var(--border-subtle)"><div style="max-width:1280px;margin:0 auto;padding:10px 32px;display:flex;align-items:center;gap:24px;flex-wrap:wrap"><a href="Setu%20DS%201%20Foundations.dc.html" style="display:flex;align-items:baseline;gap:8px;text-decoration:none;white-space:nowrap;color:var(--text-primary)"><span style="font:600 17px/24px var(--font-sans)">Setu Health</span><span style="font:500 15px/24px var(--font-bn);color:var(--text-muted)">সেতু হেলথ</span></a><nav style="display:flex;gap:4px;flex-wrap:wrap;font:500 13px/18px var(--font-sans)"><a href="Setu%20DS%201%20Foundations.dc.html" style="padding:8px 12px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary)" style-hover="background:var(--surface-hover)">1 Foundations</a><a href="Setu%20DS%202%20Actions%20and%20Inputs.dc.html" style="padding:8px 12px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary)" style-hover="background:var(--surface-hover)">2 Actions &amp; inputs</a><a href="Setu%20DS%203%20Clinical.dc.html" style="padding:8px 12px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary)" style-hover="background:var(--surface-hover)">3 Clinical</a><a href="Setu%20DS%204%20Data%20Table.dc.html" style="padding:8px 12px;border-radius:6px;text-decoration:none;white-space:nowrap;background:var(--surface-selected);color:var(--brand-primary-text)" aria-current="page">4 Data table</a><a href="Setu%20DS%205%20Feedback%20and%20Overlays.dc.html" style="padding:8px 12px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary)" style-hover="background:var(--surface-hover)">5 Feedback &amp; overlays</a><a href="Setu%20DS%206%20Print%20Templates.dc.html" style="padding:8px 12px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary)" style-hover="background:var(--surface-hover)">6 Print</a></nav><span style="margin-left:auto;font:500 12px/16px var(--font-mono);color:var(--text-muted);white-space:nowrap">v1.0 · 29/09/2026</span></div></header>
+<main style="max-width:1280px;margin:0 auto;padding:40px 32px 96px;display:flex;flex-direction:column">
+  <section style="padding-bottom:32px;display:flex;flex-direction:column;gap:12px">
+    <div style="font:500 12px/16px var(--font-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Components · 4</div>
+    <h1 style="margin:0;font:600 36px/44px var(--font-sans)">Data table <span style="font-family:var(--font-bn);color:var(--brand-primary-text)">তালিকা</span></h1>
+    <p style="margin:0;max-width:760px;font:400 16px/26px var(--font-sans);color:var(--text-secondary);text-wrap:pretty">The workhorse for billing, lab worklists, pharmacy stock and admissions. This one is live: click into the table (or Tab to it) and use the keyboard. Try selecting rows, editing a Paid amount, hiding columns, switching density, and filtering to an empty result.</p>
+  </section>
+  <section id="table" style="display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;flex-direction:column;gap:0;border:1px solid var(--border-subtle);border-radius:12px;background:var(--surface-card);overflow:hidden;box-shadow:var(--shadow-1)">
+ <!-- toolbar -->
+ <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--border-subtle)">
+  <div style="display:flex;flex-direction:column;margin-right:8px"><span style="font:600 17px/24px var(--font-sans)">আজকের বিল · Today's bills</span><span style="font:400 12px/18px var(--font-sans);color:var(--text-muted)">Green Life Clinic, Mirpur · 29/09/2026 · Counter 1</span></div>
+  <div style="flex:1 1 240px;max-width:340px;display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border:1px solid var(--border-default);border-radius:6px;background:var(--surface-card)"><i class="icon-search" aria-hidden="true" style="font-size:16px;line-height:1;color:var(--text-muted)"></i><input value="{{ q }}" onInput="{{ onQ }}" aria-label="Search bills" placeholder="নাম বা বিল নং · Name or bill no." style="flex:1;min-width:0;border:0;outline:0;background:transparent;font:400 14px/20px var(--font-sans)"></div>
+  <div role="radiogroup" aria-label="Density" style="display:inline-flex;padding:3px;border-radius:8px;background:var(--surface-sunken);border:1px solid var(--border-subtle);gap:2px">
+   <button role="radio" aria-checked="{{ dCom.on }}" onClick="{{ setCom }}" style="display:inline-flex;align-items:center;gap:6px;border:0;cursor:pointer;height:32px;padding:0 10px;border-radius:6px;font:600 12px/16px var(--font-sans);white-space:nowrap;background:{{ dCom.bg }};color:{{ dCom.fg }};box-shadow:{{ dCom.sh }}"><i class="icon-rows-3" aria-hidden="true" style="font-size:14px;line-height:1;"></i>Comfortable</button>
+   <button role="radio" aria-checked="{{ dCmp.on }}" onClick="{{ setCmp }}" style="display:inline-flex;align-items:center;gap:6px;border:0;cursor:pointer;height:32px;padding:0 10px;border-radius:6px;font:600 12px/16px var(--font-sans);white-space:nowrap;background:{{ dCmp.bg }};color:{{ dCmp.fg }};box-shadow:{{ dCmp.sh }}"><i class="icon-rows-4" aria-hidden="true" style="font-size:14px;line-height:1;"></i>Compact</button>
+  </div>
+  <div style="position:relative">
+   <button onClick="{{ toggleCols }}" aria-expanded="{{ colsOpen }}" aria-haspopup="true" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:6px;font:600 14px/20px var(--font-sans);white-space:nowrap;cursor:pointer;transition:background-color 120ms,border-color 120ms;background:var(--surface-card);border:1px solid var(--border-default);color:var(--text-primary);height:40px" style-hover="background:var(--surface-hover);border-color:var(--border-strong)"><i class="icon-columns-3" aria-hidden="true" style="font-size:16px;line-height:1;"></i>কলাম · Columns</button>
+   <sc-if value="{{ colsOpen }}" hint-placeholder-val="{{ false }}">
+    <div role="menu" style="position:absolute;right:0;top:46px;z-index:5;width:240px;background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:8px;box-shadow:var(--shadow-3);padding:6px">
+     <div style="padding:6px 8px;font:600 11px/16px var(--font-sans);color:var(--text-muted);text-transform:uppercase">দেখান · Show columns</div>
+     <sc-for list="{{ colOpts }}" as="o" hint-placeholder-count="4">
+      <label style="display:flex;align-items:center;gap:10px;height:36px;padding:0 8px;border-radius:6px;cursor:pointer;font:400 14px/20px var(--font-sans)" style-hover="background:var(--surface-hover)"><input type="checkbox" checked="{{ o.on }}" onChange="{{ o.toggle }}" style="width:16px;height:16px;accent-color:var(--brand-primary)">{{ o.label }}</label>
+     </sc-for>
+     <div style="padding:6px 8px;font:400 11px/16px var(--font-sans);color:var(--text-muted)">Bill no., patient, amounts and status are always shown.</div>
+    </div>
+   </sc-if>
+  </div>
+  <button style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:6px;font:600 14px/20px var(--font-sans);white-space:nowrap;cursor:pointer;transition:background-color 120ms,border-color 120ms;background:var(--surface-card);border:1px solid var(--border-default);color:var(--text-primary);height:40px" style-hover="background:var(--surface-hover);border-color:var(--border-strong)"><i class="icon-download" aria-hidden="true" style="font-size:16px;line-height:1;"></i>এক্সপোর্ট</button>
+ </div>
+ <!-- filters -->
+ <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--border-subtle);background:var(--surface-card)">
+  <i class="icon-filter" aria-hidden="true" style="font-size:15px;line-height:1;color:var(--text-muted);margin-right:4px"></i>
+  <sc-for list="{{ filters }}" as="f" hint-placeholder-count="5">
+   <button onClick="{{ f.pick }}" aria-pressed="{{ f.on }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;height:30px;padding:0 12px;border-radius:999px;font:500 13px/18px var(--font-sans);border:1px solid {{ f.bd }};background:{{ f.bg }};color:{{ f.fg }}">{{ f.label }}<span style="font-variant-numeric:tabular-nums;opacity:.8">{{ f.count }}</span></button>
+  </sc-for>
+  <span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;height:30px;padding:0 10px;border-radius:999px;border:1px dashed var(--border-default);font:500 13px/18px var(--font-sans);color:var(--text-secondary)"><i class="icon-calendar-days" aria-hidden="true" style="font-size:14px;line-height:1;"></i>29/09/2026</span>
+  <button onClick="{{ toggleEmpty }}" style="margin-left:auto;border:0;background:transparent;cursor:pointer;font:500 12px/16px var(--font-sans);color:var(--brand-primary-text);text-decoration:underline">{{ emptyToggleLabel }}</button>
+ </div>
+ <!-- bulk bar -->
+ <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+  <div role="toolbar" aria-label="Bulk actions" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 16px;background:var(--surface-inverse);color:var(--text-inverse)">
+   <span style="font:600 14px/20px var(--font-sans)">{{ selLabel }}</span>
+   <button style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:6px;font:600 14px/20px var(--font-sans);white-space:nowrap;cursor:pointer;transition:background-color 120ms,border-color 120ms;height:32px;font-size:13px;background:transparent;border:1px solid var(--neutral-500);color:var(--text-inverse)"><i class="icon-message-square" aria-hidden="true" style="font-size:14px;line-height:1;"></i>পেমেন্ট লিংক SMS</button>
+   <button style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:6px;font:600 14px/20px var(--font-sans);white-space:nowrap;cursor:pointer;transition:background-color 120ms,border-color 120ms;height:32px;font-size:13px;background:transparent;border:1px solid var(--neutral-500);color:var(--text-inverse)"><i class="icon-printer" aria-hidden="true" style="font-size:14px;line-height:1;"></i>প্রিন্ট · Print</button>
+   <span title="Manager only" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:6px;font:600 14px/20px var(--font-sans);white-space:nowrap;cursor:pointer;transition:background-color 120ms,border-color 120ms;height:32px;font-size:13px;background:transparent;border:1px dashed var(--neutral-600);color:var(--neutral-400);cursor:not-allowed" aria-disabled="true"><i class="icon-lock" aria-hidden="true" style="font-size:14px;line-height:1;"></i>বাতিল · Void — manager only</span>
+   <button onClick="{{ clearSel }}" style="margin-left:auto;border:0;background:transparent;color:var(--text-inverse);cursor:pointer;font:600 13px/18px var(--font-sans);display:inline-flex;gap:6px;align-items:center"><i class="icon-x" aria-hidden="true" style="font-size:14px;line-height:1;"></i>নির্বাচন মুছুন · Clear</button>
+  </div>
+ </sc-if>
+ <!-- grid -->
+ <div role="grid" aria-label="Bills" aria-rowcount="{{ total }}" tabindex="0" onKeyDown="{{ onKey }}" onFocus="{{ onGridFocus }}" style="max-height:470px;overflow:auto;outline:0;position:relative" style-focus="box-shadow:inset 0 0 0 2px var(--focus-ring)">
+  <div style="min-width:1160px">
+   <div role="row" style="position:sticky;top:0;z-index:2;display:grid;grid-template-columns:{{ cols }};height:40px;background:var(--surface-sunken);border-bottom:1px solid var(--border-default);font:600 12px/16px var(--font-sans);color:var(--text-muted)">
+    <div role="columnheader" style="display:flex;align-items:center;justify-content:center"><input type="checkbox" aria-label="Select all on page" checked="{{ allSel }}" onChange="{{ toggleAll }}" style="width:16px;height:16px;accent-color:var(--brand-primary)"></div>
+    <div role="columnheader"  style="display:{{ h1 }};align-items:center;gap:4px;padding:0 {{ cpx }};min-width:0;">বিল নং · Bill</div><div role="columnheader"  style="display:{{ h2 }};align-items:center;gap:4px;padding:0 {{ cpx }};min-width:0;">রোগী · Patient</div><div role="columnheader"  style="display:{{ h3 }};align-items:center;gap:4px;padding:0 {{ cpx }};min-width:0;">সেবা · Service</div><div role="columnheader"  style="display:{{ h4 }};align-items:center;gap:4px;padding:0 {{ cpx }};min-width:0;">পেয়ার · Payer</div><div role="columnheader" aria-sort="{{ sort_amount }}" style="display:{{ h5 }};align-items:center;gap:4px;padding:0 {{ cpx }};min-width:0;justify-content:flex-end"><button onClick="{{ sortBy_amount }}" style="display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;padding:4px 0;cursor:pointer;font:inherit;color:inherit">মোট · Amount<i class="icon-{{ sortIcon_amount }}" aria-hidden="true" style="font-size:13px"></i></button></div><div role="columnheader"  style="display:{{ h6 }};align-items:center;gap:4px;padding:0 {{ cpx }};min-width:0;justify-content:flex-end">পরিশোধ · Paid</div><div role="columnheader" aria-sort="{{ sort_due }}" style="display:{{ h7 }};align-items:center;gap:4px;padding:0 {{ cpx }};min-width:0;justify-content:flex-end"><button onClick="{{ sortBy_due }}" style="display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;padding:4px 0;cursor:pointer;font:inherit;color:inherit">বকেয়া · Due<i class="icon-{{ sortIcon_due }}" aria-hidden="true" style="font-size:13px"></i></button></div><div role="columnheader"  style="display:{{ h8 }};align-items:center;gap:4px;padding:0 {{ cpx }};min-width:0;">মাধ্যম · Method</div><div role="columnheader"  style="display:{{ h9 }};align-items:center;gap:4px;padding:0 {{ cpx }};min-width:0;">অবস্থা · Status</div><div role="columnheader" aria-sort="{{ sort_time }}" style="display:{{ h10 }};align-items:center;gap:4px;padding:0 {{ cpx }};min-width:0;"><button onClick="{{ sortBy_time }}" style="display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;padding:4px 0;cursor:pointer;font:inherit;color:inherit">সময় · Time<i class="icon-{{ sortIcon_time }}" aria-hidden="true" style="font-size:13px"></i></button></div>
+   </div>
+   <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+    <div role="row" aria-selected="{{ r.sel }}" style="display:grid;grid-template-columns:{{ cols }};height:{{ rowH }};border-bottom:1px solid var(--border-subtle);background:{{ r.bg }};font:400 {{ fs }}/20px var(--font-sans);font-variant-numeric:tabular-nums" style-hover="background:var(--surface-hover)">
+     <div role="gridcell" style="display:flex;align-items:center;justify-content:center;box-shadow:{{ r.a0 }}"><input type="checkbox" aria-label="{{ r.selAria }}" checked="{{ r.sel }}" onChange="{{ r.toggle }}" tabindex="-1" style="width:16px;height:16px;accent-color:var(--brand-primary)"></div>
+     <div role="gridcell" onClick="{{ r.c1 }}" style="white-space:nowrap;display:{{ r.v1 }};align-items:center;padding:0 {{ cpx }};min-width:0;box-shadow:{{ r.a1 }};font-family:var(--font-mono);font-size:12px">{{ r.no }}</div>
+     <div role="gridcell" onClick="{{ r.c2 }}" style="white-space:nowrap;display:{{ r.v2 }};align-items:center;padding:0 {{ cpx }};min-width:0;box-shadow:{{ r.a2 }};gap:8px"><span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.bn }}</span><span style="color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.en }}</span></div>
+     <div role="gridcell" onClick="{{ r.c3 }}" style="white-space:nowrap;display:{{ r.v3 }};align-items:center;padding:0 {{ cpx }};min-width:0;box-shadow:{{ r.a3 }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-secondary)">{{ r.service }}</div>
+     <div role="gridcell" onClick="{{ r.c4 }}" style="white-space:nowrap;display:{{ r.v4 }};align-items:center;padding:0 {{ cpx }};min-width:0;box-shadow:{{ r.a4 }};color:var(--text-secondary)">{{ r.payer }}</div>
+     <div role="gridcell" onClick="{{ r.c5 }}" style="white-space:nowrap;display:{{ r.v5 }};align-items:center;padding:0 {{ cpx }};min-width:0;box-shadow:{{ r.a5 }};justify-content:flex-end;font-weight:600">{{ r.amountF }}</div>
+     <div role="gridcell" onClick="{{ r.c6 }}" style="white-space:nowrap;display:{{ r.v6 }};align-items:center;padding:0 {{ cpx }};min-width:0;box-shadow:{{ r.a6 }};justify-content:flex-end;gap:6px">
+      <sc-if value="{{ r.editing }}" hint-placeholder-val="{{ false }}"><input value="{{ editVal }}" onInput="{{ onEdit }}" onKeyDown="{{ onEditKey }}" onBlur="{{ commitEdit }}" autoFocus="{{ true }}" aria-label="Paid amount" style="width:100%;height:28px;box-sizing:border-box;text-align:right;border:1px solid var(--brand-primary);border-radius:4px;padding:0 6px;font:600 13px/18px var(--font-sans);font-variant-numeric:tabular-nums;box-shadow:var(--focus-shadow);outline:0;background:var(--surface-card)"></sc-if>
+      <sc-if value="{{ r.notEditing }}" hint-placeholder-val="{{ true }}"><i class="icon-{{ r.saveIcon }}" aria-hidden="true" style="font-size:13px;color:var(--text-muted);animation:{{ r.spin }}"></i><span style="border-bottom:1px dashed {{ r.editBd }}">{{ r.paidF }}</span></sc-if>
+     </div>
+     <div role="gridcell" onClick="{{ r.c7 }}" style="white-space:nowrap;display:{{ r.v7 }};align-items:center;padding:0 {{ cpx }};min-width:0;box-shadow:{{ r.a7 }};justify-content:flex-end;font-weight:600;color:{{ r.dueFg }}">{{ r.dueF }}</div>
+     <div role="gridcell" onClick="{{ r.c8 }}" style="white-space:nowrap;display:{{ r.v8 }};align-items:center;padding:0 {{ cpx }};min-width:0;box-shadow:{{ r.a8 }};gap:6px;color:var(--text-secondary)"><i class="icon-{{ r.mIcon }}" aria-hidden="true" style="font-size:14px"></i>{{ r.method }}</div>
+     <div role="gridcell" onClick="{{ r.c9 }}" style="white-space:nowrap;display:{{ r.v9 }};align-items:center;padding:0 {{ cpx }};min-width:0;box-shadow:{{ r.a9 }};"><span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap;height:22px;padding:0 8px;border-radius:999px;font:600 11px/16px var(--font-sans);border:1px {{ r.sBs }} {{ r.sBd }};background:{{ r.sBg }};color:{{ r.sFg }}"><i class="icon-{{ r.sIcon }}" aria-hidden="true" style="font-size:12px;animation:{{ r.sSpin }}"></i><span style="text-decoration:{{ r.sDec }}">{{ r.status }}</span></span></div>
+     <div role="gridcell" onClick="{{ r.c10 }}" style="white-space:nowrap;display:{{ r.v10 }};align-items:center;padding:0 {{ cpx }};min-width:0;box-shadow:{{ r.a10 }};color:var(--text-muted);font-size:12px">{{ r.time }}</div>
+    </div>
+   </sc-for>
+   <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:48px 16px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center"><i class="icon-receipt-text" aria-hidden="true" style="font-size:26px;line-height:1;color:var(--text-muted)"></i><span style="font:600 15px/24px var(--font-sans)">এই ফিল্টারে কোনো বিল নেই · No bills match these filters</span><span style="font:400 13px/20px var(--font-sans);color:var(--text-muted)">Clear the search or pick another status.</span><button onClick="{{ resetFilters }}" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:6px;font:600 14px/20px var(--font-sans);white-space:nowrap;cursor:pointer;transition:background-color 120ms,border-color 120ms;background:var(--surface-card);border:1px solid var(--border-default);color:var(--text-primary);height:36px;margin-top:4px"><i class="icon-rotate-ccw" aria-hidden="true" style="font-size:16px;line-height:1;"></i>ফিল্টার মুছুন · Clear filters</button></div>
+   </sc-if>
+   <div role="row" aria-label="Totals" style="position:sticky;bottom:0;z-index:2;display:grid;grid-template-columns:{{ cols }};height:44px;background:var(--surface-sunken);border-top:2px solid var(--border-strong);font:600 13px/20px var(--font-sans);font-variant-numeric:tabular-nums">
+    <div></div>
+    <div style="display:{{ h1 }};align-items:center;padding:0 {{ cpx }};grid-column:span {{ totSpan }}">{{ totLabel }}</div>
+    <div style="display:flex;align-items:center;justify-content:flex-end;padding:0 {{ cpx }}">{{ totAmount }}</div>
+    <div style="display:flex;align-items:center;justify-content:flex-end;padding:0 {{ cpx }}">{{ totPaid }}</div>
+    <div style="display:flex;align-items:center;justify-content:flex-end;padding:0 {{ cpx }};color:var(--warning-fg)">{{ totDue }}</div>
+   </div>
+  </div>
+ </div>
+ <!-- footer -->
+ <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;border-top:1px solid var(--border-subtle);font:400 13px/20px var(--font-sans);color:var(--text-secondary)">
+  <span style="font-variant-numeric:tabular-nums">{{ pageLabel }}</span>
+  <span style="font:400 12px/16px var(--font-sans);color:var(--text-muted)">{{ activeLabel }}</span>
+  <div style="margin-left:auto;display:flex;gap:4px;align-items:center">
+   <button onClick="{{ prevPage }}" disabled="{{ noPrev }}" aria-label="Previous page" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:6px;font:600 14px/20px var(--font-sans);white-space:nowrap;cursor:pointer;transition:background-color 120ms,border-color 120ms;background:var(--surface-card);border:1px solid var(--border-default);color:var(--text-primary);height:34px;width:34px;padding:0"><i class="icon-chevron-left" aria-hidden="true" style="font-size:16px;line-height:1;"></i></button>
+   <sc-for list="{{ pagesList }}" as="p" hint-placeholder-count="3">
+    <button onClick="{{ p.go }}" aria-current="{{ p.cur }}" style="display:inline-flex;align-items:center;justify-content:center;height:34px;min-width:34px;border-radius:6px;cursor:pointer;font:600 13px/18px var(--font-sans);font-variant-numeric:tabular-nums;border:1px solid {{ p.bd }};background:{{ p.bg }};color:{{ p.fg }}">{{ p.n }}</button>
+   </sc-for>
+   <button onClick="{{ nextPage }}" disabled="{{ noNext }}" aria-label="Next page" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:6px;font:600 14px/20px var(--font-sans);white-space:nowrap;cursor:pointer;transition:background-color 120ms,border-color 120ms;background:var(--surface-card);border:1px solid var(--border-default);color:var(--text-primary);height:34px;width:34px;padding:0"><i class="icon-chevron-right" aria-hidden="true" style="font-size:16px;line-height:1;"></i></button>
+  </div>
+ </div>
+</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px"><div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0;"><div style="display:flex;flex-direction:column;gap:4px"><h3 style="margin:0;font:600 17px/24px var(--font-sans)">Keyboard</h3><p style="margin:0;font:400 13px/20px var(--font-sans);color:var(--text-muted)">Full keyboard use is required on high-volume screens.</p></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px"><div style="display:flex;gap:10px;align-items:center;font:400 13px/20px var(--font-sans)"><kbd style="min-width:84px;text-align:center;font:500 12px/16px var(--font-mono);padding:4px 6px;border:1px solid var(--border-default);border-bottom-width:2px;border-radius:4px;background:var(--surface-card)">↑ ↓ ← →</kbd>Move between cells</div><div style="display:flex;gap:10px;align-items:center;font:400 13px/20px var(--font-sans)"><kbd style="min-width:84px;text-align:center;font:500 12px/16px var(--font-mono);padding:4px 6px;border:1px solid var(--border-default);border-bottom-width:2px;border-radius:4px;background:var(--surface-card)">Space</kbd>Select / unselect row</div><div style="display:flex;gap:10px;align-items:center;font:400 13px/20px var(--font-sans)"><kbd style="min-width:84px;text-align:center;font:500 12px/16px var(--font-mono);padding:4px 6px;border:1px solid var(--border-default);border-bottom-width:2px;border-radius:4px;background:var(--surface-card)">Enter</kbd>Edit “Paid” cell · save</div><div style="display:flex;gap:10px;align-items:center;font:400 13px/20px var(--font-sans)"><kbd style="min-width:84px;text-align:center;font:500 12px/16px var(--font-mono);padding:4px 6px;border:1px solid var(--border-default);border-bottom-width:2px;border-radius:4px;background:var(--surface-card)">Esc</kbd>Cancel edit</div><div style="display:flex;gap:10px;align-items:center;font:400 13px/20px var(--font-sans)"><kbd style="min-width:84px;text-align:center;font:500 12px/16px var(--font-mono);padding:4px 6px;border:1px solid var(--border-default);border-bottom-width:2px;border-radius:4px;background:var(--surface-card)">Home / End</kbd>First / last column</div><div style="display:flex;gap:10px;align-items:center;font:400 13px/20px var(--font-sans)"><kbd style="min-width:84px;text-align:center;font:500 12px/16px var(--font-mono);padding:4px 6px;border:1px solid var(--border-default);border-bottom-width:2px;border-radius:4px;background:var(--surface-card)">PgUp / PgDn</kbd>Previous / next page</div><div style="display:flex;gap:10px;align-items:center;font:400 13px/20px var(--font-sans)"><kbd style="min-width:84px;text-align:center;font:500 12px/16px var(--font-mono);padding:4px 6px;border:1px solid var(--border-default);border-bottom-width:2px;border-radius:4px;background:var(--surface-card)">Tab</kbd>Leave the table</div></div></div><div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0;"><div style="display:flex;flex-direction:column;gap:4px"><h3 style="margin:0;font:600 17px/24px var(--font-sans)">Anatomy &amp; rules</h3></div><ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font:400 14px/22px var(--font-sans);color:var(--text-secondary)">
+ <li><b style="color:var(--text-primary)">Sticky header and totals.</b> Totals cover every row that matches the filters, not just the page.</li>
+ <li><b style="color:var(--text-primary)">Inline edit</b> is marked with a dashed underline. A saved edit shows a spinner until the server confirms, then a check.</li>
+ <li><b style="color:var(--text-primary)">Row status</b> is a pill with icon and text. Due amounts are bold and amber, never colour alone.</li>
+ <li><b style="color:var(--text-primary)">Bulk actions</b> replace the filter row's focus with a dark bar. Actions the user can't perform are shown locked with the reason.</li>
+ <li><b style="color:var(--text-primary)">Money columns</b> are right-aligned with tabular figures and South Asian grouping.</li>
+</ul></div></div>
+  </section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;hc&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light'|'hc'|'dark'&quot;,&quot;section&quot;:&quot;Theme&quot;},&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;comfortable&quot;,&quot;compact&quot;],&quot;default&quot;:&quot;comfortable&quot;,&quot;tsType&quot;:&quot;'comfortable'|'compact'&quot;,&quot;section&quot;:&quot;Table&quot;}}">
+class Component extends DCLogic {
+  constructor(p) {
+    super(p);
+    const N = [['রহিমা খাতুন','Rahima Khatun'],['কামরুল হাসান','Kamrul Hasan'],['নাসরিন সুলতানা','Nasrin Sultana'],['আব্দুর রহিম','Abdur Rahim'],['নুসরাত জাহান','Nusrat Jahan'],['মো. করিম উদ্দিন','Md. Karim Uddin'],['ফারজানা আক্তার','Farzana Akter'],['শহিদুল ইসলাম','Shahidul Islam'],['তাহমিনা বেগম','Tahmina Begum'],['রাশেদ চৌধুরী','Rashed Chowdhury'],['সুমাইয়া রহমান','Sumaiya Rahman'],['জাহাঙ্গীর আলম','Jahangir Alam']];
+    const S = [['OPD consultation',800],['CBC + RBS',600],['USG whole abdomen',1800],['X-ray chest PA',600],['Lipid profile',1200],['ECG',400],['HbA1c',1100],['IPD deposit',10000],['Normal delivery package',25000],['Pharmacy',1340],['TSH',900],['C-section package (Ward)',45000]];
+    const PY = ['Self','Self','Self','Corporate','Self','Insurance','Self','Staff'];
+    const M = ['Cash','bKash','Nagad','Card','bKash','Cash','Bank'];
+    const rows = [];
+    for (let i = 0; i < 24; i++) {
+      const s = S[(i * 5) % S.length], amount = s[1];
+      let paid = amount, special = null;
+      if (i % 5 === 2) paid = Math.round(amount * 0.5 / 50) * 50;
+      if (i % 7 === 4) paid = 0;
+      if (i === 9) special = 'refund';
+      if (i === 15) special = 'cancelled';
+      if (i === 6) special = 'syncing';
+      const h = 9 + Math.floor(i * 25 / 60), m = (i * 25) % 60;
+      rows.push({ id: i, no: 'INV/25/' + String(931 - i).padStart(4, '0'), bn: N[i % N.length][0], en: N[i % N.length][1], service: s[0], payer: PY[i % PY.length], amount, paid, method: paid ? M[i % M.length] : '—', special, t: h * 60 + m, time: String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0'), saving: false, saved: false });
+    }
+    this.state = { F: null, rows, q: '', filter: 'All', sel: [], page: 0, active: { r: 0, c: 1 }, editing: null, editVal: '', density: null, hidden: [], colsOpen: false, forceEmpty: false, sort: { k: 'time', dir: -1 } };
+  }
+  componentDidMount() { this._t = setInterval(() => { if (window.SetuFormat) { clearInterval(this._t); this.setState({ F: window.SetuFormat }); } }, 50); }
+  componentWillUnmount() { clearInterval(this._t); (this._timers || []).forEach(clearTimeout); }
+  statusOf(r) { if (r.special === 'refund') return 'refund'; if (r.special === 'cancelled') return 'cancelled'; if (r.special === 'syncing') return 'syncing'; if (r.paid >= r.amount) return 'paid'; if (r.paid > 0) return 'partial'; return 'due'; }
+  filtered() {
+    const s = this.state; const q = s.q.trim().toLowerCase();
+    let list = s.rows.filter(r => (s.filter === 'All' || this.statusOf(r) === s.filter) && (!q || (r.bn + ' ' + r.en + ' ' + r.no).toLowerCase().includes(q)));
+    if (s.forceEmpty) list = [];
+    const k = s.sort.k, dir = s.sort.dir;
+    const val = r => k === 'amount' ? r.amount : k === 'due' ? r.amount - r.paid : r.t;
+    return list.slice().sort((a, b) => (val(a) - val(b)) * dir);
+  }
+  commit() {
+    const s = this.state; if (s.editing == null) return;
+    const id = s.editing; const v = parseFloat(String(s.editVal).replace(/[^0-9.]/g, ''));
+    if (isNaN(v)) { this.setState({ editing: null }); return; }
+    this.setState(st => ({ editing: null, rows: st.rows.map(r => r.id === id ? { ...r, paid: Math.min(v, r.amount), method: v ? (r.method === '—' ? 'Cash' : r.method) : '—', saving: true, saved: false } : r) }));
+    this._timers = this._timers || [];
+    this._timers.push(setTimeout(() => this.setState(st => ({ rows: st.rows.map(r => r.id === id ? { ...r, saving: false, saved: true } : r) })), 1200));
+  }
+  renderVals() {
+    const s = this.state, F = s.F;
+    const tk = n => F ? F.taka(n) : '৳ ' + n;
+    const density = s.density ?? this.props.density ?? 'comfortable';
+    const cmp = density === 'compact';
+    const PAGE = 8;
+    const list = this.filtered();
+    const pages = Math.max(1, Math.ceil(list.length / PAGE));
+    const page = Math.min(s.page, pages - 1);
+    const pageRows = list.slice(page * PAGE, page * PAGE + PAGE);
+    const hide = s.hidden;
+    const W = ['44px','124px','minmax(220px,1.6fr)','minmax(160px,1.2fr)','100px','110px','120px','110px','100px','150px','72px'];
+    const vis = W.map((w, i) => !hide.includes(i));
+    const visIdx = W.map((w, i) => i).filter(i => vis[i]);
+    const cols = W.filter((w, i) => vis[i]).join(' ');
+    const ac = s.active;
+    const SB = { paid: ['পরিশোধিত · Paid','success','circle-check'], partial: ['আংশিক · Partial','status-in-progress','circle-dashed'], due: ['বকেয়া · Due','warning','clock'], refund: ['রিফান্ড অপেক্ষমাণ · Refund pending','status-pending','undo-2'], cancelled: ['বাতিল · Cancelled','status-cancelled','ban'], syncing: ['সিঙ্ক হচ্ছে · Syncing','status-syncing','refresh-cw'] };
+    const MI = { Cash: 'banknote', bKash: 'smartphone', Nagad: 'smartphone', Card: 'credit-card', Bank: 'landmark', '—': 'minus' };
+    const rows = pageRows.map((r, ri) => {
+      const st = this.statusOf(r), sb = SB[st], sel = s.sel.includes(r.id), due = Math.max(r.amount - r.paid, 0);
+      const o = { ...r, sel, selAria: 'Select ' + r.no, bg: sel ? 'var(--surface-selected)' : 'transparent', amountF: tk(r.amount), paidF: tk(r.paid), dueF: due ? tk(due) : '—', dueFg: due && st !== 'cancelled' ? 'var(--warning-fg)' : 'var(--text-muted)', mIcon: MI[r.method] || 'minus', status: sb[0], sIcon: sb[2], sBg: 'var(--' + sb[1] + '-bg)', sFg: 'var(--' + sb[1] + '-fg)', sBd: 'var(--' + sb[1] + '-border)', sBs: 'solid', sDec: st === 'cancelled' ? 'line-through' : 'none', sSpin: st === 'syncing' ? 'setu-spin 1.4s linear infinite' : 'none', editing: s.editing === r.id, notEditing: s.editing !== r.id, saveIcon: r.saving ? 'loader-circle' : r.saved ? 'check' : 'pencil', spin: r.saving ? 'setu-spin 1s linear infinite' : 'none', editBd: st === 'cancelled' ? 'transparent' : 'var(--border-strong)', toggle: () => this.setState(x => ({ sel: x.sel.includes(r.id) ? x.sel.filter(i => i !== r.id) : [...x.sel, r.id] })) };
+      W.forEach((w, ci) => { o['v' + ci] = vis[ci] ? 'flex' : 'none'; o['a' + ci] = ac.r === ri && ac.c === ci ? 'inset 0 0 0 2px var(--focus-ring)' : 'none'; o['c' + ci] = () => this.setState({ active: { r: ri, c: ci } }); });
+      return o;
+    });
+    const counts = {}; s.rows.forEach(r => { const k = this.statusOf(r); counts[k] = (counts[k] || 0) + 1; });
+    const FL = [['All','সব · All',s.rows.length],['paid','পরিশোধিত · Paid',counts.paid||0],['partial','আংশিক · Partial',counts.partial||0],['due','বকেয়া · Due',counts.due||0],['refund','রিফান্ড · Refund',counts.refund||0]];
+    const filters = FL.map(([k, l, c]) => { const on = s.filter === k; return { label: l, count: String(c), on, pick: () => this.setState({ filter: k, page: 0 }), bg: on ? 'var(--surface-selected)' : 'var(--surface-card)', fg: on ? 'var(--brand-primary-text)' : 'var(--text-secondary)', bd: on ? 'var(--brand-primary)' : 'var(--border-default)' }; });
+    const live = list.filter(r => this.statusOf(r) !== 'cancelled');
+    const tA = live.reduce((a, r) => a + r.amount, 0), tP = live.reduce((a, r) => a + r.paid, 0);
+    const pageIds = pageRows.map(r => r.id);
+    const allSel = pageIds.length > 0 && pageIds.every(id => s.sel.includes(id));
+    const seg = on => ({ on, bg: on ? 'var(--surface-card)' : 'transparent', fg: on ? 'var(--text-primary)' : 'var(--text-muted)', sh: on ? 'var(--shadow-1)' : 'none' });
+    const COLN = { 3: 'সেবা · Service', 4: 'পেয়ার · Payer', 8: 'মাধ্যম · Method', 10: 'সময় · Time' };
+    const sortV = k => s.sort.k === k ? (s.sort.dir > 0 ? 'ascending' : 'descending') : 'none';
+    const sortI = k => s.sort.k === k ? (s.sort.dir > 0 ? 'arrow-up' : 'arrow-down') : 'arrow-up-down';
+    const sortBy = k => () => this.setState(x => ({ sort: { k, dir: x.sort.k === k ? -x.sort.dir : -1 } }));
+    const leftSpan = visIdx.filter(i => i >= 1 && i <= 4).length;
+    const onKey = e => {
+      if (s.editing != null) return;
+      const nR = pageRows.length; if (!nR) return;
+      let { r, c } = s.active; const vi = visIdx.indexOf(c);
+      const k = e.key;
+      if (k === 'ArrowDown') r = Math.min(r + 1, nR - 1);
+      else if (k === 'ArrowUp') r = Math.max(r - 1, 0);
+      else if (k === 'ArrowRight') c = visIdx[Math.min(vi + 1, visIdx.length - 1)];
+      else if (k === 'ArrowLeft') c = visIdx[Math.max(vi - 1, 0)];
+      else if (k === 'Home') c = visIdx[0];
+      else if (k === 'End') c = visIdx[visIdx.length - 1];
+      else if (k === 'PageDown') { e.preventDefault(); this.setState({ page: Math.min(page + 1, pages - 1), active: { r: 0, c } }); return; }
+      else if (k === 'PageUp') { e.preventDefault(); this.setState({ page: Math.max(page - 1, 0), active: { r: 0, c } }); return; }
+      else if (k === ' ') { e.preventDefault(); rows[r] && rows[r].toggle(); return; }
+      else if (k === 'Enter') { const row = pageRows[r]; if (row && this.statusOf(row) !== 'cancelled') { e.preventDefault(); this.setState({ editing: row.id, editVal: String(row.paid), active: { r, c: 6 } }); } return; }
+      else return;
+      e.preventDefault(); this.setState({ active: { r, c } });
+    };
+    const colNames = ['Select','Bill no.','Patient','Service','Payer','Amount','Paid','Due','Method','Status','Time'];
+    const ar = pageRows[ac.r];
+    return {
+      theme: this.props.theme ?? 'light',
+      q: s.q, onQ: e => this.setState({ q: e.target.value, page: 0 }),
+      dCom: seg(!cmp), dCmp: seg(cmp), setCom: () => this.setState({ density: 'comfortable' }), setCmp: () => this.setState({ density: 'compact' }),
+      rowH: cmp ? '32px' : '44px', cpx: cmp ? '10px' : '16px', fs: cmp ? '13px' : '14px',
+      colsOpen: s.colsOpen, toggleCols: () => this.setState(x => ({ colsOpen: !x.colsOpen })),
+      colOpts: [3, 4, 8, 10].map(i => ({ label: COLN[i], on: !hide.includes(i), toggle: () => this.setState(x => ({ hidden: x.hidden.includes(i) ? x.hidden.filter(h => h !== i) : [...x.hidden, i], active: { r: x.active.r, c: 1 } })) })),
+      filters, toggleEmpty: () => this.setState(x => ({ forceEmpty: !x.forceEmpty })), emptyToggleLabel: s.forceEmpty ? 'Show data' : 'Preview empty state',
+      hasSel: s.sel.length > 0, selLabel: s.sel.length + 'টি নির্বাচিত · ' + s.sel.length + ' selected', clearSel: () => this.setState({ sel: [] }),
+      total: String(list.length), onKey, onGridFocus: () => {},
+      cols, ...Object.fromEntries(W.map((w, i) => ['h' + i, vis[i] ? 'flex' : 'none'])),
+      sort_amount: sortV('amount'), sort_due: sortV('due'), sort_time: sortV('time'), sortIcon_amount: sortI('amount'), sortIcon_due: sortI('due'), sortIcon_time: sortI('time'), sortBy_amount: sortBy('amount'), sortBy_due: sortBy('due'), sortBy_time: sortBy('time'),
+      allSel, toggleAll: () => this.setState(x => ({ sel: allSel ? x.sel.filter(id => !pageIds.includes(id)) : [...new Set([...x.sel, ...pageIds])] })),
+      rows, isEmpty: list.length === 0, resetFilters: () => this.setState({ q: '', filter: 'All', forceEmpty: false, page: 0 }),
+      editVal: s.editVal, onEdit: e => this.setState({ editVal: e.target.value }),
+      onEditKey: e => { if (e.key === 'Enter') { e.preventDefault(); this.commit(); } else if (e.key === 'Escape') { e.preventDefault(); this.setState({ editing: null }); } },
+      commitEdit: () => this.commit(),
+      totSpan: String(Math.max(leftSpan, 1)), totLabel: 'মোট · Total — ' + live.length + ' bills (excl. cancelled)', totAmount: tk(tA), totPaid: tk(tP), totDue: tk(tA - tP),
+      pageLabel: list.length ? (page * PAGE + 1) + '–' + Math.min(list.length, page * PAGE + PAGE) + ' of ' + list.length : '0 of 0',
+      activeLabel: ar ? 'Active cell: row ' + (ac.r + 1) + ', ' + colNames[ac.c] : '',
+      noPrev: page === 0, noNext: page >= pages - 1, prevPage: () => this.setState({ page: Math.max(page - 1, 0) }), nextPage: () => this.setState({ page: Math.min(page + 1, pages - 1) }),
+      pagesList: Array.from({ length: pages }, (_, i) => ({ n: String(i + 1), cur: i === page ? 'page' : 'false', go: () => this.setState({ page: i }), bg: i === page ? 'var(--brand-primary)' : 'var(--surface-card)', fg: i === page ? 'var(--text-on-primary)' : 'var(--text-primary)', bd: i === page ? 'var(--brand-primary)' : 'var(--border-default)' })),
+    };
+  }
+}
+</script>
+</body>
+</html>

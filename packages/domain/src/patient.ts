@@ -42,7 +42,9 @@ const yearsBetween = (iso: string, ref: Date) => {
 /* ───────────── registration validation ───────────── */
 
 export type Sex = "female" | "male" | "other";
-export type PhoneOwner = "self" | "family" | "other";
+/** Whose phone the number is. When it is not the patient's own, the person it belongs to (name + relationship) is
+    required, so results and the patient-app claim reach someone known (open question 23, decided 02/10/2026). */
+export type PhoneOwner = "self" | "guardian" | "family" | "other";
 export type IdType = "none" | "nid" | "brn" | "passport";
 export interface RegistrationInput {
   nameBn: string; nameEn?: string; sex?: Sex;
@@ -55,7 +57,8 @@ export interface RegistrationInput {
 export type RegistrationErrorCode =
   | "name_bn_required" | "name_bn_script" | "sex_required" | "dob_required" | "dob_format" | "dob_future" | "dob_range"
   | "age_required" | "age_range" | "age_months_range" | "phone_required" | "phone_invalid"
-  | "division_required" | "district_required" | "upazila_required" | "guardian_name_required" | "guardian_relationship_required" | "id_format";
+  | "division_required" | "district_required" | "upazila_required" | "guardian_name_required" | "guardian_relationship_required"
+  | "phone_owner_name_required" | "phone_owner_relationship_required" | "id_format";
 export interface RegistrationError { field: string; code: RegistrationErrorCode }
 
 const ID_LENGTHS: Record<Exclude<IdType, "none" | "passport">, number[]> = { nid: [10, 13, 17], brn: [17] };
@@ -93,9 +96,12 @@ export function validateRegistration(i: RegistrationInput, today: Date): Registr
   if (!i.district) add("district", "district_required");
   if (!i.upazila) add("upazila", "upazila_required");
   const age = formAgeYears(i, today);
-  if (age !== null && age >= 0 && age < GUARDIAN_REQUIRED_UNDER) {
-    if (!(i.guardian?.name ?? "").trim()) add("guardianName", "guardian_name_required");
-    if (!(i.guardian?.relationship ?? "").trim()) add("guardianRelationship", "guardian_relationship_required");
+  const minor = age !== null && age >= 0 && age < GUARDIAN_REQUIRED_UNDER;
+  // A number that is not the patient's own belongs to the related person entered in section 2.
+  const otherOwner = Boolean(i.phoneOwner && i.phoneOwner !== "self");
+  if (minor || otherOwner) {
+    if (!(i.guardian?.name ?? "").trim()) add("guardianName", minor ? "guardian_name_required" : "phone_owner_name_required");
+    if (!(i.guardian?.relationship ?? "").trim()) add("guardianRelationship", minor ? "guardian_relationship_required" : "phone_owner_relationship_required");
   }
   if (i.idType && i.idType !== "none" && i.idType !== "passport" && (i.idNo ?? "").trim()) {
     if (!/^[\d\s-]+$/.test(toEn(i.idNo!.trim())) || !ID_LENGTHS[i.idType].includes(digitsOnly(i.idNo).length)) add("idNo", "id_format");
@@ -202,3 +208,14 @@ export const isCandidate = (c: Comparison) => {
   const birth = c.fields.birth === "same" || c.fields.birth === "similar";
   return c.fields.id === "same" || (name && (c.fields.phone === "same" || birth));
 };
+
+/* ───────────── undo of a desk decision (open question 17, decided 02/10/2026) ───────────── */
+export type DeskActivity = "link" | "link-anyway" | "review-requested" | "checked-different";
+/** Only the person who made the decision, or an admin, may undo it; undoing a "Link anyway" needs a reason of ≥10
+    characters. Visits opened on the linked record in between are listed to the person undoing (they stay where they are). */
+export function undoRule(activity: DeskActivity, deciderId: string, userId: string, role: string) {
+  const allowed = deciderId === userId || role === "admin";
+  return { allowed, reasonRequired: activity === "link-anyway", warnsVisits: activity === "link" || activity === "link-anyway" };
+}
+export const undoReasonOk = (activity: DeskActivity, reason: string | null | undefined) =>
+  activity !== "link-anyway" || (reason ?? "").trim().length >= LINK_REASON_MIN;

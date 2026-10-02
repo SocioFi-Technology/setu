@@ -30,6 +30,9 @@ export function FrontDeskQueue() {
 
   const all = q?.columns.flatMap((c) => c.items) ?? [];
   const picked: QueueItem | undefined = all.find((i) => i.id === sel);
+  // The vitals station is for nurses and receptionists (access matrix); show the shortcut only to them.
+  const vitalsScreen = s.caps?.modules.find((m) => m.key === "fd")?.screens.find((x) => x.key === "vitals");
+  const canVitals = Boolean(vitalsScreen?.allowed);
   useEffect(() => { s.setPatient(picked ? bannerOf(picked.patient, L) : null); }, [picked?.id, picked?.status, s.lang, s.numerals]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => s.setPatient(null), []); // eslint-disable-line react-hooks/exhaustive-deps
   // Bring the token we landed on into view once (not on every refresh or click, which would yank the page).
@@ -91,6 +94,7 @@ export function FrontDeskQueue() {
                 <span style={{ marginLeft: "auto" }} />
                 <Button icon="megaphone" kbd="C" disabled={busy || !picked.actions.includes("call")} onClick={() => void act("call")}>{T("call")}</Button>
                 {picked.actions.includes("next") && <Button variant="primary" icon="arrow-right" kbd="Enter" disabled={busy} onClick={() => void act("next")}>{T(NEXT_LABEL[picked.status] ?? "next_complete")}</Button>}
+                {canVitals && (picked.status === "arrived" || picked.status === "triaged") && <Button icon="heart-pulse" onClick={() => router.push(`/m/fd/vitals?enc=${encodeURIComponent(picked.id)}`)}>{T("record_vitals")}</Button>}
                 <Button icon="user-x" kbd="N" disabled={busy || !picked.actions.includes("noShow")} onClick={() => setConfirmNoShow(true)}>{T("no_show")}</Button>
               </>
             ) : <span className="t-muted">{T("select_a_token")}</span>}

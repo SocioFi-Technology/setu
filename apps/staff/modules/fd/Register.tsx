@@ -4,7 +4,7 @@
    "N fields need attention" and focuses the first one. A save made offline waits in the outbox, never "Saved". */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { MatchCandidate, RegistrationInput } from "@setu/contracts";
+import type { PreviewCandidate, RegistrationInput } from "@setu/contracts";
 import { format, normalizePhone, parseDob, validateRegistration, type RegistrationError } from "@setu/domain";
 import { Button, Callout, Card, Pill, Segmented, SelectField, TextField, useToast } from "@setu/ui";
 import { ApiFailure, fd } from "../../lib/api";
@@ -29,7 +29,7 @@ export function FrontDeskRegister() {
   const [tried, setTried] = useState(false);
   const [serverErrors, setServerErrors] = useState<RegistrationError[] | null>(null);
   const [save, setSave] = useState<{ st: "idle" | "saving" | "saved" | "queued" | "failed"; no?: string; patientId?: string }>({ st: "idle" });
-  const [dups, setDups] = useState<{ st: "idle" | "checking" | "done"; list: MatchCandidate[] }>({ st: "idle", list: [] });
+  const [dups, setDups] = useState<{ st: "idle" | "checking" | "done"; list: PreviewCandidate[] }>({ st: "idle", list: [] });
   const [phoneUsers, setPhoneUsers] = useState<number | null>(null);
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => { s.setPatient(null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -170,9 +170,10 @@ export function FrontDeskRegister() {
               </div>
               <div className="field">
                 <label>{T("whose_number")}</label>
-                <Segmented label="Phone owner" value={f.phoneOwner ?? "self"} onChange={(v) => set("phoneOwner", v)} options={[{ value: "self", label: T("owner_self") }, { value: "family", label: T("owner_family") }, { value: "other", label: T("owner_other") }]} />
+                <Segmented label="Phone owner" value={f.phoneOwner ?? "self"} onChange={(v) => set("phoneOwner", v)} options={[{ value: "self", label: T("owner_self") }, { value: "guardian", label: T("owner_guardian") }, { value: "family", label: T("owner_family") }, { value: "other", label: T("owner_other") }]} />
               </div>
             </div>
+            {f.phoneOwner && f.phoneOwner !== "self" && <Callout icon="info">{T("phone_owner_note")}</Callout>}
             <div style={GRID3}>
               <div data-fld="division">
                 <SelectField name="division" label={T("division")} value={f.division ?? ""} onChange={(e) => setF((x) => ({ ...x, division: e.target.value, district: "", upazila: "" }))} error={errOf("division")}>
@@ -213,12 +214,13 @@ export function FrontDeskRegister() {
           {dups.list.map((c) => (
             <div key={c.patient.id} style={{ display: "flex", flexDirection: "column", gap: 4, padding: 8, border: "1px solid var(--border-subtle)", borderRadius: 8 }}>
               <b>{c.patient.nameBn}</b>
-              <span className="t-small t-muted">{c.patient.nameEn} · <span className="num">{c.patient.facilityNo}</span> · {L.age(c.patient)} {L.sex(c.patient.sex)}</span>
-              <span className="t-small num">{T("score", { n: c.comparison.score })}{c.comparison.conflicts.length ? ` · ${T("conflicts_note", { n: c.comparison.conflicts.length })}` : ""}</span>
+              {/* Name, patient no., age and sex only (open question 19); the rest is shown on the match screen. */}
+              <span className="t-small t-muted">{c.patient.nameEn} · <span className="num">{c.patient.facilityNo}</span> · {c.patient.ageYears == null ? "—" : T(c.patient.ageApprox ? "approx_years_short" : "years_short", { n: c.patient.ageYears })} {L.sex(c.patient.sex)}</span>
+              <span className="t-small num">{T("score", { n: c.score })}{c.conflictCount ? ` · ${T("conflicts_note", { n: c.conflictCount })}` : ""}</span>
               <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {/* One click only for a clean strong match; anything else must be checked on the match screen (clinical review). */}
                 {c.canLink && <Button size="sm" icon="ticket" onClick={() => void visitOn(c.patient.id)}>{T("use_this_record")}</Button>}
-                {c.comparison.isGuardian ? <Pill tone="neu">{T("is_guardian_note")}</Pill> : !c.canLink && <span className="t-small t-muted">{T("check_on_match")}</span>}
+                {c.isGuardian ? <Pill tone="neu">{T("is_guardian_note")}</Pill> : !c.canLink && <span className="t-small t-muted">{T("check_on_match")}</span>}
               </span>
             </div>
           ))}

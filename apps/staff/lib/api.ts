@@ -1,5 +1,5 @@
 import type {
-  ApiError, Capabilities, CreateVisitResponse, MatchCandidate, MatchDecisionResponse, Me, PatientMatches, PatientSearchResponse, QueueItem, QueueResponse, RegisterResponse, RegistrationInput, ReviewOutcomeResponse, ReviewQueueResponse,
+  ApiError, Capabilities, VitalsBatchRequest, VitalsBatchResponse, VitalsView, VitalsWorklist, CreateVisitResponse, MatchDecisionResponse, MatchPreviewResponse, Me, PatientMatches, PatientSearchResponse, QueueItem, QueueResponse, RegisterResponse, RegistrationInput, ReviewOutcomeResponse, ReviewQueueResponse,
 } from "@setu/contracts";
 import { enqueue, flush } from "./outbox";
 export class ApiFailure extends Error { constructor(public status: number, public body: ApiError) { super(body.message_en); } }
@@ -29,10 +29,10 @@ async function write<T>(method: string, path: string, body: unknown, label: stri
 export const fd = {
   search: (q: string) => call<PatientSearchResponse>("GET", "/v1/patients/search?q=" + encodeURIComponent(q)),
   matches: (id: string) => call<PatientMatches>("GET", `/v1/patients/${encodeURIComponent(id)}/matches`),
-  preview: (draft: RegistrationInput) => call<{ candidates: MatchCandidate[] }>("POST", "/v1/patients/match-preview", draft),
+  preview: (draft: RegistrationInput) => call<MatchPreviewResponse>("POST", "/v1/patients/match-preview", draft),
   decide: (id: string, body: { decision: "link" | "linkAnyway" | "review" | "different"; candidateId?: string; reason?: string }) =>
     call<MatchDecisionResponse>("POST", `/v1/patients/${encodeURIComponent(id)}/match-decisions`, body, crypto.randomUUID()),
-  undo: (id: string) => call<MatchDecisionResponse>("POST", `/v1/patients/${encodeURIComponent(id)}/match-decisions/undo`, {}, crypto.randomUUID()),
+  undo: (id: string, reason?: string) => call<MatchDecisionResponse>("POST", `/v1/patients/${encodeURIComponent(id)}/match-decisions/undo`, reason ? { reason } : {}, crypto.randomUUID()),
   /** `key`: one per filled-in form, so pressing Save twice (or offline, then online) never registers twice. */
   register: (body: RegistrationInput & { createVisit: boolean }, key: string) => write<RegisterResponse>("POST", "/v1/patients", body, "register", key),
   createVisit: (patientId: string) => write<CreateVisitResponse>("POST", "/v1/encounters", { patientId }, "visit"),
@@ -41,6 +41,13 @@ export const fd = {
   unlink: (id: string, reason: string) => call<ReviewOutcomeResponse>("POST", `/v1/patients/${encodeURIComponent(id)}/unlink`, { reason }, crypto.randomUUID()),
   keep: (taskId: string) => call<ReviewOutcomeResponse>("POST", `/v1/reviews/${encodeURIComponent(taskId)}/keep`, {}, crypto.randomUUID()),
   act: (id: string, action: "next" | "noShow" | "call") => call<QueueItem>("POST", `/v1/encounters/${encodeURIComponent(id)}/actions`, { action }, crypto.randomUUID()),
+};
+
+/* Vitals (slice A4). `key`: one per filled-in form, so Save twice (or offline, then online) never stores twice. */
+export const vitals = {
+  worklist: () => call<VitalsWorklist>("GET", "/v1/vitals/worklist"),
+  view: (encounterId: string) => call<VitalsView>("GET", `/v1/encounters/${encodeURIComponent(encounterId)}/vitals`),
+  record: (encounterId: string, body: VitalsBatchRequest, key: string) => write<VitalsBatchResponse>("POST", `/v1/encounters/${encodeURIComponent(encounterId)}/vitals`, body, "vitals", key),
 };
 
 export const api = {

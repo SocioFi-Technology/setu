@@ -492,8 +492,8 @@
     "Choose"
   ],
   "guardian_rule": [
-    "১৮ বছরের কম হলে অভিভাবক আবশ্যক।",
-    "Required under 18."
+    "১৮ বছরের কম হলে, অথবা মোবাইল নম্বর রোগীর নিজের না হলে আবশ্যক (নম্বরটি যাঁর, তাঁর তথ্য)।",
+    "Required under 18, or when the mobile number is not the patient's own (then: the number's owner)."
   ],
   "mobile": [
     "মোবাইল *",
@@ -516,8 +516,8 @@
     "Other"
   ],
   "phone_hint": [
-    "SMS রিপোর্ট ও রিমাইন্ডারের জন্য",
-    "For SMS reports and reminders"
+    "রোগীর নিজের; না থাকলে অভিভাবক বা পরিবারের কারও · SMS রিপোর্টের জন্য",
+    "The patient's own; if none, a guardian's or relative's · for SMS reports"
   ],
   "phone_new": [
     "নতুন নম্বর",
@@ -898,5 +898,65 @@
   "linked_note": [
     "এই রেকর্ড {name} ({no})-এর সাথে লিংক করা আছে।",
     "This record is linked to {name} ({no})."
+  ],
+  "owner_guardian": [
+    "অভিভাবকের",
+    "Guardian's"
+  ],
+  "phone_owner_note": [
+    "নম্বরটি রোগীর নিজের নয় — অংশ ২-এ নম্বরটি যাঁর, তাঁর নাম ও সম্পর্ক লিখুন।",
+    "Not the patient's own number — enter its owner's name and relationship in section 2."
+  ],
+  "e_phone_owner_name_required": [
+    "নম্বরটি যাঁর, তাঁর নাম লিখুন",
+    "Enter the name of the person this number belongs to"
+  ],
+  "e_phone_owner_relationship_required": [
+    "নম্বরটি যাঁর, রোগীর সাথে তাঁর সম্পর্ক বাছুন",
+    "Choose how the number's owner is related to the patient"
+  ],
+  "undo_title": [
+    "সিদ্ধান্ত ফিরিয়ে নিন",
+    "Undo this decision"
+  ],
+  "undo_by": [
+    "{name} · {at}",
+    "Decided by {name} · {at}"
+  ],
+  "undo_not_allowed": [
+    "যিনি সিদ্ধান্ত নিয়েছেন তিনি বা অ্যাডমিন ফিরিয়ে নিতে পারবেন।",
+    "Only the person who made this decision, or an admin, can undo it."
+  ],
+  "undo_visits": [
+    "লিংকের পর লিংক করা রেকর্ডে {n}টি ভিজিট খোলা হয়েছে। ফিরিয়ে নিলেও সেগুলো ওই রেকর্ডেই থাকবে — দরকার হলে ঠিক করুন:",
+    "{n} visit(s) were opened on the linked record since the link. They stay on that record after the undo — check them:"
+  ],
+  "undo_no_visits": [
+    "লিংকের পর লিংক করা রেকর্ডে কোনো ভিজিট খোলা হয়নি।",
+    "No visits were opened on the linked record since the link."
+  ],
+  "undo_reason": [
+    "ফিরিয়ে নেওয়ার কারণ * (কমপক্ষে {n} অক্ষর)",
+    "Reason for undoing * (at least {n} characters)"
+  ],
+  "undo_confirm": [
+    "ফিরিয়ে নিন",
+    "Undo decision"
+  ],
+  "visit_line": [
+    "টোকেন {token} · {day}",
+    "Token {token} · {day}"
+  ],
+  "dup_age_sex": [
+    "{age} {sex}",
+    "{age} {sex}"
+  ],
+  "record_vitals": [
+    "ভাইটাল নিন",
+    "Record vitals"
+  ],
+  "undo_nothing": [
+    "ফিরিয়ে নেওয়ার মতো কিছু নেই",
+    "There is no decision to undo"
   ]
 }

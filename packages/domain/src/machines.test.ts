@@ -13,6 +13,17 @@ describe("document", () => {
     expect(transition("doc", DOCUMENT, "final", "supersede")).toBe("superseded");
     expect(() => transition("doc", DOCUMENT, "superseded", "amend")).toThrow(TransitionError);
   });
+  it("ADR 0003: an amendment is a new draft that signs to amended; the version it amends is superseded", () => {
+    expect(transition("doc", DOCUMENT, "draft", "signAmendment")).toBe("amended");
+    expect(transition("doc", DOCUMENT, "final", "supersede")).toBe("superseded");
+    expect(transition("doc", DOCUMENT, "amended", "supersede")).toBe("superseded"); // v3 amends v2
+    for (const from of ["queued", "final", "amended", "superseded", "entered-in-error"] as const)
+      expect(can(DOCUMENT, from, "signAmendment")).toBe(false);
+    for (const ev of ["sign", "signAmendment", "amend", "supersede", "markError", "serverAck", "offlineSign"] as const) {
+      expect(can(DOCUMENT, "superseded", ev)).toBe(false);
+      expect(can(DOCUMENT, "entered-in-error", ev)).toBe(false);
+    }
+  });
 });
 describe("discharge (walkthrough B9/B10)", () => {
   it("final bill needs pharmacy clearance first", () => {

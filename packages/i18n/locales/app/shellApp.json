@@ -1,0 +1,42 @@
+{
+  "_about": [
+    "শেল-এর লেখা (সিঙ্ক অবস্থা)",
+    "Shell strings (sync state)"
+  ],
+  "refused_pill": [
+    "{n}টি সিঙ্ক হয়নি — দেখুন",
+    "{n} couldn't sync — check"
+  ],
+  "refused_title": [
+    "সার্ভার এই পরিবর্তনগুলো নেয়নি",
+    "The server refused these changes"
+  ],
+  "refused_body": [
+    "অফলাইনে সংরক্ষিত এই কাজগুলো সার্ভারে পাঠানো হয়েছিল, কিন্তু সার্ভার নেয়নি। কারণ দেখে আবার করুন; তারপর তালিকা থেকে সরান।",
+    "These were saved offline and sent when back online, but the server refused them. Check the reason and redo the work, then remove them from the list."
+  ],
+  "refused_at": [
+    "সংরক্ষণ: {at}",
+    "Saved: {at}"
+  ],
+  "refused_dismiss": [
+    "তালিকা থেকে সরান",
+    "Remove from list"
+  ],
+  "close": [
+    "বন্ধ",
+    "Close"
+  ],
+  "label_register": [
+    "নিবন্ধন",
+    "Registration"
+  ],
+  "label_visit": [
+    "ভিজিট ও টোকেন",
+    "Visit and token"
+  ],
+  "label_vitals": [
+    "ভাইটাল",
+    "Vitals"
+  ]
+}

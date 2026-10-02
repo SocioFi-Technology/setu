@@ -1,0 +1,366 @@
+{
+  "_about": [
+    "ভাইটাল স্ক্রিনের লেখা (স্লাইস A4), প্রোটোটাইপ Setu Front Desk › Vitals (tablet) থেকে",
+    "Vitals screen strings (slice A4), from the prototype Setu Front Desk › Vitals (tablet)"
+  ],
+  "title": [
+    "ভাইটাল",
+    "Vitals"
+  ],
+  "worklist_title": [
+    "আজকের অপেক্ষমাণ রোগী",
+    "Waiting today"
+  ],
+  "worklist_empty": [
+    "এখন কেউ অপেক্ষায় নেই",
+    "Nobody is waiting right now"
+  ],
+  "worklist_hint": [
+    "ভাইটাল নিতে রোগী বাছুন",
+    "Choose a patient to record vitals"
+  ],
+  "worklist_done": [
+    "ভাইটাল নেওয়া হয়েছে",
+    "Vitals done"
+  ],
+  "worklist_waiting": [
+    "অপেক্ষমাণ",
+    "Waiting"
+  ],
+  "back_to_list": [
+    "তালিকায় ফিরুন",
+    "Back to the list"
+  ],
+  "loading": [
+    "লোড হচ্ছে…",
+    "Loading…"
+  ],
+  "error_generic": [
+    "কিছু একটা সমস্যা হয়েছে — আবার চেষ্টা করুন",
+    "Something went wrong — try again"
+  ],
+  "f_bp": [
+    "রক্তচাপ",
+    "Blood pressure"
+  ],
+  "f_bp_sys": [
+    "সিস্টোলিক",
+    "Systolic"
+  ],
+  "f_bp_dia": [
+    "ডায়াস্টোলিক",
+    "Diastolic"
+  ],
+  "f_pulse": [
+    "পালস",
+    "Pulse"
+  ],
+  "f_temp": [
+    "তাপমাত্রা",
+    "Temperature"
+  ],
+  "f_spo2": [
+    "SpO₂",
+    "SpO₂"
+  ],
+  "f_rbs": [
+    "রক্তে শর্করা",
+    "Blood glucose"
+  ],
+  "f_weight": [
+    "ওজন",
+    "Weight"
+  ],
+  "f_height": [
+    "উচ্চতা",
+    "Height"
+  ],
+  "f_bmi": [
+    "BMI",
+    "BMI"
+  ],
+  "u_bp": [
+    "mmHg",
+    "mmHg"
+  ],
+  "u_pulse": [
+    "/মিনিট",
+    "bpm"
+  ],
+  "u_temp": [
+    "°F",
+    "°F"
+  ],
+  "u_spo2": [
+    "%",
+    "%"
+  ],
+  "u_rbs": [
+    "mmol/L",
+    "mmol/L"
+  ],
+  "u_weight": [
+    "কেজি",
+    "kg"
+  ],
+  "u_height": [
+    "সেমি",
+    "cm"
+  ],
+  "u_bmi": [
+    "kg/m²",
+    "kg/m²"
+  ],
+  "rbs_random": [
+    "র‍্যান্ডম",
+    "Random"
+  ],
+  "rbs_fasting": [
+    "খালি পেটে",
+    "Fasting"
+  ],
+  "last": [
+    "শেষ: {v} · {d}",
+    "Last: {v} · {d}"
+  ],
+  "no_last": [
+    "আগের মান নেই",
+    "No earlier value"
+  ],
+  "weight_delta": [
+    "গত ভিজিট থেকে {d} কেজি",
+    "{d} kg since last visit"
+  ],
+  "bmi_auto": [
+    "ওজন ও উচ্চতা থেকে হিসাব",
+    "Calculated from weight and height"
+  ],
+  "bmi_enter": [
+    "ওজন ও উচ্চতা লিখুন",
+    "Enter weight and height"
+  ],
+  "bmi_underweight": [
+    "কম ওজন (< ১৮.৫)",
+    "Underweight (< 18.5)"
+  ],
+  "bmi_normal": [
+    "স্বাভাবিক (এশীয় মান)",
+    "Normal (Asian cut-off)"
+  ],
+  "bmi_overweight": [
+    "বেশি ওজন (এশীয় ২৩–২৭.৪)",
+    "Overweight (Asian 23–27.4)"
+  ],
+  "bmi_obese": [
+    "স্থূল (এশীয় ≥ ২৭.৫)",
+    "Obese (Asian ≥ 27.5)"
+  ],
+  "c_normal": [
+    "স্বাভাবিক",
+    "Normal"
+  ],
+  "c_not_a_number": [
+    "শুধু সংখ্যা লিখুন",
+    "Numbers only"
+  ],
+  "c_bp_incomplete": [
+    "দুটো সংখ্যাই লিখুন (যেমন ১২০/৮০)",
+    "Enter both numbers (e.g. 120/80)"
+  ],
+  "c_bp_impossible": [
+    "মানটি সম্ভব নয় — আবার মাপুন",
+    "Not plausible — re-measure"
+  ],
+  "c_bp_critical": [
+    "খুব বেশি: এখনই ডাক্তারকে জানান",
+    "Very high: tell the doctor now"
+  ],
+  "c_bp_high": [
+    "বেশি — ১৪০/৯০ mmHg বা তার বেশি",
+    "High — 140/90 mmHg or above"
+  ],
+  "c_bp_low": [
+    "কম — সিস্টোলিক ৯০-এর নিচে",
+    "Low — below 90 systolic"
+  ],
+  "c_pulse_impossible": [
+    "মানটি সম্ভব নয় — আবার মাপুন",
+    "Not plausible — re-measure"
+  ],
+  "c_pulse_critical": [
+    "খুব দ্রুত — ডাক্তারকে জানান",
+    "Very fast — tell the doctor"
+  ],
+  "c_pulse_high": [
+    "দ্রুত — ১০০-এর বেশি",
+    "Fast — above 100 bpm"
+  ],
+  "c_pulse_low": [
+    "ধীর — ৫০-এর কম",
+    "Slow — below 50 bpm"
+  ],
+  "c_temp_impossible": [
+    "এই তাপমাত্রা সম্ভব নয় — মান দেখুন; খুব কম হলে এখনই ডাক্তারকে জানান",
+    "Not possible — check the value; if very low and confirmed, tell the doctor now"
+  ],
+  "c_temp_critical": [
+    "তীব্র জ্বর — ডাক্তারকে জানান",
+    "High fever — tell the doctor"
+  ],
+  "c_temp_high": [
+    "জ্বর — ১০০.৪ °F বা বেশি",
+    "Fever — 100.4 °F or more"
+  ],
+  "c_temp_low": [
+    "তাপমাত্রা কম",
+    "Low temperature"
+  ],
+  "c_spo2_over_100": [
+    "১০০% এর বেশি হয় না",
+    "Cannot exceed 100%"
+  ],
+  "c_spo2_impossible": [
+    "মানটি সম্ভব নয় — আবার মাপুন; সত্যি হলে এখনই ডাক্তারকে জানান",
+    "Not plausible — re-measure; if confirmed, tell the doctor now"
+  ],
+  "c_spo2_critical": [
+    "খুব কম — এখনই ডাক্তারকে জানান",
+    "Very low — tell the doctor now"
+  ],
+  "c_spo2_low": [
+    "কম — ৯৫%-এর নিচে",
+    "Low — below 95%"
+  ],
+  "c_rbs_impossible": [
+    "মানটি সম্ভব নয় — আবার মাপুন",
+    "Not plausible — re-measure"
+  ],
+  "c_rbs_critical": [
+    "খুব কম — এখনই ডাক্তারকে জানান",
+    "Very low — tell the doctor now"
+  ],
+  "c_rbs_low": [
+    "কম — ৩.৯ mmol/L-এর নিচে",
+    "Low — below 3.9 mmol/L"
+  ],
+  "c_rbs_high_random": [
+    "বেশি — র‍্যান্ডম ≥ ১১.১ mmol/L",
+    "High — random ≥ 11.1 mmol/L"
+  ],
+  "c_rbs_high_fasting": [
+    "বেশি — খালি পেটে ≥ ৭.০ mmol/L",
+    "High — fasting ≥ 7.0 mmol/L"
+  ],
+  "c_weight_impossible": [
+    "মানটি সম্ভব নয় — আবার মাপুন",
+    "Not plausible — re-measure"
+  ],
+  "c_height_impossible": [
+    "মানটি সম্ভব নয় — আবার মাপুন",
+    "Not plausible — re-measure"
+  ],
+  "sum_blocked": [
+    "ভুল মান ঠিক না করে সংরক্ষণ হবে না",
+    "Fix impossible values to save"
+  ],
+  "sum_empty": [
+    "অন্তত একটি মান লিখুন",
+    "Enter at least one value"
+  ],
+  "sum_critical": [
+    "জরুরি মান: এখনই ডাক্তারকে জানান",
+    "Critical value: tell the doctor now"
+  ],
+  "sum_out": [
+    "{n}টি মান সীমার বাইরে — ডাক্তার চিহ্নিত দেখবেন",
+    "{n} out of range — the doctor sees them flagged"
+  ],
+  "sum_ok": [
+    "সব মান সীমার মধ্যে",
+    "All values in range"
+  ],
+  "stamp_idle": [
+    "এখনো সংরক্ষিত নয় · রেকর্ড করছেন {name}",
+    "Not saved yet · Recording as {name}"
+  ],
+  "stamp_saving": [
+    "সংরক্ষণ হচ্ছে — এখনো সংরক্ষিত নয়",
+    "Saving — not saved yet"
+  ],
+  "stamp_saved": [
+    "সংরক্ষিত — প্রোভাইডার যাচাইকৃত · {name} · {at} · সার্ভার নিশ্চিত",
+    "Saved — Provider verified · {name} · {at} · server confirmed"
+  ],
+  "stamp_queued": [
+    "এই ডিভাইসে সংরক্ষিত — সার্ভারে যায়নি · অনলাইনে ফিরলে সিঙ্ক হবে",
+    "Saved on this device, not on the server · syncs when back online"
+  ],
+  "stamp_failed": [
+    "সংরক্ষণ হয়নি",
+    "Not saved"
+  ],
+  "save": [
+    "সংরক্ষণ",
+    "Save vitals"
+  ],
+  "offline_banner": [
+    "অফলাইন — ভাইটাল এই ডিভাইসে থাকবে; ডাক্তার এখনো দেখতে পাবেন না।",
+    "Offline — vitals stay on this device; the doctor cannot see them yet."
+  ],
+  "saved_before": [
+    "এই ভিজিটে আগে নেওয়া: {at}",
+    "Recorded earlier in this visit: {at}"
+  ],
+  "visit_closed": [
+    "এই ভিজিট বন্ধ — ভাইটাল যোগ করা যাবে না",
+    "This visit is closed — vitals cannot be added"
+  ],
+  "token": [
+    "টোকেন {t}",
+    "Token {t}"
+  ],
+  "c_bp_impossible_low": [
+    "মানটি সম্ভব নয় — আবার মাপুন; সত্যি হলে এখনই ডাক্তারকে জানান",
+    "Not plausible — re-measure; if confirmed, tell the doctor now"
+  ],
+  "c_pulse_impossible_low": [
+    "মানটি সম্ভব নয় — আবার মাপুন; সত্যি হলে এখনই ডাক্তারকে জানান",
+    "Not plausible — re-measure; if confirmed, tell the doctor now"
+  ],
+  "c_temp_celsius": [
+    "°C-এ লেখা মনে হচ্ছে — °F-এ লিখুন (৩৭ °C = ৯৮.৬ °F)",
+    "Looks like °C — enter °F (37 °C = 98.6 °F)"
+  ],
+  "c_rbs_mgdl": [
+    "mg/dL-এ লেখা মনে হচ্ছে — mmol/L-এ লিখুন (mg/dL ÷ ১৮; ১৮০ mg/dL = ১০.০)",
+    "Looks like mg/dL — enter mmol/L (mg/dL ÷ 18; 180 mg/dL = 10.0)"
+  ],
+  "c_rbs_check_unit": [
+    "খুব বেশি — নাকি mg/dL-এ লেখা? একক দেখে নিশ্চিত করুন; ডাক্তারকে জানান",
+    "Very high — or typed in mg/dL? Check the unit and confirm; tell the doctor"
+  ],
+  "c_height_feet": [
+    "ফুটে লেখা মনে হচ্ছে — সেমিতে লিখুন (৫ ফুট ৬ ইঞ্চি = ১৬৮ সেমি)",
+    "Looks like feet — enter cm (5 ft 6 in = 168 cm)"
+  ],
+  "c_bmi_implausible": [
+    "ওজন ও উচ্চতায় BMI অসম্ভব — উচ্চতা সেমিতে কি না দেখুন",
+    "Weight and height give an impossible BMI — is the height in cm?"
+  ],
+  "confirm_tick": [
+    "আমি মানটি আবার দেখেছি — ঠিক আছে",
+    "I re-checked this value — it is correct"
+  ],
+  "sum_confirm": [
+    "চিহ্নিত মানটি আবার দেখে টিক দিন",
+    "Re-check the marked value and tick to confirm"
+  ],
+  "bmi_child": [
+    "১৮ বছরের কম — প্রাপ্তবয়স্কের মান প্রযোজ্য নয়",
+    "Under 18 — adult cut-offs do not apply"
+  ],
+  "adult_ranges": [
+    "সীমাগুলো প্রাপ্তবয়স্কের জন্য — শিশুর ক্ষেত্রে ডাক্তার দেখবেন",
+    "Ranges are for adults — for children the doctor decides"
+  ]
+}

@@ -202,6 +202,7 @@ model Patient {
   updatedAt          DateTime           @updatedAt
   relatedPersons     RelatedPerson[]
   encounters         Encounter[]
+  observations       Observation[]
   @@unique([tenantId, facilityNo])
   @@index([tenantId, phone])
   @@index([tenantId, nameBn])
@@ -302,6 +303,7 @@ model Encounter {
   cancelReason   String?
   createdById    String
   createdAt      DateTime        @default(now())
+  observations   Observation[]
   @@unique([tenantId, branchId, tokenDay, tokenNo])
   @@index([tenantId, branchId, tokenDay])
   @@index([tenantId, patientId])
@@ -341,6 +343,8 @@ enum ProvenanceSource {
   patient_uploaded  @map("patient-uploaded")
   patient_reported  @map("patient-reported")
   ai_draft          @map("ai-draft")
+  /// ADR 0002: front desk / admin identity decisions (link, link-anyway, review-requested, checked-different, undo, unlink, link-reviewed)
+  desk_decision     @map("desk-decision")
 }
 
 /// Rule 2: who did what to which record, on behalf of which organisation, and from what source.
@@ -358,4 +362,51 @@ model Provenance {
   reason     String?
   detail     Json?
   @@index([tenantId, targetType, targetId])
+}
+
+/// Observation.status. Vitals are stored `final` when the server accepts the batch; "preliminary" exists only as the
+/// device's pending outbox write (open question 36). Corrections will be new rows (amended / entered-in-error), never edits.
+enum ObservationStatus {
+  final
+  amended
+  entered_in_error @map("entered-in-error")
+}
+/// Observation.interpretation (@setu/domain vitals.ts): normal, high, low, critical high, critical low.
+enum ObservationInterpretation {
+  N
+  H
+  L
+  HH
+  LL
+}
+
+/// One measured value (slice A4: vital signs). A save is a batch (`batchId`) written in one transaction with one
+/// Provenance row and one AuditEvent. Append-only for the API (migration): a wrong value is corrected by a new row.
+/// `code` is a Setu key (bp-systolic, pulse, …), not a LOINC code — terminology mapping comes with the FHIR export.
+model Observation {
+  id               String                     @id @default(cuid())
+  tenantId         String
+  organizationId   String
+  branchId         String
+  patientId        String
+  patient          Patient                    @relation(fields: [patientId], references: [id])
+  encounterId      String
+  encounter        Encounter                  @relation(fields: [encounterId], references: [id])
+  batchId          String
+  category         String                     @default("vital-signs")
+  code             String
+  value            Float
+  unit             String
+  /// e.g. glucose: random | fasting; BMI: calculated
+  method           String?
+  interpretation   ObservationInterpretation?
+  status           ObservationStatus          @default(final)
+  recordedById     String
+  /// when it was measured (as entered on the device) and when the server stored it
+  effectiveAt      DateTime
+  recordedAt       DateTime                   @default(now())
+  deviceLabel      String?
+  @@index([tenantId, patientId, code, effectiveAt])
+  @@index([tenantId, encounterId])
+  @@index([tenantId, batchId])
 }

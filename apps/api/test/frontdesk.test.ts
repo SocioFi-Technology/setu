@@ -112,7 +112,9 @@ describe.runIf(db)("A2 duplicate review (issue #4)", () => {
     expect(task).toMatchObject({ kind: "patient-link-review", status: "approved", decisionNote: "link-anyway" });
     const audit = await db!.forTenant("t_e2e", (tx) => tx.auditEvent.findFirst({ where: { entity: "Patient", entityId: "e2e_p_rbegum", action: "update" }, orderBy: { at: "desc" } }));
     expect(JSON.stringify(audit!.detail)).toContain(`confirmed by husband ${RUN}`);
-    const undo = await post("/v1/patients/e2e_p_rbegum/match-decisions/undo", {});
+    // Open question 17: undoing a Link anyway needs a reason too.
+    expect((await post("/v1/patients/e2e_p_rbegum/match-decisions/undo", {})).json().code).toBe("reason_too_short");
+    const undo = await post("/v1/patients/e2e_p_rbegum/match-decisions/undo", { reason: `Linked the wrong Rahima ${RUN}` });
     expect(undo.statusCode).toBe(200);
     expect(undo.json().subject).toMatchObject({ linkedToId: null, identityConfidence: "possible-duplicate" });
   });
@@ -136,6 +138,59 @@ describe.runIf(db)("A2 duplicate review (issue #4)", () => {
   });
 });
 
+describe.runIf(db)("A1–A3 follow-ups decided 02/10/2026 (open questions 17, 18, 19, 23)", () => {
+  it("17: the undo lists visits opened on the linked record since the link; they stay where they are", async () => {
+    // Close any visit Rahima already has today so a new one can be opened on her record after the link.
+    await db!.forTenant("t_e2e", (tx) => tx.encounter.updateMany({ where: { patientId: "e2e_p_rahima", status: { in: ["arrived", "triaged", "in_progress"] } }, data: { status: "cancelled", cancelReason: "test reset" } }));
+    const link = await post("/v1/patients/e2e_p_rbegum/match-decisions", { decision: "linkAnyway", candidateId: "e2e_p_rahima", reason: `Same woman, husband says ${RUN}` });
+    expect(link.statusCode).toBe(200);
+    const v = await post("/v1/encounters", { patientId: "e2e_p_rbegum" });
+    expect(v.statusCode).toBe(201); expect(v.json().encounter.patient.id).toBe("e2e_p_rahima");
+    const last = (await get("/v1/patients/e2e_p_rbegum/matches")).json().lastDecision;
+    expect(last).toMatchObject({ activity: "link-anyway", canUndo: true, reasonRequired: true, reasonMin: 10 });
+    expect(last.visitsSince.map((x: { encounterId: string }) => x.encounterId)).toEqual([v.json().encounter.id]);
+    const undo = await post("/v1/patients/e2e_p_rbegum/match-decisions/undo", { reason: `Wrong record, re-checked ${RUN}` });
+    expect(undo.statusCode).toBe(200);
+    const enc = await db!.forTenant("t_e2e", (tx) => tx.encounter.findFirst({ where: { id: v.json().encounter.id } }));
+    expect(enc!.patientId).toBe("e2e_p_rahima");
+    const prov = await db!.forTenant("t_e2e", (tx) => tx.provenance.findFirst({ where: { targetId: "e2e_p_rbegum", activity: "undo" }, orderBy: { recorded: "desc" } }));
+    expect(prov).toMatchObject({ source: "desk_decision", reason: `Wrong record, re-checked ${RUN}` }); // 18 / ADR 0002
+    expect((prov!.detail as { visitsSince: string[] }).visitsSince).toEqual([v.json().encounter.id]);
+    await post(`/v1/encounters/${v.json().encounter.id}/actions`, { action: "noShow" });
+  });
+  it("17: only the person who decided, or an admin, may undo", async () => {
+    const r = await post("/v1/patients/e2e_p_rbegum/match-decisions", { decision: "review", candidateId: "e2e_p_rahima" }, "admin");
+    expect(r.statusCode).toBe(200);
+    expect((await get("/v1/patients/e2e_p_rbegum/matches")).json().lastDecision).toMatchObject({ activity: "review-requested", canUndo: false });
+    const denied = await post("/v1/patients/e2e_p_rbegum/match-decisions/undo", {});
+    expect(denied.statusCode).toBe(403); expect(denied.json().code).toBe("not_decider");
+    expect((await post("/v1/patients/e2e_p_rbegum/match-decisions/undo", {}, "admin")).statusCode).toBe(200);
+    // and an admin may undo the desk's decision
+    await post("/v1/patients/e2e_p_rbegum/match-decisions", { decision: "review", candidateId: "e2e_p_rahima" });
+    expect((await post("/v1/patients/e2e_p_rbegum/match-decisions/undo", {}, "admin")).statusCode).toBe(200);
+  });
+  it("19: the register screen's match preview returns name, patient no., age and sex only", async () => {
+    const r = await post("/v1/patients/match-preview", { nameBn: "রহিমা খাতুন", nameEn: "Rahima Khatun", sex: "female", dobMode: "dob", dob: "15/03/1984", phone: "01711234567" }, "desk", null);
+    expect(r.statusCode).toBe(200);
+    const c = r.json().candidates.find((x: { patient: { id: string } }) => x.patient.id === "e2e_p_rahima");
+    expect(c).toBeTruthy();
+    expect(Object.keys(c.patient).sort()).toEqual(["ageApprox", "ageYears", "facilityNo", "id", "nameBn", "nameEn", "sex"]);
+    expect(JSON.stringify(r.json())).not.toMatch(/1711234567|Mirpur|আব্দুল করিম/);
+  });
+  it("23: no own phone — a relative's number needs that person's name and relationship, stored on the related person", async () => {
+    const bad = await post("/v1/patients", form({ nameEn: `No Phone ${RUN}`, phoneOwner: "family" }));
+    expect(bad.statusCode).toBe(400);
+    expect(bad.json().fields.map((f: { code: string }) => f.code)).toEqual(["phone_owner_name_required", "phone_owner_relationship_required"]);
+    const phone = newPhone();
+    const ok = await post("/v1/patients", form({ nameEn: `No Phone ${RUN}`, phone, phoneOwner: "family", guardian: { name: "মো. রফিক", relationship: "son" } }));
+    expect(ok.statusCode).toBe(201);
+    expect(ok.json().patient).toMatchObject({ phoneOwner: "family", guardian: { name: "মো. রফিক", relationship: "son" } });
+    const rp = await db!.forTenant("t_e2e", (tx) => tx.relatedPerson.findFirst({ where: { patientId: ok.json().patient.id } }));
+    expect(rp!.phone).toBe(phone.slice(1));
+    expect((await post("/v1/patients", form({ phone: "", phoneOwner: "family", guardian: { name: "মো. রফিক", relationship: "son" } }))).json().fields.map((f: { field: string }) => f.field)).toEqual(["phone"]);
+  });
+});
+
 describe.runIf(db)("decision 16: link anyway stays immediate; admin reviews afterwards", () => {
   it("an override appears in the review queue as 'override'; only an admin can unlink, with a reason; it then leaves the queue", async () => {
     const link = await post("/v1/patients/e2e_p_rbegum/match-decisions", { decision: "linkAnyway", candidateId: "e2e_p_rahima", reason: `Confirmed by husband ${RUN}` });
@@ -148,6 +203,8 @@ describe.runIf(db)("decision 16: link anyway stays immediate; admin reviews afte
     expect((await post("/v1/patients/e2e_p_rbegum/unlink", { reason: "wrong person, different husband" })).statusCode).toBe(403); // receptionist
     expect((await post("/v1/patients/e2e_p_rbegum/unlink", { reason: "short" }, "admin")).json().code).toBe("reason_too_short");
     const un = await post("/v1/patients/e2e_p_rbegum/unlink", { reason: `Different husband on file ${RUN}` }, "admin");
+    const prov = await db!.forTenant("t_e2e", (tx) => tx.provenance.findFirst({ where: { targetId: "e2e_p_rbegum", activity: "unlink" }, orderBy: { recorded: "desc" } }));
+    expect(prov!.source).toBe("desk_decision"); // ADR 0002
     expect(un.statusCode).toBe(200);
     expect(un.json()).toMatchObject({ outcome: "unlinked", subject: { linkedToId: null, identityConfidence: "unverified" } });
     const q2 = (await get("/v1/reviews/duplicates")).json().items;

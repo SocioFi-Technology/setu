@@ -81,6 +81,33 @@ async function main() {
     }
   } };
   await seedFamily(tenant.id, "", "GLC");
+  /* Walkthrough A4: Rahima Khatun's previous visit on 12/08/2026 with the vitals the vitals screen shows as "last"
+     (BP 145/90; weight 57 kg, so today's 58 kg reads "+1 kg since last visit"). Synthetic. */
+  const seedLastVisit = async (tenantId: string, organizationId: string, branchId: string, idPrefix: string, nurseId: string) => {
+    const encId = `${idPrefix}enc_rahima_20260812`;
+    await prisma.encounter.upsert({ where: { id: encId }, update: {}, create: {
+      id: encId, tenantId, organizationId, branchId, patientId: `${idPrefix}p_rahima`, class: "opd", status: "finished", visitType: "follow-up",
+      token: "A-009", tokenNo: 9, tokenDay: "2026-08-12", arrivedAt: new Date("2026-08-12T03:40:00Z"), statusAt: new Date("2026-08-12T05:10:00Z"),
+      createdById: nurseId, createdAt: new Date("2026-08-12T03:40:00Z"),
+    } });
+    const batchId = `${idPrefix}vb_rahima_20260812`;
+    if (await prisma.observation.count({ where: { batchId } })) return;
+    const at = new Date("2026-08-12T04:05:00Z");
+    const base = { tenantId, organizationId, branchId, patientId: `${idPrefix}p_rahima`, encounterId: encId, batchId, recordedById: nurseId, effectiveAt: at, recordedAt: at, category: "vital-signs" };
+    await prisma.observation.createMany({ data: [
+      { ...base, code: "bp-systolic", value: 145, unit: "mmHg", interpretation: "H" },
+      { ...base, code: "bp-diastolic", value: 90, unit: "mmHg", interpretation: "H" },
+      { ...base, code: "pulse", value: 88, unit: "/min", interpretation: "N" },
+      { ...base, code: "body-temperature", value: 98.6, unit: "[degF]", interpretation: "N" },
+      { ...base, code: "spo2", value: 98, unit: "%", interpretation: "N" },
+      { ...base, code: "blood-glucose", value: 9.8, unit: "mmol/L", method: "random", interpretation: "N" },
+      { ...base, code: "body-weight", value: 57, unit: "kg", interpretation: null },
+      { ...base, code: "body-height", value: 152, unit: "cm", interpretation: null },
+      { ...base, code: "bmi", value: 24.7, unit: "kg/m2", method: "calculated", interpretation: null },
+    ] });
+    await prisma.provenance.create({ data: { tenantId, targetType: "Observation", targetId: batchId, activity: "record-vitals", agentId: nurseId, onBehalfOf: organizationId, source: "provider_verified", recorded: at, detail: { encounterId: encId, seeded: true } } });
+  };
+  await seedLastVisit(tenant.id, org.id, "l_branch_mirpur", "", "u_shirin");
   /* Two small tenants on the lower plans, so the plan-lock journey runs against the real database (one user each,
      on their own phone numbers: login refuses a phone+password that matches in more than one tenant). */
   const planDemos: [string, string, "clinic" | "lite", string, string, string, string, string, "nurse" | "doctor"][] = [
@@ -104,9 +131,10 @@ async function main() {
   await prisma.tenant.upsert({ where: { id: E2E.tenant }, update: { patientNoPrefix: "E2E" }, create: { id: E2E.tenant, name: "E2E Test Clinic", plan: "pro", patientNoPrefix: "E2E" } });
   await prisma.organization.upsert({ where: { id: E2E.org }, update: {}, create: { id: E2E.org, tenantId: E2E.tenant, name: "E2E Test Clinic", nameBn: "ই২ই টেস্ট ক্লিনিক" } });
   await prisma.location.upsert({ where: { id: E2E.branch }, update: {}, create: { id: E2E.branch, tenantId: E2E.tenant, organizationId: E2E.org, kind: "branch", name: "Test branch", nameBn: "টেস্ট শাখা" } });
-  const e2eUsers: [string, string, string, string, "receptionist" | "doctor" | "owner" | "admin"][] = [
+  const e2eUsers: [string, string, string, string, "receptionist" | "doctor" | "nurse" | "owner" | "admin"][] = [
     ["u_e2e_desk", "টেস্ট রিসেপশন", "Test Receptionist", "01799000001", "receptionist"],
     ["u_e2e_doctor", "ডা. টেস্ট", "Dr. Test", "01799000002", "doctor"],
+    ["u_e2e_nurse", "টেস্ট নার্স", "Test Nurse", "01799000004", "nurse"],
     ["u_e2e_owner", "টেস্ট মালিক", "Test Owner", "01799000009", "owner"],
     ["u_e2e_admin", "টেস্ট অ্যাডমিন", "Test Admin", "01799000010", "admin"],
   ];
@@ -115,8 +143,9 @@ async function main() {
     await prisma.practitionerRole.upsert({ where: { userId_organizationId_role: { userId: id, organizationId: E2E.org, role } }, update: {}, create: { tenantId: E2E.tenant, userId: id, organizationId: E2E.org, role } });
   }
   await seedFamily(E2E.tenant, "e2e_", "E2E");
+  await seedLastVisit(E2E.tenant, E2E.org, E2E.branch, "e2e_", "u_e2e_nurse");
   await prisma.sequence.upsert({ where: { tenantId_name: { tenantId: E2E.tenant, name: "patient" } }, update: {}, create: { tenantId: E2E.tenant, name: "patient", value: 240210 } });
-  console.log("seeded demo tenant: Green Life Clinic, Mirpur — 10 users (password setu1234, PIN 1234), 8 patients (5 share 01711-234567), Mirpur branch, ward 2A; plan demos: Clinic-plan nurse 01722000004, Lite-plan doctor 01733000002; E2E Test Clinic (tests only): 017990000xx");
+  console.log("seeded demo tenant: Green Life Clinic, Mirpur — 10 users (password setu1234, PIN 1234), 8 patients (5 share 01711-234567), Mirpur branch, ward 2A; plan demos: Clinic-plan nurse 01722000004, Lite-plan doctor 01733000002; E2E Test Clinic (tests only): 017990000xx; Rahima Khatun's previous visit 12/08/2026 with vitals");
 }
 
 main().finally(() => prisma.$disconnect());

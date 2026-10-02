@@ -52,6 +52,12 @@ export const date = (d: Date | string | number, bn?: boolean): string => {
   const dd = d instanceof Date ? d : new Date(d);
   return digits(`${pad(dd.getDate())}/${pad(dd.getMonth() + 1)}/${dd.getFullYear()}`, bn);
 };
+/** HH:mm (24 h) in the device's time zone. */
+export const time = (d: Date | string | number, bn?: boolean): string => {
+  const dd = d instanceof Date ? d : new Date(d);
+  return digits(`${pad(dd.getHours())}:${pad(dd.getMinutes())}`, bn);
+};
+export const dateTime = (d: Date | string | number, bn?: boolean): string => `${date(d, bn)} ${time(d, bn)}`;
 /** Parses dd/mm/yyyy in Bangla or Latin digits; null when not a real calendar date. */
 export const parseDate = (s: string): Date | null => {
   const m = toEn(s).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);

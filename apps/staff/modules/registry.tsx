@@ -8,6 +8,7 @@ import { FrontDeskMatch } from "./fd/Match";
 import { FrontDeskQueue } from "./fd/Queue";
 import { FrontDeskRegister } from "./fd/Register";
 import { FrontDeskSearch } from "./fd/Search";
+import { FrontDeskVitals } from "./fd/Vitals";
 
 const SCREENS: Record<string, ComponentType> = {
   // slice A1–A3
@@ -15,6 +16,8 @@ const SCREENS: Record<string, ComponentType> = {
   "fd/match": FrontDeskMatch,
   "fd/register": FrontDeskRegister,
   "fd/queue": FrontDeskQueue,
+  // slice A4
+  "fd/vitals": FrontDeskVitals,
 };
 const SLICE: Record<string, string> = { fd: "A1–A3", cons: "A4–A5", bill: "A6–A7", lab: "A8–A11", ph: "phase 2", own: "phase 2", adm: "phase 2", er: "B1–B2", ipd: "B3–B4", nur: "B5–B6", net: "E1–E4" };
 

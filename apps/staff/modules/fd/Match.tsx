@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { MatchCandidate, MatchDecisionResponse, PatientMatches, PatientSummary } from "@setu/contracts";
-import { LINK_REASON_MIN, MATCH_FIELDS, concernsOf, type FieldStatus, type MatchField } from "@setu/domain";
+import { LINK_REASON_MIN, MATCH_FIELDS, concernsOf, format, type FieldStatus, type MatchField } from "@setu/domain";
 import { Button, Callout, Card, Dialog, PageState, Pill, TextArea, TextField, useToast, type Tone } from "@setu/ui";
 import { ApiFailure, fd } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -25,6 +25,8 @@ export function FrontDeskMatch() {
   const [unsure, setUnsure] = useState("");
   const [busy, setBusy] = useState(false);
   const [unlinkOpen, setUnlinkOpen] = useState(false);
+  const [undoOpen, setUndoOpen] = useState(false);
+  const [undoReason, setUndoReason] = useState("");
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -52,10 +54,13 @@ export function FrontDeskMatch() {
       await load();
     } catch (e) { fail(e); } finally { setBusy(false); }
   };
+  /* Undo (open question 17): only the decider or an admin; a Link anyway needs a reason; the dialog lists the visits
+     opened on the linked record since the link (they stay where they are). */
   const undo = async () => {
     if (!id || busy) return; setBusy(true);
-    try { await fd.undo(id); setDecision(null); toast(T("decided_undo"), "undo-2"); await load(); } catch (e) { fail(e); } finally { setBusy(false); }
+    try { await fd.undo(id, undoReason.trim() || undefined); setDecision(null); setUndoOpen(false); setUndoReason(""); toast(T("decided_undo"), "undo-2"); await load(); } catch (e) { fail(e); } finally { setBusy(false); }
   };
+  const openUndo = async () => { setUndoReason(""); await load(); setUndoOpen(true); };
   const visit = async (p: PatientSummary) => {
     setBusy(true);
     try {
@@ -111,10 +116,41 @@ export function FrontDeskMatch() {
       {decision && (
         <div role="status" className="callout" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span style={{ flex: "1 1 300px" }} data-testid="decision">{decision.text}</span>
-          <Button size="sm" icon="undo-2" disabled={busy} onClick={() => void undo()}>{T("undo")}</Button>
+          <Button size="sm" icon="undo-2" disabled={busy} onClick={() => void openUndo()}>{T("undo")}</Button>
           <Button size="sm" variant="primary" icon="ticket" disabled={busy} onClick={() => void visit(decision.r.continueWith)}>{T("visit_for", { name: name(decision.r.continueWith) })}</Button>
         </div>
       )}
+
+      {undoOpen && (() => {
+        const ld = data.lastDecision;
+        const ok = ld?.canUndo && (!ld.reasonRequired || undoReason.trim().length >= ld.reasonMin);
+        return (
+          <Dialog open onClose={() => setUndoOpen(false)} label={T("undo_title")} width={540}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 20 }} data-testid="undo-dialog">
+              <h2 className="t-h3" style={{ margin: 0 }}>{T("undo_title")}</h2>
+              {!ld ? <span>{T("undo_nothing")}</span> : <>
+                <span className="t-small t-muted">{T("undo_by", { name: ld.by ? s.L(ld.by.nameBn, ld.by.nameEn) : "—", at: format.dateTime(ld.at, s.numerals === "bn") })}</span>
+                {!ld.canUndo && <Callout tone="warn" icon="lock">{T("undo_not_allowed")}</Callout>}
+                {(ld.activity === "link" || ld.activity === "link-anyway") && (ld.visitsSince.length ? (
+                  <Callout tone="warn" icon="triangle-alert">
+                    {T("undo_visits", { n: ld.visitsSince.length })}
+                    <ul style={{ margin: "6px 0 0", paddingLeft: 18 }} data-testid="undo-visits">
+                      {ld.visitsSince.map((v) => <li key={v.encounterId} className="num">{T("visit_line", { token: v.token, day: s.n(v.day.split("-").reverse().join("/")) })}</li>)}
+                    </ul>
+                  </Callout>
+                ) : <span className="t-small t-muted">{T("undo_no_visits")}</span>)}
+                {ld.canUndo && ld.reasonRequired && (
+                  <TextArea label={T("undo_reason", { n: ld.reasonMin })} rows={3} value={undoReason} onChange={(e) => setUndoReason(e.target.value)} hint={T("reason_hint", { n: Math.min(undoReason.trim().length, ld.reasonMin) })} autoFocus />
+                )}
+              </>}
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <Button onClick={() => setUndoOpen(false)}>{T("cancel")}</Button>
+                <Button variant="danger" icon="undo-2" disabled={busy || !ok} onClick={() => void undo()}>{T("undo_confirm")}</Button>
+              </div>
+            </div>
+          </Dialog>
+        );
+      })()}
 
       {cands.length === 0 ? (
         <PageState icon="shield-check" title={T("match_none_title")} body={T("match_none_body")}

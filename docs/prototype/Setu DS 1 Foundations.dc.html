@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>Setu Health — Design System · Foundations</title>
+<link rel="stylesheet" href="styles.css">
+<script src="lib/setu-format.js"></script>
+</helmet>
+<div data-theme="{{ theme }}" style="background:var(--surface-page);color:var(--text-primary);min-height:100vh;font-family:var(--font-sans)">
+<header style="position:sticky;top:0;z-index:10;background:var(--surface-card);border-bottom:1px solid var(--border-subtle)">
+  <div style="max-width:1280px;margin:0 auto;padding:10px 32px;display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+    <a href="Setu%20DS%201%20Foundations.dc.html" style="display:flex;align-items:baseline;gap:8px;text-decoration:none;white-space:nowrap;color:var(--text-primary)"><span style="font:600 17px/24px var(--font-sans)">Setu Health</span><span style="font:500 15px/24px var(--font-bn);color:var(--text-muted)">সেতু হেলথ</span></a>
+    <nav style="display:flex;gap:4px;flex-wrap:wrap;font:500 13px/18px var(--font-sans)">
+      <a href="Setu%20DS%201%20Foundations.dc.html" style="padding:8px 12px;border-radius:6px;text-decoration:none;white-space:nowrap;background:var(--surface-selected);color:var(--brand-primary-text)">1 Foundations</a>
+      <a href="Setu%20DS%202%20Actions%20and%20Inputs.dc.html" style="padding:8px 12px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary)" style-hover="background:var(--surface-hover)">2 Actions &amp; inputs</a>
+      <a href="Setu%20DS%203%20Clinical.dc.html" style="padding:8px 12px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary)" style-hover="background:var(--surface-hover)">3 Clinical</a>
+      <a href="Setu%20DS%204%20Data%20Table.dc.html" style="padding:8px 12px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary)" style-hover="background:var(--surface-hover)">4 Data table</a>
+      <a href="Setu%20DS%205%20Feedback%20and%20Overlays.dc.html" style="padding:8px 12px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary)" style-hover="background:var(--surface-hover)">5 Feedback &amp; overlays</a>
+      <a href="Setu%20DS%206%20Print%20Templates.dc.html" style="padding:8px 12px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary)" style-hover="background:var(--surface-hover)">6 Print</a>
+    </nav>
+    <span style="margin-left:auto;font:500 12px/16px var(--font-mono);color:var(--text-muted)">v1.0 · 29/09/2026</span>
+  </div>
+</header>
+
+<main style="max-width:1280px;margin:0 auto;padding:48px 32px 96px;display:flex;flex-direction:column;gap:0">
+  <section style="padding-bottom:40px;display:flex;flex-direction:column;gap:16px">
+    <div style="font:500 12px/16px var(--font-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Design system · Foundations</div>
+    <h1 style="margin:0;font:600 40px/48px var(--font-sans);text-wrap:balance">Setu Health <span style="font-family:var(--font-bn);font-weight:600;color:var(--brand-primary-text)">সেতু হেলথ</span></h1>
+    <p style="margin:0;max-width:760px;font:400 17px/28px var(--font-sans);color:var(--text-secondary);text-wrap:pretty">Tokens, type, layout and content rules for every Setu screen: front desk, wards, labs, pharmacy, billing, owner dashboards, the doctor app and the patient Health Passport. All screens link <code style="font:500 14px/20px var(--font-mono)">styles.css</code> and use these tokens by name; nothing is hard-coded.</p>
+    <nav style="display:flex;gap:8px;flex-wrap:wrap;font:500 13px/18px var(--font-sans)">
+      <a href="#colour" style="padding:6px 12px;border:1px solid var(--border-default);border-radius:999px;text-decoration:none;white-space:nowrap;color:var(--text-secondary)">1 Colour</a>
+      <a href="#type" style="padding:6px 12px;border:1px solid var(--border-default);border-radius:999px;text-decoration:none;white-space:nowrap;color:var(--text-secondary)">2 Typography</a>
+      <a href="#numerals" style="padding:6px 12px;border:1px solid var(--border-default);border-radius:999px;text-decoration:none;white-space:nowrap;color:var(--text-secondary)">3 Numerals, money &amp; dates</a>
+      <a href="#layout" style="padding:6px 12px;border:1px solid var(--border-default);border-radius:999px;text-decoration:none;white-space:nowrap;color:var(--text-secondary)">4 Layout</a>
+      <a href="#icons" style="padding:6px 12px;border:1px solid var(--border-default);border-radius:999px;text-decoration:none;white-space:nowrap;color:var(--text-secondary)">5 Iconography</a>
+      <a href="#components" style="padding:6px 12px;border:1px solid var(--border-default);border-radius:999px;text-decoration:none;white-space:nowrap;color:var(--text-secondary)">6 Components</a>
+      <a href="#content" style="padding:6px 12px;border:1px solid var(--border-default);border-radius:999px;text-decoration:none;white-space:nowrap;color:var(--text-secondary)">7 Content style</a>
+      <a href="#tokens" style="padding:6px 12px;border:1px solid var(--border-default);border-radius:999px;text-decoration:none;white-space:nowrap;color:var(--text-secondary)">8 Token table</a>
+    </nav>
+  </section>
+
+  <!-- 1 COLOUR -->
+  <section id="colour" style="padding:48px 0;border-top:1px solid var(--border-subtle);display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;flex-direction:column;gap:8px"><div style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">01</div><h2 style="margin:0;font:600 28px/36px var(--font-sans)">Colour</h2>
+    <p style="margin:0;max-width:760px;font:400 15px/24px var(--font-sans);color:var(--text-secondary);text-wrap:pretty">Setu teal is the brand and the colour of anything final or confirmed. Marigold is reserved for the single key action on a screen (Collect payment, Admit, Sign). Violet always means "not final yet". Colour never carries meaning alone: every status, flag and bed state also has a text label and an icon.</p></div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <h3 style="margin:0;font:600 17px/24px var(--font-sans)">1.1 Scales 50–900</h3>
+      <p style="margin:0;font:400 13px/20px var(--font-sans);color:var(--text-muted)">Defined in OKLCH, exported as hex. The ratio under each swatch is contrast against white. Use 700+ for text on white; use 50–100 for subtle fills.</p>
+      <div style="overflow-x:auto"><div style="display:grid;grid-template-columns:minmax(150px,1.6fr) repeat(10,minmax(64px,1fr));gap:4px;min-width:820px">
+        <sc-for list="{{ swatches }}" as="x" hint-placeholder-count="88">
+          <div style="background:{{ x.bg }};color:{{ x.fg }};border-radius:6px;padding:8px;min-height:58px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:{{ x.sh }}">
+            <span style="font:600 12px/16px var(--font-mono)">{{ x.top }}</span>
+            <span style="font:400 11px/14px var(--font-mono)">{{ x.b1 }}</span>
+            <span style="font:400 11px/14px var(--font-mono)">{{ x.b2 }}</span>
+          </div>
+        </sc-for>
+      </div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+      <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <h3 style="margin:0;font:600 17px/24px var(--font-sans)">1.2 Semantic</h3>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--success-bg);color:var(--success-fg);border:1px solid var(--success-border)"><i class="icon-circle-check" style="font-size:18px"></i><span style="font:500 14px/20px var(--font-sans)">পেমেন্ট গৃহীত · Payment received</span><code style="margin-left:auto;font:400 11px/14px var(--font-mono)">success</code></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--warning-bg);color:var(--warning-fg);border:1px solid var(--warning-border)"><i class="icon-triangle-alert" style="font-size:18px"></i><span style="font:500 14px/20px var(--font-sans)">অগ্রিম কম · Deposit low</span><code style="margin-left:auto;font:400 11px/14px var(--font-mono)">warning</code></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--danger-bg);color:var(--danger-fg);border:1px solid var(--danger-border)"><i class="icon-circle-x" style="font-size:18px"></i><span style="font:500 14px/20px var(--font-sans)">সংরক্ষণ ব্যর্থ · Save failed</span><code style="margin-left:auto;font:400 11px/14px var(--font-mono)">danger</code></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--info-bg);color:var(--info-fg);border:1px solid var(--info-border)"><i class="icon-info" style="font-size:18px"></i><span style="font:500 14px/20px var(--font-sans)">রিপোর্ট আজ বিকেলে · Report due this afternoon</span><code style="margin-left:auto;font:400 11px/14px var(--font-mono)">info</code></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--neutral-bg);color:var(--neutral-fg);border:1px solid var(--neutral-border)"><i class="icon-circle-minus" style="font-size:18px"></i><span style="font:500 14px/20px var(--font-sans)">কোনো পরিবর্তন নেই · No changes</span><code style="margin-left:auto;font:400 11px/14px var(--font-mono)">neutral</code></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span style="padding:4px 10px;border-radius:6px;background:var(--success-solid);color:var(--success-on-solid);font:600 12px/16px var(--font-sans)">success-solid</span>
+          <span style="padding:4px 10px;border-radius:6px;background:var(--warning-solid);color:var(--warning-on-solid);font:600 12px/16px var(--font-sans)">warning-solid</span>
+          <span style="padding:4px 10px;border-radius:6px;background:var(--danger-solid);color:var(--danger-on-solid);font:600 12px/16px var(--font-sans)">danger-solid</span>
+          <span style="padding:4px 10px;border-radius:6px;background:var(--info-solid);color:var(--info-on-solid);font:600 12px/16px var(--font-sans)">info-solid</span>
+        </div>
+      </div>
+
+      <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <h3 style="margin:0;font:600 17px/24px var(--font-sans)">1.3 Clinical results</h3>
+        <p style="margin:0;font:400 13px/20px var(--font-sans);color:var(--text-muted)">Flag letter + arrow + word, always. Normal values carry no fill so abnormal ones stand out.</p>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px 12px;align-items:center;font:400 14px/20px var(--font-sans);font-variant-numeric:tabular-nums">
+          <span>S. Creatinine</span><span style="font-weight:600;color:var(--result-normal-fg)">0.9 mg/dL</span><span style="font:500 12px/16px var(--font-sans);color:var(--text-muted)">Normal</span>
+          <span>HbA1c</span><span style="font-weight:600;color:var(--result-high-fg)">7.8 %</span><span style="display:inline-flex;white-space:nowrap;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;background:var(--result-high-bg);color:var(--result-high-fg);border:1px solid var(--result-high-border);font:700 12px/16px var(--font-sans)"><i class="icon-arrow-up" style="font-size:13px"></i>H · High</span>
+          <span>Haemoglobin</span><span style="font-weight:600;color:var(--result-low-fg)">9.6 g/dL</span><span style="display:inline-flex;white-space:nowrap;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;background:var(--result-low-bg);color:var(--result-low-fg);border:1px solid var(--result-low-border);font:700 12px/16px var(--font-sans)"><i class="icon-arrow-down" style="font-size:13px"></i>L · Low</span>
+          <span>Potassium</span><span style="font-weight:700;color:var(--danger-fg)">6.9 mmol/L</span><span style="display:inline-flex;white-space:nowrap;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;background:var(--result-critical-bg);color:var(--result-critical-fg);border:1px solid var(--result-critical-border);font:700 12px/16px var(--font-sans)"><i class="icon-siren" style="font-size:13px"></i>!! Critical</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;background:var(--allergy-bg);color:var(--allergy-fg);font:600 13px/18px var(--font-sans)"><i class="icon-triangle-alert" style="font-size:16px"></i>অ্যালার্জি: পেনিসিলিন, সালফা · Allergy: Penicillin, Sulfa</div>
+      </div>
+
+      <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <h3 style="margin:0;font:600 17px/24px var(--font-sans)">1.4 Status</h3>
+        <p style="margin:0;font:400 13px/20px var(--font-sans);color:var(--text-muted)">Draft is dashed and hatched; final is solid teal. They cannot be confused in greyscale.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span style="display:inline-flex;white-space:nowrap;align-items:center;gap:5px;height:26px;padding:0 10px;border-radius:999px;border:1.5px dashed var(--status-draft-border);background:var(--pattern-draft);color:var(--status-draft-fg);font:600 12px/16px var(--font-sans)"><i class="icon-pencil-line" style="font-size:13px"></i>খসড়া · Draft</span>
+          <span style="display:inline-flex;white-space:nowrap;align-items:center;gap:5px;height:26px;padding:0 10px;border-radius:999px;border:1px solid var(--status-pending-border);background:var(--status-pending-bg);color:var(--status-pending-fg);font:600 12px/16px var(--font-sans)"><i class="icon-clock" style="font-size:13px"></i>অপেক্ষমাণ · Pending</span>
+          <span style="display:inline-flex;white-space:nowrap;align-items:center;gap:5px;height:26px;padding:0 10px;border-radius:999px;border:1px solid var(--status-in-progress-border);background:var(--status-in-progress-bg);color:var(--status-in-progress-fg);font:600 12px/16px var(--font-sans)"><i class="icon-loader" style="font-size:13px"></i>চলমান · In progress</span>
+          <span style="display:inline-flex;white-space:nowrap;align-items:center;gap:5px;height:26px;padding:0 10px;border-radius:999px;border:1px solid var(--status-final-border);background:var(--status-final-bg);color:var(--status-final-fg);font:600 12px/16px var(--font-sans)"><i class="icon-shield-check" style="font-size:13px"></i>স্বাক্ষরিত · Signed</span>
+          <span style="display:inline-flex;white-space:nowrap;align-items:center;gap:5px;height:26px;padding:0 10px;border-radius:999px;border:1px solid var(--status-amended-border);background:var(--status-amended-bg);color:var(--status-amended-fg);font:600 12px/16px var(--font-sans)"><i class="icon-history" style="font-size:13px"></i>সংশোধিত v2 · Amended</span>
+          <span style="display:inline-flex;white-space:nowrap;align-items:center;gap:5px;height:26px;padding:0 10px;border-radius:999px;border:1px solid var(--status-cancelled-border);background:var(--status-cancelled-bg);color:var(--status-cancelled-fg);font:600 12px/16px var(--font-sans)"><i class="icon-ban" style="font-size:13px"></i><span style="text-decoration:line-through">বাতিল · Cancelled</span></span>
+          <span style="display:inline-flex;white-space:nowrap;align-items:center;gap:5px;height:26px;padding:0 10px;border-radius:999px;border:1px solid var(--status-offline-border);background:var(--status-offline-bg);color:var(--status-offline-fg);font:600 12px/16px var(--font-sans)"><i class="icon-wifi-off" style="font-size:13px"></i>অফলাইন · Offline</span>
+          <span style="display:inline-flex;white-space:nowrap;align-items:center;gap:5px;height:26px;padding:0 10px;border-radius:999px;border:1px solid var(--status-syncing-border);background:var(--status-syncing-bg);color:var(--status-syncing-fg);font:600 12px/16px var(--font-sans)"><i class="icon-refresh-cw" style="font-size:13px;animation:setu-spin 1.4s linear infinite"></i>সিঙ্ক হচ্ছে · Syncing</span>
+          <span style="display:inline-flex;white-space:nowrap;align-items:center;gap:5px;height:26px;padding:0 10px;border-radius:999px;border:1px solid var(--status-failed-border);background:var(--status-failed-bg);color:var(--status-failed-fg);font:600 12px/16px var(--font-sans)"><i class="icon-rotate-ccw" style="font-size:13px"></i>ব্যর্থ — আবার চেষ্টা · Failed, retry</span>
+        </div>
+        <div style="font:400 12px/16px var(--font-sans);color:var(--text-muted)">Full set incl. partially complete and critical: <a href="Setu%20DS%203%20Clinical.dc.html">3 Clinical</a></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <h3 style="margin:0;font:600 17px/24px var(--font-sans)">1.5 Themes — same markup, three token sets</h3>
+      <p style="margin:0;font:400 13px/20px var(--font-sans);color:var(--text-muted)">Set <code style="font-family:var(--font-mono)">data-theme="light | hc | dark"</code> on any container. Light is primary. High-contrast is a user setting for low vision and bright wards. Dark is offered in the doctor app only.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+        <div data-theme="light" style="background:var(--surface-page);color:var(--text-primary);border:1px solid var(--border-default);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">LIGHT · default</div>
+          <div style="background:var(--surface-card);border:var(--border-width) solid var(--border-subtle);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><div style="font:600 16px/24px var(--font-sans)">রহিমা খাতুন</div><div style="font:400 13px/18px var(--font-sans);color:var(--text-muted)">Rahima Khatun · 42y F · GLC-240117</div></div><span style="display:inline-flex;white-space:nowrap;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:999px;border:1px solid var(--status-final-border);background:var(--status-final-bg);color:var(--status-final-fg);font:600 12px/16px var(--font-sans)"><i class="icon-shield-check" style="font-size:13px"></i>Signed</span></div>
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:var(--allergy-bg);color:var(--allergy-fg);font:600 13px/18px var(--font-sans)"><i class="icon-triangle-alert" style="font-size:14px"></i>Allergy: Penicillin</div>
+            <div style="display:flex;justify-content:space-between;font:400 14px/20px var(--font-sans);font-variant-numeric:tabular-nums"><span>HbA1c</span><span style="display:flex;gap:8px;align-items:center"><b style="color:var(--result-high-fg)">7.8 %</b><span style="padding:1px 6px;border-radius:4px;background:var(--result-high-bg);color:var(--result-high-fg);border:1px solid var(--result-high-border);font:700 11px/16px var(--font-sans)">↑ H</span></span></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><span style="padding:8px 14px;border-radius:6px;background:var(--brand-primary);color:var(--text-on-primary);font:600 13px/18px var(--font-sans)">সংরক্ষণ · Save</span><span style="padding:8px 14px;border-radius:6px;background:var(--brand-accent);color:var(--text-on-accent);font:600 13px/18px var(--font-sans)">৳ Collect</span><span style="padding:8px 14px;border-radius:6px;border:1px solid var(--border-default);color:var(--text-primary);font:600 13px/18px var(--font-sans)">Cancel</span></div>
+          </div>
+        </div>
+        <div data-theme="hc" style="background:var(--surface-page);color:var(--text-primary);border:1px solid var(--border-default);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">HIGH CONTRAST · hc</div>
+          <div style="background:var(--surface-card);border:var(--border-width) solid var(--border-subtle);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><div style="font:600 16px/24px var(--font-sans)">রহিমা খাতুন</div><div style="font:400 13px/18px var(--font-sans);color:var(--text-muted)">Rahima Khatun · 42y F · GLC-240117</div></div><span style="display:inline-flex;white-space:nowrap;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:999px;border:1px solid var(--status-final-border);background:var(--status-final-bg);color:var(--status-final-fg);font:600 12px/16px var(--font-sans)"><i class="icon-shield-check" style="font-size:13px"></i>Signed</span></div>
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:var(--allergy-bg);color:var(--allergy-fg);font:600 13px/18px var(--font-sans)"><i class="icon-triangle-alert" style="font-size:14px"></i>Allergy: Penicillin</div>
+            <div style="display:flex;justify-content:space-between;font:400 14px/20px var(--font-sans);font-variant-numeric:tabular-nums"><span>HbA1c</span><span style="display:flex;gap:8px;align-items:center"><b style="color:var(--result-high-fg)">7.8 %</b><span style="padding:1px 6px;border-radius:4px;background:var(--result-high-bg);color:var(--result-high-fg);border:2px solid var(--result-high-border);font:700 11px/16px var(--font-sans)">↑ H</span></span></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><span style="padding:8px 14px;border-radius:6px;background:var(--brand-primary);color:var(--text-on-primary);font:600 13px/18px var(--font-sans)">সংরক্ষণ · Save</span><span style="padding:8px 14px;border-radius:6px;background:var(--brand-accent);color:var(--text-on-accent);border:2px solid var(--border-strong);font:600 13px/18px var(--font-sans)">৳ Collect</span><span style="padding:8px 14px;border-radius:6px;border:2px solid var(--border-strong);color:var(--text-primary);font:600 13px/18px var(--font-sans)">Cancel</span></div>
+          </div>
+        </div>
+        <div data-theme="dark" style="background:var(--surface-page);color:var(--text-primary);border:1px solid var(--border-default);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">DARK · doctor app, optional</div>
+          <div style="background:var(--surface-card);border:var(--border-width) solid var(--border-subtle);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><div style="font:600 16px/24px var(--font-sans)">রহিমা খাতুন</div><div style="font:400 13px/18px var(--font-sans);color:var(--text-muted)">Rahima Khatun · 42y F · GLC-240117</div></div><span style="display:inline-flex;white-space:nowrap;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:999px;border:1px solid var(--status-final-border);background:var(--status-final-bg);color:var(--status-final-fg);font:600 12px/16px var(--font-sans)"><i class="icon-shield-check" style="font-size:13px"></i>Signed</span></div>
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:var(--allergy-bg);color:var(--allergy-fg);font:600 13px/18px var(--font-sans)"><i class="icon-triangle-alert" style="font-size:14px"></i>Allergy: Penicillin</div>
+            <div style="display:flex;justify-content:space-between;font:400 14px/20px var(--font-sans);font-variant-numeric:tabular-nums"><span>HbA1c</span><span style="display:flex;gap:8px;align-items:center"><b style="color:var(--result-high-fg)">7.8 %</b><span style="padding:1px 6px;border-radius:4px;background:var(--result-high-bg);color:var(--result-high-fg);border:1px solid var(--result-high-border);font:700 11px/16px var(--font-sans)">↑ H</span></span></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><span style="padding:8px 14px;border-radius:6px;background:var(--brand-primary);color:var(--text-on-primary);font:600 13px/18px var(--font-sans)">সংরক্ষণ · Save</span><span style="padding:8px 14px;border-radius:6px;background:var(--brand-accent);color:var(--text-on-accent);font:600 13px/18px var(--font-sans)">৳ Collect</span><span style="padding:8px 14px;border-radius:6px;border:1px solid var(--border-default);color:var(--text-primary);font:600 13px/18px var(--font-sans)">Cancel</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 TYPE -->
+  <section id="type" style="padding:48px 0;border-top:1px solid var(--border-subtle);display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;flex-direction:column;gap:8px"><div style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">02</div><h2 style="margin:0;font:600 28px/36px var(--font-sans)">Typography</h2>
+    <p style="margin:0;max-width:760px;font:400 15px/24px var(--font-sans);color:var(--text-secondary);text-wrap:pretty">One stack serves both scripts: <b>IBM Plex Sans</b> for Latin (an Inter-class grotesque with true tabular figures) and <b>Noto Sans Bengali</b> for Bangla, which has the most complete conjunct coverage on Android. Bangla gets extra line-height at every size so matras, ref (র্) and below-base vowels (ু ূ ৃ) never clip. IBM Plex Mono is for IDs, codes and token names.</p></div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
+      <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:6px"><code style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">--font-sans · Latin</code><div style="font:500 32px/40px 'IBM Plex Sans'">Aa Rg 0123456789</div><div style="font:400 13px/18px var(--font-sans);color:var(--text-muted)">IBM Plex Sans 400 · 500 · 600 · 700</div></div>
+      <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:6px"><code style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">--font-bn · Bangla</code><div style="font:500 32px/48px 'Noto Sans Bengali'">অআ ক্ষ ০১২৩৪৫৬৭৮৯</div><div style="font:400 13px/18px var(--font-sans);color:var(--text-muted)">Noto Sans Bengali 400 · 500 · 600 · 700</div></div>
+      <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:6px"><code style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">--font-mono</code><div style="font:500 26px/40px var(--font-mono)">GLC-240117 · INV/25/0931</div><div style="font:400 13px/18px var(--font-sans);color:var(--text-muted)">IBM Plex Mono 400 · 500 · 600</div></div>
+    </div>
+
+    <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;overflow:hidden">
+      <div style="display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) minmax(0,1fr);gap:0;background:var(--surface-sunken);font:600 12px/16px var(--font-sans);color:var(--text-muted);border-bottom:1px solid var(--border-subtle)">
+        <div style="padding:10px 16px">Role · size / lh</div><div style="padding:10px 16px">English</div><div style="padding:10px 16px">বাংলা (lh-bn)</div>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) minmax(0,1fr);align-items:center;border-bottom:1px solid var(--border-subtle)"><div style="padding:14px 16px;font:500 12px/16px var(--font-mono);color:var(--text-muted)">display<br>40/48 · bn 56</div><div style="padding:14px 16px;font:600 40px/48px var(--font-sans)">৳ 1,25,000</div><div style="padding:14px 16px;font:600 40px/56px var(--font-sans)">স্বাস্থ্য সেতু</div></div>
+      <div style="display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) minmax(0,1fr);align-items:center;border-bottom:1px solid var(--border-subtle)"><div style="padding:14px 16px;font:500 12px/16px var(--font-mono);color:var(--text-muted)">h1<br>30/38 · bn 44</div><div style="padding:14px 16px;font:600 30px/38px var(--font-sans)">Today's admissions</div><div style="padding:14px 16px;font:600 30px/44px var(--font-sans)">আজকের ভর্তি</div></div>
+      <div style="display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) minmax(0,1fr);align-items:center;border-bottom:1px solid var(--border-subtle)"><div style="padding:14px 16px;font:500 12px/16px var(--font-mono);color:var(--text-muted)">h2<br>24/32 · bn 36</div><div style="padding:14px 16px;font:600 24px/32px var(--font-sans)">Patient registration</div><div style="padding:14px 16px;font:600 24px/36px var(--font-sans)">রোগী নিবন্ধন</div></div>
+      <div style="display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) minmax(0,1fr);align-items:center;border-bottom:1px solid var(--border-subtle)"><div style="padding:14px 16px;font:500 12px/16px var(--font-mono);color:var(--text-muted)">h3<br>20/28 · bn 32</div><div style="padding:14px 16px;font:600 20px/28px var(--font-sans)">Lab results</div><div style="padding:14px 16px;font:600 20px/32px var(--font-sans)">ল্যাব ফলাফল</div></div>
+      <div style="display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) minmax(0,1fr);align-items:center;border-bottom:1px solid var(--border-subtle)"><div style="padding:14px 16px;font:500 12px/16px var(--font-mono);color:var(--text-muted)">h4<br>17/24 · bn 28</div><div style="padding:14px 16px;font:600 17px/24px var(--font-sans)">Advance deposit</div><div style="padding:14px 16px;font:600 17px/28px var(--font-sans)">অগ্রিম জমা</div></div>
+      <div style="display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) minmax(0,1fr);align-items:center;border-bottom:1px solid var(--border-subtle)"><div style="padding:14px 16px;font:500 12px/16px var(--font-mono);color:var(--text-muted)">body-lg<br>17/26 · bn 28</div><div style="padding:14px 16px;font:400 17px/26px var(--font-sans)">Your report is ready. Show the QR code at the counter.</div><div style="padding:14px 16px;font:400 17px/28px var(--font-sans)">আপনার রিপোর্ট প্রস্তুত। কাউন্টারে কিউআর কোড দেখান।</div></div>
+      <div style="display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) minmax(0,1fr);align-items:center;border-bottom:1px solid var(--border-subtle)"><div style="padding:14px 16px;font:500 12px/16px var(--font-mono);color:var(--text-muted)">body<br>15/22 · bn 26</div><div style="padding:14px 16px;font:400 15px/22px var(--font-sans)">Discount needs approval from the manager on duty.</div><div style="padding:14px 16px;font:400 15px/26px var(--font-sans)">ছাড়ের জন্য দায়িত্বরত ম্যানেজারের অনুমোদন প্রয়োজন।</div></div>
+      <div style="display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) minmax(0,1fr);align-items:center;border-bottom:1px solid var(--border-subtle)"><div style="padding:14px 16px;font:500 12px/16px var(--font-mono);color:var(--text-muted)">small<br>13/18 · bn 22</div><div style="padding:14px 16px;font:400 13px/18px var(--font-sans)">Recorded by Nurse Shirin Akter · 10:42</div><div style="padding:14px 16px;font:400 13px/22px var(--font-sans)">নার্স শিরিন আক্তার লিখেছেন · ১০:৪২</div></div>
+      <div style="display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) minmax(0,1fr);align-items:center;border-bottom:1px solid var(--border-subtle)"><div style="padding:14px 16px;font:500 12px/16px var(--font-mono);color:var(--text-muted)">caption<br>12/16 · bn 20 · 500</div><div style="padding:14px 16px;font:500 12px/16px var(--font-sans);color:var(--text-muted)">Ref. range 70–140 mg/dL</div><div style="padding:14px 16px;font:500 12px/20px var(--font-sans);color:var(--text-muted)">রেফারেন্স সীমা ৭০–১৪০ mg/dL</div></div>
+      <div style="display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) minmax(0,1fr);align-items:center"><div style="padding:14px 16px;font:500 12px/16px var(--font-mono);color:var(--text-muted)">table + tnum<br>13/20 · bn 22</div><div style="padding:14px 16px;font:400 13px/20px var(--font-sans);font-variant-numeric:tabular-nums;display:grid;grid-template-columns:auto auto;justify-content:start;gap:0 24px"><span>CBC</span><span style="text-align:right">৳ 450</span><span>Lipid profile</span><span style="text-align:right">৳ 1,200</span><span>USG whole abdomen</span><span style="text-align:right">৳ 1,800</span></div><div style="padding:14px 16px;font:400 13px/22px var(--font-sans);font-variant-numeric:tabular-nums;display:grid;grid-template-columns:auto auto;justify-content:start;gap:0 24px"><span>সিবিসি</span><span style="text-align:right">৳ ৪৫০</span><span>লিপিড প্রোফাইল</span><span style="text-align:right">৳ ১,২০০</span><span>ইউএসজি পুরো পেট</span><span style="text-align:right">৳ ১,৮০০</span></div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px">
+      <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <h3 style="margin:0;font:600 17px/24px var(--font-sans)">2.1 Same UI strings, side by side</h3>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0;font:400 15px/26px var(--font-sans)">
+          <div style="padding:6px 0;border-bottom:1px solid var(--border-subtle)">রোগী নিবন্ধন</div><div style="padding:6px 0;border-bottom:1px solid var(--border-subtle);line-height:22px">Patient registration</div>
+          <div style="padding:6px 0;border-bottom:1px solid var(--border-subtle)">নতুন রোগী যোগ করুন</div><div style="padding:6px 0;border-bottom:1px solid var(--border-subtle)">Add new patient</div>
+          <div style="padding:6px 0;border-bottom:1px solid var(--border-subtle)">স্বাক্ষর করে চূড়ান্ত করুন</div><div style="padding:6px 0;border-bottom:1px solid var(--border-subtle)">Sign and finalise</div>
+          <div style="padding:6px 0;border-bottom:1px solid var(--border-subtle)">অগ্রিম জমা</div><div style="padding:6px 0;border-bottom:1px solid var(--border-subtle)">Advance deposit</div>
+          <div style="padding:6px 0;border-bottom:1px solid var(--border-subtle)">ছাড় অনুমোদনের অপেক্ষায়</div><div style="padding:6px 0;border-bottom:1px solid var(--border-subtle)">Discount awaiting approval</div>
+          <div style="padding:6px 0;border-bottom:1px solid var(--border-subtle)">ব্যবস্থাপত্র</div><div style="padding:6px 0;border-bottom:1px solid var(--border-subtle)">Prescription</div>
+          <div style="padding:6px 0;border-bottom:1px solid var(--border-subtle)">খাবারের পরে</div><div style="padding:6px 0;border-bottom:1px solid var(--border-subtle)">After meals</div>
+          <div style="padding:6px 0;border-bottom:1px solid var(--border-subtle)">শয্যা খালি</div><div style="padding:6px 0;border-bottom:1px solid var(--border-subtle)">Bed available</div>
+          <div style="padding:6px 0">সংযোগ নেই — পরিবর্তন এই ডিভাইসে সংরক্ষিত</div><div style="padding:6px 0">No connection — changes saved on this device</div>
+        </div>
+        <p style="margin:0;font:400 12px/18px var(--font-sans);color:var(--text-muted)">Bangla runs ~15–30% wider than English. Size buttons and columns for the Bangla string; never truncate a clinical label.</p>
+      </div>
+      <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <h3 style="margin:0;font:600 17px/24px var(--font-sans)">2.2 Conjunct &amp; line-height check</h3>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;align-items:center;gap:6px;font:600 12px/16px var(--font-sans);color:var(--danger-fg)"><i class="icon-circle-x" style="font-size:14px"></i>Latin lh 1.2 — clips</div>
+            <div style="font:400 20px/24px var(--font-sans);background:repeating-linear-gradient(to bottom,transparent 0 23px,var(--red-200) 23px 24px);overflow:hidden;height:72px">রক্তচাপ স্ত্রীরোগ হৃদ্‌রোগ কৃমি গ্রন্থি শ্বাসকষ্ট ক্ষত মূত্রনালী</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;align-items:center;gap:6px;font:600 12px/16px var(--font-sans);color:var(--success-fg)"><i class="icon-circle-check" style="font-size:14px"></i>Bangla lh 1.6 — clear</div>
+            <div style="font:400 20px/32px var(--font-sans);background:repeating-linear-gradient(to bottom,transparent 0 31px,var(--green-200) 31px 32px)">রক্তচাপ স্ত্রীরোগ হৃদ্‌রোগ কৃমি গ্রন্থি শ্বাসকষ্ট ক্ষত মূত্রনালী</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px">
+          <div style="border:1px solid var(--border-subtle);border-radius:6px;padding:8px;text-align:center"><div style="font:500 26px/40px var(--font-sans)">ক্ষ</div><div style="font:400 11px/14px var(--font-mono);color:var(--text-muted)">ক্‌+ষ</div></div>
+          <div style="border:1px solid var(--border-subtle);border-radius:6px;padding:8px;text-align:center"><div style="font:500 26px/40px var(--font-sans)">জ্ঞ</div><div style="font:400 11px/14px var(--font-mono);color:var(--text-muted)">জ্‌+ঞ</div></div>
+          <div style="border:1px solid var(--border-subtle);border-radius:6px;padding:8px;text-align:center"><div style="font:500 26px/40px var(--font-sans)">ন্ত্র</div><div style="font:400 11px/14px var(--font-mono);color:var(--text-muted)">ন্‌+ত্‌+র</div></div>
+          <div style="border:1px solid var(--border-subtle);border-radius:6px;padding:8px;text-align:center"><div style="font:500 26px/40px var(--font-sans)">ক্ষ্ম</div><div style="font:400 11px/14px var(--font-mono);color:var(--text-muted)">ক্‌+ষ্‌+ম</div></div>
+          <div style="border:1px solid var(--border-subtle);border-radius:6px;padding:8px;text-align:center"><div style="font:500 26px/40px var(--font-sans)">র্শ্ব</div><div style="font:400 11px/14px var(--font-mono);color:var(--text-muted)">ref + শ্ব</div></div>
+          <div style="border:1px solid var(--border-subtle);border-radius:6px;padding:8px;text-align:center"><div style="font:500 26px/40px var(--font-sans)">দ্ধ</div><div style="font:400 11px/14px var(--font-mono);color:var(--text-muted)">দ্‌+ধ</div></div>
+          <div style="border:1px solid var(--border-subtle);border-radius:6px;padding:8px;text-align:center"><div style="font:500 26px/40px var(--font-sans)">ষ্ট্র</div><div style="font:400 11px/14px var(--font-mono);color:var(--text-muted)">ষ্‌+ট্‌+র</div></div>
+          <div style="border:1px solid var(--border-subtle);border-radius:6px;padding:8px;text-align:center"><div style="font:500 26px/40px var(--font-sans)">হৃৎ</div><div style="font:400 11px/14px var(--font-mono);color:var(--text-muted)">হ+ৃ+ৎ</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px">
+          <div style="border:1px solid var(--border-subtle);border-radius:6px;padding:10px"><div style="font:400 11px/14px var(--font-mono);color:var(--text-muted)">Noto Sans Bengali · chosen</div><div style="font:400 18px/30px 'Noto Sans Bengali'">অ্যান্টিবায়োটিক ব্যবস্থাপত্র</div></div>
+          <div style="border:1px solid var(--border-subtle);border-radius:6px;padding:10px"><div style="font:400 11px/14px var(--font-mono);color:var(--text-muted)">Hind Siliguri · fallback</div><div style="font:400 18px/30px 'Hind Siliguri'">অ্যান্টিবায়োটিক ব্যবস্থাপত্র</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 NUMERALS -->
+  <section id="numerals" style="padding:48px 0;border-top:1px solid var(--border-subtle);display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;flex-direction:column;gap:8px"><div style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">03</div><h2 style="margin:0;font:600 28px/36px var(--font-sans)">Numerals, money &amp; dates</h2>
+    <p style="margin:0;max-width:760px;font:400 15px/24px var(--font-sans);color:var(--text-secondary);text-wrap:pretty">Numerals are a per-user setting, independent of language. Stored values are always Latin digits; conversion happens at display. Money uses South Asian grouping (thousand, lakh, crore) and always prints amount in words on receipts and invoices. Phone numbers, IDs and lab values use tabular figures. Helpers live in <code style="font-family:var(--font-mono)">lib/setu-format.js</code>.</p></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px">
+      <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <h3 style="margin:0;font:600 17px/24px var(--font-sans)">3.1 Numeral setting</h3>
+          <div role="radiogroup" aria-label="Numerals" style="display:inline-flex;white-space:nowrap;padding:3px;border-radius:8px;background:var(--surface-sunken);border:1px solid var(--border-subtle);gap:2px">
+            <button role="radio" aria-checked="{{ numBnOn }}" onClick="{{ setBn }}" style="border:0;cursor:pointer;height:32px;padding:0 14px;border-radius:6px;font:600 13px/18px var(--font-sans);background:{{ numBnBg }};color:{{ numBnFg }};box-shadow:{{ numBnSh }}">বাংলা ০১২৩</button>
+            <button role="radio" aria-checked="{{ numEnOn }}" onClick="{{ setEn }}" style="border:0;cursor:pointer;height:32px;padding:0 14px;border-radius:6px;font:600 13px/18px var(--font-sans);background:{{ numEnBg }};color:{{ numEnFg }};box-shadow:{{ numEnSh }}">English 0123</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr);gap:0;font:400 15px/26px var(--font-sans);font-variant-numeric:tabular-nums">
+          <sc-for list="{{ numSamples }}" as="n" hint-placeholder-count="7">
+            <div style="padding:8px 0;border-bottom:1px solid var(--border-subtle);font:500 13px/26px var(--font-sans);color:var(--text-muted)">{{ n.label }}</div>
+            <div style="padding:8px 0;border-bottom:1px solid var(--border-subtle);font-weight:500">{{ n.value }}</div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:16px">
+        <h3 style="margin:0;font:600 17px/24px var(--font-sans)">3.2 Taka &amp; amount in words (live)</h3>
+        <label style="display:flex;flex-direction:column;gap:6px">
+          <span style="font:500 13px/18px var(--font-sans)">পরিমাণ · Amount</span>
+          <div style="display:flex;align-items:center;height:48px;border:1px solid var(--border-default);border-radius:6px;background:var(--surface-card);overflow:hidden">
+            <span style="padding:0 12px;height:100%;display:flex;align-items:center;background:var(--surface-sunken);border-right:1px solid var(--border-subtle);font:600 18px/24px var(--font-sans)">৳</span>
+            <input value="{{ amount }}" onInput="{{ onAmount }}" inputmode="decimal" aria-label="Amount in Taka" style="flex:1;min-width:0;border:0;outline:0;background:transparent;padding:0 12px;font:600 20px/28px var(--font-sans);font-variant-numeric:tabular-nums;text-align:right">
+          </div>
+        </label>
+        <div style="font:600 32px/40px var(--font-sans);font-variant-numeric:tabular-nums">{{ amountFmt }}</div>
+        <div style="display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:8px;background:var(--surface-sunken)">
+          <div style="font:500 15px/26px var(--font-sans)">কথায়: {{ wordsBn }}</div>
+          <div style="font:400 14px/20px var(--font-sans);color:var(--text-secondary)">In words: {{ wordsEn }}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;font:400 13px/18px var(--font-sans)">
+          <div style="display:flex;gap:6px;align-items:flex-start"><i class="icon-circle-check" style="font-size:15px;color:var(--success-fg)"></i><span>৳ before amount, one space: <b>৳ 1,25,000</b></span></div>
+          <div style="display:flex;gap:6px;align-items:flex-start"><i class="icon-circle-x" style="font-size:15px;color:var(--danger-fg)"></i><span>Not <b>Tk 125,000</b> or <b>125000৳</b></span></div>
+          <div style="display:flex;gap:6px;align-items:flex-start"><i class="icon-circle-check" style="font-size:15px;color:var(--success-fg)"></i><span>Paisa only when non-zero: <b>৳ 1,250.50</b></span></div>
+          <div style="display:flex;gap:6px;align-items:flex-start"><i class="icon-circle-check" style="font-size:15px;color:var(--success-fg)"></i><span>Refunds and credits: <b>−৳ 500</b> + label</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 LAYOUT -->
+  <section id="layout" style="padding:48px 0;border-top:1px solid var(--border-subtle);display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;flex-direction:column;gap:8px"><div style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">04</div><h2 style="margin:0;font:600 28px/36px var(--font-sans)">Layout, spacing &amp; surfaces</h2>
+    <p style="margin:0;max-width:760px;font:400 15px/24px var(--font-sans);color:var(--text-secondary);text-wrap:pretty">A 4px base with an 8px rhythm. Desktop staff screens use a fixed grouped sidebar and a fluid 12-column content area. Tablets keep the same grid with larger targets. Mobile is designed at 360px first and checked at 412px.</p></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px">
+      <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:8px">
+        <h3 style="margin:0 0 4px;font:600 17px/24px var(--font-sans)">4.1 Spacing scale</h3>
+        <div style="display:flex;align-items:center;gap:12px;font:400 12px/16px var(--font-mono)"><span style="width:78px">space-0-5</span><span style="width:40px;color:var(--text-muted)">2</span><span style="height:12px;width:2px;background:var(--teal-500)"></span></div>
+        <div style="display:flex;align-items:center;gap:12px;font:400 12px/16px var(--font-mono)"><span style="width:78px">space-1</span><span style="width:40px;color:var(--text-muted)">4</span><span style="height:12px;width:4px;background:var(--teal-500)"></span></div>
+        <div style="display:flex;align-items:center;gap:12px;font:400 12px/16px var(--font-mono)"><span style="width:78px">space-2</span><span style="width:40px;color:var(--text-muted)">8</span><span style="height:12px;width:8px;background:var(--teal-500)"></span></div>
+        <div style="display:flex;align-items:center;gap:12px;font:400 12px/16px var(--font-mono)"><span style="width:78px">space-3</span><span style="width:40px;color:var(--text-muted)">12</span><span style="height:12px;width:12px;background:var(--teal-500)"></span></div>
+        <div style="display:flex;align-items:center;gap:12px;font:400 12px/16px var(--font-mono)"><span style="width:78px">space-4</span><span style="width:40px;color:var(--text-muted)">16</span><span style="height:12px;width:16px;background:var(--teal-500)"></span></div>
+        <div style="display:flex;align-items:center;gap:12px;font:400 12px/16px var(--font-mono)"><span style="width:78px">space-5</span><span style="width:40px;color:var(--text-muted)">20</span><span style="height:12px;width:20px;background:var(--teal-500)"></span></div>
+        <div style="display:flex;align-items:center;gap:12px;font:400 12px/16px var(--font-mono)"><span style="width:78px">space-6</span><span style="width:40px;color:var(--text-muted)">24</span><span style="height:12px;width:24px;background:var(--teal-500)"></span></div>
+        <div style="display:flex;align-items:center;gap:12px;font:400 12px/16px var(--font-mono)"><span style="width:78px">space-8</span><span style="width:40px;color:var(--text-muted)">32</span><span style="height:12px;width:32px;background:var(--teal-500)"></span></div>
+        <div style="display:flex;align-items:center;gap:12px;font:400 12px/16px var(--font-mono)"><span style="width:78px">space-10</span><span style="width:40px;color:var(--text-muted)">40</span><span style="height:12px;width:40px;background:var(--teal-500)"></span></div>
+        <div style="display:flex;align-items:center;gap:12px;font:400 12px/16px var(--font-mono)"><span style="width:78px">space-12</span><span style="width:40px;color:var(--text-muted)">48</span><span style="height:12px;width:48px;background:var(--teal-500)"></span></div>
+        <div style="display:flex;align-items:center;gap:12px;font:400 12px/16px var(--font-mono)"><span style="width:78px">space-16</span><span style="width:40px;color:var(--text-muted)">64</span><span style="height:12px;width:64px;background:var(--teal-500)"></span></div>
+      </div>
+      <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px">
+        <h3 style="margin:0;font:600 17px/24px var(--font-sans)">4.2 Grids</h3>
+        <div style="display:flex;flex-direction:column;gap:4px"><div style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">Desktop 1440 · 248 sidebar + 12 col · gutter 24 · margin 32</div>
+          <div style="display:flex;gap:6px;height:56px;padding:0 10px;border:1px solid var(--border-subtle);border-radius:6px;align-items:stretch;padding:6px"><div style="flex:0 0 18%;background:var(--neutral-200);border-radius:3px"></div><div style="flex:1;display:grid;grid-template-columns:repeat(12,1fr);gap:3px;padding:0 6px"><sc-for list="{{ cols12 }}" as="c" hint-placeholder-count="12"><div style="background:var(--teal-100);border-radius:2px"></div></sc-for></div></div></div>
+        <div style="display:flex;flex-direction:column;gap:4px"><div style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">Tablet 1024 · 12 col · gutter 20 · margin 24 · nav collapses to rail</div>
+          <div style="display:flex;gap:6px;height:56px;width:72%;border:1px solid var(--border-subtle);border-radius:6px;padding:6px"><div style="flex:0 0 7%;background:var(--neutral-200);border-radius:3px"></div><div style="flex:1;display:grid;grid-template-columns:repeat(12,1fr);gap:3px;padding:0 4px"><sc-for list="{{ cols12 }}" as="c" hint-placeholder-count="12"><div style="background:var(--teal-100);border-radius:2px"></div></sc-for></div></div></div>
+        <div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap">
+          <div style="display:flex;flex-direction:column;gap:4px;flex:1 1 200px"><div style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">Tablet 768 · 8 col · gutter 16 · margin 24</div>
+            <div style="height:56px;border:1px solid var(--border-subtle);border-radius:6px;padding:6px 10px;display:grid;grid-template-columns:repeat(8,1fr);gap:4px"><sc-for list="{{ cols8 }}" as="c" hint-placeholder-count="8"><div style="background:var(--teal-100);border-radius:2px"></div></sc-for></div></div>
+          <div style="display:flex;flex-direction:column;gap:4px;flex:0 0 120px"><div style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">Mobile 360–412 · 4 col · 16/16</div>
+            <div style="height:120px;border:1px solid var(--border-subtle);border-radius:12px;padding:8px 8px;display:grid;grid-template-columns:repeat(4,1fr);gap:4px"><sc-for list="{{ cols4 }}" as="c" hint-placeholder-count="4"><div style="background:var(--teal-100);border-radius:2px"></div></sc-for></div></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
+      <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <h3 style="margin:0;font:600 17px/24px var(--font-sans)">4.3 Radius</h3>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:center"><div style="width:48px;height:48px;border:2px solid var(--teal-600);border-radius:4px"></div><code style="font:400 11px/14px var(--font-mono)">xs 4</code></div>
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:center"><div style="width:48px;height:48px;border:2px solid var(--teal-600);border-radius:6px"></div><code style="font:400 11px/14px var(--font-mono)">sm 6</code></div>
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:center"><div style="width:48px;height:48px;border:2px solid var(--teal-600);border-radius:8px"></div><code style="font:400 11px/14px var(--font-mono)">md 8</code></div>
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:center"><div style="width:48px;height:48px;border:2px solid var(--teal-600);border-radius:12px"></div><code style="font:400 11px/14px var(--font-mono)">lg 12</code></div>
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:center"><div style="width:48px;height:48px;border:2px solid var(--teal-600);border-radius:16px"></div><code style="font:400 11px/14px var(--font-mono)">xl 16</code></div>
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:center"><div style="width:64px;height:28px;border:2px solid var(--teal-600);border-radius:999px"></div><code style="font:400 11px/14px var(--font-mono)">pill</code></div>
+        </div>
+        <p style="margin:0;font:400 12px/18px var(--font-sans);color:var(--text-muted)">Controls 6 · cards 12 · mobile sheets 16 · status pills fully round.</p>
+      </div>
+      <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <h3 style="margin:0;font:600 17px/24px var(--font-sans)">4.4 Elevation</h3>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:8px;background:var(--surface-page);border-radius:8px">
+          <div style="height:56px;border-radius:8px;background:var(--surface-card);box-shadow:var(--shadow-1);display:flex;align-items:flex-end;padding:6px;font:400 11px/14px var(--font-mono)">1 card</div>
+          <div style="height:56px;border-radius:8px;background:var(--surface-card);box-shadow:var(--shadow-2);display:flex;align-items:flex-end;padding:6px;font:400 11px/14px var(--font-mono)">2 hover</div>
+          <div style="height:56px;border-radius:8px;background:var(--surface-card);box-shadow:var(--shadow-3);display:flex;align-items:flex-end;padding:6px;font:400 11px/14px var(--font-mono)">3 popover</div>
+          <div style="height:56px;border-radius:8px;background:var(--surface-card);box-shadow:var(--shadow-4);display:flex;align-items:flex-end;padding:6px;font:400 11px/14px var(--font-mono)">4 modal</div>
+        </div>
+        <p style="margin:0;font:400 12px/18px var(--font-sans);color:var(--text-muted)">Shadows only for things that float. Resting surfaces use a 1px border instead.</p>
+      </div>
+      <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <h3 style="margin:0;font:600 17px/24px var(--font-sans)">4.5 Borders</h3>
+        <div style="display:flex;flex-direction:column;gap:8px;font:400 12px/16px var(--font-mono)">
+          <div style="padding:8px 10px;border:1px solid var(--border-subtle);border-radius:6px">1px border-subtle · dividers</div>
+          <div style="padding:8px 10px;border:1px solid var(--border-default);border-radius:6px">1px border-default · inputs</div>
+          <div style="padding:8px 10px;border:2px solid var(--brand-primary);border-radius:6px">2px brand · selected</div>
+          <div style="padding:8px 10px;border:1.5px dashed var(--status-draft-border);background:var(--pattern-draft);border-radius:6px;color:var(--status-draft-fg)">1.5px dashed · draft only</div>
+        </div>
+      </div>
+    </div>
+    <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+      <h3 style="margin:0;font:600 17px/24px var(--font-sans)">4.6 Density modes (tables &amp; worklists)</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:20px">
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">Comfortable · row 44 · cell-x 16 · 14px — default, tablets</div>
+          <div style="border:1px solid var(--border-subtle);border-radius:8px;overflow:hidden;font:400 14px/20px var(--font-sans);font-variant-numeric:tabular-nums">
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;height:40px;align-items:center;background:var(--surface-sunken);font-weight:600;font-size:12px;color:var(--text-muted)"><span style="padding:0 16px">Patient</span><span style="padding:0 16px">Test</span><span style="padding:0 16px;text-align:right">Amount</span></div>
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;height:44px;align-items:center;border-top:1px solid var(--border-subtle)"><span style="padding:0 16px">Kamrul Hasan</span><span style="padding:0 16px">CBC</span><span style="padding:0 16px;text-align:right">৳ 450</span></div>
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;height:44px;align-items:center;border-top:1px solid var(--border-subtle)"><span style="padding:0 16px">Nasrin Sultana</span><span style="padding:0 16px">TSH</span><span style="padding:0 16px;text-align:right">৳ 900</span></div>
+          </div></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">Compact · row 32 · cell-x 10 · 13px — desktop worklists</div>
+          <div style="border:1px solid var(--border-subtle);border-radius:8px;overflow:hidden;font:400 13px/18px var(--font-sans);font-variant-numeric:tabular-nums">
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;height:30px;align-items:center;background:var(--surface-sunken);font-weight:600;font-size:12px;color:var(--text-muted)"><span style="padding:0 10px">Patient</span><span style="padding:0 10px">Test</span><span style="padding:0 10px;text-align:right">Amount</span></div>
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;height:32px;align-items:center;border-top:1px solid var(--border-subtle)"><span style="padding:0 10px">Kamrul Hasan</span><span style="padding:0 10px">CBC</span><span style="padding:0 10px;text-align:right">৳ 450</span></div>
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;height:32px;align-items:center;border-top:1px solid var(--border-subtle)"><span style="padding:0 10px">Nasrin Sultana</span><span style="padding:0 10px">TSH</span><span style="padding:0 10px;text-align:right">৳ 900</span></div>
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;height:32px;align-items:center;border-top:1px solid var(--border-subtle)"><span style="padding:0 10px">Abdur Rahim</span><span style="padding:0 10px">RBS</span><span style="padding:0 10px;text-align:right">৳ 150</span></div>
+          </div></div>
+      </div>
+      <p style="margin:0;font:400 12px/18px var(--font-sans);color:var(--text-muted)">Touch targets: ≥ 48px on tablet and mobile (control-lg). Compact mode is desktop-only and never used for clinical sign-off screens.</p>
+    </div>
+  </section>
+
+  <!-- 5 ICONS -->
+  <section id="icons" style="padding:48px 0;border-top:1px solid var(--border-subtle);display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;flex-direction:column;gap:8px"><div style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">05</div><h2 style="margin:0;font:600 28px/36px var(--font-sans)">Iconography</h2>
+    <p style="margin:0;max-width:760px;font:400 15px/24px var(--font-sans);color:var(--text-secondary);text-wrap:pretty">One set: Lucide line icons (2px stroke on a 24 grid), sized 16 / 20 / 24. Icons support a label; they never replace one. Navigation always shows the text. Icon-only buttons are allowed only in dense toolbars and must have a tooltip and an accessible name. No emoji.</p></div>
+    <div style="display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:24px;align-items:start">
+      <nav aria-label="Sample grouped navigation" style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;flex-direction:column;gap:2px"><div style="padding:4px 10px;font:600 11px/16px var(--font-sans);text-transform:uppercase;color:var(--text-muted)">ফ্রন্ট ডেস্ক · Front desk</div>
+          <a href="#icons" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;text-decoration:none;white-space:nowrap;background:var(--surface-selected);color:var(--brand-primary-text);font:600 14px/20px var(--font-sans);box-shadow:inset 3px 0 0 var(--brand-primary)"><i class="icon-user-plus" style="font-size:18px"></i>রোগী নিবন্ধন · Registration</a>
+          <a href="#icons" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary);font:500 14px/20px var(--font-sans)" style-hover="background:var(--surface-hover)"><i class="icon-calendar-days" style="font-size:18px"></i>অ্যাপয়েন্টমেন্ট · Appointments</a>
+          <a href="#icons" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary);font:500 14px/20px var(--font-sans)" style-hover="background:var(--surface-hover)"><i class="icon-ticket" style="font-size:18px"></i>সিরিয়াল · Queue</a></div>
+        <div style="display:flex;flex-direction:column;gap:2px"><div style="padding:4px 10px;font:600 11px/16px var(--font-sans);text-transform:uppercase;color:var(--text-muted)">ক্লিনিক্যাল · Clinical</div>
+          <a href="#icons" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary);font:500 14px/20px var(--font-sans)" style-hover="background:var(--surface-hover)"><i class="icon-stethoscope" style="font-size:18px"></i>বহির্বিভাগ · OPD</a>
+          <a href="#icons" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary);font:500 14px/20px var(--font-sans)" style-hover="background:var(--surface-hover)"><i class="icon-bed-double" style="font-size:18px"></i>ভর্তি ও শয্যা · IPD &amp; beds</a>
+          <a href="#icons" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary);font:500 14px/20px var(--font-sans)" style-hover="background:var(--surface-hover)"><i class="icon-heart-pulse" style="font-size:18px"></i>নার্সিং · Nursing</a>
+          <a href="#icons" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary);font:500 14px/20px var(--font-sans)" style-hover="background:var(--surface-hover)"><i class="icon-siren" style="font-size:18px"></i>জরুরি · ER</a></div>
+        <div style="display:flex;flex-direction:column;gap:2px"><div style="padding:4px 10px;font:600 11px/16px var(--font-sans);text-transform:uppercase;color:var(--text-muted)">ডায়াগনস্টিক · Diagnostics</div>
+          <a href="#icons" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary);font:500 14px/20px var(--font-sans)" style-hover="background:var(--surface-hover)"><i class="icon-test-tube" style="font-size:18px"></i>ল্যাব · Lab worklist</a>
+          <a href="#icons" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary);font:500 14px/20px var(--font-sans)" style-hover="background:var(--surface-hover)"><i class="icon-scan-line" style="font-size:18px"></i>ইমেজিং · Imaging</a></div>
+        <div style="display:flex;flex-direction:column;gap:2px"><div style="padding:4px 10px;font:600 11px/16px var(--font-sans);text-transform:uppercase;color:var(--text-muted)">হিসাব · Money</div>
+          <a href="#icons" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary);font:500 14px/20px var(--font-sans)" style-hover="background:var(--surface-hover)"><i class="icon-receipt" style="font-size:18px"></i>বিলিং · Billing</a>
+          <a href="#icons" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary);font:500 14px/20px var(--font-sans)" style-hover="background:var(--surface-hover)"><i class="icon-pill" style="font-size:18px"></i>ফার্মেসি · Pharmacy</a>
+          <a href="#icons" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;text-decoration:none;white-space:nowrap;color:var(--text-secondary);font:500 14px/20px var(--font-sans)" style-hover="background:var(--surface-hover)"><i class="icon-chart-column" style="font-size:18px"></i>মালিকের ড্যাশবোর্ড · Owner</a></div>
+      </nav>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px">
+          <sc-for list="{{ icons }}" as="ic" hint-placeholder-count="36">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--surface-card)"><i class="icon-{{ ic.n }}" style="font-size:22px;color:var(--text-primary)"></i><span style="font:500 12px/16px var(--font-sans);text-align:center">{{ ic.l }}</span><code style="font:400 10px/12px var(--font-mono);color:var(--text-muted);white-space:nowrap">{{ ic.n }}</code></div>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:20px;align-items:flex-end;flex-wrap:wrap;font:400 12px/16px var(--font-mono);color:var(--text-muted)">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="icon-stethoscope" style="font-size:16px;color:var(--text-primary)"></i>16 inline</div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="icon-stethoscope" style="font-size:20px;color:var(--text-primary)"></i>20 controls</div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="icon-stethoscope" style="font-size:24px;color:var(--text-primary)"></i>24 mobile / nav</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 COMPONENTS INDEX -->
+  <section id="components" style="padding:48px 0;border-top:1px solid var(--border-subtle);display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:8px"><div style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">06</div><h2 style="margin:0;font:600 28px/36px var(--font-sans)">Components</h2></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">
+      <a href="Setu%20DS%202%20Actions%20and%20Inputs.dc.html" style="text-decoration:none;color:var(--text-primary);background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px" style-hover="border-color:var(--border-strong);box-shadow:var(--shadow-2)"><span style="font:600 16px/24px var(--font-sans)">2 · Actions &amp; inputs</span><span style="font:400 13px/20px var(--font-sans);color:var(--text-muted)">Buttons, split, icon buttons, bilingual name, phone, date + age, money, dose pattern, search, select, chips, toggles, upload, tabs, stepper, command palette</span></a>
+      <a href="Setu%20DS%203%20Clinical.dc.html" style="text-decoration:none;color:var(--text-primary);background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px" style-hover="border-color:var(--border-strong);box-shadow:var(--shadow-2)"><span style="font:600 16px/24px var(--font-sans)">3 · Clinical</span><span style="font:400 13px/20px var(--font-sans);color:var(--text-muted)">Patient header (OPD, IPD, lab, pharmacy, billing, mobile), provenance, status pills, result rows, timeline, queue / bed / worklist cards</span></a>
+      <a href="Setu%20DS%204%20Data%20Table.dc.html" style="text-decoration:none;color:var(--text-primary);background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px" style-hover="border-color:var(--border-strong);box-shadow:var(--shadow-2)"><span style="font:600 16px/24px var(--font-sans)">4 · Data table</span><span style="font:400 13px/20px var(--font-sans);color:var(--text-muted)">Sticky header &amp; totals, inline edit, filters, column chooser, bulk actions, keyboard nav, pagination, empty state</span></a>
+      <a href="Setu%20DS%205%20Feedback%20and%20Overlays.dc.html" style="text-decoration:none;color:var(--text-primary);background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px" style-hover="border-color:var(--border-strong);box-shadow:var(--shadow-2)"><span style="font:600 16px/24px var(--font-sans)">5 · Feedback &amp; overlays</span><span style="font:400 13px/20px var(--font-sans);color:var(--text-muted)">Sign-off, approval, permission denied, break-glass, offline, syncing, conflict, toasts, alerts, dialogs, drawer</span></a>
+      <a href="Setu%20DS%206%20Print%20Templates.dc.html" style="text-decoration:none;color:var(--text-primary);background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px" style-hover="border-color:var(--border-strong);box-shadow:var(--shadow-2)"><span style="font:600 16px/24px var(--font-sans)">6 · Print templates</span><span style="font:400 13px/20px var(--font-sans);color:var(--text-muted)">QR verification, A4 &amp; A5 prescription, 80mm &amp; A5 receipt, A4 lab report</span></a>
+    </div>
+  </section>
+
+  <!-- 7 CONTENT -->
+  <section id="content" style="padding:48px 0;border-top:1px solid var(--border-subtle);display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;flex-direction:column;gap:8px"><div style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">07</div><h2 style="margin:0;font:600 28px/36px var(--font-sans)">Content style</h2></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px">
+      <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <h3 style="margin:0;font:600 17px/24px var(--font-sans)">7.1 Voice</h3>
+        <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;font:400 14px/22px var(--font-sans);color:var(--text-secondary)">
+          <li><b style="color:var(--text-primary)">Plain and respectful.</b> Bangla uses the formal আপনি form and standard চলিত ভাষা. English uses short, active sentences.</li>
+          <li><b style="color:var(--text-primary)">Verb-first actions.</b> "সংরক্ষণ করুন · Save", "পেমেন্ট নিন · Collect payment". Never "OK" or "Submit".</li>
+          <li><b style="color:var(--text-primary)">Clinical terms stay clinical.</b> Test and drug names stay in English (CBC, Napa) inside Bangla sentences; they are not transliterated on staff screens. The patient app may add a Bangla gloss.</li>
+          <li><b style="color:var(--text-primary)">Say who and when.</b> "ডা. ফারহানা ইসলাম স্বাক্ষর করেছেন · ২৯/০৯/২০২৬ ১০:৪২".</li>
+          <li><b style="color:var(--text-primary)">No blame, no alarm.</b> Describe the state and the next step. Reserve "জরুরি · Urgent" for clinical urgency.</li>
+          <li><b style="color:var(--text-primary)">Patients read at a glance.</b> Patient app copy targets class-8 reading level, one idea per sentence.</li>
+        </ul>
+      </div>
+      <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <h3 style="margin:0;font:600 17px/24px var(--font-sans)">7.2 Error message pattern</h3>
+        <div style="font:500 13px/20px var(--font-mono);color:var(--text-muted)">What happened → why (if known) → what to do</div>
+        <div style="display:flex;gap:10px;padding:12px;border-radius:8px;background:var(--danger-bg);border:1px solid var(--danger-border);color:var(--danger-fg)"><i class="icon-circle-x" style="font-size:18px;margin-top:3px"></i><div style="display:flex;flex-direction:column;gap:2px"><b style="font:600 14px/22px var(--font-sans)">bKash পেমেন্ট নিশ্চিত হয়নি</b><span style="font:400 13px/22px var(--font-sans)">সার্ভার থেকে উত্তর আসেনি। রোগীর ফোনে বার্তা দেখে ট্রানজেকশন আইডি লিখুন।</span><span style="font:400 13px/18px var(--font-sans)">bKash payment not confirmed. The server did not respond. Check the patient's SMS and enter the transaction ID.</span></div></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;font:400 13px/20px var(--font-sans)">
+          <div style="display:flex;gap:6px"><i class="icon-circle-x" style="font-size:15px;color:var(--danger-fg);margin-top:2px"></i><span>"Error 502. Invalid input."</span></div>
+          <div style="display:flex;gap:6px"><i class="icon-circle-check" style="font-size:15px;color:var(--success-fg);margin-top:2px"></i><span>"মোবাইল নম্বরে ১১টি সংখ্যা লাগবে · Phone needs 11 digits"</span></div>
+          <div style="display:flex;gap:6px"><i class="icon-circle-x" style="font-size:15px;color:var(--danger-fg);margin-top:2px"></i><span>"Prescription sent!" (before server confirms)</span></div>
+          <div style="display:flex;gap:6px"><i class="icon-circle-check" style="font-size:15px;color:var(--success-fg);margin-top:2px"></i><span>"পাঠানো হচ্ছে… · Sending…" then "পাঠানো হয়েছে ১০:৪২ · Sent 10:42"</span></div>
+        </div>
+      </div>
+      <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <h3 style="margin:0;font:600 17px/24px var(--font-sans)">7.3 Empty states</h3>
+        <div style="font:400 13px/20px var(--font-sans);color:var(--text-muted)">State the fact, then offer the one useful action. No illustrations on staff screens.</div>
+        <div style="border:1px dashed var(--border-default);border-radius:8px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><i class="icon-test-tube" style="font-size:22px;color:var(--text-muted)"></i><b style="font:600 14px/22px var(--font-sans)">আজ কোনো নমুনা বাকি নেই · No samples pending today</b><span style="font:400 13px/20px var(--font-sans);color:var(--text-muted)">New orders appear here as soon as billing is paid.</span></div>
+        <div style="border:1px dashed var(--border-default);border-radius:8px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center"><i class="icon-search-x" style="font-size:22px;color:var(--text-muted)"></i><b style="font:600 14px/22px var(--font-sans)">"০১৭১১" দিয়ে কোনো রোগী পাওয়া যায়নি · No patient matches "01711"</b><span style="display:inline-flex;white-space:nowrap;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:6px;background:var(--brand-primary);color:var(--text-on-primary);font:600 13px/18px var(--font-sans)"><i class="icon-user-plus" style="font-size:16px"></i>নতুন রোগী · New patient</span></div>
+      </div>
+    </div>
+    <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;overflow:hidden">
+      <div style="padding:16px 20px 8px"><h3 style="margin:0;font:600 17px/24px var(--font-sans)">7.4 Units &amp; abbreviations</h3></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:0 24px;padding:0 20px 16px;font:400 13px/20px var(--font-sans)">
+        <div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border-subtle);padding:7px 0"><b style="font-family:var(--font-mono)">mg/dL</b><span>Glucose (RBS), creatinine, lipids</span></div>
+        <div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border-subtle);padding:7px 0"><b style="font-family:var(--font-mono)">mmol/L</b><span>Electrolytes; glucose where lab prefers SI</span></div>
+        <div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border-subtle);padding:7px 0"><b style="font-family:var(--font-mono)">g/dL</b><span>Haemoglobin</span></div>
+        <div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border-subtle);padding:7px 0"><b style="font-family:var(--font-mono)">/cumm</b><span>WBC, platelet count (×10³/µL also accepted)</span></div>
+        <div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border-subtle);padding:7px 0"><b style="font-family:var(--font-mono)">µIU/mL</b><span>TSH</span></div>
+        <div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border-subtle);padding:7px 0"><b style="font-family:var(--font-mono)">%</b><span>HbA1c, SpO₂</span></div>
+        <div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border-subtle);padding:7px 0"><b style="font-family:var(--font-mono)">mmHg</b><span>Blood pressure, written 120/80 mmHg</span></div>
+        <div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border-subtle);padding:7px 0"><b style="font-family:var(--font-mono)">°F</b><span>Body temperature (default in BD; °C switchable)</span></div>
+        <div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border-subtle);padding:7px 0"><b style="font-family:var(--font-mono)">bpm</b><span>Pulse, heart rate</span></div>
+        <div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border-subtle);padding:7px 0"><b style="font-family:var(--font-mono)">kg · cm</b><span>Weight, height; BMI kg/m²</span></div>
+        <div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border-subtle);padding:7px 0"><b style="font-family:var(--font-mono)">Tab. Cap. Syr. Inj.</b><span>Dosage forms before brand name</span></div>
+        <div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border-subtle);padding:7px 0"><b style="font-family:var(--font-mono)">১+০+১</b><span>Morning + noon + night. Replaces BD/TDS on Bangla Rx</span></div>
+        <div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border-subtle);padding:7px 0"><b style="font-family:var(--font-mono)">OPD · IPD</b><span>বহির্বিভাগ · অন্তর্বিভাগ (ভর্তি)</span></div>
+        <div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border-subtle);padding:7px 0"><b style="font-family:var(--font-mono)">ER · OT · ICU</b><span>জরুরি বিভাগ · অপারেশন থিয়েটার · নিবিড় পরিচর্যা</span></div>
+        <div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border-subtle);padding:7px 0"><b style="font-family:var(--font-mono)">NVD · C/S</b><span>Normal delivery · Caesarean section (packages)</span></div>
+        <div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border-subtle);padding:7px 0"><b style="font-family:var(--font-mono)">R/E · USG · PA</b><span>Routine exam · Ultrasonogram · Postero-anterior (X-ray)</span></div>
+        <div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border-subtle);padding:7px 0"><b style="font-family:var(--font-mono)">ডা. · Dr.</b><span>Doctor title; নার্স · Nurse; মো. · Md.</span></div>
+        <div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border-subtle);padding:7px 0"><b style="font-family:var(--font-mono)">VAT · BIN</b><span>মূসক · Business ID No. on VAT invoices</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 TOKENS -->
+  <section id="tokens" style="padding:48px 0;border-top:1px solid var(--border-subtle);display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:8px"><div style="font:500 12px/16px var(--font-mono);color:var(--text-muted)">08</div><h2 style="margin:0;font:600 28px/36px var(--font-sans)">Token table</h2>
+    <p style="margin:0;max-width:760px;font:400 15px/24px var(--font-sans);color:var(--text-secondary)">This table renders from <code style="font-family:var(--font-mono)">tokens/setu-tokens.json</code>, the same file developers import. CSS custom properties live in <code style="font-family:var(--font-mono)">tokens/setu-tokens.css</code>.</p></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <a href="tokens/setu-tokens.json" download="setu-tokens.json" style="display:inline-flex;white-space:nowrap;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:6px;background:var(--brand-primary);color:var(--text-on-primary);text-decoration:none;font:600 14px/20px var(--font-sans)"><i class="icon-download" style="font-size:16px"></i>Download JSON</a>
+      <a href="tokens/setu-tokens.css" download="setu-tokens.css" style="display:inline-flex;white-space:nowrap;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:6px;border:1px solid var(--border-default);color:var(--text-primary);text-decoration:none;font:600 14px/20px var(--font-sans)"><i class="icon-file-code" style="font-size:16px"></i>Download CSS</a>
+      <div style="margin-left:auto;flex:0 1 320px;display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border:1px solid var(--border-default);border-radius:6px;background:var(--surface-card);min-width:220px"><i class="icon-search" style="font-size:16px;color:var(--text-muted)"></i><input value="{{ q }}" onInput="{{ onQ }}" placeholder="Filter tokens…" aria-label="Filter tokens" style="border:0;outline:0;background:transparent;flex:1;min-width:0;font:400 14px/20px var(--font-sans)"></div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <sc-for list="{{ groups }}" as="g" hint-placeholder-count="10">
+        <button onClick="{{ g.pick }}" aria-pressed="{{ g.on }}" style="cursor:pointer;height:30px;padding:0 12px;border-radius:999px;font:500 12px/16px var(--font-sans);border:1px solid {{ g.bd }};background:{{ g.bg }};color:{{ g.fg }}">{{ g.name }}</button>
+      </sc-for>
+    </div>
+    <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:12px;overflow:auto;max-height:720px">
+      <div role="table" aria-label="Design tokens" style="min-width:900px;font:400 13px/18px var(--font-sans)">
+        <div role="row" style="position:sticky;top:0;z-index:1;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.6fr);background:var(--surface-sunken);border-bottom:1px solid var(--border-subtle);font:600 12px/16px var(--font-sans);color:var(--text-muted)">
+          <div role="columnheader" style="padding:10px 14px">Token</div><div role="columnheader" style="padding:10px 14px">Group</div><div role="columnheader" style="padding:10px 14px">Light</div><div role="columnheader" style="padding:10px 14px">High contrast</div><div role="columnheader" style="padding:10px 14px">Dark</div><div role="columnheader" style="padding:10px 14px">Use</div>
+        </div>
+        <sc-for list="{{ rows }}" as="t" hint-placeholder-count="12">
+          <div role="row" style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.6fr);border-bottom:1px solid var(--border-subtle);align-items:center">
+            <div role="cell" style="padding:8px 14px;font:500 12px/16px var(--font-mono);word-break:break-all">{{ t.token }}</div>
+            <div role="cell" style="padding:8px 14px;color:var(--text-muted)">{{ t.group }}</div>
+            <div role="cell" style="padding:8px 14px;display:flex;align-items:center;gap:8px"><span style="width:18px;height:18px;border-radius:4px;flex:none;background:{{ t.light }};box-shadow:inset 0 0 0 1px rgba(0,0,0,.12);display:{{ t.sw }}"></span><code style="font:400 12px/16px var(--font-mono);white-space:nowrap">{{ t.light }}</code></div>
+            <div role="cell" style="padding:8px 14px;display:flex;align-items:center;gap:8px"><span style="width:18px;height:18px;border-radius:4px;flex:none;background:{{ t.hc }};box-shadow:inset 0 0 0 1px rgba(0,0,0,.12);display:{{ t.sw }}"></span><code style="font:400 12px/16px var(--font-mono);white-space:nowrap">{{ t.hc }}</code></div>
+            <div role="cell" style="padding:8px 14px;display:flex;align-items:center;gap:8px"><span style="width:18px;height:18px;border-radius:4px;flex:none;background:{{ t.dark }};box-shadow:inset 0 0 0 1px rgba(0,0,0,.12);display:{{ t.sw }}"></span><code style="font:400 12px/16px var(--font-mono);white-space:nowrap">{{ t.dark }}</code></div>
+            <div role="cell" style="padding:8px 14px;color:var(--text-secondary)">{{ t.desc }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="font:400 12px/18px var(--font-mono);color:var(--text-muted)">{{ rowCount }}</span><sc-if value="{{ hasMore }}" hint-placeholder-val="{{ false }}"><button onClick="{{ showMore }}" style="cursor:pointer;height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--border-default);background:var(--surface-card);font:600 13px/18px var(--font-sans);color:var(--text-primary)">Show more</button></sc-if></div>
+  </section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;hc&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light'|'hc'|'dark'&quot;,&quot;section&quot;:&quot;Theme&quot;},&quot;numerals&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;bn&quot;,&quot;en&quot;],&quot;default&quot;:&quot;bn&quot;,&quot;tsType&quot;:&quot;'bn'|'en'&quot;,&quot;section&quot;:&quot;Locale&quot;}}">
+class Component extends DCLogic {
+  state = { data: null, group: 'All', q: '', numerals: null, amount: '125000', F: null };
+  componentDidMount() {
+    fetch('tokens/setu-tokens.json').then(r => r.json()).then(data => this.setState({ data })).catch(() => {});
+    this._t = setInterval(() => { if (window.SetuFormat) { clearInterval(this._t); this.setState({ F: window.SetuFormat }); } }, 50);
+  }
+  componentWillUnmount() { clearInterval(this._t); }
+  renderVals() {
+    const { data, group, q, amount, F } = this.state;
+    const numerals = this.state.numerals ?? this.props.numerals ?? 'bn';
+    const bn = numerals === 'bn';
+    const scales = (data?.scales || []).map(s => ({ ...s, steps: s.steps.map(x => ({ ...x, fg: x.darkText ? '#101a1a' : '#ffffff', ratio: `${x.cw}:1` })) }));
+    const swatches = [];
+    scales.forEach(s => { swatches.push({ bg: 'transparent', fg: 'var(--text-primary)', sh: 'none', top: s.name, b1: s.desc, b2: '' });
+      s.steps.filter(x => x.step >= 50 && x.step <= 900).forEach(x => swatches.push({ bg: x.hex, fg: x.fg, sh: 'inset 0 0 0 1px rgba(0,0,0,.06)', top: String(x.step), b1: x.hex, b2: x.ratio })); });
+    const toks = data?.tokens || [];
+    const gname = t => t.group.startsWith('Scale') ? 'Scales' : t.group;
+    const groups = ['All', ...new Set(toks.map(gname))].map(name => {
+      const on = name === group;
+      return { name, on, pick: () => this.setState({ group: name }), bg: on ? 'var(--brand-primary)' : 'var(--surface-card)', fg: on ? 'var(--text-on-primary)' : 'var(--text-secondary)', bd: on ? 'var(--brand-primary)' : 'var(--border-default)' };
+    });
+    const ql = q.trim().toLowerCase();
+    const allRows = toks.filter(t => (group === 'All' || gname(t) === group) && (!ql || (t.token + ' ' + t.desc).toLowerCase().includes(ql))).map(t => ({ ...t, sw: t.type === 'color' ? 'block' : 'none' }));
+    const rows = allRows.slice(0, this.state.limit || 40);
+    const n = parseFloat(String(amount).replace(/[^0-9.০-৯]/g, '').replace(/[০-৯]/g, d => '০১২৩৪৫৬৭৮৯'.indexOf(d))) || 0;
+    const seg = on => ({ bg: on ? 'var(--surface-card)' : 'transparent', fg: on ? 'var(--text-primary)' : 'var(--text-muted)', sh: on ? 'var(--shadow-1)' : 'none' });
+    const sb = seg(bn), se = seg(!bn);
+    const numSamples = F ? [
+      { label: 'Money', value: F.taka(125000, { bn }) + '   ·   ' + F.taka(1250000, { bn }) },
+      { label: 'Crore', value: F.taka(10000000, { bn }) },
+      { label: 'Date', value: F.date(new Date(2026, 8, 29), bn) },
+      { label: 'Phone', value: F.phone('01711234567', bn).text },
+      { label: 'Age', value: F.ageLabel(F.age(new Date(1984, 2, 14), new Date(2026, 8, 29)), bn ? 'bn' : 'en') },
+      { label: 'Lab value', value: F.digits('HbA1c 7.8 %  ·  RBS 11.2 mmol/L', bn) },
+      { label: 'Dose', value: F.digits('1+0+1 · 7 days', bn).replace('days', bn ? 'দিন' : 'days') },
+      { label: 'Token', value: F.digits('Token A-017', bn) },
+    ] : [];
+    const one = () => [0];
+    return {
+      theme: this.props.theme ?? 'light',
+      swatches, groups, rows, q,
+      rowCount: data ? `Showing ${rows.length} of ${allRows.length} matching · ${toks.length} tokens total` : 'Loading tokens…',
+      hasMore: rows.length < allRows.length, showMore: () => this.setState(s => ({ limit: (s.limit || 40) + 80 })),
+      onQ: e => this.setState({ q: e.target.value }),
+      numBnOn: bn, numEnOn: !bn, numBnBg: sb.bg, numBnFg: sb.fg, numBnSh: sb.sh, numEnBg: se.bg, numEnFg: se.fg, numEnSh: se.sh,
+      setBn: () => this.setState({ numerals: 'bn' }), setEn: () => this.setState({ numerals: 'en' }),
+      numSamples,
+      amount, onAmount: e => this.setState({ amount: e.target.value }),
+      amountFmt: F ? F.taka(n, { bn }) : '',
+      wordsBn: F ? F.words(n, 'bn') : '', wordsEn: F ? F.words(n, 'en') : '',
+      cols12: Array.from({ length: 12 }, (_, i) => i), cols8: Array.from({ length: 8 }, (_, i) => i), cols4: [0, 1, 2, 3],
+      icons: [
+        ['user-plus', 'Register'], ['users', 'Patients'], ['calendar-days', 'Appointments'], ['ticket', 'Queue / token'], ['stethoscope', 'OPD'], ['bed-double', 'IPD / bed'], ['heart-pulse', 'Vitals'], ['siren', 'Emergency'], ['syringe', 'Injection'], ['scissors', 'OT'], ['test-tube', 'Lab'], ['flask-conical', 'Validation'], ['scan-line', 'Imaging'], ['pill', 'Medicine'], ['package', 'Store'], ['receipt', 'Bill'], ['wallet', 'Deposit'], ['smartphone', 'bKash / Nagad'], ['banknote', 'Cash'], ['credit-card', 'Card'], ['chart-column', 'Dashboard'], ['file-text', 'Report'], ['shield-check', 'Verified'], ['sparkles', 'AI draft'], ['pencil-line', 'Draft'], ['history', 'Versions'], ['lock', 'No access'], ['key-round', 'Break-glass'], ['wifi-off', 'Offline'], ['refresh-cw', 'Syncing'], ['qr-code', 'QR verify'], ['printer', 'Print'], ['message-square', 'SMS'], ['send', 'Send'], ['share-2', 'Refer / share'], ['languages', 'Language'],
+      ].map(([n, l]) => ({ n, l })),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,2 +1,4 @@
 import { defineConfig } from "vitest/config";
-export default defineConfig({ test: { include: ["test/**/*.test.ts"] } });
+/* Contract test files share the E2E Test Clinic's seeded family (e.g. Rahima Khatun's visit today), so they run one
+   file at a time; tests inside a file are sequential anyway. */
+export default defineConfig({ test: { include: ["test/**/*.test.ts"], fileParallelism: false } });

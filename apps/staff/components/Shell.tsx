@@ -10,6 +10,7 @@ import type { CapabilityModule } from "@setu/contracts";
 import { PLAN_NAME, PLAN_RANK, ROLE_NAME, type Plan } from "@setu/domain";
 import { Dialog, Icon, IconButton, OfflineBanner, PatientHeaderBanner, Segmented } from "@setu/ui";
 import { useSession } from "../lib/session";
+import { RefusedSync } from "./RefusedSync";
 
 const initials = (name: string) => name.replace(/^(ডা\.|Dr\.)\s*/, "").trim().slice(0, 2);
 
@@ -94,6 +95,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </button>
         <span style={{ marginLeft: "auto" }} />
         <span role="status" className={`sync-pill${s.online ? "" : " off"}`}><Icon name={s.online ? "check-check" : "wifi-off"} size={14} />{s.online ? t.synced : t.offline}</span>
+        <RefusedSync />
         <Segmented value={lang} onChange={s.setLang} options={[{ value: "bn", label: "বাং" }, { value: "en", label: "EN" }]} label="Language" />
         <Segmented value={s.numerals} onChange={s.setNumerals} options={[{ value: "bn", label: "০১২৩" }, { value: "en", label: "0123" }]} label="Numerals" rawDigits />
         <IconButton icon="bell" label={t.notifs} />

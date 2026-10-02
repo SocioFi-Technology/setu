@@ -18,11 +18,14 @@ export function transition<S extends string, E extends string>(machine: string, 
 export const can = <S extends string, E extends string>(table: Table<S, E>, from: S, event: E): boolean => Boolean(table[from]?.[event]);
 
 /* Clinical document: Composition, DiagnosticReport, discharge summary, Rx.
-   `sign` is only called after PIN check + server ack; offline sign goes to `queued`. */
+   `sign` is only called after PIN check + server ack; offline sign goes to `queued` (unused in A4–A5: signing offline
+   is disabled). ADR 0003: an amendment is a new row (v2) that starts as draft and signs with `signAmendment` — the
+   route allows it only for a draft that amends another version — while the old version gets `supersede` in the same
+   transaction. */
 export type DocState = "draft" | "queued" | "final" | "amended" | "superseded" | "entered-in-error";
-export type DocEvent = "sign" | "offlineSign" | "serverAck" | "amend" | "supersede" | "markError";
+export type DocEvent = "sign" | "signAmendment" | "offlineSign" | "serverAck" | "amend" | "supersede" | "markError";
 export const DOCUMENT: Table<DocState, DocEvent> = {
-  draft: { sign: "final", offlineSign: "queued" },
+  draft: { sign: "final", signAmendment: "amended", offlineSign: "queued" },
   queued: { serverAck: "final" },
   final: { amend: "amended", supersede: "superseded", markError: "entered-in-error" },
   amended: { amend: "amended", supersede: "superseded", markError: "entered-in-error" },

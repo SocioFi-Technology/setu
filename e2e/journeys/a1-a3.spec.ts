@@ -87,7 +87,14 @@ test.describe("A2 duplicate review", () => {
     await confirm.click();
     await expect(page.getByTestId("decision")).toContainText("Linked to Rahima Khatun (E2E-240117) with");
     await expect(page.getByTestId("decision")).toContainText(`husband confirmed ${RUN}`);
+    // Open question 17: undoing a Link anyway needs a reason and lists the visits opened on the linked record since.
     await page.getByRole("button", { name: "Undo" }).click();
+    const u = page.getByTestId("undo-dialog");
+    await expect(u).toContainText("No visits were opened on the linked record since the link.");
+    const undoBtn = u.getByRole("button", { name: "Undo decision" });
+    await expect(undoBtn).toBeDisabled();
+    await u.getByRole("textbox").fill(`Wrong Rahima, re-checked ${RUN}`);
+    await undoBtn.click();
     await expect(page.getByTestId("decision")).toHaveCount(0);
     await expect(actions.getByRole("button", { name: "Link anyway" })).toBeEnabled();
   });
@@ -98,6 +105,7 @@ test.describe("A2 duplicate review", () => {
     await page.getByRole("button", { name: "Not sure — send for review" }).click();
     await expect(page.getByTestId("decision")).toContainText("Sent for review — an admin will check it");
     await page.getByRole("button", { name: "Undo" }).click();
+    await page.getByTestId("undo-dialog").getByRole("button", { name: "Undo decision" }).click(); // no reason needed for a review
     await expect(page.getByTestId("decision")).toHaveCount(0);
   });
   test("A2: child on parent's phone — family members who only share the phone are not offered as matches", async ({ page }) => {
@@ -184,6 +192,44 @@ test.describe("A3 registration", () => {
     await expect(page.getByTestId("queue-selected")).toContainText("Called");
     await page.getByRole("button", { name: "To vitals" }).click();
     await expect(page.locator('[data-column="vitals"]')).toContainText(`Nusrat Jahan ${RUN}`);
+
+    // Open question 22: a write the server refuses after an offline save is shown as "couldn't sync — check".
+    await page.goto("/m/fd/search");
+    await page.getByRole("combobox", { name: "Search patient" }).fill(phone);
+    await expect(page.getByRole("option")).toHaveCount(1);
+    // The network drops as the desk presses Create visit: the write is parked in the outbox. She already has today's
+    // token, so when the device is back online the server refuses the replay (409).
+    await page.getByRole("option").first().click();
+    await page.route("**/api/v1/encounters", (r) => r.abort("internetdisconnected"), { times: 1 });
+    await page.getByRole("button", { name: /Create visit/ }).click();
+    await page.context().setOffline(true);
+    await page.context().setOffline(false);
+    await expect(page.getByTestId("refused-sync")).toHaveText("1 couldn't sync — check");
+    await page.getByTestId("refused-sync").click();
+    await expect(page.getByTestId("refused-item")).toContainText("already has token");
+    await page.getByTestId("refused-item").getByRole("button", { name: "Remove from list" }).click();
+    await expect(page.getByTestId("refused-sync")).toHaveCount(0);
+  });
+  test("A3 / open question 23: a relative's number needs the owner's name and relationship", async ({ page }) => {
+    await login(page);
+    await page.goto("/m/fd/register");
+    await page.fill("input[name=nameBn]", "জোহরা খাতুন");
+    await page.fill("input[name=nameEn]", `Johora Khatun ${RUN}`);
+    await page.getByRole("radiogroup", { name: "Sex" }).getByRole("radio", { name: "F", exact: true }).click();
+    await page.fill("input[name=dob]", "05/05/1950");
+    await page.fill("input[name=phone]", `013${String(Date.now()).slice(-8)}`);
+    await page.getByRole("radiogroup", { name: "Phone owner" }).getByRole("radio", { name: "Family" }).click();
+    await expect(page.getByText("Not the patient's own number")).toBeVisible();
+    await page.selectOption("select[name=division]", "Dhaka");
+    await page.selectOption("select[name=district]", "Dhaka");
+    await page.selectOption("select[name=upazila]", "Mirpur");
+    await page.getByRole("button", { name: "Save Ctrl S" }).click();
+    await expect(page.getByTestId("error-summary")).toHaveText("2 field(s) need attention");
+    await expect(page.getByText("Enter the name of the person this number belongs to")).toBeVisible();
+    await page.fill("input[name=guardianName]", "মো. রফিক");
+    await page.selectOption("select[name=guardianRel]", "son");
+    await page.getByRole("button", { name: "Save Ctrl S" }).click();
+    await expect(page.getByTestId("save-status")).toContainText(/Saved — patient no\. E2E-\d+ · server confirmed/);
   });
   test("A3: approximate age and an under-18 guardian rule", async ({ page }) => {
     await login(page);

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { PhoneDigits } from "./common.js";
 
 export const Sex = z.enum(["female", "male", "other"]);
+export const EncounterStatus = z.enum(["planned", "arrived", "triaged", "in-progress", "finished", "cancelled", "entered-in-error"]);
 export const IdentityConfidence = z.enum(["verified", "unverified", "possible-duplicate", "provisional"]);
 export const FieldStatus = z.enum(["same", "similar", "different", "missing"]);
 export const MatchField = z.enum(["nameBn", "nameEn", "sex", "birth", "guardian", "phone", "address", "id"]);
@@ -52,7 +53,8 @@ export const RegistrationInput = z.object({
   ageYears: z.string().max(5).optional(),
   ageMonths: z.string().max(4).optional(),
   phone: z.string().max(30).optional(),
-  phoneOwner: z.enum(["self", "family", "other"]).optional(),
+  /** Whose number it is; not "self" needs the related person's name + relationship (open question 23). */
+  phoneOwner: z.enum(["self", "guardian", "family", "other"]).optional(),
   division: z.string().max(60).optional(),
   district: z.string().max(60).optional(),
   upazila: z.string().max(60).optional(),
@@ -81,10 +83,41 @@ export const MatchCandidate = z.object({
 export type MatchCandidate = z.infer<typeof MatchCandidate>;
 
 /* GET /v1/patients/:id/matches — a saved record against its possible matches. */
-export const PatientMatches = z.object({ subject: PatientSummary, linkedTo: PatientSummary.nullable(), candidates: z.array(MatchCandidate), openReview: z.object({ taskId: z.string(), candidateId: z.string().nullable() }).nullable() });
-/* POST /v1/patients/match-preview — an unsaved registration against existing records (the register screen's live check). */
+/** The decision Undo would reverse (open question 17): only its maker or an admin may undo; a Link anyway needs a
+    reason; visits opened on the linked record since are listed (they stay where they are). */
+export const LastDecision = z.object({
+  activity: z.enum(["link", "link-anyway", "review-requested", "checked-different"]),
+  at: z.string(),
+  by: z.object({ id: z.string(), nameBn: z.string(), nameEn: z.string() }).nullable(),
+  canUndo: z.boolean(),
+  reasonRequired: z.boolean(),
+  reasonMin: z.number().int(),
+  visitsSince: z.array(z.object({ encounterId: z.string(), token: z.string(), day: z.string(), status: EncounterStatus })),
+});
+export type LastDecision = z.infer<typeof LastDecision>;
+export const PatientMatches = z.object({
+  subject: PatientSummary, linkedTo: PatientSummary.nullable(), candidates: z.array(MatchCandidate),
+  openReview: z.object({ taskId: z.string(), candidateId: z.string().nullable() }).nullable(),
+  lastDecision: LastDecision.nullable(),
+});
 export type PatientMatches = z.infer<typeof PatientMatches>;
-export const MatchPreviewResponse = z.object({ candidates: z.array(MatchCandidate) });
+/* POST /v1/patients/:id/match-decisions/undo */
+export const UndoRequest = z.object({ reason: z.string().max(500).optional() });
+
+/* POST /v1/patients/match-preview — an unsaved registration against existing records (the register screen's live
+   check). Reduced fields only (open question 19): name, patient no., age and sex; phone, address and guardian are shown
+   once the candidate is opened on the match screen. */
+export const PreviewCandidate = z.object({
+  patient: z.object({ id: z.string(), facilityNo: z.string(), nameBn: z.string(), nameEn: z.string().nullable(), sex: Sex, ageYears: z.number().int().nullable(), ageApprox: z.boolean() }),
+  score: z.number().int(),
+  strong: z.boolean(),
+  conflictCount: z.number().int(),
+  isGuardian: z.boolean(),
+  canLink: z.boolean(),
+});
+export type PreviewCandidate = z.infer<typeof PreviewCandidate>;
+export const MatchPreviewResponse = z.object({ candidates: z.array(PreviewCandidate) });
+export type MatchPreviewResponse = z.infer<typeof MatchPreviewResponse>;
 
 /* POST /v1/patients/:id/match-decisions */
 export const MatchDecision = z.enum(["link", "linkAnyway", "review", "different"]);
@@ -106,7 +139,6 @@ export type MatchDecisionResponse = z.infer<typeof MatchDecisionResponse>;
 /* POST /v1/patients */
 export const RegisterRequest = RegistrationInput.extend({ createVisit: z.boolean().default(false), visitType: z.enum(["new", "follow-up", "report"]).default("new") });
 
-export const EncounterStatus = z.enum(["planned", "arrived", "triaged", "in-progress", "finished", "cancelled", "entered-in-error"]);
 export const QueueColumn = z.enum(["waiting", "vitals", "withDoctor", "done", "noShow"]);
 export const QueueAction = z.enum(["next", "noShow", "call"]);
 export const QueueItem = z.object({

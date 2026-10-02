@@ -1,10 +1,10 @@
 /* Front desk service (slice A1–A3). Every function runs inside a command()/query() transaction, so RLS scopes it to
    the session's tenant. State changes go through @setu/domain: ENCOUNTER for visits, APPROVAL for review Tasks. */
-import type { MatchCandidate, PatientSummary, QueueItem, RegistrationInput } from "@setu/contracts";
+import type { MatchCandidate, PatientSummary, PreviewCandidate, QueueItem, RegistrationInput } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
-  APPROVAL, ENCOUNTER, canLinkDirectly, columnOf, compareRecords, dhakaDay, format, formatToken, frontDeskActions, isCandidate, linkAnywayAllowed, linkBlocked,
-  normalizePhone, parseDob, tokenSequenceName, transition, type EncounterState, type MatchRecord,
+  APPROVAL, ENCOUNTER, LINK_REASON_MIN, canLinkDirectly, columnOf, compareRecords, dhakaDay, format, formatToken, frontDeskActions, isCandidate, linkAnywayAllowed, linkBlocked,
+  normalizePhone, parseDob, tokenSequenceName, transition, undoReasonOk, undoRule, type DeskActivity, type EncounterState, type MatchRecord,
 } from "@setu/domain";
 import type { SessionData } from "../plugins/session.js";
 import { err } from "../errors.js";
@@ -112,12 +112,36 @@ export async function findCandidates(tx: Tx, subject: MatchRecord, excludeId: st
     .map(({ p, c }) => ({ patient: toSummary(p), comparison: c, canLink: canLinkDirectly(c), canLinkAnyway: !linkBlocked(c) && !canLinkDirectly(c) }));
 }
 
-export async function patientMatches(tx: Tx, id: string, now: Date) {
+/** Age in whole years now from a summary (exact birth date, or an approximate age aged forward). */
+function ageNow(p: PatientSummary, now: Date): { years: number | null; approx: boolean } {
+  if (p.birthDate) {
+    const [y, m, d] = p.birthDate.split("-").map(Number) as [number, number, number];
+    let a = now.getUTCFullYear() - y;
+    if (now.getUTCMonth() + 1 < m || (now.getUTCMonth() + 1 === m && now.getUTCDate() < d)) a--;
+    return { years: a, approx: false };
+  }
+  if (p.approxAgeYears != null) {
+    const extra = p.approxAgeAt ? Math.floor((now.getTime() - Date.parse(p.approxAgeAt)) / (365.25 * 864e5)) : 0;
+    return { years: p.approxAgeYears + Math.max(0, extra), approx: true };
+  }
+  return { years: null, approx: false };
+}
+/** The register screen's view of a candidate: name, patient no., age and sex only (open question 19). */
+export const toPreviewCandidate = (c: MatchCandidate, now: Date): PreviewCandidate => {
+  const a = ageNow(c.patient, now);
+  return {
+    patient: { id: c.patient.id, facilityNo: c.patient.facilityNo, nameBn: c.patient.nameBn, nameEn: c.patient.nameEn, sex: c.patient.sex, ageYears: a.years, ageApprox: a.approx },
+    score: c.comparison.score, strong: c.comparison.strong, conflictCount: c.comparison.conflicts.length, isGuardian: c.comparison.isGuardian, canLink: c.canLink,
+  };
+};
+
+export async function patientMatches(tx: Tx, s: SessionData, id: string, now: Date) {
   const p = await getPatient(tx, id);
   const candidates = await findCandidates(tx, toMatchRecord(p), p.id, now);
   const open = await tx.task.findFirst({ where: { kind: REVIEW, focusId: p.id, status: "requested" }, orderBy: { requestedAt: "desc" } });
   const linkedTo = p.linkedToId ? toSummary(await getPatient(tx, p.linkedToId)) : null;
-  return { subject: toSummary(p), linkedTo, candidates, openReview: open ? { taskId: open.id, candidateId: open.candidateId } : null };
+  const { view } = await lastDecision(tx, s, p.id);
+  return { subject: toSummary(p), linkedTo, candidates, openReview: open ? { taskId: open.id, candidateId: open.candidateId } : null, lastDecision: view };
 }
 
 /* ───── decisions: link / link anyway / review / different / undo ───── */
@@ -134,7 +158,7 @@ export async function decide(tx: Tx, s: SessionData, subjectId: string, decision
   const previous = { identityConfidence: subject.identityConfidence, linkedToId: subject.linkedToId };
   const prov = (activity: string, detail: object) => tx.provenance.create({ data: {
     tenantId: s.tenantId, targetType: "Patient", targetId: subject.id, activity, agentId: s.userId, onBehalfOf: s.organizationId,
-    source: "provider_verified", reason, detail: { previous, ...detail } as object,
+    source: "desk_decision", reason, detail: { previous, ...detail } as object,
   } });
 
   if (decision === "different") {
@@ -189,24 +213,53 @@ export async function decide(tx: Tx, s: SessionData, subjectId: string, decision
   return { subject: await getPatient(tx, subject.id), continueWith: candidate, taskId: task.id, conflicts: c.conflicts };
 }
 
-export async function undoDecision(tx: Tx, s: SessionData, subjectId: string, now: Date) {
+/** The last desk decision on a record that Undo would reverse, who made it, whether this user may undo it, and the
+    visits opened on the linked record since (open question 17). Null when there is nothing to undo. */
+export async function lastDecision(tx: Tx, s: SessionData, subjectId: string) {
   const subject = await getPatient(tx, subjectId);
   const last = await tx.provenance.findFirst({ where: { targetType: "Patient", targetId: subject.id, activity: { in: [...DECISION_ACTIVITIES, ...BARRIERS] } }, orderBy: { recorded: "desc" } });
-  if (!last || BARRIERS.includes(last.activity)) throw err(409, "nothing_to_undo", "ফিরিয়ে নেওয়ার মতো কিছু নেই", "There is no decision to undo");
-  const d = (last.detail ?? {}) as { previous?: { identityConfidence: typeof subject.identityConfidence; linkedToId: string | null }; taskId?: string };
-  if (!d.previous) throw err(409, "nothing_to_undo", "ফিরিয়ে নেওয়ার মতো কিছু নেই", "There is no decision to undo");
-  await tx.patient.update({ where: { id: subject.id }, data: { identityConfidence: d.previous.identityConfidence, linkedToId: d.previous.linkedToId } });
+  if (!last || BARRIERS.includes(last.activity) || !(last.detail as { previous?: unknown } | null)?.previous) return { subject, last: null, view: null };
+  const activity = last.activity as DeskActivity;
+  const rule = undoRule(activity, last.agentId, s.userId, s.role);
+  const by = await tx.user.findFirst({ where: { id: last.agentId }, select: { id: true, nameBn: true, nameEn: true } });
+  const target = (last.detail as { candidateId?: string }).candidateId;
+  // Only to someone who may undo, and only this facility's visits (security review M2).
+  const visits = rule.allowed && rule.warnsVisits && target
+    ? await tx.encounter.findMany({ where: { patientId: target, organizationId: s.organizationId, createdAt: { gte: last.recorded } }, orderBy: { createdAt: "asc" }, take: 20 })
+    : [];
+  return {
+    subject, last,
+    view: {
+      activity, at: last.recorded.toISOString(), by: by ?? null, canUndo: rule.allowed, reasonRequired: rule.reasonRequired, reasonMin: LINK_REASON_MIN,
+      visitsSince: visits.map((e) => ({ encounterId: e.id, token: e.token, day: e.tokenDay, status: dash<EncounterState>(e.status) })),
+    },
+  };
+}
+
+export async function undoDecision(tx: Tx, s: SessionData, subjectId: string, reasonRaw: string | undefined, now: Date) {
+  const { subject, last, view } = await lastDecision(tx, s, subjectId);
+  if (!last || !view) throw err(409, "nothing_to_undo", "ফিরিয়ে নেওয়ার মতো কিছু নেই", "There is no decision to undo");
+  if (!view.canUndo) throw err(403, "not_decider", "যিনি সিদ্ধান্ত নিয়েছেন তিনি বা অ্যাডমিন ফিরিয়ে নিতে পারবেন", "Only the person who made this decision, or an admin, can undo it", { reason: "role", canRequest: false });
+  const reason = reasonRaw?.trim() || null;
+  if (!undoReasonOk(view.activity, reason))
+    throw err(400, "reason_too_short", "কমপক্ষে ১০ অক্ষরের কারণ লিখুন", "Give a reason of at least 10 characters", { field: "reason", fields: [{ field: "reason", code: "reason_too_short" }] });
+  const d = last.detail as { previous: { identityConfidence: typeof subject.identityConfidence; linkedToId: string | null }; taskId?: string };
+  // Check-and-set: only if nobody changed the record since we read the decision (security review L3).
+  const n = await tx.patient.updateMany({ where: { id: subject.id, identityConfidence: subject.identityConfidence, linkedToId: subject.linkedToId }, data: { identityConfidence: d.previous.identityConfidence, linkedToId: d.previous.linkedToId } });
+  if (n.count !== 1) throw err(409, "stale", "অন্য কেউ আগেই বদলেছেন — আবার দেখুন", "Someone else changed this record first — refresh");
   if (d.taskId) {
     const t = await tx.task.findFirst({ where: { id: d.taskId } });
     if (t?.status === "requested")
       await tx.task.update({ where: { id: t.id }, data: { status: transition("approval", APPROVAL, "requested", "reject"), decidedById: s.userId, decidedAt: now, decisionNote: "withdrawn" } });
     // An approved link-anyway Task stays approved (APPROVAL has no way back); this undo row records the unlink.
   }
+  // Visits opened on the linked record in between stay where they are (open question 17); the undo records them.
+  const visitsSince = view.visitsSince.map((v) => v.encounterId);
   await tx.provenance.create({ data: {
     tenantId: s.tenantId, targetType: "Patient", targetId: subject.id, activity: "undo", agentId: s.userId, onBehalfOf: s.organizationId,
-    source: "provider_verified", detail: { undoes: last.id, undoneActivity: last.activity, restored: d.previous } as object,
+    source: "desk_decision", reason, detail: { undoes: last.id, undoneActivity: last.activity, restored: d.previous, decidedBy: last.agentId, visitsSince } as object,
   } });
-  return { subject: await getPatient(tx, subject.id), undone: last.activity };
+  return { subject: await getPatient(tx, subject.id), undone: last.activity, reason, visitsSince };
 }
 
 /* ───── registration (A3) ───── */
@@ -230,7 +283,8 @@ export async function registerPatient(tx: Tx, s: SessionData, i: RegistrationInp
     identityConfidence: strong ? "possible_duplicate" : "unverified", identityMethod: "desk",
   } });
   if (i.guardian?.name?.trim())
-    await tx.relatedPerson.create({ data: { tenantId: s.tenantId, patientId: p.id, relationship: i.guardian.relationship?.trim() || "guardian", nameBn: i.guardian.name.trim(), phone: normalizePhone(i.phone), guardianProof: digitsOnly(i.guardian.idNo) || null } });
+    // The phone is stored on the related person only when it is theirs, not the patient's own (open question 23).
+    await tx.relatedPerson.create({ data: { tenantId: s.tenantId, patientId: p.id, relationship: i.guardian.relationship?.trim() || "guardian", nameBn: i.guardian.name.trim(), phone: i.phoneOwner && i.phoneOwner !== "self" ? normalizePhone(i.phone) : null, guardianProof: digitsOnly(i.guardian.idNo) || null } });
   await tx.provenance.create({ data: { tenantId: s.tenantId, targetType: "Patient", targetId: p.id, activity: "register", agentId: s.userId, onBehalfOf: s.organizationId, source: "patient_reported" } });
   return getPatient(tx, p.id);
 }
@@ -354,7 +408,7 @@ export async function unlinkPatient(tx: Tx, s: SessionData, subjectId: string, r
   for (const t of open) await markReviewed(tx, s, t.id, "unlinked", reason, now);
   await tx.provenance.create({ data: {
     tenantId: s.tenantId, targetType: "Patient", targetId: subject.id, activity: "unlink", agentId: s.userId, onBehalfOf: s.organizationId,
-    source: "provider_verified", reason, detail: { previous: { identityConfidence: subject.identityConfidence, linkedToId: from }, taskIds: open.map((t) => t.id) } as object,
+    source: "desk_decision", reason, detail: { previous: { identityConfidence: subject.identityConfidence, linkedToId: from }, taskIds: open.map((t) => t.id) } as object,
   } });
   return { subject: await getPatient(tx, subject.id), taskId: open[0]?.id ?? null, unlinkedFrom: from };
 }
@@ -366,6 +420,6 @@ export async function keepOverride(tx: Tx, s: SessionData, taskId: string, now: 
   const subject = await getPatient(tx, t.focusId);
   if (subject.linkedToId !== t.candidateId) throw err(409, "not_an_open_override", "এটি রিভিউয়ের অপেক্ষায় থাকা লিংক নয়", "This is not a link awaiting review");
   await markReviewed(tx, s, t.id, "kept", null, now);
-  await tx.provenance.create({ data: { tenantId: s.tenantId, targetType: "Patient", targetId: subject.id, activity: "link-reviewed", agentId: s.userId, onBehalfOf: s.organizationId, source: "provider_verified", detail: { taskId: t.id, outcome: "kept" } as object } });
+  await tx.provenance.create({ data: { tenantId: s.tenantId, targetType: "Patient", targetId: subject.id, activity: "link-reviewed", agentId: s.userId, onBehalfOf: s.organizationId, source: "desk_decision", detail: { taskId: t.id, outcome: "kept" } as object } });
   return { subject, taskId: t.id };
 }

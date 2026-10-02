@@ -119,3 +119,87 @@ Still open:
 - **17, 18, 19, 22, 23** (02/10/2026, Kamrul): agreed; scheduled for the start of A4–A5 (18 with an ADR).
 - **20, 24** (02/10/2026, Kamrul): agreed; pre-pilot security pass.
 - **Decided at the start of A1–A3** (02/10/2026, Kamrul): token per branch per day, under-18 guardian blocks the save, same-script name search, queue board with call / next / no-show, no new state machines.
+
+## Slice A4–A5 (vitals, consultation, sign/amend) — decided by Kamrul 02/10/2026 before the slice started
+
+Split into two sessions (D5): **session 1** = A1–A3 follow-ups (17, 18 + ADR 0002, 19, 22, 23), ADR 0003, vitals rules,
+vitals end to end (A4). **Session 2** = clinical models, Rx/sign rules, consultation API and screens, A5 spec.
+
+### Chosen conservatively by Claude — approved by Kamrul 02/10/2026
+25. **Signing offline is disabled** ("Sign when back online"), as in the prototype and round-2 fix #6. DOCUMENT's
+    `offlineSign → queued` stays in the machine but no screen uses it.
+26. **Same medicine twice** (same generic) is a warning that blocks signing until the doctor chooses "Keep both" or
+    Remove (prototype behaviour; the slice prompt calls it a warning).
+27. **Vitals are read-only in the doctor's note.** The prototype's "Edit with reason" is deferred: Observation has no
+    version or state machine yet.
+28. **Care relationship:** a doctor opens a consultation only for a visit at their facility that is assigned to them or
+    unassigned (opening it assigns them). Others get `403 { reason, canRequest }`. "Add to my queue" and "Emergency
+    access" stay hidden until Journey E (break-glass).
+29. **No prices on orders** until price lists exist (A6); the "est. ৳" total is not shown.
+30. **Deferred note sections:** referral, medical certificate and diet templates. Built: complaint, history, exam,
+    vitals (read-only), diagnosis, orders, Rx, advice, follow-up.
+31. **Signing the note finishes the visit** (ENCOUNTER `finish`), so the queue shows Completed.
+32. **New diagnoses are provisional**; the doctor ticks one to make it confirmed (Condition.verificationStatus).
+33. **Who records vitals:** nurse and receptionist, as in the access matrix.
+34. **AI scribe:** the FakeAi adapter returns canned text; no audio is recorded or stored.
+35. **BMDC number on the sign line** only when stored, with "not verified" when `regVerified` is false. Never invented.
+36. **Observation status:** stored as `final` when the server accepts the batch; "preliminary" exists only as the
+    device's pending outbox write. No new state machine.
+
+### Decisions (Kamrul, 02/10/2026)
+- **D1 — amendment through DOCUMENT:** ADR 0003. New event `draft --signAmendment--> amended`, allowed only on a
+  draft that amends another version; in the same transaction v1 `supersede → superseded`. Amendment reason required;
+  v2 keeps a pointer to the version it amends.
+- **D2 — ICD-11 codes:** seed the prototype's 10 codes flagged "unverified, from prototype". Pre-pilot: a clinician
+  verifies codes against the WHO ICD-11 browser; production source = WHO ICD-11 API or a local extract.
+- **D3 — medicines:** seed the prototype's 12 medicines as a synthetic demo list labelled demo; the UI footnote says
+  class matching is a demo check. Pre-pilot: licensed drug database with DGDA numbers + clinician-approved
+  allergy/interaction rules.
+- **D4:** include the interaction-acknowledge step (Clopidogrel + Omeprazole) — blocks signing until acknowledged.
+- **D5:** two sessions (above).
+- **Note for A6:** the OPD bill attaches to the encounter even after signing has finished it.
+
+### Chosen by Claude during session 1 (02/10/2026) — please confirm
+37. **Two impossible limits the prototype does not state:** diastolic < 20 mmHg and SpO₂ < 1 % block the save (the
+    prototype only gives diastolic > 200 and SpO₂ > 100). Everything else is the prototype's table.
+38. **Receptionist-recorded vitals** are stored with source `provider-verified`, as the nurse's are (the access matrix
+    lets receptionists use the vitals station); the Provenance row also records the role. Revisit if only clinical
+    staff should count as provider-verified.
+39. **Measurement time:** the device's "measured at" may be at most 5 minutes ahead of the server and at most 24 hours
+    behind (the outbox keeps offline writes for 24 h); outside that the batch is refused ("check the device clock").
+40. **A second vitals save in the same visit** is a new batch (re-measure), never an edit; the doctor sees the latest.
+41. **Vitals only on an open visit** (waiting, vitals done, with doctor). The first batch moves the token from
+    Waiting to Vitals done (ENCOUNTER `triage`).
+42. **Observation codes** are Setu keys (`bp-systolic`, `pulse`, `body-temperature`, …), not LOINC; mapping to LOINC
+    comes with the FHIR export and must be checked by a clinician then. No code was invented.
+43. **Undo after an admin decision:** the desk cannot undo an admin's "Send for review" (only its maker or an admin).
+44. **E2E Test Clinic nurse:** user 01799000004 (Test Nurse) added to the seed for the vitals specs.
+
+### From the security and clinical-safety reviews of session 1 (02/10/2026)
+Fixed in the session: previous vitals and the undo dialog's visit list are limited to this facility (45); the visit
+list is only sent to someone who may undo; undo and vitals saves use check-and-set (409 if changed meanwhile); view
+audits name the patients and earlier batches revealed; a refused offline write keeps no patient details on the device,
+refused items stay listed 7 days and are cleared at sign-out, and a write not sent within 24 h becomes a listed
+refusal instead of disappearing; systolic and diastolic are flagged separately; glucose above 40 is read as mg/dL
+(blocked with a unit message) and 25–40 needs a "re-checked" tick (also enforced by the API); °C in the °F box and
+feet in the cm box get unit messages; an impossible BMI (8–80) blocks on height; the "current" batch is the most
+recently measured; entered-in-error rows are excluded; the source shown is read from Provenance; adult BMI labels are
+hidden under 18 with an "adult ranges" note; "give sugar" was removed from the low-glucose text (receptionists use
+this screen); the low end of impossible ranges says "if confirmed, tell the doctor now"; the `signAmendment` guard
+moved into `@setu/domain` `signDocument` (ADR 0003 updated).
+
+45. **Previous vitals across facilities:** a visit shows earlier readings from this facility only, although the
+    patient record is tenant-wide (decision 21). Should a tenant's other facilities' readings show (with an ADR)?
+46. **Needs a clinician (pre-pilot):** critical-low thresholds (suggested: systolic < 90 or < 80, pulse < 40,
+    temperature < 95 or < 93 °F as "tell the doctor now"); a critical-high glucose (≥ 16.7 or ≥ 20 mmol/L); child and
+    infant ranges (today adult limits apply to everyone, with a note under 18); whether a confirmed extreme value
+    beyond the impossible limits (e.g. systolic < 40 in shock, a baby under 1 kg) may be saved.
+47. **Needs a decision:** critical values entered offline reach the doctor only after sync; should a critical value
+    raise an active alert to the doctor, or require a "told the doctor" confirmation on the vitals screen?
+48. **Doctor sees the latest batch of a visit** (40): show "earlier in this visit: critical" too? (session 2, consult screen)
+49. **Undo with visits opened in between** (clinical review): the visits stay on the linked record, as decided in 17;
+    the reviewer suggests also opening a review Task (or refusing the undo until they are moved). Your call.
+50. **Doctor access to vitals:** any doctor at the facility can read a visit's vitals today; session 2 applies the
+    care-relationship rule (28) to the consultation and this read.
+51. **Branch:** visits and vitals use the organisation's first branch (gap 8, "branch choice"); real branch isolation
+    needs the branch on the session.

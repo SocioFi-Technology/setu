@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { age, ageLabel, date, dose, parseDate, phone, taka, takaFromPaisa, toBn, toEn, words } from "./format.js";
+import { age, ageLabel, date, dateTime, dose, parseDate, phone, taka, takaFromPaisa, time, toBn, toEn, words } from "./format.js";
 
 describe("digits", () => {
   it("converts both ways", () => {
@@ -55,5 +55,12 @@ describe("dose", () => {
     expect(dose("1-0-1")).toMatchObject({ ok: true, perDay: 2 });
     expect(dose("½+½+½+½")).toMatchObject({ ok: true, perDay: 2 });
     expect(dose("1+1").ok).toBe(false);
+  });
+});
+describe("time", () => {
+  it("HH:mm and dd/mm/yyyy HH:mm, in Bangla or Latin digits", () => {
+    const d = new Date(2026, 9, 2, 9, 5);
+    expect(time(d)).toBe("09:05");
+    expect(dateTime(d, true)).toBe("০২/১০/২০২৬ ০৯:০৫");
   });
 });

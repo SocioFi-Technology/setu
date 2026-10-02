@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 02/10/2026 (slice A1–A3 done)
+# Handover to Claude Code — state of the project on 02/10/2026 (slice A1–A3 done; A4–A5 session 1 of 2 done)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -36,9 +36,37 @@ Status: **done**. Search, duplicate review, registration and queue work end to e
 - **Hands-on walkthrough (02/10/2026)** as receptionist 01711000001 through search → duplicate review → register → queue in the browser; 10 issues found and fixed (see commit "A1-A3: fixes from the hands-on walkthrough").
 - Decisions and rules chosen in this slice: `docs/open-questions.md` — please read and confirm.
 
+## Done (slice A4–A5, session 1 of 2, 02/10/2026) — follow-ups + vitals (A4) ✅
+Plan agreed with Kamrul: two sessions (decision D5). Decisions D1–D4 and items 25–44: `docs/open-questions.md` (A4–A5).
+- **A1–A3 follow-ups (open questions 17, 18, 19, 22, 23):**
+  - Undo of a desk decision: only its maker or an admin; undoing a "Link anyway" needs a reason (≥10); a dialog lists
+    the visits opened on the linked record since (they stay there). `GET /v1/patients/:id/matches` returns `lastDecision`.
+  - ADR 0002: Provenance source `desk-decision` for link / link-anyway / review / different / undo / unlink / reviewed.
+  - Match preview on the register screen returns name, patient no., age and sex only.
+  - Refused offline writes show in the top bar as "N couldn't sync — check" with the server's reason (`RefusedSync`).
+  - No own phone: phone owner Guardian / Family / Other needs that person's name and relationship; stored on the
+    RelatedPerson.
+- **ADR 0003** (D1): DOCUMENT gains `draft --signAmendment--> amended`; used in session 2.
+- **Vitals (A4):** `@setu/domain` `vitals.ts` (impossible / critical / high / low, BMI Asian cut-offs) shared by screen
+  and API; `Observation` model (append-only for `setu_app`, RLS); `GET /v1/vitals/worklist`, `GET|POST
+  /v1/encounters/:id/vitals`; first batch moves the token Waiting → Vitals done; screen `fd/vitals` (worklist → entry),
+  outbox when offline; queue has a "Record vitals" shortcut for nurse/receptionist. Seed: Rahima Khatun's 12/08/2026
+  visit with vitals (Green Life + E2E), E2E nurse 01799000004.
+- **ADR 0003 guard** in `@setu/domain` `signDocument` (`documents.ts`): only a draft that amends another version, with
+  a reason, signs to `amended`.
+- **Reviews:** security (pass, 4 medium / 4 low) and clinical safety (glucose mg/dL slip, BP flags, offline ordering,
+  unit hints, BMI, child labels, outbox expiry) — fixes landed; the rest is `docs/open-questions.md` 45–51.
+- **Tests:** domain 77, api 61 (incl. 13 vitals + cross-tenant, 4 follow-ups), i18n 3, contracts 2; Playwright 29
+  (13 shell + 12 `a1-a3` + 4 `a4`), green twice in a row on 02/10/2026.
+
 ## How to run the journeys on this PC
 - Playwright's bundled Chromium is not installed; use the installed Chrome: `cd e2e` then `CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" pnpm exec playwright test -c pw.local.config.ts`.
-- Older dev servers were holding ports 3000/3001 on 02/10/2026; a fresh staff server was run on 3100 (`STAFF_URL=http://localhost:3100`). Stop old `next dev` processes before `pnpm dev`.
+- Older dev servers were holding ports 3000/3001/3100 on 02/10/2026 (the one on 3100 had crashed). A journey server can
+  now run beside them with its own build folder: `cd apps/staff` then `NEXT_DIST_DIR=.next-e2e pnpm exec next dev -p 3200`,
+  and `STAFF_URL=http://localhost:3200` for Playwright. Next rewrites `apps/staff/tsconfig.json` and `next-env.d.ts`
+  for that folder when it starts: restore them (`git checkout -- apps/staff/tsconfig.json apps/staff/next-env.d.ts`)
+  before committing. Stop old `next dev` processes before `pnpm dev`.
+- API contract test files run one at a time (`apps/api/vitest.config.ts`): they share the E2E family.
 - **Tests never touch the demo clinic.** The API contract tests and the Playwright journeys that create patients or visits sign in to the seeded **E2E Test Clinic** (`t_e2e`, users 01799000001 receptionist / …02 doctor / …09 owner / …10 admin, prefix `E2E-`, same walkthrough family). Playwright's `e2e/global-setup.ts` runs `pnpm db:reset-e2e` (restores the family, closes open reviews) and warms the dev server. The cross-tenant fixtures in the Hospital Lite demo are deleted after each API run. Green Life (`t_greenlife`) stays at its 8 seeded patients and an empty queue; the test patients made before 02/10/2026 evening were removed.
 - Shell specs still sign in as Green Life users; they only read.
 
@@ -57,11 +85,21 @@ Status: **done**. Search, duplicate review, registration and queue work end to e
     - composite `(tenantId, id)` foreign keys for Patient.linkedToId, Task.focusId/candidateId, Provenance.targetId and Encounter.patientId (defence in depth beside RLS);
     - `pnpm db:migrate` must stop sending the `setu_app` password in plain text (SCRAM hash, or statement logging off);
     - together with gap 3 (argon2id) and gap 4 (PIN tries in Redis).
+12. **Pre-pilot clinical content (decisions D2, D3 of 02/10/2026):**
+    - ICD-11: a clinician verifies the 10 seeded codes against the WHO ICD-11 browser; production source = WHO ICD-11
+      API or a local extract.
+    - Medicines: a licensed drug database with DGDA numbers + clinician-approved allergy/interaction rules; the demo
+      list's class matching is a demo check only.
+    - Vitals limits: a clinician reviews `packages/domain/src/vitals.ts` (adult-only; no paediatric ranges yet).
 11. **Patients are per tenant** (decided 02/10/2026, open question 21): one record shared across an owner's branches; between different owners only through Connected Care with consent (Journey E), never by default.
 
 ## Next (in order)
 1. ~~`/slice A1-A3`~~ — done 02/10/2026.
-2. `/slice A4-A5` — vitals, consultation, sign/amend. **Start with the agreed A1–A3 follow-ups** (open questions 17, 18 + ADR, 19, 22, 23 — see `docs/open-questions.md`, "Decisions of 02/10/2026").
+2. `/slice A4-A5` — **session 1 done 02/10/2026** (follow-ups + vitals). **Session 2 next:** plan steps 5–10 —
+   AllergyIntolerance, Composition (versions, ADR 0003), Condition, ServiceRequest, MedicationRequest, demo ICD-11 and
+   drug lists; Rx/sign rules (`signBlockers`: allergy, same medicine, same class, interaction ack); consultation API
+   (draft, sign with PIN in the same transaction, amend); screens `cons/draft|signed|amended` with "/" → Rx search;
+   `e2e/journeys/a5.spec.ts`; reviews. The plan text is in this session's transcript and `docs/open-questions.md` 25–36.
 3. `/slice A6-A7` — billing, payments (FakeProvider), receipt PDF (+ gap 2).
 4. `/slice A8-A11` — lab.
 5. `/slice A12-A13` — doctor app layout, printing; run all of Journey A.

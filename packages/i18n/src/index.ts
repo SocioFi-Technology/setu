@@ -5,11 +5,14 @@ import en from "../locales/en.json" with { type: "json" };
 
 export type Lang = "bn" | "en";
 import frontDeskApp from "../locales/app/frontDeskApp.json" with { type: "json" };
+import shellApp from "../locales/app/shellApp.json" with { type: "json" };
+import vitalsApp from "../locales/app/vitalsApp.json" with { type: "json" };
 type Table = Record<string, Record<string, string>>;
 const tables: Record<Lang, Table> = { bn: { ...(bn as Table) }, en: { ...(en as Table) } };
 
 /* App strings the design export does not carry, kept as [bn, en] pairs per key (one file per namespace). */
-const APP: Record<string, Record<string, [string, string]>> = { frontDeskApp: frontDeskApp as unknown as Record<string, [string, string]> };
+type Pairs = Record<string, [string, string]>;
+const APP: Record<string, Pairs> = { frontDeskApp: frontDeskApp as unknown as Pairs, shellApp: shellApp as unknown as Pairs, vitalsApp: vitalsApp as unknown as Pairs };
 for (const [n, pairs] of Object.entries(APP)) {
   tables.bn[n] = Object.fromEntries(Object.entries(pairs).map(([k, v]) => [k, v[0]]));
   tables.en[n] = Object.fromEntries(Object.entries(pairs).map(([k, v]) => [k, v[1]]));

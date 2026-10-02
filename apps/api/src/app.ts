@@ -10,6 +10,7 @@ import { sessionPlugin } from "./plugins/session.js";
 import { authRoutes } from "./routes/auth.js";
 import { frontDeskRoutes } from "./routes/frontdesk.js";
 import { metaRoutes } from "./routes/meta.js";
+import { vitalsRoutes } from "./routes/vitals.js";
 
 export async function buildApp() {
   /* Request logs never carry the query string: search terms are phone numbers and names (security review A1–A3). */
@@ -30,5 +31,6 @@ export async function buildApp() {
   await app.register(metaRoutes);
   await app.register(authRoutes);
   await app.register(frontDeskRoutes);
+  await app.register(vitalsRoutes);
   return app;
 }
