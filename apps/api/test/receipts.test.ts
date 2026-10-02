@@ -183,6 +183,14 @@ describe("receipt template", () => {
     expect(part).toContain("MONEY RECEIPT");
     expect(part).toContain("Amount received in words: One hundred taka only");
   });
+  it("ADR 0005: a voided bill's copy says VOID; a line not billed here shows its reason and no amount", () => {
+    const p = { copy: 0, reason: null, printedAt: new Date(), printedBy };
+    const lines = [...snapshot.lines, { nameBn: "SGPT", nameEn: "SGPT", qty: 1, unitPaisa: 0, vatRateBp: 0, grossPaisa: 0, discountPaisa: 0, netPaisa: 0, vatPaisa: 0, totalPaisa: 0, notBilledReason: "Sent to the partner lab" }];
+    const html = receiptHtml({ ...base, voided: true, snapshot: { ...snapshot, lines }, print: p });
+    expect(html).toContain("বাতিল · VOID");
+    expect(html).toContain("Not billed here — Sent to the partner lab");
+    expect(receiptHtml({ ...base, print: p })).not.toContain("VOID");
+  });
   it("prints the Mushak-6.3 title and BIN only when the facility has a BIN", () => {
     const p = { copy: 0, reason: null, printedAt: new Date(), printedBy };
     expect(receiptHtml({ ...base, print: p })).not.toContain("Mushak-6.3");

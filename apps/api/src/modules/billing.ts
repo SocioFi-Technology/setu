@@ -15,11 +15,11 @@
    - a pending wallet amount is reserved, so confirmations can never overpay;
    - provider callbacks are recorded once; a repeat is a no-op, an out-of-order or backwards one is refused, and money
      reported on a failed or superseded attempt opens a reconciliation Task instead of being applied. */
-import type { ApprovalItem, ApprovalList, BillingWorklist, ChargeDefinitionList, DiscountRequest, InvoiceView, NewPaymentRequest, PaymentView, ProviderCallbackResponse } from "@setu/contracts";
+import type { ApprovalItem, ApprovalList, BillingWorklist, ChargeDefinitionList, DiscountRequest, InvoiceView, NewPaymentRequest, PaymentView, ProviderCallbackResponse, ReconcileItem, ReconcileList } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
   APPROVAL, INVOICE, PAYMENT, approvalBlockers, billTotals, checkNewPayment, decideProviderEvent, dhakaDay, discountDecision, discountLimit, discountToPaisa,
-  invoiceEventAfterConfirm, isWallet, issueBlockers, paidBy, paymentSummary, transition, type BillingSettings, type DiscountCategory, type InvoiceState,
+  invoiceEventAfterConfirm, isWallet, issueBlockers, notBilledBlockers, paidBy, paymentSummary, reconcileApplyBlockers, syncOrderLines, transition, voidBlockers, type BillingSettings, type DiscountCategory, type InvoiceState,
   type PaymentMethod, type PaymentRow, type PaymentState, type ProviderEventKind,
 } from "@setu/domain";
 import { payments as provider, type ProviderWebhook } from "../adapters/payments/index.js";
@@ -34,6 +34,10 @@ const undash = <T extends string>(s: string) => s.replace(/-/g, "_") as T;
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 export const DISCOUNT_TASK = "discount-approval";
 export const RECONCILE_TASK = "payment-reconciliation";
+/** decision 98: "Not billed here" on an unpriced order line (ADR 0005) */
+export const BILL_ELSEWHERE_TASK = "bill-elsewhere";
+const APPROVAL_KINDS = [DISCOUNT_TASK, BILL_ELSEWHERE_TASK];
+const OPEN_BILL = { notIn: ["cancelled", "entered_in_error"] as ("cancelled" | "entered_in_error")[] };
 /** Visits whose orders are billed: placed and not revoked or declined. */
 const BILLED_ORDER_STATES = ["active", "centre_chosen", "accepted", "partially_accepted", "in_progress", "partially_complete", "complete"] as const;
 const WRITE_ROLES = ["cashier", "owner", "admin"];
@@ -49,6 +53,8 @@ type Line = NonNullable<Awaited<ReturnType<Tx["chargeItem"]["findFirst"]>>>;
 type Pay = NonNullable<Awaited<ReturnType<Tx["payment"]["findFirst"]>>>;
 type TaskRow = NonNullable<Awaited<ReturnType<Tx["task"]["findFirst"]>>>;
 interface DiscountDetail { amountPaisa: number; category: DiscountCategory; reason: string; subtotalPaisa: number; limitPaisa: number; invoiceRev: number }
+interface NotBilledDetail { lineId: string; reason: string; invoiceRev: number }
+interface ReconcileDetail { providerRef: string | null; trxId: string | null; amountPaisa: number | null; paymentAmountPaisa: number; invoiceId: string; resolution?: { action: "applied" | "resolved"; note: string | null; by: string; at: string } }
 
 export function requireWriter(s: SessionData) { if (!WRITE_ROLES.includes(s.role)) throw readOnlyRole(); }
 
@@ -75,19 +81,34 @@ export async function invoiceHere(tx: Tx, s: SessionData, id: string, lock = fal
   if (!inv) throw notFound();
   return inv;
 }
-const requestedTask = (tx: Tx, invoiceId: string) => tx.task.findFirst({ where: { kind: DISCOUNT_TASK, focusId: invoiceId, status: "requested" } });
+/** Any approval still requested on the bill (discount or "Not billed here"): lines are locked and Issue is refused. */
+const requestedTask = (tx: Tx, invoiceId: string) => tx.task.findFirst({ where: { kind: { in: APPROVAL_KINDS }, focusId: invoiceId, status: "requested" } });
+/** The visit's placed orders that belong on the bill, against the bill's order lines (ADR 0005, decision 99 prep). */
+async function ordersDiff(tx: Tx, inv: Inv) {
+  const [orders, lines] = await Promise.all([
+    tx.serviceRequest.findMany({ where: { encounterId: inv.encounterId, status: { in: [...BILLED_ORDER_STATES] } }, orderBy: { createdAt: "asc" } }),
+    tx.chargeItem.findMany({ where: { invoiceId: inv.id, source: "order" } }),
+  ]);
+  return { orders, ...syncOrderLines(lines.map((l) => ({ id: l.id, sourceId: l.sourceId })), orders.map((o) => o.id)) };
+}
 
 /* ───── views ───── */
 export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<InvoiceView> {
-  const [lines, pays, e, org, tasks] = await Promise.all([
+  const [lines, pays, e, org, tasks, lineTasks, chain] = await Promise.all([
     tx.chargeItem.findMany({ where: { invoiceId: inv.id }, orderBy: { position: "asc" } }),
     tx.payment.findMany({ where: { invoiceId: inv.id }, orderBy: { createdAt: "asc" } }),
     encounterHere(tx, s, inv.encounterId),
     orgOf(tx, s),
     tx.task.findMany({ where: { kind: DISCOUNT_TASK, focusId: inv.id }, orderBy: { requestedAt: "desc" }, take: 1 }),
+    tx.task.findMany({ where: { kind: BILL_ELSEWHERE_TASK, focusId: inv.id }, orderBy: { requestedAt: "desc" } }),
+    tx.invoice.findMany({ where: { id: { in: [inv.replacesId, inv.replacedById].filter((x): x is string => Boolean(x)) } }, select: { id: true, number: true } }),
   ]);
   const task = tasks[0] ?? null;
-  const who = await people(tx, [inv.discountAppliedById, inv.issuedById, e.practitionerId, task?.requestedById, task?.decidedById, ...pays.map((p) => p.createdById)]);
+  const who = await people(tx, [inv.discountAppliedById, inv.issuedById, inv.voidedById, e.practitionerId, task?.requestedById, task?.decidedById, ...pays.map((p) => p.createdById), ...lineTasks.flatMap((t) => [t.requestedById, t.decidedById])]);
+  const lineTaskById = new Map(lineTasks.map((t) => [t.id, t]));
+  const od = inv.status === "draft" ? await ordersDiff(tx, inv) : null;
+  const ordersChanged = Boolean(od && od.remove.length + od.add.length > 0);
+  const ref = (id: string | null) => (id ? chain.find((c) => c.id === id) ?? { id, number: null } : null);
   const rows = pays.map(toRow);
   const discountTask = inv.discountTaskId ? (task?.id === inv.discountTaskId ? task : await tx.task.findFirst({ where: { id: inv.discountTaskId } })) : null;
   return {
@@ -99,16 +120,30 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
             approvedBy: discountTask?.decidedById ? (await people(tx, [discountTask.decidedById]))(discountTask.decidedById) : null }
         : null,
       createdAt: inv.createdAt.toISOString(), issuedAt: iso(inv.issuedAt), issuedBy: inv.issuedById ? who(inv.issuedById) : null,
+      void: inv.status === "entered_in_error" && inv.voidReason && inv.voidedAt && inv.voidedById ? { reason: inv.voidReason, at: inv.voidedAt.toISOString(), by: who(inv.voidedById) } : null,
+      replaces: ref(inv.replacesId), replacedBy: ref(inv.replacedById),
     },
     encounter: { ...toVitalsEncounter(e), practitioner: e.practitionerId ? who(e.practitionerId) : null },
     lines: lines.map((l) => ({
       id: l.id, position: l.position, source: l.source, sourceId: l.sourceId, code: l.code, nameEn: l.nameEn, nameBn: l.nameBn, unitPaisa: l.unitPaisa,
       qty: l.qty, vatRateBp: l.vatRateBp, grossPaisa: l.grossPaisa, discountPaisa: l.discountPaisa, netPaisa: l.netPaisa, vatPaisa: l.vatPaisa, totalPaisa: l.totalPaisa,
       editable: inv.status === "draft" && l.source === "desk",
+      notBilled: l.notBilledTaskId && l.notBilledReason && l.notBilledAt
+        ? { reason: l.notBilledReason, at: l.notBilledAt.toISOString(), approvedBy: (() => { const t = lineTaskById.get(l.notBilledTaskId!); return t?.decidedById ? who(t.decidedById) : null; })() }
+        : null,
     })),
     approval: task ? toApprovalView(task, who) : null,
     discountLimitPaisa: discountLimit(inv.subtotalPaisa, settingsOf(org)),
-    issueBlockers: inv.status === "draft" ? issueBlockers({ lineCount: lines.length, unpricedCount: lines.filter((l) => l.unitPaisa === null).length, pendingApproval: task?.status === "requested" }) : [],
+    issueBlockers: inv.status === "draft" ? issueBlockers({
+      lineCount: lines.length, unpricedCount: lines.filter((l) => l.unitPaisa === null && !l.notBilledTaskId).length,
+      pendingApproval: task?.status === "requested" || lineTasks.some((t) => t.status === "requested"), ordersChanged,
+    }) : [],
+    lineApprovals: lineTasks.map((t) => {
+      const d = t.detail as unknown as NotBilledDetail;
+      return { taskId: t.id, lineId: d.lineId, status: t.status, reason: d.reason, requestedBy: who(t.requestedById), requestedAt: t.requestedAt.toISOString(),
+        decidedBy: t.decidedById ? who(t.decidedById) : null, decidedAt: iso(t.decidedAt), decisionNote: t.decisionNote };
+    }),
+    ordersChanged,
     payments: pays.map((p) => toPaymentView(p, who)),
     summary: paymentSummary(inv.totalPaisa, rows),
     paidBy: paidBy(rows),
@@ -116,9 +151,11 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
   };
 }
 function toApprovalView(t: TaskRow, who: (id: string) => { id: string; nameBn: string; nameEn: string }) {
-  const d = t.detail as unknown as DiscountDetail;
+  const d = t.detail as unknown as DiscountDetail & NotBilledDetail;
+  const discount = t.kind === DISCOUNT_TASK;
   return {
-    taskId: t.id, status: t.status, amountPaisa: d.amountPaisa, category: d.category, reason: d.reason, subtotalPaisa: d.subtotalPaisa, limitPaisa: d.limitPaisa,
+    taskId: t.id, status: t.status, amountPaisa: discount ? d.amountPaisa : 0, category: discount ? d.category : null, reason: d.reason,
+    subtotalPaisa: discount ? d.subtotalPaisa : 0, limitPaisa: discount ? d.limitPaisa : 0,
     requestedBy: who(t.requestedById), requestedAt: t.requestedAt.toISOString(),
     decidedBy: t.decidedById ? who(t.decidedById) : null, decidedAt: iso(t.decidedAt), decisionNote: t.decisionNote,
   };
@@ -135,8 +172,8 @@ function toPaymentView(p: Pay, who: (id: string) => { id: string; nameBn: string
 export async function billingWorklist(tx: Tx, s: SessionData, now: Date): Promise<BillingWorklist> {
   const branch = await branchOf(tx, s);
   const rows = await tx.encounter.findMany({ where: { organizationId: s.organizationId, branchId: branch.id, tokenDay: dhakaDay(now), status: "finished" }, include: { patient: true }, orderBy: { tokenNo: "asc" } });
-  const invs = await tx.invoice.findMany({ where: { encounterId: { in: rows.map((r) => r.id) }, status: { not: "cancelled" } } });
-  const pending = new Set((await tx.task.findMany({ where: { kind: DISCOUNT_TASK, status: "requested", focusId: { in: invs.map((i) => i.id) } }, select: { focusId: true } })).map((t) => t.focusId));
+  const invs = await tx.invoice.findMany({ where: { encounterId: { in: rows.map((r) => r.id) }, status: OPEN_BILL } });
+  const pending = new Set((await tx.task.findMany({ where: { kind: { in: APPROVAL_KINDS }, status: "requested", focusId: { in: invs.map((i) => i.id) } }, select: { focusId: true } })).map((t) => t.focusId));
   const byEnc = new Map(invs.map((i) => [i.encounterId, i]));
   const who = await people(tx, rows.map((r) => r.practitionerId));
   // Newest visit first; settled bills go to the end.
@@ -183,8 +220,8 @@ async function recompute(tx: Tx, inv: Inv, discountPaisa: number, patch: Partial
 export async function createInvoice(tx: Tx, s: SessionData, encounterId: string, now: Date): Promise<{ inv: Inv; created: boolean; patientId: string }> {
   requireWriter(s);
   const e = await encounterHere(tx, s, encounterId);
-  const existing = await tx.invoice.findFirst({ where: { encounterId: e.id, status: { not: "cancelled" } } });
-  if (existing) return { inv: existing, created: false, patientId: e.patientId };
+  const existing = await tx.invoice.findFirst({ where: { encounterId: e.id, status: OPEN_BILL } });
+  if (existing) return { inv: await refreshIfPossible(tx, s, existing), created: false, patientId: e.patientId };
   if (e.status !== "finished") throw err(409, "visit_not_finished", "ডাক্তার নোটে স্বাক্ষর করার পর বিল হবে", "The bill is made after the doctor signs the note", { field: "encounter" });
   const defs = await tx.chargeItemDefinition.findMany({ where: { organizationId: s.organizationId, active: true } });
   const byCode = new Map(defs.map((d) => [d.code, d]));
@@ -201,8 +238,10 @@ export async function createInvoice(tx: Tx, s: SessionData, encounterId: string,
     }),
   ];
   const t = billTotals(lines.map((l, i) => ({ key: String(i), unitPaisa: l.unitPaisa ?? 0, qty: 1, vatRateBp: l.vatRateBp })), 0);
+  // ADR 0005: a bill made after a void records which bill it replaces.
+  const replaced = await tx.invoice.findFirst({ where: { encounterId: e.id, status: "entered_in_error", replacedById: null }, orderBy: { voidedAt: "desc" } });
   const inv = await tx.invoice.create({ data: {
-    tenantId: s.tenantId, organizationId: s.organizationId, branchId: e.branchId, patientId: e.patientId, encounterId: e.id, createdById: s.userId, statusAt: now,
+    tenantId: s.tenantId, organizationId: s.organizationId, branchId: e.branchId, patientId: e.patientId, encounterId: e.id, createdById: s.userId, statusAt: now, replacesId: replaced?.id ?? null,
     subtotalPaisa: t.subtotalPaisa, discountPaisa: 0, netPaisa: t.netPaisa, vatPaisa: t.vatPaisa, totalPaisa: t.totalPaisa,
   } });
   for (const [i, l] of lines.entries()) {
@@ -211,6 +250,40 @@ export async function createInvoice(tx: Tx, s: SessionData, encounterId: string,
       grossPaisa: c.grossPaisa, discountPaisa: 0, netPaisa: c.netPaisa, vatPaisa: c.vatPaisa, totalPaisa: c.totalPaisa } });
   }
   return { inv, created: true, patientId: e.patientId };
+}
+
+/** Bring a draft's order lines in line with the visit's placed orders — only when nothing on the bill depends on the
+    current lines (no discount applied, no approval requested); otherwise the view says ordersChanged and Issue waits. */
+async function syncDraft(tx: Tx, s: SessionData, inv: Inv): Promise<Inv> {
+  const d = await ordersDiff(tx, inv);
+  if (!d.remove.length && !d.add.length) return inv;
+  if (inv.discountPaisa > 0 || (await requestedTask(tx, inv.id))) return inv;
+  if (d.remove.length) await tx.chargeItem.deleteMany({ where: { id: { in: d.remove }, invoiceId: inv.id } });
+  const defs = await tx.chargeItemDefinition.findMany({ where: { organizationId: s.organizationId, active: true, kind: "test" } });
+  const byCode = new Map(defs.map((x) => [x.code, x]));
+  const last = await tx.chargeItem.findFirst({ where: { invoiceId: inv.id }, orderBy: { position: "desc" }, select: { position: true } });
+  let pos = last?.position ?? 0;
+  for (const o of d.orders.filter((x) => d.add.includes(x.id))) {
+    const def = byCode.get(`test:${o.testCode}`);
+    await tx.chargeItem.create({ data: {
+      tenantId: s.tenantId, invoiceId: inv.id, position: ++pos, addedById: s.userId, source: "order", sourceId: o.id, definitionId: def?.id ?? null, code: def?.code ?? `test:${o.testCode}`,
+      nameEn: def?.nameEn ?? o.nameEn, nameBn: def?.nameBn ?? o.nameBn, unitPaisa: def?.unitPaisa ?? null, vatRateBp: def?.vatRateBp ?? 0,
+      ...(def ? lineAmounts(def.unitPaisa, 1, def.vatRateBp) : { qty: 1 }),
+    } });
+  }
+  return recompute(tx, inv, 0);
+}
+async function refreshIfPossible(tx: Tx, s: SessionData, inv: Inv): Promise<Inv> {
+  if (inv.status !== "draft" || !WRITE_ROLES.includes(s.role)) return inv;
+  await tx.$queryRaw`SELECT 1 FROM "Invoice" WHERE "id" = ${inv.id} FOR UPDATE`;
+  return syncDraft(tx, s, (await tx.invoice.findFirst({ where: { id: inv.id } }))!);
+}
+/** POST /v1/invoices/:id/refresh-orders — the screen calls it when the view says the orders changed. */
+export async function refreshOrders(tx: Tx, s: SessionData, id: string, rev: number): Promise<{ inv: Inv; changed: boolean }> {
+  const inv = await editableDraft(tx, s, id, rev);
+  if (inv.discountPaisa > 0) throw discountFirst();
+  const next = await syncDraft(tx, s, inv);
+  return { inv: next, changed: next.rev !== inv.rev };
 }
 
 async function editableDraft(tx: Tx, s: SessionData, id: string, rev: number): Promise<Inv> {
@@ -294,6 +367,28 @@ export async function requestDiscount(tx: Tx, s: SessionData, id: string, req: D
   return { inv, outcome: "approval-requested", taskId: task.id, amountPaisa };
 }
 
+/** decision 98: ask to leave an unpriced order line out of this bill ("Not billed here") — an APPROVAL Task, nothing
+    excluded until the owner or an admin approves; the order stays active. */
+export async function requestNotBilled(tx: Tx, s: SessionData, id: string, lineId: string, reason: string, rev: number, now: Date): Promise<{ inv: Inv; taskId: string; line: Line }> {
+  const inv = await editableDraft(tx, s, id, rev);
+  const line = await tx.chargeItem.findFirst({ where: { id: lineId, invoiceId: inv.id } });
+  if (!line) throw notFound();
+  const b = notBilledBlockers({ line: { source: line.source, unitPaisa: line.unitPaisa, notBilled: Boolean(line.notBilledTaskId) }, reason, invoiceStatus: "draft", requested: false });
+  if (b.length) {
+    const msg: Record<string, [string, string]> = {
+      not_an_order_line: ["শুধু ডাক্তারের অর্ডারের লাইনে চাওয়া যায়", "Only a line from the doctor's order can be left out"],
+      line_has_price: ["এই সেবার মূল্য আছে — বিলে থাকবে", "This line has a price — it stays on the bill"],
+      already_not_billed: ["এই লাইন আগেই বাদ দেওয়া হয়েছে", "This line is already not billed here"],
+      reason_too_short: ["কারণ লিখুন (অন্তত ১০ অক্ষর)", "Write a reason (at least 10 characters)"],
+    };
+    const [bn, en] = msg[b[0]!] ?? ["অনুরোধ করা যায় না", "Cannot be requested"];
+    throw err(b[0] === "reason_too_short" ? 400 : 409, b[0]!, bn, en, { field: b[0] === "reason_too_short" ? "reason" : "line" });
+  }
+  const detail: NotBilledDetail = { lineId: line.id, reason: reason.trim(), invoiceRev: inv.rev };
+  const task = await tx.task.create({ data: { tenantId: s.tenantId, kind: BILL_ELSEWHERE_TASK, status: "requested", focusId: inv.id, candidateId: line.id, reason: reason.trim(), detail: detail as object, requestedById: s.userId, requestedAt: now } });
+  return { inv, taskId: task.id, line };
+}
+
 export async function removeDiscount(tx: Tx, s: SessionData, id: string, rev: number): Promise<Inv> {
   const inv = await editableDraft(tx, s, id, rev);
   if (inv.discountPaisa === 0) throw err(409, "no_discount", "এই বিলে ছাড় নেই", "This bill has no discount");
@@ -309,8 +404,12 @@ async function approvalItem(tx: Tx, s: SessionData, t: TaskRow, now: Date): Prom
   const here = (await tx.invoice.findMany({ where: { organizationId: s.organizationId }, select: { id: true } })).map((i) => i.id);
   const mine = await tx.task.findMany({ where: { kind: DISCOUNT_TASK, requestedById: t.requestedById, focusId: { in: here }, requestedAt: { gte: new Date(`${day}T00:00:00+06:00`) } }, select: { detail: true } });
   const who = await people(tx, [t.requestedById, t.decidedById]);
+  const lineId = t.kind === BILL_ELSEWHERE_TASK ? (t.detail as unknown as NotBilledDetail).lineId : null;
+  const line = lineId ? await tx.chargeItem.findFirst({ where: { id: lineId }, select: { id: true, nameEn: true, nameBn: true } }) : null;
   return {
     ...toApprovalView(t, who),
+    kind: t.kind === BILL_ELSEWHERE_TASK ? "bill-elsewhere" : "discount-approval",
+    line,
     invoice: { id: inv.id, status: dash<InvoiceState>(inv.status), number: inv.number, subtotalPaisa: inv.subtotalPaisa, totalPaisa: inv.totalPaisa },
     patient: toVitalsEncounter({ id: "", token: "", tokenDay: "", status: "finished", patient: p } as unknown as Parameters<typeof toVitalsEncounter>[0]).patient,
     requesterToday: { count: mine.length, totalPaisa: mine.reduce((a, m) => a + ((m.detail as unknown as DiscountDetail)?.amountPaisa ?? 0), 0) },
@@ -320,7 +419,7 @@ async function approvalItem(tx: Tx, s: SessionData, t: TaskRow, now: Date): Prom
 export async function approvalList(tx: Tx, s: SessionData, status: "requested" | "approved" | "rejected", now: Date): Promise<ApprovalList> {
   // Only this facility's bills (security review A6–A7: other facilities' tasks must not crowd the list out).
   const here = (await tx.invoice.findMany({ where: { organizationId: s.organizationId }, select: { id: true } })).map((i) => i.id);
-  const tasks = await tx.task.findMany({ where: { kind: DISCOUNT_TASK, status, focusId: { in: here } }, orderBy: { requestedAt: status === "requested" ? "asc" : "desc" }, take: 100 });
+  const tasks = await tx.task.findMany({ where: { kind: { in: APPROVAL_KINDS }, status, focusId: { in: here } }, orderBy: { requestedAt: status === "requested" ? "asc" : "desc" }, take: 100 });
   const items: ApprovalItem[] = [];
   for (const t of tasks) { const i = await approvalItem(tx, s, t, now); if (i) items.push(i); }
   return { items };
@@ -328,27 +427,36 @@ export async function approvalList(tx: Tx, s: SessionData, status: "requested" |
 
 /** Approve or reject a discount request. Approving re-checks the approver rules and that the bill is still the draft
     the request was made on, then applies the discount; rejecting needs a note and applies nothing. */
-export async function decideDiscount(tx: Tx, s: SessionData, taskId: string, decision: "approve" | "reject", note: string | undefined, now: Date): Promise<{ task: TaskRow; inv: Inv; item: ApprovalItem }> {
-  const t0 = await tx.task.findFirst({ where: { id: taskId, kind: DISCOUNT_TASK } });
+export async function decideApproval(tx: Tx, s: SessionData, taskId: string, decision: "approve" | "reject", note: string | undefined, now: Date): Promise<{ task: TaskRow; inv: Inv; item: ApprovalItem }> {
+  const t0 = await tx.task.findFirst({ where: { id: taskId, kind: { in: APPROVAL_KINDS } } });
   if (!t0 || !t0.focusId) throw notFound();
   const inv = await invoiceHere(tx, s, t0.focusId, true);
   const t = (await tx.task.findFirst({ where: { id: taskId } }))!; // re-read after the bill's lock: one decision wins
   const d = t.detail as unknown as DiscountDetail;
+  const nb = t.detail as unknown as NotBilledDetail;
+  const elsewhere = t.kind === BILL_ELSEWHERE_TASK;
   const next = transition("APPROVAL", APPROVAL, t.status, decision);
   if (decision === "approve") {
-    const blockers = approvalBlockers({ approverId: s.userId, approverRole: s.role, requestedById: t.requestedById, amountPaisa: d.amountPaisa, settings: settingsOf(await orgOf(tx, s)) });
+    const blockers = approvalBlockers({ approverId: s.userId, approverRole: s.role, requestedById: t.requestedById, amountPaisa: elsewhere ? 0 : d.amountPaisa, settings: settingsOf(await orgOf(tx, s)) });
     if (blockers.includes("not_an_approver")) throw err(403, "forbidden", "শুধু মালিক বা অ্যাডমিন অনুমোদন দিতে পারেন", "Only the owner or an admin can approve", { reason: "role", canRequest: false });
     if (blockers.includes("own_request")) throw err(403, "own_request", "নিজের অনুরোধ নিজে অনুমোদন করা যায় না", "You cannot approve your own request", { reason: "own-request", canRequest: false });
     if (blockers.includes("above_approver_limit")) throw err(422, "above_approver_limit", "আপনার অনুমোদন সীমার বেশি", "Above your approval limit");
-    if (inv.status !== "draft" || inv.rev !== d.invoiceRev || inv.subtotalPaisa !== d.subtotalPaisa || inv.discountPaisa !== 0) throw err(409, "bill_changed", "অনুরোধের পর বিল বদলেছে — আবার অনুরোধ করতে হবে", "The bill changed after the request — it must be requested again");
+    if (elsewhere) {
+      const l = await tx.chargeItem.findFirst({ where: { id: nb.lineId, invoiceId: inv.id } });
+      if (inv.status !== "draft" || !l || l.unitPaisa !== null || l.notBilledTaskId) throw err(409, "bill_changed", "অনুরোধের পর বিল বদলেছে — আবার অনুরোধ করতে হবে", "The bill changed after the request — it must be requested again");
+    } else if (inv.status !== "draft" || inv.rev !== d.invoiceRev || inv.subtotalPaisa !== d.subtotalPaisa || inv.discountPaisa !== 0) throw err(409, "bill_changed", "অনুরোধের পর বিল বদলেছে — আবার অনুরোধ করতে হবে", "The bill changed after the request — it must be requested again");
   } else if ((note ?? "").trim().length < 10) {
     throw err(400, "note_required", "প্রত্যাখ্যানের কারণ লিখুন (অন্তত ১০ অক্ষর)", "Write why it is rejected (at least 10 characters)", { field: "note" });
   }
   const upd = await tx.task.updateMany({ where: { id: t.id, status: "requested" }, data: { status: next, decidedById: s.userId, decidedAt: now, decisionNote: note?.trim() || null } });
   if (upd.count !== 1) throw stale();
-  const nextInv = decision === "approve"
-    ? await recompute(tx, inv, d.amountPaisa, { discountCategory: d.category, discountReason: d.reason, discountAppliedById: t.requestedById, discountAppliedAt: now, discountTaskId: t.id })
-    : inv;
+  let nextInv = inv;
+  if (decision === "approve" && elsewhere) {
+    await tx.chargeItem.update({ where: { id: nb.lineId }, data: { notBilledReason: nb.reason, notBilledTaskId: t.id, notBilledAt: now } });
+    nextInv = await recompute(tx, inv, inv.discountPaisa);
+  } else if (decision === "approve") {
+    nextInv = await recompute(tx, inv, d.amountPaisa, { discountCategory: d.category, discountReason: d.reason, discountAppliedById: t.requestedById, discountAppliedAt: now, discountTaskId: t.id });
+  }
   const task = (await tx.task.findFirst({ where: { id: t.id } }))!;
   return { task, inv: nextInv, item: (await approvalItem(tx, s, task, now))! };
 }
@@ -359,8 +467,9 @@ export async function issueInvoice(tx: Tx, s: SessionData, id: string, rev: numb
   const inv = await invoiceHere(tx, s, id, true);
   if (inv.status !== "draft") throw notDraft();
   if (inv.rev !== rev) throw stale();
-  const lines = await tx.chargeItem.findMany({ where: { invoiceId: inv.id }, select: { unitPaisa: true } });
-  const blockers = issueBlockers({ lineCount: lines.length, unpricedCount: lines.filter((l) => l.unitPaisa === null).length, pendingApproval: Boolean(await requestedTask(tx, inv.id)) });
+  const lines = await tx.chargeItem.findMany({ where: { invoiceId: inv.id }, select: { unitPaisa: true, notBilledTaskId: true } });
+  const od = await ordersDiff(tx, inv);
+  const blockers = issueBlockers({ lineCount: lines.length, unpricedCount: lines.filter((l) => l.unitPaisa === null && !l.notBilledTaskId).length, pendingApproval: Boolean(await requestedTask(tx, inv.id)), ordersChanged: od.remove.length + od.add.length > 0 });
   if (blockers.length) throw err(422, "issue_blocked", "বিল ইস্যু করা যাচ্ছে না", "The bill cannot be issued yet", { blockers: blockers.map((code) => ({ code })) });
   const fresh = await recompute(tx, inv, inv.discountPaisa);
   const status = undash<"issued">(transition("INVOICE", INVOICE, "draft", "issue"));
@@ -370,7 +479,93 @@ export async function issueInvoice(tx: Tx, s: SessionData, id: string, rev: numb
   const number = `INV/${yy}/${String(seq.value).padStart(4, "0")}`;
   const n = await tx.invoice.updateMany({ where: { id: inv.id, rev: fresh.rev, status: "draft" }, data: { status, number, issuedAt: now, issuedById: s.userId, statusAt: now } });
   if (n.count !== 1) throw stale();
+  // ADR 0005: the voided bill this one replaces now shows "Replaced by INV/…".
+  if (inv.replacesId) await tx.invoice.updateMany({ where: { id: inv.replacesId, status: "entered_in_error", replacedById: null }, data: { replacedById: inv.id } });
   return (await tx.invoice.findFirst({ where: { id: inv.id } }))!;
+}
+
+/* ───── void (ADR 0005: INVOICE markError) ───── */
+export async function voidInvoice(tx: Tx, s: SessionData, id: string, reason: string, now: Date): Promise<Inv> {
+  const inv = await invoiceHere(tx, s, id, true);
+  const pays = await tx.payment.findMany({ where: { invoiceId: inv.id } });
+  const b = voidBlockers({ role: s.role, status: dash<InvoiceState>(inv.status), confirmedPaisa: inv.paidPaisa,
+    pendingPayments: pays.filter((p) => ["initiated", "link_sent", "waiting_customer"].includes(p.status)).length, reason });
+  if (b.length) {
+    const msg: Record<string, [number, string, string]> = {
+      not_an_approver: [403, "শুধু মালিক বা অ্যাডমিন বিল বাতিল করতে পারেন", "Only the owner or an admin can void a bill"],
+      has_confirmed_money: [409, "এই বিলে নিশ্চিত টাকা আছে — বাতিল করা যায় না (ফেরত পরের ধাপে)", "Confirmed money is on this bill — it cannot be voided (refunds come later)"],
+      not_voidable: [409, "এই বিল বাতিল করা যায় না", "This bill cannot be voided"],
+      link_pending: [409, "পেমেন্ট লিংক অপেক্ষমাণ — আগে লিংক বাতিল করুন", "A payment link is pending — cancel the link first"],
+      reason_too_short: [400, "কারণ লিখুন (অন্তত ১০ অক্ষর)", "Write a reason (at least 10 characters)"],
+    };
+    const [status, bn, en] = msg[b[0]!]!;
+    throw err(status, b[0]!, bn, en, status === 403 ? { reason: "role", canRequest: false } : { field: "reason" });
+  }
+  const status = undash<"entered_in_error">(transition("INVOICE", INVOICE, dash<InvoiceState>(inv.status), "markError"));
+  await tx.invoice.update({ where: { id: inv.id }, data: { status, voidReason: reason.trim(), voidedById: s.userId, voidedAt: now, statusAt: now } });
+  return (await tx.invoice.findFirst({ where: { id: inv.id } }))!;
+}
+
+/* ───── payment reconciliation (decisions 89, 101; owner) ───── */
+async function reconcileItem(tx: Tx, s: SessionData, t: TaskRow): Promise<ReconcileItem | null> {
+  const d = t.detail as unknown as ReconcileDetail;
+  const p = t.focusId ? await tx.payment.findFirst({ where: { id: t.focusId, organizationId: s.organizationId } }) : null;
+  if (!p) return null;
+  const inv = await tx.invoice.findFirst({ where: { id: p.invoiceId } });
+  const pt = inv ? await tx.patient.findFirst({ where: { id: inv.patientId } }) : null;
+  if (!inv || !pt) return null;
+  const live = t.status === "requested" && d.providerRef ? await provider.verify({ providerRef: d.providerRef }) : null;
+  const applyBlockers = t.status !== "requested" ? [] : reconcileApplyBlockers({
+    task: { providerRef: d.providerRef ?? "", trxId: d.trxId, amountPaisa: d.amountPaisa, invoiceId: d.invoiceId },
+    payment: { status: dash<PaymentState>(p.status), amountPaisa: p.amountPaisa, invoiceId: p.invoiceId, providerRef: p.providerRef, supersededRefs: p.supersededRefs },
+    provider: live,
+  });
+  const who = await people(tx, [d.resolution?.by]);
+  return {
+    taskId: t.id, status: t.status, why: t.reason ?? "", createdAt: t.requestedAt.toISOString(),
+    reported: { providerRef: d.providerRef, trxId: d.trxId, amountPaisa: d.amountPaisa },
+    payment: { id: p.id, method: p.method as PaymentMethod, status: dash<PaymentState>(p.status), amountPaisa: p.amountPaisa, trxId: p.trxId, attempt: p.attempt },
+    invoice: { id: inv.id, number: inv.number, status: dash<InvoiceState>(inv.status), totalPaisa: inv.totalPaisa, paidPaisa: inv.paidPaisa },
+    patient: toVitalsEncounter({ id: "", token: "", tokenDay: "", status: "finished", patient: pt } as unknown as Parameters<typeof toVitalsEncounter>[0]).patient,
+    applyBlockers,
+    resolution: d.resolution ? { action: d.resolution.action, note: d.resolution.note, by: who(d.resolution.by), at: d.resolution.at } : null,
+  };
+}
+export async function reconcileList(tx: Tx, s: SessionData, status: "requested" | "approved" | "rejected"): Promise<ReconcileList> {
+  const pays = (await tx.payment.findMany({ where: { organizationId: s.organizationId }, select: { id: true } })).map((p) => p.id);
+  const tasks = await tx.task.findMany({ where: { kind: RECONCILE_TASK, status, focusId: { in: pays } }, orderBy: { requestedAt: status === "requested" ? "asc" : "desc" }, take: 100 });
+  const items: ReconcileItem[] = [];
+  for (const t of tasks) { const i = await reconcileItem(tx, s, t); if (i) items.push(i); }
+  return { items };
+}
+/** Apply = the provider, asked again now, confirms the same amount and TrxID for a pending payment of this bill; the
+    payment is confirmed with that TrxID and any newer link is cancelled. Resolve = a note, nothing applied. Owner only
+    (decision 89; the route checks bill/reconcile). Never a silent apply. */
+export async function decideReconcile(tx: Tx, s: SessionData, taskId: string, action: "apply" | "resolve", note: string | undefined, now: Date): Promise<{ item: ReconcileItem; patientId: string; invoiceId: string }> {
+  const t0 = await tx.task.findFirst({ where: { id: taskId, kind: RECONCILE_TASK } });
+  const p0 = t0?.focusId ? await tx.payment.findFirst({ where: { id: t0.focusId, organizationId: s.organizationId } }) : null;
+  if (!t0 || !p0) throw notFound();
+  const inv = await invoiceHere(tx, s, p0.invoiceId, true);
+  const t = (await tx.task.findFirst({ where: { id: taskId } }))!;
+  const p = (await tx.payment.findFirst({ where: { id: p0.id } }))!;
+  const d = t.detail as unknown as ReconcileDetail;
+  const next = transition("APPROVAL", APPROVAL, t.status, action === "apply" ? "approve" : "reject");
+  if (action === "resolve" && (note ?? "").trim().length < 10) throw err(400, "note_required", "নোট লিখুন (অন্তত ১০ অক্ষর)", "Write a note (at least 10 characters)", { field: "note" });
+  if (action === "apply") {
+    const live = d.providerRef ? await provider.verify({ providerRef: d.providerRef }) : null;
+    const b = reconcileApplyBlockers({
+      task: { providerRef: d.providerRef ?? "", trxId: d.trxId, amountPaisa: d.amountPaisa, invoiceId: d.invoiceId },
+      payment: { status: dash<PaymentState>(p.status), amountPaisa: p.amountPaisa, invoiceId: p.invoiceId, providerRef: p.providerRef, supersededRefs: p.supersededRefs },
+      provider: live,
+    });
+    if (b.length) throw err(422, "cannot_apply", "এই টাকা এই বিলে মেলানো যায় না — নোটসহ সমাধান করুন", "This money does not match a pending payment on this bill — resolve it with a note", { blockers: b.map((code) => ({ code })) });
+    await confirmPayment(tx, p, inv, s.userId, live!.trxId, now);
+    if (p.providerRef && p.providerRef !== d.providerRef) await provider.cancel(p.providerRef);
+  }
+  const resolution = { action: action === "apply" ? "applied" as const : "resolved" as const, note: note?.trim() || null, by: s.userId, at: now.toISOString() };
+  const upd = await tx.task.updateMany({ where: { id: t.id, status: "requested" }, data: { status: next, decidedById: s.userId, decidedAt: now, decisionNote: note?.trim() || null, detail: { ...d, resolution } as object } });
+  if (upd.count !== 1) throw stale();
+  return { item: (await reconcileItem(tx, s, (await tx.task.findFirst({ where: { id: t.id } }))!))!, patientId: inv.patientId, invoiceId: inv.id };
 }
 
 /* ───── payments ───── */

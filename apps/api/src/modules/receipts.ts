@@ -84,7 +84,7 @@ export async function createReceipt(tx: Tx, s: SessionData, invoiceId: string, n
     seller: { nameEn: org!.name, nameBn: org!.nameBn, address: org!.address, vatBin: org!.vatBin, vatBinSample: org!.vatBinSample },
     invoice: { id: inv.id, number: inv.number!, issuedAt: inv.issuedAt!.toISOString() },
     patient: { nameBn: p!.nameBn, nameEn: p!.nameEn, facilityNo: p!.facilityNo },
-    lines: lines.map((l) => ({ nameBn: l.nameBn, nameEn: l.nameEn, qty: l.qty, unitPaisa: l.unitPaisa!, vatRateBp: l.vatRateBp, grossPaisa: l.grossPaisa, discountPaisa: l.discountPaisa, netPaisa: l.netPaisa, vatPaisa: l.vatPaisa, totalPaisa: l.totalPaisa })),
+    lines: lines.map((l) => ({ nameBn: l.nameBn, nameEn: l.nameEn, qty: l.qty, unitPaisa: l.unitPaisa ?? 0, vatRateBp: l.vatRateBp, grossPaisa: l.grossPaisa, discountPaisa: l.discountPaisa, netPaisa: l.netPaisa, vatPaisa: l.vatPaisa, totalPaisa: l.totalPaisa, notBilledReason: l.notBilledReason })),
     subtotalPaisa: inv.subtotalPaisa, discountPaisa: inv.discountPaisa, vatPaisa: inv.vatPaisa, totalPaisa: inv.totalPaisa,
     paidPaisa: inv.paidPaisa, duePaisa: inv.totalPaisa - inv.paidPaisa,
     vatByRate: [...rates.entries()].sort((a, b) => a[0] - b[0]).map(([rateBp, x]) => ({ rateBp, ...x })),
@@ -113,7 +113,8 @@ export async function printReceipt(tx: Tx, s: SessionData, receiptId: string, re
   if (copy > 0 && !req.reason) throw err(409, "reprint_needs_reason", "আবার প্রিন্টের কারণ বেছে নিন", "Choose a reason to reprint", { field: "reason" });
   if (copy === 0 && req.reason) throw err(409, "not_printed_yet", "মূল রসিদ এখনও প্রিন্ট হয়নি", "The original has not been printed yet", { field: "reason" });
   const me = await tx.user.findFirst({ where: { id: s.userId }, select: { nameBn: true, nameEn: true } });
-  const html = receiptHtml({
+  const bill = await tx.invoice.findFirst({ where: { id: r0.invoiceId }, select: { status: true } });
+  const html = receiptHtml({ voided: bill?.status === "entered_in_error",
     snapshot: r0.snapshot as unknown as ReceiptSnapshot, number: r0.number, createdAt: r0.createdAt, verifyUrl: verifyUrl(r0.verifyCode), format: req.format, lang: req.lang,
     print: { copy, reason: req.reason ?? null, printedAt: now, printedBy: { nameBn: me?.nameBn ?? "—", nameEn: me?.nameEn ?? "—" } },
   });

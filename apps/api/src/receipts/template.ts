@@ -12,7 +12,7 @@ import { t } from "@setu/i18n";
 
 export type ReceiptLangMode = "both" | "bn" | "en";
 export interface PrintInfo { copy: number; reason: string | null; printedAt: Date; printedBy: { nameBn: string; nameEn: string } }
-export interface TemplateInput { snapshot: ReceiptSnapshot; number: string; createdAt: Date; verifyUrl: string; format: "a5" | "thermal"; lang: ReceiptLangMode; print: PrintInfo }
+export interface TemplateInput { /** ADR 0005: the bill was voided — every copy says VOID */ voided?: boolean; snapshot: ReceiptSnapshot; number: string; createdAt: Date; verifyUrl: string; format: "a5" | "thermal"; lang: ReceiptLangMode; print: PrintInfo }
 
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -81,8 +81,12 @@ export function receiptHtml(i: TemplateInput): string {
   const mushak = Boolean(s.seller.vatBin) && s.duePaisa === 0;
   const bin = s.seller.vatBin ? `${esc(L("r_bin"))} ${esc(s.seller.vatBin)}${s.seller.vatBinSample ? ` (${esc(L("r_sample"))})` : ""}` : "";
   const title = i.format === "a5" && mushak ? L("r_vat_invoice") : L("r_money_receipt");
-  const dupTitle = dup ? `<div class="dup">${esc(L("r_duplicate"))} #${num(i.print.copy)}</div>` : "";
-  const watermark = dup ? `<div class="wm" aria-hidden="true">${esc(t("bn", "billingApp", "r_duplicate"))} · ${esc(t("en", "billingApp", "r_duplicate"))}</div>` : "";
+  const voidMark = i.voided ? `<div class="void">${esc(t("bn", "billingApp", "r_void"))} · ${esc(t("en", "billingApp", "r_void"))}</div>` : "";
+  const dupTitle = voidMark + (dup ? `<div class="dup">${esc(L("r_duplicate"))} #${num(i.print.copy)}</div>` : "");
+  // decision 98: a line not billed here stays on the receipt with its reason and no amount.
+  const lineName = (l: ReceiptSnapshot["lines"][number]) => esc(name(l.nameBn, l.nameEn)) + (l.notBilledReason ? ` — ${esc(L("r_not_billed", { reason: l.notBilledReason }))}` : "");
+  const lineAmount = (l: ReceiptSnapshot["lines"][number]) => (l.notBilledReason ? "—" : esc(tk(l.grossPaisa)));
+  const watermark = i.voided ? `<div class="wm" aria-hidden="true">${esc(t("bn", "billingApp", "r_void"))} · ${esc(t("en", "billingApp", "r_void"))}</div>` : dup ? `<div class="wm" aria-hidden="true">${esc(t("bn", "billingApp", "r_duplicate"))} · ${esc(t("en", "billingApp", "r_duplicate"))}</div>` : "";
   const totals = [
     [L("r_subtotal"), tk(s.subtotalPaisa)],
     ...(s.discountPaisa > 0 ? [[L("r_discount"), `− ${tk(s.discountPaisa)}`]] : []),
@@ -107,7 +111,7 @@ export function receiptHtml(i: TemplateInput): string {
       <table class="meta small"><tr><td>${esc(L("r_receipt_no"))}</td><td class="num">${esc(i.number)}</td><td>${esc(L("r_bill_no"))}</td><td class="num">${esc(s.invoice.number)}</td></tr>
         <tr><td>${esc(L("r_date"))}</td><td class="num">${esc(when(i.createdAt))}</td><td>${esc(L("r_patient"))}</td><td>${esc(name(s.patient.nameBn, s.patient.nameEn))} · <span class="num">${esc(s.patient.facilityNo)}</span></td></tr></table>
       <table class="lines"><thead><tr><th>#</th><th>${esc(L("r_service"))}</th><th class="r">${esc(L("r_vat"))}</th><th class="r">${esc(L("r_amount"))}</th></tr></thead><tbody>
-        ${s.lines.map((l, n) => `<tr><td class="num">${num(n + 1)}</td><td>${esc(name(l.nameBn, l.nameEn))}${l.qty > 1 ? ` <span class="num">×${num(l.qty)}</span>` : ""}</td><td class="r">${esc(vatLabel(l.vatRateBp))}</td><td class="r num">${esc(tk(l.grossPaisa))}</td></tr>`).join("")}
+        ${s.lines.map((l, n) => `<tr><td class="num">${num(n + 1)}</td><td>${lineName(l)}${l.qty > 1 ? ` <span class="num">×${num(l.qty)}</span>` : ""}</td><td class="r">${esc(vatLabel(l.vatRateBp))}</td><td class="r num">${lineAmount(l)}</td></tr>`).join("")}
       </tbody></table>
       <table class="totals">${totals}</table>
       ${mushak ? `<table class="vat small"><tr><th>${esc(L("r_vat_breakdown"))}</th><th class="r">${esc(L("r_amount"))}</th><th class="r">${esc(L("r_vat"))}</th></tr>${s.vatByRate.map((v) => `<tr><td>${esc(vatLabel(v.rateBp))}</td><td class="r num">${esc(tk(v.netPaisa))}</td><td class="r num">${esc(tk(v.vatPaisa))}</td></tr>`).join("")}</table>` : ""}
@@ -122,7 +126,7 @@ export function receiptHtml(i: TemplateInput): string {
       <div class="small">${esc(L("r_receipt_no"))} <span class="num">${esc(i.number)}</span> · ${esc(L("r_bill_no"))} <span class="num">${esc(s.invoice.number)}</span></div>
       <div class="small">${esc(L("r_date"))} <span class="num">${esc(when(i.createdAt))}</span></div>
       <div class="small">${esc(name(s.patient.nameBn, s.patient.nameEn))} · <span class="num">${esc(s.patient.facilityNo)}</span></div>
-      <hr><table class="lines small">${s.lines.map((l) => `<tr><td>${esc(name(l.nameBn, l.nameEn))}${l.qty > 1 ? ` ×${num(l.qty)}` : ""}</td><td class="r num">${esc(tk(l.grossPaisa))}</td></tr>`).join("")}</table><hr>
+      <hr><table class="lines small">${s.lines.map((l) => `<tr><td>${lineName(l)}${l.qty > 1 ? ` ×${num(l.qty)}` : ""}</td><td class="r num">${lineAmount(l)}</td></tr>`).join("")}</table><hr>
       <table class="totals small">${totals}</table>
       <div class="words small">${wordsHtml}</div>
       <div class="small"><b>${esc(L("r_paid_by"))}:</b> ${paidLine}${pendingLine ? ` · ${pendingLine}` : ""}</div>
@@ -140,7 +144,7 @@ export function receiptHtml(i: TemplateInput): string {
     .meta td:nth-child(odd){white-space:nowrap;padding-right:3mm}.lines thead th{border-bottom:0.5pt solid #000}.totals{margin-top:2mm}.totals tr.strong td{font-weight:700;border-top:0.5pt solid #000}
     .vat{margin-top:2mm}.words{margin:2mm 0}.foot{display:flex;justify-content:space-between;margin-top:6mm}.sign{text-align:right}
     .qr svg{width:100%;height:100%;display:block}
-    .dup{font-weight:700;letter-spacing:.5px;margin-bottom:1mm}hr{border:0;border-top:0.5pt dashed #000;margin:1.5mm 0}
+    .void{font-weight:800;font-size:16pt;letter-spacing:2px;border:1.5pt solid #000;display:inline-block;padding:1mm 3mm;margin-bottom:1mm}.dup{font-weight:700;letter-spacing:.5px;margin-bottom:1mm}hr{border:0;border-top:0.5pt dashed #000;margin:1.5mm 0}
     .wm{position:fixed;top:40%;left:-10%;width:120%;text-align:center;transform:rotate(-30deg);font-size:28pt;font-weight:700;color:rgba(0,0,0,.1);z-index:0;pointer-events:none}
   </style></head><body>${watermark}${page}</body></html>`;
 }

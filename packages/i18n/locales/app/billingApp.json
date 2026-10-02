@@ -229,6 +229,8 @@
   "r_duplicate": ["অনুলিপি", "DUPLICATE"],
   "r_reprinted": ["অনুলিপি {n} · {at} · {name} · {reason}", "Duplicate {n} · reprinted {at} by {name} · {reason}"],
   "r_printed": ["প্রিন্ট {at} · {name}", "Printed {at} by {name}"],
+  "r_void": ["বাতিল", "VOID"],
+  "r_not_billed": ["এখানে বিল হয়নি — {reason}", "Not billed here — {reason}"],
   "r_thanks": ["ধন্যবাদ", "Thank you"],
 
   "ver_title": ["রসিদ যাচাই", "Receipt check"],

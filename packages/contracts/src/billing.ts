@@ -39,9 +39,11 @@ export const ChargeLine = z.object({
   grossPaisa: Paisa, discountPaisa: Paisa, netPaisa: Paisa, vatPaisa: Paisa, totalPaisa: Paisa,
   /** only desk lines can be removed or re-counted; the consultation and the doctor's orders stay on the bill */
   editable: z.boolean(),
+  /** decision 98: approved "Not billed here" — outside totals and VAT, shown with its reason */
+  notBilled: z.object({ reason: z.string(), at: z.string(), approvedBy: Person.nullable() }).nullable(),
 });
 export const ApprovalView = z.object({
-  taskId: z.string(), status: ApprovalStatus, amountPaisa: Paisa, category: DiscountCategory, reason: z.string(),
+  taskId: z.string(), status: ApprovalStatus, amountPaisa: Paisa, category: DiscountCategory.nullable(), reason: z.string(),
   subtotalPaisa: Paisa, limitPaisa: Paisa,
   requestedBy: Person, requestedAt: z.string(),
   decidedBy: Person.nullable(), decidedAt: z.string().nullable(), decisionNote: z.string().nullable(),
@@ -65,6 +67,10 @@ export const InvoiceView = z.object({
     subtotalPaisa: Paisa, discountPaisa: Paisa, netPaisa: Paisa, vatPaisa: Paisa, totalPaisa: Paisa, paidPaisa: Paisa,
     discount: z.object({ category: DiscountCategory, reason: z.string(), appliedBy: Person, appliedAt: z.string(), approvedBy: Person.nullable() }).nullable(),
     createdAt: z.string(), issuedAt: z.string().nullable(), issuedBy: Person.nullable(),
+    /** ADR 0005: void (entered-in-error) and the replacement chain */
+    void: z.object({ reason: z.string(), at: z.string(), by: Person }).nullable(),
+    replaces: z.object({ id: z.string(), number: z.string().nullable() }).nullable(),
+    replacedBy: z.object({ id: z.string(), number: z.string().nullable() }).nullable(),
   }),
   encounter: VitalsEncounter.extend({ practitioner: Person.nullable() }),
   lines: z.array(ChargeLine),
@@ -73,6 +79,13 @@ export const InvoiceView = z.object({
   /** the cashier's discount limit for the current subtotal */
   discountLimitPaisa: Paisa,
   issueBlockers: z.array(IssueBlocker),
+  /** "Not billed here" requests on this bill's lines (requested, approved or rejected), newest first */
+  lineApprovals: z.array(z.object({
+    taskId: z.string(), lineId: z.string(), status: ApprovalStatus, reason: z.string(), requestedBy: Person, requestedAt: z.string(),
+    decidedBy: Person.nullable(), decidedAt: z.string().nullable(), decisionNote: z.string().nullable(),
+  })),
+  /** the visit's placed orders differ from the bill's order lines (refresh when the bill can change; else Issue is blocked) */
+  ordersChanged: z.boolean(),
   payments: z.array(PaymentView),
   summary: PaymentSummaryView,
   paidBy: PaidByView,
@@ -108,7 +121,11 @@ export type DiscountResponse = z.infer<typeof DiscountResponse>;
 
 /* ── approvals (owner / admin) ── */
 export const ApprovalQuery = z.object({ status: ApprovalStatus.default("requested") });
+export const ApprovalKind = z.enum(["discount-approval", "bill-elsewhere"]);
 export const ApprovalItem = ApprovalView.extend({
+  kind: ApprovalKind,
+  /** bill-elsewhere: the line asked to be not billed here */
+  line: z.object({ id: z.string(), nameEn: z.string(), nameBn: z.string() }).nullable(),
   invoice: z.object({ id: z.string(), status: InvoiceStatus, number: z.string().nullable(), subtotalPaisa: Paisa, totalPaisa: Paisa }),
   patient: VitalsEncounter.shape.patient,
   /** leak signal: the requester's discount requests today (count and paisa) */
@@ -160,6 +177,7 @@ export const ReceiptSnapshot = z.object({
   lines: z.array(z.object({
     nameBn: z.string(), nameEn: z.string(), qty: z.number().int(), unitPaisa: Paisa, vatRateBp: z.number().int(),
     grossPaisa: Paisa, discountPaisa: Paisa, netPaisa: Paisa, vatPaisa: Paisa, totalPaisa: Paisa,
+    notBilledReason: z.string().nullable().optional(),
   })),
   subtotalPaisa: Paisa, discountPaisa: Paisa, vatPaisa: Paisa, totalPaisa: Paisa, paidPaisa: Paisa, duePaisa: Paisa,
   /** sums of line paisa per VAT rate (Mushak-6.3 breakdown) */
@@ -193,3 +211,26 @@ export type PrintResponse = z.infer<typeof PrintResponse>;
 export const VerifyCode = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{16,40}$/);
 export const VerifyResponse = z.object({ facilityEn: z.string(), facilityBn: z.string().nullable(), number: z.string(), date: z.string(), amountPaisa: Paisa });
 export type VerifyResponse = z.infer<typeof VerifyResponse>;
+
+/* ── billing follow-ups (ADR 0005) ── */
+export const NotBilledRequest = z.object({ reason: z.string().trim().min(10).max(300), rev: Rev });
+export const VoidRequest = z.object({ reason: z.string().trim().min(10).max(300) });
+export const ReconcileQuery = z.object({ status: ApprovalStatus.default("requested") });
+export const ReconcileItem = z.object({
+  taskId: z.string(), status: ApprovalStatus, why: z.string(), createdAt: z.string(),
+  /** what the gateway reported */
+  reported: z.object({ providerRef: z.string().nullable(), trxId: z.string().nullable(), amountPaisa: Paisa.nullable() }),
+  payment: z.object({ id: z.string(), method: PaymentMethod, status: PaymentStatus, amountPaisa: Paisa, trxId: z.string().nullable(), attempt: z.number().int() }),
+  invoice: z.object({ id: z.string(), number: z.string().nullable(), status: InvoiceStatus, totalPaisa: Paisa, paidPaisa: Paisa }),
+  patient: VitalsEncounter.shape.patient,
+  /** live check: "apply" is offered only when this is empty */
+  applyBlockers: z.array(z.enum(["other_bill", "payment_not_pending", "not_confirmed_by_provider", "amount_mismatch", "reference_mismatch"])),
+  resolution: z.object({ action: z.enum(["applied", "resolved"]), note: z.string().nullable(), by: Person, at: z.string() }).nullable(),
+});
+export type ReconcileItem = z.infer<typeof ReconcileItem>;
+export const ReconcileList = z.object({ items: z.array(ReconcileItem) });
+export type ReconcileList = z.infer<typeof ReconcileList>;
+export const ReconcileApplyRequest = z.object({ note: z.string().trim().max(300).optional() });
+export const ReconcileResolveRequest = z.object({ note: z.string().trim().min(10).max(300) });
+export const ReconcileDecisionResponse = z.object({ item: ReconcileItem });
+export type ReconcileDecisionResponse = z.infer<typeof ReconcileDecisionResponse>;

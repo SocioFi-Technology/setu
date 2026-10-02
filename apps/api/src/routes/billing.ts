@@ -6,7 +6,7 @@
    payment_ref_lookup, and the event is handled in forTenant with its own audit row. */
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import {
-  AddLineRequest, ApprovalQuery, PrintRequest, VerifyCode, type PrintResponse, type ReceiptList, type ReceiptView, type VerifyResponse, ApproveRequest, ChargeDefinitionQuery, DiscountRequest, FakeProviderEventKind, NewPaymentRequest, RejectRequest, RevRequest, SetQtyRequest, VerifyTrxRequest,
+  AddLineRequest, ApprovalQuery, NotBilledRequest, PrintRequest, ReconcileApplyRequest, ReconcileQuery, ReconcileResolveRequest, VoidRequest, type ReconcileDecisionResponse, type ReconcileList, VerifyCode, type PrintResponse, type ReceiptList, type ReceiptView, type VerifyResponse, ApproveRequest, ChargeDefinitionQuery, DiscountRequest, FakeProviderEventKind, NewPaymentRequest, RejectRequest, RevRequest, SetQtyRequest, VerifyTrxRequest,
   type ApprovalDecisionResponse, type ApprovalList, type BillingWorklist, type ChargeDefinitionList, type DiscountResponse, type InvoiceView, type PaymentResponse, type ProviderCallbackResponse,
 } from "@setu/contracts";
 import { authorize } from "@setu/domain";
@@ -16,13 +16,13 @@ import { command, query } from "../command.js";
 import { config } from "../config.js";
 import { err, forbidden } from "../errors.js";
 import {
-  addDeskLine, addPayment, approvalList, billingWorklist, cancelPayment, chargeDefinitions, createInvoice, decideDiscount, handleProviderEvent, invoiceView, removeDiscount, removeLine,
+  addDeskLine, addPayment, approvalList, billingWorklist, cancelPayment, chargeDefinitions, createInvoice, decideApproval, decideReconcile, reconcileList, refreshOrders, requestNotBilled, voidInvoice, handleProviderEvent, invoiceView, removeDiscount, removeLine,
   invoiceHere, issueInvoice, requestDiscount, retryPayment, setLineQty, verifyTrx,
 } from "../modules/billing.js";
 import { createReceipt, printPdf, printReceipt, receiptList, receiptView } from "../modules/receipts.js";
 import { requireSession } from "../plugins/session.js";
 
-function requireBill(req: FastifyRequest, screen: "opd" | "pay" | "receipt" | "approvals") {
+function requireBill(req: FastifyRequest, screen: "opd" | "pay" | "receipt" | "approvals" | "reconcile") {
   const s = requireSession(req);
   const d = authorize(s.role, s.plan, "bill", screen);
   if (!d.allowed) throw forbidden(d.reason ?? "unknown");
@@ -155,6 +155,57 @@ export async function billingRoutes(app: FastifyInstance) {
     });
   });
 
+  /* ── follow-ups (ADR 0005) ── */
+  app.post("/v1/invoices/:id/lines/:lineId/not-billed", { config: { ownTx: true } }, async (req, reply): Promise<InvoiceView> => {
+    requireBill(req, "opd");
+    const { id, lineId } = req.params as { id: string; lineId: string };
+    const body = NotBilledRequest.parse(req.body);
+    return command(req, reply, async (tx, s) => {
+      const r = await requestNotBilled(tx, s, id, lineId, body.reason, body.rev, new Date());
+      return { body: await invoiceView(tx, s, r.inv), audit: [{ action: "create", entity: "Task", entityId: r.taskId, patientId: r.inv.patientId, detail: { kind: "bill-elsewhere", invoiceId: id, lineId, code: r.line.code, reason: body.reason } }] };
+    });
+  });
+  app.post("/v1/invoices/:id/refresh-orders", { config: { ownTx: true } }, async (req, reply): Promise<InvoiceView> => {
+    requireBill(req, "opd");
+    const { id } = req.params as { id: string };
+    const { rev } = RevRequest.parse(req.body);
+    return command(req, reply, async (tx, s) => {
+      const r = await refreshOrders(tx, s, id, rev);
+      return { body: await invoiceView(tx, s, r.inv), audit: r.changed ? [{ action: "update", entity: "Invoice", entityId: id, patientId: r.inv.patientId, detail: { event: "refresh-orders", totalPaisa: r.inv.totalPaisa } }] : [] };
+    });
+  });
+  app.post("/v1/invoices/:id/void", { config: { ownTx: true } }, async (req, reply): Promise<InvoiceView> => {
+    requireBill(req, "opd");
+    const { id } = req.params as { id: string };
+    const { reason } = VoidRequest.parse(req.body);
+    return command(req, reply, async (tx, s) => {
+      const inv = await voidInvoice(tx, s, id, reason, new Date());
+      return { body: await invoiceView(tx, s, inv), audit: [{ action: "update", entity: "Invoice", entityId: id, patientId: inv.patientId, detail: { event: "void", reason, number: inv.number } }] };
+    });
+  });
+  app.get("/v1/reconciliation", async (req): Promise<ReconcileList> => {
+    requireBill(req, "reconcile");
+    const { status } = ReconcileQuery.parse(req.query);
+    return query(req, async (tx, s) => {
+      const list = await reconcileList(tx, s, status);
+      return { body: list, audit: [{ action: "view", entity: "Task", detail: { purpose: "payment-reconciliation", status, count: list.items.length, patientIds: list.items.map((i) => i.patient.id) } }] };
+    });
+  });
+  for (const action of ["apply", "resolve"] as const) {
+    app.post(`/v1/reconciliation/:id/${action}`, { config: { ownTx: true } }, async (req, reply): Promise<ReconcileDecisionResponse> => {
+      requireBill(req, "reconcile");
+      const { id } = req.params as { id: string };
+      const { note } = action === "apply" ? ReconcileApplyRequest.parse(req.body ?? {}) : ReconcileResolveRequest.parse(req.body);
+      return command(req, reply, async (tx, s) => {
+        const r = await decideReconcile(tx, s, id, action, note, new Date());
+        return { body: { item: r.item }, audit: [
+          { action: "update", entity: "Task", entityId: id, patientId: r.patientId, detail: { kind: "payment-reconciliation", event: action, paymentId: r.item.payment.id, invoiceId: r.invoiceId, note: note ?? null } },
+          ...(action === "apply" ? [{ action: "update", entity: "Payment", entityId: r.item.payment.id, patientId: r.patientId, detail: { event: "confirm-by-reconciliation", taskId: id, trxId: r.item.reported.trxId } }] : []),
+        ] };
+      });
+    });
+  }
+
   /* ── approvals (owner / admin) ── */
   app.get("/v1/approvals", async (req): Promise<ApprovalList> => {
     requireBill(req, "approvals");
@@ -170,10 +221,12 @@ export async function billingRoutes(app: FastifyInstance) {
       const { id } = req.params as { id: string };
       const { note } = decision === "approve" ? ApproveRequest.parse(req.body ?? {}) : RejectRequest.parse(req.body);
       return command(req, reply, async (tx, s) => {
-        const r = await decideDiscount(tx, s, id, decision, note, new Date());
+        const r = await decideApproval(tx, s, id, decision, note, new Date());
         return { body: { approval: r.item, view: await invoiceView(tx, s, r.inv) }, audit: [
-          { action: "update", entity: "Task", entityId: id, patientId: r.inv.patientId, detail: { event: decision, invoiceId: r.inv.id, amountPaisa: r.item.amountPaisa, note: note ?? null } },
-          ...(decision === "approve" ? [{ action: "update", entity: "Invoice", entityId: r.inv.id, patientId: r.inv.patientId, detail: { discount: "applied-after-approval", taskId: id, amountPaisa: r.item.amountPaisa } }] : []),
+          { action: "update", entity: "Task", entityId: id, patientId: r.inv.patientId, detail: { event: decision, kind: r.item.kind, invoiceId: r.inv.id, amountPaisa: r.item.amountPaisa, lineId: r.item.line?.id ?? null, note: note ?? null } },
+          ...(decision === "approve" ? [{ action: "update", entity: "Invoice", entityId: r.inv.id, patientId: r.inv.patientId, detail: r.item.kind === "bill-elsewhere"
+            ? { notBilledHere: r.item.line?.id ?? null, reason: r.item.reason, taskId: id }
+            : { discount: "applied-after-approval", taskId: id, amountPaisa: r.item.amountPaisa } }] : []),
         ] };
       });
     });
