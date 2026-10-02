@@ -53,6 +53,7 @@ export const PaymentView = z.object({
   phoneLast4: z.string().nullable(), linkExpiresAt: z.string().nullable(), attempt: z.number().int(), failReason: z.string().nullable(),
   createdBy: Person, createdAt: z.string(), confirmedAt: z.string().nullable(),
 });
+export type PaymentView = z.infer<typeof PaymentView>;
 export const PaymentSummaryView = z.object({ totalPaisa: Paisa, confirmedPaisa: Paisa, pendingPaisa: Paisa, duePaisa: Paisa, openPaisa: Paisa });
 export const PaidByView = z.object({
   paid: z.array(z.object({ method: PaymentMethod, amountPaisa: Paisa, trxId: z.string().optional(), reference: z.string().optional() })),
@@ -113,6 +114,7 @@ export const ApprovalItem = ApprovalView.extend({
   /** leak signal: the requester's discount requests today (count and paisa) */
   requesterToday: z.object({ count: z.number().int(), totalPaisa: Paisa }),
 });
+export type ApprovalItem = z.infer<typeof ApprovalItem>;
 export const ApprovalList = z.object({ items: z.array(ApprovalItem) });
 export type ApprovalList = z.infer<typeof ApprovalList>;
 export const ApproveRequest = z.object({ note: z.string().trim().max(300).optional() });

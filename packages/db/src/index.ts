@@ -34,3 +34,10 @@ export async function loginLookup(phones: string[], email: string | null): Promi
   const rows = await prisma.$queryRaw<{ users: LoginCandidate[] }[]>`SELECT auth_login_lookup(${phones}::text[], ${email}::text) AS users`;
   return rows[0]?.users ?? [];
 }
+
+/** The one pre-tenant read for provider callbacks (slice A6–A7): which tenant and payment a provider reference belongs
+    to, and whether it is an earlier (superseded) attempt. SECURITY DEFINER; reveals nothing else. */
+export async function paymentRefLookup(provider: string, providerRef: string): Promise<{ tenantId: string; paymentId: string; superseded: boolean } | null> {
+  const rows = await prisma.$queryRaw<{ hit: { tenantId: string; paymentId: string; superseded: boolean } | null }[]>`SELECT payment_ref_lookup(${provider}::text, ${providerRef}::text) AS hit`;
+  return rows[0]?.hit ?? null;
+}
