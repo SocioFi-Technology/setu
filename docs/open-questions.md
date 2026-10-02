@@ -524,3 +524,48 @@ Plan decisions (all as recommended unless noted):
   call-back. **Added:** a call-back record stores the recipient's role and name, the time, the caller and a
   read-back-confirmed tick; attempts that reached no one are logged as attempts and do not unblock validation.
 - D10 **The lab report PDF with QR** comes with A12–A13 (printing); this slice shows the report on screen.
+
+### Chosen conservatively by Claude — please confirm
+114. **Creatinine is seeded like Hb: adult female range only** (the prototype's 0.5–1.1 mg/dL is the women's range).
+     Men get "no reference range in the sample list" and no H/L flag; the critical threshold (>4) still applies.
+115. **Analyte names stay in English in both languages** (Haemoglobin, S. Potassium …), as on Bangladeshi lab reports —
+     the same rule as test names (open question 55).
+116. **Tests with no result template in the sample list cannot be entered** (lipid profile, urine R/E and C/S, TSH,
+     SGPT): they stay "pending", so a visit with one of them never gets a final report — only preliminary versions.
+     Templates come with the clinician's sign-off (pre-pilot list).
+117. **Technical verify needs the "sample identity checked" tick when the delta check warned.** The prototype only warned
+     ("confirm sample identity before verifying"); the tick makes the check a recorded step.
+118. **Verify and validate act on whole tests** (all results of a test together); a test is released only when all its
+     results are validated.
+119. **Only the lab technologist corrects a result** (the result-entry screen). The pathologist cannot correct and there
+     is no "send back to the technologist" yet — the pathologist asks in person. Decide if a send-back is wanted.
+120. **Admin** sees the lab screens and may send deliveries (access matrix: Delivery), but cannot collect, enter, verify,
+     validate, release or cancel orders.
+121. **A label is reprinted only before collection** (audited, copy counted). A printed label whose tests were all
+     cancelled stays on record as an uncollected tube; collecting it is refused ("discard the label").
+122. **No valid mobile number:** a rejection records no recollection SMS (the screen must say "tell the patient"), and
+     "Send SMS" answers 422. The SMS goes to the registered number even when it is a family phone (the text has no name).
+123. **SMS text:** one message, Bangla then English, facility name only, "collect at the lab counter" (no app link until
+     Journey D). The facility's phone number is not in the text (not stored yet).
+124. **SMS are sent right after the write commits**, one transaction per message. If the API stops in between, a message
+     can stay in preparation / in progress with no retry button (retry is for failed only) — phase 2: a worker that
+     sweeps these, together with the real gateway.
+125. **Worklists look back 30 days** (orders placed in the last 30 days); older open work needs a separate list later.
+126. **A test under correction is "pending" in the next version**; the version that released the old value marks it
+     "under correction — do not act on it".
+127. **Rahima's 12/08 lab results are seeded without an order or report** (her 12/08 note was seeded before the lab
+     existed and a signed note takes no new orders); they only feed the delta check.
+128. **A call-back can be logged only for an HH/LL result that is not yet validated.** A call logged after validation is
+     not possible (validation already needed it).
+129. **The lab technologist may release** (D9): on Hospital plans a technologist can release what a pathologist
+     validated; release is never automatic.
+130. **The doctor's inbox is a list of Communication rows for now** (report released, result under correction, order
+     cancelled by the lab); the inbox screen is A12.
+131. **The same-person setting has no screen yet** (Organization.labSamePersonAllowed; default by plan); admin masters,
+     phase 2.
+132. **Collect / receive / start / reject carry the device's time** (offline outbox, D8), accepted within 24 hours back
+     and 5 minutes ahead.
+133. **Results cannot be withdrawn without a replacement value.** If a sample turns out to be wrong after results were
+     entered (wrong patient's tube), a result can only be corrected to a new value; there is no "entered in error, no
+     result" for a whole test yet. Needs a decision (proposal: mark the test's results entered-in-error with a reason and
+     ask for a new tube, which notifies the doctor if released).

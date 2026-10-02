@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; next A8–A11)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 session 1 of 2 done; next A8–A11 session 2)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -268,6 +268,46 @@ One session, plan agreed with Kamrul (8 recommendations + the replacement chain 
 - Note on history: commit `2341bc3` (step 2) was made while one API test still expected the old guard message; fixed
   in the next commit `d246dac`. From then on every commit was gated on the test command's exit code.
 
+## Done (slice A8–A11, session 1 of 2, 03/10/2026) — lab backend ✅
+Plan agreed with Kamrul the same day (decisions D1–D10 with his changes: open questions "Slice A8–A11 session 1").
+**Session 2** does the lab screens (collection with tube guidance and labels, accession, result entry with Enter-to-next
+and flags as text + icon, verification with the call-back panel, report on screen, delivery with per-channel status and
+retry, opening released from the journey), "cancel order" on the doctor's signed note, the A8–A11 journey spec, the
+security and clinical-safety reviews and the hands-on test as the E2E lab technologist 01799000005 and pathologist
+01799000006.
+- **Step 0:** decisions 107–113 recorded; the E2E reset resolves leftover reconciliation cases as the E2E owner with
+  the note "test run" (decision 110; the first run resolved 47); E2E lab technologist and pathologist seeded.
+- **ADR 0006:** RESULT gains `verified` (technical verify) and `entered-in-error` (a correction is a new row); new
+  LAB_REPORT machine (released versions preliminary | final | corrected → superseded) and COMMUNICATION machine
+  (preparation → in-progress → completed | failed → retry, same message id); CriticalCallback is an append-only record.
+- **Rules** (`@setu/domain` `lab.ts`, sample content pending clinician sign-off): tube guidance and tube plan, reject
+  reasons, analytes and adult ranges (Hb and creatinine adult female only; "adult female range" label), flags
+  N/H/L/HH/LL, age at collection, result entry (numbers only, critical typed twice), delta check (>20%, WBC excluded),
+  verify / call-back / validate blockers (same person by plan or facility setting), corrections, release plan (partial,
+  final, corrected), ORDER revoke rules, SMS placeholder check.
+- **Database** (migrations `lab` + `lab_guards`): Specimen (+ SpecimenOrder), LabAnalyte, LabReferenceRange,
+  DiagnosticReport (+ results), CriticalCallback, Communication; lab columns on Observation; revoke record on
+  ServiceRequest; Organization.labSamePersonAllowed. Guards for every role: ORDER / SPECIMEN / RESULT / COMMUNICATION
+  transitions only; a lab value is never changed or deleted; validation refused for the verifier (unless allowed) and for
+  a critical result without a reached + read-back call-back; released versions immutable; one current version per visit.
+  Seed: sample analytes / ranges in all 4 tenants; Rahima Khatun's validated 12/08 results (Green Life + E2E) for the
+  delta check.
+- **Messaging adapter** (`apps/api/src/adapters/messaging`): `Messenger` + `FakeMessenger` (records, never delivers a
+  message id twice, `failNext`); SMS templates in `locales/app/labApp.json` (facility name only); dev routes
+  `/v1/dev/fake-messenger/fail-next|messages` with `FAKE_MESSAGING_DEV_ROUTE=1`; production refuses `SMS_PROVIDER=fake`.
+- **API** (`modules/lab.ts`, `routes/lab.ts`, `packages/contracts/src/lab.ts`, openapi regenerated): worklist per stage,
+  visit view (audited incl. earlier results for the delta check), report version view, labels, collect / receive / start,
+  reject, results, correct, verify (PIN), call-back, validate (PIN), release, send, retry, `POST /v1/orders/:id/revoke`
+  (refreshes the draft bill at once — billing `refreshDraftOrders`, decision 99). SMS are sent after the write commits.
+- **Tests:** domain 184 (+37 `lab.test.ts`), api 154 (+5 messaging adapter, +16 `lab.test.ts`; billing-followups now
+  revokes through the real route), contracts 2, i18n 3; `pnpm typecheck` 13/13. The API suite was green twice in a row.
+  **Playwright was not run this session** (no screen changed) — run plain `pnpm e2e` at the start of session 2; 51 specs
+  were green at the end of the billing follow-ups.
+- **Migrations note:** `prisma migrate dev` now refuses on the dev database because the rolled-back first attempt of
+  `billing_followups` is still recorded with an older checksum (the applied one matches the file). Never reset: write
+  migrations from `prisma migrate diff … --script` and apply with `pnpm --filter @setu/db migrate:deploy` (see
+  `packages/db/prisma/migrations/README.md`).
+
 ## How to run the journeys on this PC
 - Playwright's Chromium is installed (02/10/2026): plain `pnpm e2e` runs the journeys against `pnpm dev` (staff :3000,
   api :4000). The installed-Chrome route still works: `cd e2e` then `CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" pnpm exec playwright test -c pw.local.config.ts`.
@@ -303,6 +343,10 @@ One session, plan agreed with Kamrul (8 recommendations + the replacement chain 
     - device drafts and queued outbox writes encrypted (or signed) with a key bound to the server session, so a copy
       left in a browser is unreadable and a planted copy is never sent (security review A5, open question 79).
 12. **Pre-pilot clinical content (decisions D2, D3 of 02/10/2026):**
+    - **Lab (slice A8–A11, D1/D2):** a clinician signs off the sample analytes, adult ranges, critical thresholds and the
+      20% delta rule in `packages/domain/src/lab.ts`, adds men's ranges for Hb and creatinine, children's ranges, the
+      impossible-value limits, and result templates for the tests that have none (lipid profile, urine R/E and C/S,
+      TSH, SGPT).
     - ICD-11: a clinician verifies the 10 seeded codes against the WHO ICD-11 browser; production source = WHO ICD-11
       API or a local extract.
     - Medicines: a licensed drug database with DGDA numbers + clinician-approved allergy/interaction rules; the demo
@@ -324,7 +368,8 @@ One session, plan agreed with Kamrul (8 recommendations + the replacement chain 
 2. ~~`/slice A4-A5`~~ — done 02–03/10/2026 (three sessions). Kamrul to confirm open questions 68–82.
 3. ~~`/slice A6-A7`~~ — done 03/10/2026 (two sessions) + ~~billing follow-ups~~ done 03/10/2026 (ADR 0005). Kamrul to
    confirm open questions 107–113. Refunds (and voiding a bill that holds money) are a later slice.
-4. `/slice A8-A11` — lab.
+4. `/slice A8-A11` — lab: session 1 (backend) done 03/10/2026; **session 2 next** (screens, journey spec, reviews,
+   hands-on test). Kamrul to confirm open questions 114–133.
 5. `/slice A12-A13` — doctor app layout, printing; run all of Journey A.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
