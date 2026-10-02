@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3 and A4–A5 done; A6–A7 session 1 of 2 done)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5 and A6–A7 done; next A8–A11)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -184,6 +184,52 @@ reviews and the hands-on test as the cashier.
   An empty migration created along the way was removed before any commit. **Create a migration with
   `--create-only` only when nothing is pending**, then append, then apply.
 
+## Done (slice A6–A7, session 2 of 2, 03/10/2026) — billing screens, receipt PDF, reprint, verify ✅
+Slice A6–A7 is **done**. Kamrul's decisions for this session: open questions "Decisions of 03/10/2026 on items 83–93"
+and "Slice A6–A7 session 2".
+- **Receipts (backend):** `Storage` interface + `LocalFolderStorage` (`apps/api/src/adapters/storage.ts`; root
+  `STORAGE_DIR` or `<repo>/var/storage`, gitignored, write-once keys) — **HANDOVER gap 2 closed for dev**. Migration
+  `receipts`: `Receipt` (immutable copy of the bill at that moment, RCPT/yy/nnnn per facility per year from Sequence in
+  the same transaction, 20-character random verify code) and `ReceiptPrint` (copy 0 = original, n = DUPLICATE #n with
+  a reason; append-only); triggers refuse every update/delete; `receipt_verify_lookup` (SECURITY DEFINER) returns
+  facility, number, date, amount only. Migration `payment_superseded_index` restores the GIN index the receipts
+  migration had dropped (now declared in `schema.prisma`).
+- **PDF:** HTML → PDF with the Playwright Chromium already installed (`playwright-core` 1.63.0, already in the
+  lockfile; network blocked, page JavaScript off, fonts inlined from `packages/ui`); QR via `qrcode-generator` 2.0.4
+  (0.56 MB, no dependencies). `apps/api/src/receipts/template.ts`: A5 (Mushak-6.3 title, BIN marked sample and VAT by
+  rate **only on the receipt that settles the bill**; part-payment receipts are money receipts) and 80 mm thermal;
+  Bangla + English / Bangla / English; amounts from paisa; "Amount received in words" via `format.wordsPaisa`; "Paid
+  by" = confirmed money with TrxID / reference, pending wallet amounts marked pending; duplicates "অনুলিপি · DUPLICATE
+  #n" + 10% diagonal watermark + reprint line; everything from the record HTML-escaped. `CHROMIUM_PATH` for servers.
+- **Routes:** receipts list / create (same receipt while no new confirmed money) / view / print (original; then only
+  with a reason: lost, jam, corp, ins) / stored PDF, audited print / reprint / view; public `GET /v1/verify/rc/:code`
+  (no session, 20 per minute per visitor, no-store); `POST /v1/payments/:id/cancel` ("Cancel link": confirms money that
+  did arrive, else cancels the link and PAYMENT fail). `VERIFY_BASE_URL` sets what the QR opens.
+- **Screens** (`apps/staff/modules/bill/`, strings `locales/app/billingApp.json`): `bill/opd` (today's finished
+  visits newest first → the bill: lines with source and VAT, desk services, discount with the domain's preview,
+  approval waiting / approved / rejected, Issue, view-only for the receptionist), `bill/pay` (cash with change, card /
+  bank reference, bKash / Nagad link with polling, TrxID check, Cancel link, resend, test-only fake-gateway buttons,
+  "Paid by", receipt button; offline: outbox, provisional cash receipt with no number / no QR / "PROVISIONAL — not
+  synced" on every page, queued money counts against "Still to take", refused payments keep their amount; stale data
+  pauses taking payment), `bill/receipt` (copy, language, paper, Print → Reprint with reason, print audit),
+  `bill/approvals` (owner/admin; A / R; never your own request); public page `/verify/rc/[code]` (no login).
+- **Fake gateway route** `POST /v1/dev/fake-payments/:id/:kind` only with `FAKE_PAYMENTS_DEV_ROUTE=1` (set in
+  `.env.example`, the local `.env` and `apps/api/vitest.config.ts`) and never in production; a production API refuses
+  `PAYMENTS_PROVIDER=fake`.
+- **Reviews:** security (1 high — the dev route; 1 medium — superseded race; 4 low) and money / clinical safety (3 high
+  — a test added twice at the desk, a wallet link stuck pending, offline cash collected twice / refused silently; 5
+  medium; lows) — all fixed except M1 (unpriced tests) and M4 (revoked orders), see open questions 94–106.
+- **Hands-on test (03/10/2026)** as cashier 01799000008 in the E2E clinic (bill A-582 grown to ৳10,600 with desk
+  items so ৳500 was within the ৳500 limit; walkthrough bill A-583 ৳2,300): ৳500 within limit applied at once (line
+  shares summed to exactly ৳500.00); ৳500 above the ৳115 limit → approval request → total stayed ৳2,300, issue blocked
+  → approved as owner 01799000009 → ৳1,800 (shares 173.91 / 97.83 / 32.61 / 195.65); cash ৳10,100 from ৳10,500 →
+  change ৳400; bKash ৳1,000 confirmed by the fake callback; bKash ৳800 with the callback lost → confirmed with the
+  TrxID; receipt RCPT/26/0029 printed, reprinted "patient lost it" → DUPLICATE #1 with watermark; the QR page showed
+  facility, number, date, ৳1,800 and no patient details. Found and fixed: the verify page showed the UTC clock as
+  Dhaka time; the two-language discount line ran together; the receipt screen's lines did not add up to its total.
+- **Tests:** domain 140, api 121, contracts 2, i18n 3; `pnpm typecheck` 13/13; Playwright **48** (43 + 5 `a6-a7`),
+  green twice in a row on 03/10/2026 after the review fixes (API on :4100, staff on :3300 — port 4000 held by E:healthcare).
+
 ## How to run the journeys on this PC
 - Playwright's Chromium is installed (02/10/2026): plain `pnpm e2e` runs the journeys against `pnpm dev` (staff :3000,
   api :4000). The installed-Chrome route still works: `cd e2e` then `CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" pnpm exec playwright test -c pw.local.config.ts`.
@@ -203,7 +249,7 @@ reviews and the hands-on test as the cashier.
 
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
-2. **MinIO image cannot be pulled** on this machine (Docker Hub / quay denied). Not needed until PDFs in A6–A7; then switch to another S3-compatible image or a local-folder storage adapter for dev.
+2. ~~MinIO image cannot be pulled~~ — dev and tests store receipts with `LocalFolderStorage` (A6–A7). Before staging: an S3-compatible adapter behind the same `Storage` interface.
 3. Password and PIN hashing is dev-only SHA-256 (`apps/api/src/modules/users.ts`); replace with argon2id in the auth hardening pass (before the pilot).
 4. PIN attempt counter and idempotency keys live in memory when the DB is off; with the DB they use `IdempotencyKey`; PIN tries should move to Redis.
 5. Home-page figures are sample data; each slice swaps its tiles/rows for live queries.
@@ -238,9 +284,9 @@ reviews and the hands-on test as the cashier.
 ## Next (in order)
 1. ~~`/slice A1-A3`~~ — done 02/10/2026.
 2. ~~`/slice A4-A5`~~ — done 02–03/10/2026 (three sessions). Kamrul to confirm open questions 68–82.
-3. `/slice A6-A7` — session 1 (billing backend) done 03/10/2026; **session 2 next:** billing screens, receipt PDF
-   (+ gap 2: local-folder Storage), reprint, verify, journey spec, reviews, hands-on as cashier. Then the bill
-   void / entered-in-error follow-up (never a delete). Kamrul to confirm open questions 83–93.
+3. ~~`/slice A6-A7`~~ — done 03/10/2026 (two sessions). Kamrul to confirm open questions 94–106.
+   **Billing follow-ups (before or beside A8):** bill void / entered-in-error (never a delete); the owner's
+   payment-reconciliation queue screen (decision 89); a way out for unpriced tests (open question 98).
 4. `/slice A8-A11` — lab.
 5. `/slice A12-A13` — doctor app layout, printing; run all of Journey A.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.

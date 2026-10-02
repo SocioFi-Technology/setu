@@ -392,3 +392,52 @@ doctor's list puts waiting patients before completed visits; repeated entered-in
 - 89: **the owner works the payment-reconciliation queue** for now (the Clinic plan has no accountant role); add an
   accountant role when the Hospital plans need it. The queue screen is a **billing follow-up**, not part of A6–A7.
 - 90: **phase 2 list (before the bKash sandbox):** create the Payment row first and the provider link second.
+
+## Slice A6–A7 session 2 (billing screens, receipt PDF, reprint, verify) — 03/10/2026
+
+### Decided by Kamrul (03/10/2026, before the session)
+- Hands-on list: ৳500 within limit, above-limit → approval → nothing applied before, cash with change, bKash confirmed
+  by callback, bKash with the callback lost → TrxID, print + reprint DUPLICATE #1, verify page without patient
+  details — all done (HANDOVER).
+- **Note on "৳500 within limit":** with the limit of decision D4 (lower of ৳500 and 5% of the subtotal) ৳500 is within
+  the limit only on a bill of ৳10,000 or more; the hands-on used a bill grown to ৳10,600 with desk items. The rule was
+  not changed.
+
+### Chosen conservatively by Claude — please confirm
+94. **Bill edits, discounts, issuing and approvals need a connection** (refused offline, like signing); only
+    payments go through the offline outbox (cash queued, links "will send when online").
+95. **Desk items are services only** (card, certificate, dressing, nebulisation). Tests reach the bill only through
+    the doctor's order (review: a second CBC, or a test with no order for the lab).
+96. **Mushak-6.3 is printed once per bill — on the receipt that settles it.** Part-payment receipts are money
+    receipts. **Pre-pilot (accountant):** confirm, together with VAT after discount (D1) and the layout.
+97. **The words on a receipt are the amount received on it** ("Amount received in words"); the bill screen shows
+    "Total in words".
+98. **Unpriced tests block issuing and cannot be removed by the cashier** (review M1). The consultation fee cannot be
+    collected until the price list has the test. Needs a decision: owner sets a price on the spot, or "bill elsewhere"
+    with owner approval. Masters screens come in phase 2.
+99. **Revoked orders (lab slice, review M4):** when ORDER `revoke` exists, a draft bill must drop or refresh that
+    line; an issued bill needs the void follow-up.
+100. **"Cancel link"** asks the gateway first: money that arrived is confirmed ("the patient had already paid"),
+     otherwise the link is cancelled (PAYMENT fail) and the amount is free for another method.
+101. **A TrxID paid on a replaced link** is never applied to the new link: a reconciliation Task for the owner and the
+     message "do not ask the patient to pay again". A second "confirmed" with another TrxID is reconciled too.
+102. **Refused offline payments** keep method and amount on the device (no patient data) and stay on the Payment
+     screen until dismissed; the owner is told by the cashier (no automatic Task — the server cannot tell an offline
+     replay from a mistaken click).
+103. **Receipt numbers**: a new RCPT only when confirmed money changed; a change in pending money alone returns the
+     same receipt.
+104. **Public verify page** at the staff app's `/verify/rc/<code>`, 20 checks per minute per visitor; behind the staff
+     app's proxy the first X-Forwarded-For is trusted only from a loopback/private peer. **Before staging:** decide the
+     public host (verify.setu…) and the proxy hops (`trustProxy`).
+105. **The fake gateway's buttons** ("Patient pays / Payment fails / Pays, callback lost") are on screen only in dev
+     builds and only work with `FAKE_PAYMENTS_DEV_ROUTE=1`; production refuses the fake gateway entirely.
+106. **Receipt PDFs are rendered inside the print transaction** (30 s limit) so the copy number and the file agree;
+     revisit if printing becomes slow under load (render first, then claim the copy number).
+
+### Pre-pilot list (accountant)
+- VAT after discount (D1), Mushak-6.3 once per bill on the settling receipt (96) and its layout (print-specs), cashier
+  and approver limits per facility (D4), the seller BIN per facility (sample in demo tenants).
+
+### Phase 2 list
+- Before the bKash sandbox: create the Payment row first and the provider link second (decision 90).
+- S3-compatible Storage adapter before staging (HANDOVER gap 2).
