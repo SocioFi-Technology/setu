@@ -8,7 +8,7 @@
    - Medicines: a synthetic sample list labelled "sample". It is not a drug database: no DGDA numbers, no prices.
      Production needs a licensed database with DGDA numbers and clinician-approved allergy/interaction rules.
    - Ingredient and class keys (`amoxicillin`, `penicillin`, …) are Setu demo keys, not RxNorm/ATC codes.
-   - Tests: Setu keys, not LOINC; no prices until price lists exist (decision 29, slice A6). */
+   - Tests: Setu keys, not LOINC; prices only in the sample price list below (slice A6). */
 
 export interface Icd11Entry { code: string; bn: string; en: string; aliases: string; verification: "unverified-prototype" }
 export const ICD11_SAMPLE: Icd11Entry[] = ([
@@ -89,4 +89,33 @@ export function catalogMatch(q: string, ...fields: (string | null | undefined)[]
   const t = q.trim().toLowerCase();
   if (!t) return false;
   return fields.filter(Boolean).join(" ").toLowerCase().includes(t);
+}
+
+/* Slice A6: the prototype's sample price list (Setu Billing.dc.html `SVC`), in paisa. Not a tariff — every seeded row is
+   `sample` until the facility's own price list is entered (masters, phase 2). Tests the prototype gives no price for
+   stay unpriced: they show "no price set" on the bill and block issuing, never ৳0. One consultation fee per doctor
+   (decision 3 of slice A6–A7; no new / follow-up price yet). */
+export type ChargeKindName = "consultation" | "test" | "service";
+export interface PriceEntry { code: string; kind: ChargeKindName; refCode: string | null; nameEn: string; nameBn: string; unitPaisa: number; vatRateBp: number }
+export const CONSULT_FEE_SAMPLE_PAISA = 80_000;
+export const TEST_PRICES_SAMPLE: Record<string, number> = {
+  cbc: 45_000, rbs: 15_000, elec: 90_000, hba1c: 110_000, lipid: 120_000, creat: 50_000, ure: 25_000, tsh: 90_000, ecg: 40_000, cxr: 60_000, usgwa: 180_000,
+};
+/** Items the desk adds (no order behind them). Health Passport card and medical certificate carry 15% VAT. */
+export const DESK_ITEMS_SAMPLE: PriceEntry[] = ([
+  ["card", "Health Passport card", "হেলথ পাসপোর্ট কার্ড", 10_000, 1500],
+  ["cert", "Medical certificate", "মেডিকেল সনদ", 30_000, 1500],
+  ["dress", "Wound dressing", "ক্ষত ড্রেসিং", 30_000, 0],
+  ["neb", "Nebulisation", "নেবুলাইজেশন", 25_000, 0],
+] as [string, string, string, number, number][]).map(([key, nameEn, nameBn, unitPaisa, vatRateBp]) => ({ code: `desk:${key}`, kind: "service", refCode: null, nameEn, nameBn, unitPaisa, vatRateBp }));
+export const consultCode = (doctorUserId: string): string => `consult:${doctorUserId}`;
+export const testCode = (testKey: string): string => `test:${testKey}`;
+
+export function priceListSample(doctors: { id: string; nameEn: string; nameBn: string }[]): PriceEntry[] {
+  return [
+    ...doctors.map((d): PriceEntry => ({ code: consultCode(d.id), kind: "consultation", refCode: d.id, nameEn: `Consultation · ${d.nameEn}`, nameBn: `পরামর্শ ফি · ${d.nameBn}`, unitPaisa: CONSULT_FEE_SAMPLE_PAISA, vatRateBp: 0 })),
+    ...TESTS_SAMPLE.filter((t) => TEST_PRICES_SAMPLE[t.code] !== undefined)
+      .map((t): PriceEntry => ({ code: testCode(t.code), kind: "test", refCode: t.code, nameEn: t.nameEn, nameBn: t.nameBn, unitPaisa: TEST_PRICES_SAMPLE[t.code]!, vatRateBp: 0 })),
+    ...DESK_ITEMS_SAMPLE,
+  ];
 }

@@ -1,7 +1,7 @@
 /* Demo tenant used by dev, e2e and the journeys: Green Life Clinic, Mirpur (the prototype's sample facility).
    Sample people match the walkthrough so Playwright specs read like the journey text. */
 import { createHash } from "node:crypto";
-import { ICD11_SAMPLE, MEDICINES_SAMPLE, TESTS_SAMPLE, emptySections, rxQuantity } from "@setu/domain";
+import { ICD11_SAMPLE, MEDICINES_SAMPLE, TESTS_SAMPLE, emptySections, priceListSample, rxQuantity } from "@setu/domain";
 import { owner as prisma } from "./owner.ts";
 
 const hash = (s: string) => createHash("sha256").update("dev-only:" + s).digest("hex"); // replaced by argon2 in the auth slice
@@ -19,6 +19,16 @@ async function seedCatalogues(tenantId: string) {
   for (const t of TESTS_SAMPLE) {
     const data = { nameEn: t.nameEn, nameBn: t.nameBn, group: t.group };
     await prisma.orderableTest.upsert({ where: { tenantId_code: { tenantId, code: t.code } }, update: data, create: { tenantId, code: t.code, ...data } });
+  }
+}
+
+/* Slice A6: the prototype's sample price list for one facility (every row `sample`), with a consultation fee for each of
+   its doctors. Upsert by code, so a re-seed refreshes names and prices of the sample rows only. */
+async function seedPriceList(tenantId: string, organizationId: string) {
+  const roles = await prisma.practitionerRole.findMany({ where: { tenantId, organizationId, role: "doctor" }, include: { user: true }, orderBy: { userId: "asc" } });
+  for (const e of priceListSample(roles.map((r) => ({ id: r.userId, nameEn: r.user.nameEn, nameBn: r.user.nameBn })))) {
+    const data = { kind: e.kind, refCode: e.refCode, nameEn: e.nameEn, nameBn: e.nameBn, unitPaisa: e.unitPaisa, vatRateBp: e.vatRateBp, sample: true, active: true };
+    await prisma.chargeItemDefinition.upsert({ where: { tenantId_organizationId_code: { tenantId, organizationId, code: e.code } }, update: data, create: { tenantId, organizationId, code: e.code, ...data } });
   }
 }
 
@@ -178,11 +188,12 @@ async function main() {
   await prisma.tenant.upsert({ where: { id: E2E.tenant }, update: { patientNoPrefix: "E2E" }, create: { id: E2E.tenant, name: "E2E Test Clinic", plan: "pro", patientNoPrefix: "E2E" } });
   await prisma.organization.upsert({ where: { id: E2E.org }, update: {}, create: { id: E2E.org, tenantId: E2E.tenant, name: "E2E Test Clinic", nameBn: "ই২ই টেস্ট ক্লিনিক" } });
   await prisma.location.upsert({ where: { id: E2E.branch }, update: {}, create: { id: E2E.branch, tenantId: E2E.tenant, organizationId: E2E.org, kind: "branch", name: "Test branch", nameBn: "টেস্ট শাখা" } });
-  const e2eUsers: [string, string, string, string, "receptionist" | "doctor" | "nurse" | "owner" | "admin"][] = [
+  const e2eUsers: [string, string, string, string, "receptionist" | "doctor" | "nurse" | "cashier" | "owner" | "admin"][] = [
     ["u_e2e_desk", "টেস্ট রিসেপশন", "Test Receptionist", "01799000001", "receptionist"],
     ["u_e2e_doctor", "ডা. টেস্ট", "Dr. Test", "01799000002", "doctor"],
     ["u_e2e_doctor2", "ডা. টেস্ট দুই", "Dr. Test Two", "01799000003", "doctor"],
     ["u_e2e_nurse", "টেস্ট নার্স", "Test Nurse", "01799000004", "nurse"],
+    ["u_e2e_cashier", "টেস্ট ক্যাশিয়ার", "Test Cashier", "01799000008", "cashier"],
     ["u_e2e_owner", "টেস্ট মালিক", "Test Owner", "01799000009", "owner"],
     ["u_e2e_admin", "টেস্ট অ্যাডমিন", "Test Admin", "01799000010", "admin"],
   ];
@@ -194,6 +205,9 @@ async function main() {
   await seedLastVisit(E2E.tenant, E2E.org, E2E.branch, "e2e_", "u_e2e_nurse");
   await seedLastNote(E2E.tenant, E2E.org, E2E.branch, "e2e_", "u_e2e_doctor");
   for (const t of [tenant.id, "t_clinicdemo", "t_litedemo", E2E.tenant]) await seedCatalogues(t);
+  for (const [t, o] of [[tenant.id, org.id], ["t_clinicdemo", "o_clinicdemo"], ["t_litedemo", "o_litedemo"], [E2E.tenant, E2E.org]] as const) await seedPriceList(t, o);
+  /* The prototype's sample seller BIN (receipt header), marked sample; the plan demos have none, so no Mushak-6.3 line. */
+  for (const id of [org.id, E2E.org]) await prisma.organization.update({ where: { id }, data: { vatBin: "000123456-0101", vatBinSample: true } });
   await prisma.sequence.upsert({ where: { tenantId_name: { tenantId: E2E.tenant, name: "patient" } }, update: {}, create: { tenantId: E2E.tenant, name: "patient", value: 240210 } });
   console.log("seeded demo tenant: Green Life Clinic, Mirpur — 10 users (password setu1234, PIN 1234), 8 patients (5 share 01711-234567), Mirpur branch, ward 2A; plan demos: Clinic-plan nurse 01722000004, Lite-plan doctor 01733000002; E2E Test Clinic (tests only): 017990000xx; Rahima Khatun's previous visit 12/08/2026 with vitals");
 }

@@ -76,6 +76,15 @@ model Organization {
   nameBn    String?
   licenceNo String?
   address   String?
+  /// Seller VAT registration (BIN) printed on the Mushak-6.3 receipt; null = not registered in Setu, so no Mushak line
+  /// (slice A6–A7 decision 5). `vatBinSample` marks the prototype's sample value in demo tenants.
+  vatBin       String?
+  vatBinSample Boolean @default(false)
+  /// Billing limits (decision 4): cashier discount limit = lower of the amount and the percent of the subtotal; an
+  /// approver (owner/admin) approves at most approverLimitPaisa per request. Paisa / basis points.
+  cashierDiscountLimitPaisa Int @default(50000)
+  cashierDiscountLimitBp    Int @default(500)
+  approverLimitPaisa        Int @default(1000000)
   locations Location[]
   practitionerRoles PractitionerRole[]
   @@index([tenantId])
@@ -666,4 +675,191 @@ model ServiceRequest {
   statusAt       DateTime      @default(now())
   @@index([tenantId, encounterId])
   @@index([tenantId, compositionId])
+}
+
+/* ── Billing (slice A6–A7). Every amount is integer paisa; VAT rates are basis points (1500 = 15%). Line maths and
+   totals come from @setu/domain billing.ts; the database re-checks the arithmetic and the state rules. ── */
+
+enum ChargeKind {
+  consultation
+  test
+  service
+}
+
+/// The facility's price list. Seeded from the prototype's sample prices (`sample` = not a real tariff); read-only for
+/// the API until the masters screens exist. code: consult:<doctor user id> | test:<OrderableTest code> | desk:<key>.
+model ChargeItemDefinition {
+  id             String     @id @default(cuid())
+  tenantId       String
+  organizationId String
+  code           String
+  kind           ChargeKind
+  /// test → OrderableTest.code; consultation → the doctor's User id; service → null
+  refCode        String?
+  nameEn         String
+  nameBn         String
+  unitPaisa      Int
+  vatRateBp      Int        @default(0)
+  sample         Boolean    @default(true)
+  active         Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  @@unique([tenantId, organizationId, code])
+}
+
+/// INVOICE machine states (@setu/domain machines.ts).
+enum InvoiceStatus {
+  draft
+  issued
+  partially_paid @map("partially-paid")
+  balanced
+  cancelled
+}
+
+/// An OPD bill for one visit. Lines change only while it is a draft; issuing assigns INV/yy/nnnn (per facility per
+/// year) and freezes lines and totals. A discount above the cashier's limit is a Task (kind "discount-approval",
+/// focusId = this invoice) — never a flag here — and the bill cannot be issued while that Task is requested.
+model Invoice {
+  id                  String        @id @default(cuid())
+  tenantId            String
+  organizationId      String
+  branchId            String
+  patientId           String
+  encounterId         String
+  status              InvoiceStatus @default(draft)
+  number              String?
+  subtotalPaisa       Int           @default(0)
+  discountPaisa       Int           @default(0)
+  netPaisa            Int           @default(0)
+  vatPaisa            Int           @default(0)
+  totalPaisa          Int           @default(0)
+  /// sum of confirmed payments
+  paidPaisa           Int           @default(0)
+  discountCategory    String?
+  discountReason      String?
+  discountAppliedById String?
+  discountAppliedAt   DateTime?
+  /// the approval Task that allowed the discount (null when it was within the cashier's limit)
+  discountTaskId      String?
+  /// check-and-set for edits from two counters
+  rev                 Int           @default(1)
+  createdById         String
+  createdAt           DateTime      @default(now())
+  issuedById          String?
+  issuedAt            DateTime?
+  statusAt            DateTime      @default(now())
+  lines               ChargeItem[]
+  payments            Payment[]
+  @@unique([tenantId, organizationId, number])
+  @@index([tenantId, encounterId])
+  @@index([tenantId, status])
+}
+
+enum ChargeSource {
+  consultation
+  order
+  desk
+}
+
+/// A bill line (FHIR ChargeItem). Name, price and VAT rate are copied from the price list when the line is added, so a
+/// later price change never alters a bill. unitPaisa null = no price set: the line is shown and blocks issuing.
+model ChargeItem {
+  id            String       @id @default(cuid())
+  tenantId      String
+  invoiceId     String
+  invoice       Invoice      @relation(fields: [invoiceId], references: [id])
+  position      Int
+  source        ChargeSource
+  /// consultation → the Encounter id; order → the ServiceRequest id; desk → null
+  sourceId      String?
+  definitionId  String?
+  code          String
+  nameEn        String
+  nameBn        String
+  unitPaisa     Int?
+  qty           Int          @default(1)
+  vatRateBp     Int          @default(0)
+  grossPaisa    Int          @default(0)
+  discountPaisa Int          @default(0)
+  netPaisa      Int          @default(0)
+  vatPaisa      Int          @default(0)
+  totalPaisa    Int          @default(0)
+  addedById     String
+  createdAt     DateTime     @default(now())
+  @@unique([invoiceId, position])
+  @@index([tenantId, invoiceId])
+}
+
+/// PAYMENT machine states (@setu/domain machines.ts). No way out of confirmed.
+enum PaymentStatus {
+  initiated
+  link_sent        @map("link-sent")
+  waiting_customer @map("waiting-customer")
+  confirmed
+  failed
+}
+enum PaymentMethod {
+  cash
+  card
+  bank
+  bkash
+  nagad
+}
+
+/// Money against an invoice (FHIR PaymentNotice). Cash/card/bank confirm when the cashier records them; a wallet
+/// payment confirms only from the provider (callback or TrxID check). A confirmed payment is never edited or deleted.
+model Payment {
+  id             String        @id @default(cuid())
+  tenantId       String
+  organizationId String
+  invoiceId      String
+  invoice        Invoice       @relation(fields: [invoiceId], references: [id])
+  patientId      String
+  method         PaymentMethod
+  status         PaymentStatus
+  amountPaisa    Int
+  tenderedPaisa  Int?
+  changePaisa    Int?
+  /// card approval code or bank reference
+  reference      String?
+  /// fake | bkash | nagad (wallets only)
+  provider       String?
+  /// the provider's id for the current attempt; earlier attempts' ids move to supersededRefs on retry
+  providerRef    String?
+  supersededRefs String[]      @default([])
+  linkUrl        String?
+  linkExpiresAt  DateTime?
+  /// the number the payment link went to
+  phone          String?
+  trxId          String?
+  attempt        Int           @default(1)
+  failReason     String?
+  createdById    String
+  createdAt      DateTime      @default(now())
+  confirmedAt    DateTime?
+  /// the cashier for cash/card/bank; null when the provider confirmed
+  confirmedById  String?
+  statusAt       DateTime      @default(now())
+  @@unique([provider, providerRef])
+  @@index([tenantId, invoiceId])
+}
+
+/// Every provider callback, once (unique per provider event id): a repeat is answered from here and changes nothing.
+/// Append-only.
+model ProviderEvent {
+  id          String   @id @default(cuid())
+  tenantId    String
+  provider    String
+  eventId     String
+  providerRef String
+  /// opened | confirmed | failed
+  kind        String
+  paymentId   String?
+  /// applied | noop | refused
+  outcome     String
+  reason      String?
+  trxId       String?
+  amountPaisa Int?
+  receivedAt  DateTime @default(now())
+  @@unique([provider, eventId])
+  @@index([tenantId, paymentId])
 }
