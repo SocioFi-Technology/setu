@@ -198,7 +198,7 @@ describe.runIf(db)("order refresh on a draft bill (decision 99 prep)", () => {
   it("an order that is no longer active leaves the draft on open; with a discount the refresh waits and Issue is blocked", async () => {
     const { enc, view } = await bill();
     const rbs = lineOf(view, "test:rbs");
-    await inTenant((tx) => tx.serviceRequest.update({ where: { id: rbs.sourceId! }, data: { status: "revoked", statusAt: new Date() } }));
+    await inTenant((tx) => tx.serviceRequest.update({ where: { id: rbs.sourceId! }, data: { status: "revoked", statusAt: new Date(), revokedById: "u_e2e_doctor", revokedAt: new Date(), revokeReason: "test: order cancelled before collection" } }));
     const stale = (await get(`/v1/invoices/${view.invoice.id}`)).json();
     expect(stale.ordersChanged).toBe(true);
     expect(stale.issueBlockers).toContain("orders_changed");
@@ -209,7 +209,7 @@ describe.runIf(db)("order refresh on a draft bill (decision 99 prep)", () => {
     // with a discount on the bill nothing is recalculated silently
     const d = (await post(`/v1/invoices/${view.invoice.id}/discount`, { mode: "amount", amountPaisa: 10_000, category: "poor", reason: "Day labourer, doctor asked", rev: open.invoice.rev })).json().view;
     const cbc = lineOf(d, "test:cbc");
-    await inTenant((tx) => tx.serviceRequest.update({ where: { id: cbc.sourceId! }, data: { status: "revoked", statusAt: new Date() } }));
+    await inTenant((tx) => tx.serviceRequest.update({ where: { id: cbc.sourceId! }, data: { status: "revoked", statusAt: new Date(), revokedById: "u_e2e_doctor", revokedAt: new Date(), revokeReason: "test: order cancelled before collection" } }));
     const reopened = (await post(`/v1/encounters/${enc}/invoice`)).json();
     expect(reopened.lines.map((l: { code: string }) => l.code)).toContain("test:cbc");
     expect(reopened.issueBlockers).toContain("orders_changed");
@@ -270,7 +270,7 @@ describe.runIf(db)("review fixes (security + money)", () => {
     await post(`/v1/invoices/${b.invoice.id}/void`, { reason: "Opened twice by mistake" }, "owner");
     const c = (await post(`/v1/encounters/${enc}/invoice`)).json();
     const rbs = lineOf(c, "test:rbs");
-    await inTenant((tx) => tx.serviceRequest.update({ where: { id: rbs.sourceId! }, data: { status: "revoked", statusAt: new Date() } }));
+    await inTenant((tx) => tx.serviceRequest.update({ where: { id: rbs.sourceId! }, data: { status: "revoked", statusAt: new Date(), revokedById: "u_e2e_doctor", revokedAt: new Date(), revokeReason: "test: order cancelled before collection" } }));
     const reopened = (await post(`/v1/encounters/${enc}/invoice`)).json();
     const audit = await inTenant((tx) => tx.auditEvent.findFirst({ where: { entity: "Invoice", entityId: c.invoice.id, action: "update" }, orderBy: { at: "desc" } }));
     expect(audit?.detail).toMatchObject({ event: "refresh-orders", removed: ["test:rbs"], added: [] });

@@ -85,6 +85,9 @@ model Organization {
   cashierDiscountLimitPaisa Int @default(50000)
   cashierDiscountLimitBp    Int @default(500)
   approverLimitPaisa        Int @default(1000000)
+  /// Lab (ADR 0006): may one person both technically verify and clinically validate a result? null = by plan
+  /// (Clinic: yes; Hospital Lite / Pro: no) — @setu/domain lab.ts samePersonAllowed; the database checks it too.
+  labSamePersonAllowed      Boolean?
   locations Location[]
   practitionerRoles PractitionerRole[]
   @@index([tenantId])
@@ -377,8 +380,11 @@ model Provenance {
 }
 
 /// Observation.status. Vitals are stored `final` when the server accepts the batch; "preliminary" exists only as the
-/// device's pending outbox write (open question 36). Corrections will be new rows (amended / entered-in-error), never edits.
+/// device's pending outbox write (open question 36). Lab results (ADR 0006, RESULT machine): preliminary → verified →
+/// final; a correction marks the old row entered-in-error and adds a new row. Never an edit of a value.
 enum ObservationStatus {
+  preliminary
+  verified
   final
   amended
   entered_in_error @map("entered-in-error")
@@ -418,7 +424,32 @@ model Observation {
   effectiveAt      DateTime
   recordedAt       DateTime                   @default(now())
   deviceLabel      String?
+  /* ── lab results (category "laboratory", slice A8–A11, ADR 0006); null for vital signs ── */
+  /// the test (order) and the tube it was measured in; null only for seeded history (Rahima's 12/08 results)
+  serviceRequestId String?
+  specimenId       String?
+  /// the range and thresholds used when the value was entered (a snapshot: a later change to the sample list never
+  /// re-flags a stored result); refLabel adult | adult-female | adult-male; no range = none in the sample list
+  refLow           Float?
+  refHigh          Float?
+  refLabel         String?
+  critLow          Float?
+  critHigh         Float?
+  /// delta check at entry: the previous validated result it was compared with and the change in percent
+  deltaPrevId      String?
+  deltaPct         Int?
+  /// a correction: the row this one replaces (which is entered-in-error)
+  replacesId       String?                    @unique
+  verifiedById     String?
+  verifiedAt       DateTime?
+  validatedById    String?
+  validatedAt      DateTime?
+  errorReason      String?
+  errorById        String?
+  errorAt          DateTime?
+  statusAt         DateTime?
   @@index([tenantId, patientId, code, effectiveAt])
+  @@index([tenantId, serviceRequestId])
   @@index([tenantId, encounterId])
   @@index([tenantId, batchId])
 }
@@ -673,6 +704,10 @@ model ServiceRequest {
   createdAt      DateTime      @default(now())
   orderedAt      DateTime?
   statusAt       DateTime      @default(now())
+  /// ORDER revoke (cancel before collection, decision D5): who, when, why (at least 10 characters)
+  revokedById    String?
+  revokedAt      DateTime?
+  revokeReason   String?
   @@index([tenantId, encounterId])
   @@index([tenantId, compositionId])
 }
@@ -922,4 +957,212 @@ model ReceiptPrint {
   printedAt   DateTime @default(now())
   @@unique([receiptId, copy])
   @@index([tenantId, receiptId])
+}
+
+/* ───────────── Slice A8–A11: lab (ADR 0006) ───────────── */
+
+/// SPECIMEN machine states (@setu/domain machines.ts).
+enum SpecimenStatus {
+  pending
+  collected
+  received
+  in_process @map("in-process")
+  done
+  rejected
+}
+enum TubeKind {
+  edta
+  fluoride
+  plain
+  urine
+}
+
+/// One tube. Created when its label is printed (pending); a rejected tube is never reused — its tests get a new tube.
+/// `number` (S-yymm-nnnn, per facility per month) is the barcode text, never a key.
+model Specimen {
+  id               String          @id @default(cuid())
+  tenantId         String
+  organizationId   String
+  branchId         String
+  patientId        String
+  encounterId      String
+  number           String
+  tube             TubeKind
+  status           SpecimenStatus  @default(pending)
+  labelPrintedById String
+  labelPrintedAt   DateTime
+  labelPrints      Int             @default(1)
+  collectedById    String?
+  collectedAt      DateTime?
+  receivedById     String?
+  receivedAt       DateTime?
+  startedById      String?
+  startedAt        DateTime?
+  doneAt           DateTime?
+  rejectedById     String?
+  rejectedAt       DateTime?
+  /// @setu/domain REJECT_REASONS; `other` needs rejectNote
+  rejectReason     String?
+  rejectNote       String?
+  createdAt        DateTime        @default(now())
+  statusAt         DateTime        @default(now())
+  orders           SpecimenOrder[]
+  @@unique([tenantId, number])
+  @@index([tenantId, encounterId])
+  @@index([tenantId, organizationId, status])
+}
+/// Which tests a tube carries (tests sharing a tube kind share a tube). Written once with the label.
+model SpecimenOrder {
+  tenantId         String
+  specimenId       String
+  specimen         Specimen @relation(fields: [specimenId], references: [id])
+  serviceRequestId String
+  @@id([specimenId, serviceRequestId])
+  @@index([tenantId, serviceRequestId])
+}
+
+/// Sample analyte list per tenant (@setu/domain lab.ts ANALYTES_SAMPLE, pending clinician sign-off); read-only for the API.
+model LabAnalyte {
+  id         String  @id @default(cuid())
+  tenantId   String
+  code       String
+  testCode   String
+  nameEn     String
+  nameBn     String
+  unit       String
+  decimals   Int
+  critLow    Float?
+  critHigh   Float?
+  deltaCheck Boolean
+  position   Int
+  sample     Boolean @default(true)
+  active     Boolean @default(true)
+  @@unique([tenantId, code])
+  @@index([tenantId, testCode])
+}
+/// Sample reference ranges (RANGES_SAMPLE; decision D1: adult only, Hb and creatinine adult female only). Read-only.
+model LabReferenceRange {
+  id          String  @id
+  tenantId    String
+  analyteCode String
+  sex         Sex?
+  ageMinYears Int
+  ageMaxYears Int?
+  low         Float
+  high        Float
+  label       String
+  sample      Boolean @default(true)
+  @@index([tenantId, analyteCode])
+}
+
+/// LAB_REPORT machine states. A version exists only once released.
+enum LabReportStatus {
+  preliminary
+  final
+  corrected
+  superseded
+}
+/// One report per visit, in released versions (decision D3). Immutable except `superseded` when the next version is
+/// released. `number` (LR/yy/nnnn per facility per year) is shared by all versions of the visit's report.
+model DiagnosticReport {
+  id             String                   @id
+  tenantId       String
+  organizationId String
+  branchId       String
+  patientId      String
+  encounterId    String
+  number         String
+  version        Int
+  status         LabReportStatus
+  /// "PRELIMINARY — n of m tests pending": tests not cancelled (m) and those not in this version (n)
+  testCount      Int
+  pendingCount   Int
+  replacesId     String?                  @unique
+  supersededById String?
+  releasedById   String
+  releasedAt     DateTime
+  createdAt      DateTime                 @default(now())
+  results        DiagnosticReportResult[]
+  @@unique([tenantId, encounterId, version])
+  @@index([tenantId, organizationId, releasedAt])
+}
+model DiagnosticReportResult {
+  tenantId         String
+  reportId         String
+  report           DiagnosticReport @relation(fields: [reportId], references: [id])
+  observationId    String
+  serviceRequestId String
+  @@id([reportId, observationId])
+  @@index([tenantId, observationId])
+}
+
+enum CallbackOutcome {
+  reached
+  no_answer @map("no-answer")
+}
+/// A critical-value call-back (ADR 0006, decision D9): append-only. Only `reached` with readBack, for that exact
+/// Observation, unblocks its clinical validation; attempts that reached no one stay on record.
+model CriticalCallback {
+  id             String          @id @default(cuid())
+  tenantId       String
+  organizationId String
+  patientId      String
+  encounterId    String
+  observationId  String
+  outcome        CallbackOutcome
+  /// ordering-doctor | duty-doctor | patient (@setu/domain CALLBACK_RECIPIENTS)
+  recipientRole  String
+  recipientName  String
+  /// phone | app | in-person
+  via            String
+  calledAt       DateTime
+  readBack       Boolean
+  callerId       String
+  recordedAt     DateTime        @default(now())
+  @@index([tenantId, observationId])
+}
+
+/// COMMUNICATION machine states.
+enum CommunicationStatus {
+  preparation
+  in_progress @map("in-progress")
+  completed
+  failed
+}
+enum CommunicationChannel {
+  sms
+  patient_app  @map("patient-app")
+  doctor_inbox @map("doctor-inbox")
+}
+/// Every message (ADR 0006). `id` is the message id a retry reuses. SMS text is a fixed template (no values, tests,
+/// diagnosis or name); in-app deliveries (doctor's inbox, patient app) carry no text, only what they point at.
+model Communication {
+  id               String               @id
+  tenantId         String
+  organizationId   String
+  patientId        String
+  encounterId      String?
+  /// recollect | report-ready | report-app | report-inbox | correction-notice | order-cancelled
+  kind             String
+  channel          CommunicationChannel
+  recipientUserId  String?
+  toPhone          String?
+  templateKey      String?
+  text             String?
+  reportId         String?
+  specimenId       String?
+  serviceRequestId String?
+  observationId    String?
+  status           CommunicationStatus  @default(preparation)
+  attempts         Int                  @default(0)
+  lastError        String?
+  providerRef      String?
+  createdById      String
+  createdAt        DateTime             @default(now())
+  sentAt           DateTime?
+  completedAt      DateTime?
+  statusAt         DateTime             @default(now())
+  @@index([tenantId, encounterId])
+  @@index([tenantId, reportId])
+  @@index([tenantId, recipientUserId, channel])
 }

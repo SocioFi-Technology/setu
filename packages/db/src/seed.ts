@@ -1,7 +1,7 @@
 /* Demo tenant used by dev, e2e and the journeys: Green Life Clinic, Mirpur (the prototype's sample facility).
    Sample people match the walkthrough so Playwright specs read like the journey text. */
 import { createHash } from "node:crypto";
-import { ICD11_SAMPLE, MEDICINES_SAMPLE, TESTS_SAMPLE, emptySections, priceListSample, rxQuantity } from "@setu/domain";
+import { ANALYTES_SAMPLE, ICD11_SAMPLE, MEDICINES_SAMPLE, RANGES_SAMPLE, TESTS_SAMPLE, emptySections, labFlag, patientAgeYears, priceListSample, rangeFor, rxQuantity } from "@setu/domain";
 import { owner as prisma } from "./owner.ts";
 
 const hash = (s: string) => createHash("sha256").update("dev-only:" + s).digest("hex"); // replaced by argon2 in the auth slice
@@ -20,6 +20,49 @@ async function seedCatalogues(tenantId: string) {
     const data = { nameEn: t.nameEn, nameBn: t.nameBn, group: t.group };
     await prisma.orderableTest.upsert({ where: { tenantId_code: { tenantId, code: t.code } }, update: data, create: { tenantId, code: t.code, ...data } });
   }
+}
+
+/* Slice A8–A11: the sample analyte list and adult reference ranges (@setu/domain lab.ts, pending clinician sign-off,
+   decision D1). Upsert, so a re-seed refreshes the sample rows. */
+async function seedLabCatalogues(tenantId: string) {
+  for (const a of ANALYTES_SAMPLE) {
+    const data = { testCode: a.testCode, nameEn: a.nameEn, nameBn: a.nameBn, unit: a.unit, decimals: a.decimals, critLow: a.critLow, critHigh: a.critHigh, deltaCheck: a.deltaCheck, position: a.position, sample: true, active: true };
+    await prisma.labAnalyte.upsert({ where: { tenantId_code: { tenantId, code: a.code } }, update: data, create: { tenantId, code: a.code, ...data } });
+  }
+  for (const r of RANGES_SAMPLE) {
+    const id = `${tenantId}_rr_${r.analyteCode}_${r.sex ?? "any"}_${r.ageMinYears}`;
+    const data = { analyteCode: r.analyteCode, sex: r.sex, ageMinYears: r.ageMinYears, ageMaxYears: r.ageMaxYears, low: r.low, high: r.high, label: r.label, sample: true };
+    await prisma.labReferenceRange.upsert({ where: { id }, update: data, create: { id, tenantId, ...data } });
+  }
+}
+
+/* Walkthrough A9: Rahima Khatun's validated results from her 12/08/2026 visit (the prototype's "Prev" column), so the
+   delta check has something to compare with. Synthetic. Seeded without an order or report (the 12/08 note was seeded
+   before the lab existed and a signed note takes no new orders); they go through the same RESULT steps as the API —
+   entered by the lab technologist, verified by them, validated by the pathologist. */
+async function seedLabHistory(tenantId: string, organizationId: string, branchId: string, idPrefix: string, techId: string, pathId: string) {
+  const patientId = `${idPrefix}p_rahima`, encounterId = `${idPrefix}enc_rahima_20260812`, at = new Date("2026-08-12T05:30:00Z");
+  const patient = await prisma.patient.findUnique({ where: { id: patientId } });
+  if (!patient) return;
+  const ageYears = patientAgeYears({ birthDate: patient.birthDate?.toISOString().slice(0, 10) ?? null, approxAgeYears: patient.approxAgeYears, approxAgeAt: patient.approxAgeAt?.toISOString() ?? null }, at);
+  const sex = patient.sex === "other" ? "other" : patient.sex;
+  const PREV: Record<string, number> = { hb: 12.1, wbc: 8200, plt: 260000, rbs: 9.8, na: 137, k: 4.6, cl: 102, hba1c: 8.4, creat: 0.9 };
+  for (const a of ANALYTES_SAMPLE) {
+    const value = PREV[a.code];
+    if (value === undefined) continue;
+    const id = `${idPrefix}lab_rahima_20260812_${a.code}`;
+    if (await prisma.observation.findUnique({ where: { id } })) continue;
+    const range = rangeFor(RANGES_SAMPLE, a.code, { sex, ageYears });
+    await prisma.observation.create({ data: {
+      id, tenantId, organizationId, branchId, patientId, encounterId, batchId: `${idPrefix}lb_rahima_20260812`, category: "laboratory", code: a.code, value, unit: a.unit,
+      method: "manual", interpretation: labFlag(value, range, a), status: "preliminary", recordedById: techId, effectiveAt: at, recordedAt: at,
+      refLow: range?.low ?? null, refHigh: range?.high ?? null, refLabel: range?.label ?? null, critLow: a.critLow, critHigh: a.critHigh, statusAt: at,
+    } });
+    await prisma.observation.update({ where: { id }, data: { status: "verified", verifiedById: techId, verifiedAt: at, statusAt: at } });
+    await prisma.observation.update({ where: { id }, data: { status: "final", validatedById: pathId, validatedAt: at, statusAt: at } });
+  }
+  if (!(await prisma.provenance.count({ where: { targetType: "Observation", targetId: `${idPrefix}lb_rahima_20260812` } })))
+    await prisma.provenance.create({ data: { tenantId, targetType: "Observation", targetId: `${idPrefix}lb_rahima_20260812`, activity: "lab-validate", agentId: pathId, onBehalfOf: organizationId, source: "provider_verified", recorded: at, detail: { seeded: true, verifiedBy: techId } } });
 }
 
 /* Slice A6: the prototype's sample price list for one facility (every row `sample`), with a consultation fee for each of
@@ -165,6 +208,7 @@ async function main() {
   };
   await seedLastVisit(tenant.id, org.id, "l_branch_mirpur", "", "u_shirin");
   await seedLastNote(tenant.id, org.id, "l_branch_mirpur", "", "u_selina");
+  await seedLabHistory(tenant.id, org.id, "l_branch_mirpur", "", "u_tanvir", "u_kanta");
   /* Two small tenants on the lower plans, so the plan-lock journey runs against the real database (one user each,
      on their own phone numbers: login refuses a phone+password that matches in more than one tenant). */
   const planDemos: [string, string, "clinic" | "lite", string, string, string, string, string, "nurse" | "doctor"][] = [
@@ -207,7 +251,8 @@ async function main() {
   await seedFamily(E2E.tenant, "e2e_", "E2E");
   await seedLastVisit(E2E.tenant, E2E.org, E2E.branch, "e2e_", "u_e2e_nurse");
   await seedLastNote(E2E.tenant, E2E.org, E2E.branch, "e2e_", "u_e2e_doctor");
-  for (const t of [tenant.id, "t_clinicdemo", "t_litedemo", E2E.tenant]) await seedCatalogues(t);
+  await seedLabHistory(E2E.tenant, E2E.org, E2E.branch, "e2e_", "u_e2e_labtech", "u_e2e_path");
+  for (const t of [tenant.id, "t_clinicdemo", "t_litedemo", E2E.tenant]) { await seedCatalogues(t); await seedLabCatalogues(t); }
   for (const [t, o] of [[tenant.id, org.id], ["t_clinicdemo", "o_clinicdemo"], ["t_litedemo", "o_litedemo"], [E2E.tenant, E2E.org]] as const) await seedPriceList(t, o);
   /* The prototype's sample seller BIN (receipt header), marked sample; the plan demos have none, so no Mushak-6.3 line. */
   for (const id of [org.id, E2E.org]) await prisma.organization.update({ where: { id }, data: { vatBin: "000123456-0101", vatBinSample: true } });
