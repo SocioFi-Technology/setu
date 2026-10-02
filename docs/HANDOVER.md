@@ -264,7 +264,7 @@ One session, plan agreed with Kamrul (8 recommendations + the replacement chain 
   revoke comes with the lab slice) refreshed itself on open to ৳2,150. Found and fixed: a voided bill showed "Due".
   Not fixed (test data): the E2E clinic's reconciliation queue holds ~45 old cases from test runs (open question 110).
 - **Tests:** domain 147, api 133, contracts 2, i18n 3; `pnpm typecheck` 13/13; Playwright **51** (48 + 3
-  `a6-followups`), E2E_RESULT_LINE.
+  `a6-followups`), green twice in a row on 03/10/2026 (API :4100, staff :3300).
 - Note on history: commit `2341bc3` (step 2) was made while one API test still expected the old guard message; fixed
   in the next commit `d246dac`. From then on every commit was gated on the test command's exit code.
 
