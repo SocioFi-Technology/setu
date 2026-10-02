@@ -169,7 +169,7 @@ function VitalsEntry({ encounterId }: { encounterId: string }) {
                 <Segmented label="RBS mode" value={rbsMode} onChange={(v) => { setRbsMode(v); setKey(crypto.randomUUID()); }} options={[{ value: "random", label: V("rbs_random") }, { value: "fasting", label: V("rbs_fasting") }]} />
               )}
               {st ? (
-                <span role={st.level === "impossible" || st.level === "critical" ? "alert" : undefined}><Pill tone={TONE[st.level]} icon={ICON[st.level]}>{V(`c_${st.code}`)}</Pill></span>
+                <span role={st.level === "impossible" || st.level === "critical" ? "alert" : undefined}><Pill wrap tone={TONE[st.level]} icon={ICON[st.level]}>{V(`c_${st.code}`)}</Pill></span>
               ) : <span className="t-small t-muted">&nbsp;</span>}
               {st?.confirm && (
                 <label className="t-small" style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -184,7 +184,7 @@ function VitalsEntry({ encounterId }: { encounterId: string }) {
         <Card style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14, background: "var(--surface-subtle)" }} data-vital="bmi">
           <span style={{ display: "flex", justifyContent: "space-between" }}><b>{V("f_bmi")}</b><span className="t-small t-muted">{V("u_bmi")}</span></span>
           <b className="num" style={{ fontSize: 24 }} data-testid="bmi-value">{a.bmi === null ? "—" : s.n(a.bmi.toFixed(1))}</b>
-          {a.bmiClass ? (minor ? <span className="t-small t-muted">{V("bmi_child")}</span> : <Pill tone={a.bmiClass === "normal" ? "ok" : "warn"}>{V(`bmi_${a.bmiClass}`)}</Pill>) : <span className="t-small t-muted">{V("bmi_enter")}</span>}
+          {a.bmiClass ? (minor ? <span className="t-small t-muted">{V("bmi_child")}</span> : <Pill wrap tone={a.bmiClass === "normal" ? "ok" : "warn"}>{V(`bmi_${a.bmiClass}`)}</Pill>) : <span className="t-small t-muted">{V("bmi_enter")}</span>}
           <span className="t-small t-muted">{V("bmi_auto")}</span>
         </Card>
       </div>

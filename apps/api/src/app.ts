@@ -24,6 +24,11 @@ export async function buildApp() {
   app.setErrorHandler((e, req, reply) => {
     if (e instanceof HttpError) return reply.code(e.status).send(e.body);
     if (e instanceof ZodError) { const i = e.issues[0]; return reply.code(400).send({ code: "validation", message_bn: "তথ্য ঠিক করুন", message_en: i?.message ?? "Invalid input", field: i?.path.join(".") }); }
+    // Fastify's own client errors (malformed or empty JSON body, unsupported media type, body too large) are the
+    // caller's mistake: answer with their 4xx status in the usual error shape instead of a 500.
+    const sc = (e as { statusCode?: number }).statusCode;
+    if (typeof sc === "number" && sc >= 400 && sc < 500)
+      return reply.code(sc).send({ code: "bad_request", message_bn: "অনুরোধটি ঠিক নেই", message_en: "The request could not be read" });
     req.log.error(e);
     return reply.code(500).send({ code: "internal", message_bn: "সার্ভারে সমস্যা হয়েছে", message_en: "Something went wrong" });
   });

@@ -7,7 +7,8 @@ export class ApiFailure extends Error { constructor(public status: number, publi
 async function call<T>(method: string, path: string, body?: unknown, idemKey?: string): Promise<T> {
   const r = await fetch("/api" + path, {
     method, credentials: "include",
-    headers: { "content-type": "application/json", ...(idemKey ? { "idempotency-key": idemKey } : {}) },
+    // Only a request with a body says it is JSON: an empty JSON body is refused by the API (hands-on test 02/10/2026: sign-out).
+    headers: { ...(body === undefined ? {} : { "content-type": "application/json" }), ...(idemKey ? { "idempotency-key": idemKey } : {}) },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!r.ok) { let e: ApiError = { code: "http_" + r.status, message_bn: "সার্ভারে সমস্যা", message_en: r.statusText }; try { e = await r.json(); } catch {} throw new ApiFailure(r.status, e); }

@@ -91,7 +91,7 @@ export function Shell({ children }: { children: ReactNode }) {
           )}
         </div>
         <button type="button" className="btn btn-sm" style={{ height: 40, color: "var(--text-secondary)" }} aria-label={t.palette} title={t.palette + " · Ctrl+K"} onClick={() => { setPal(true); setPalQ(""); setPalSel(0); }}>
-          <Icon name="command" size={15} /><kbd className="kbd">Ctrl K</kbd>
+          <Icon name="command" size={15} /><kbd className="kbd palette-kbd">Ctrl K</kbd>
         </button>
         <span style={{ marginLeft: "auto" }} />
         <span role="status" className={`sync-pill${s.online ? "" : " off"}`}><Icon name={s.online ? "check-check" : "wifi-off"} size={14} />{s.online ? t.synced : t.offline}</span>
@@ -101,7 +101,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <IconButton icon="bell" label={t.notifs} />
         <div style={{ display: "flex", alignItems: "center", gap: 8, height: 44, padding: "0 8px 0 4px" }}>
           <span className="avatar avatar-brand" style={{ width: 34, height: 34, font: "600 13px/18px var(--font-sans)" }}>{initials(meName)}</span>
-          <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <span className="shell-me-text">
             <span style={{ font: "600 13px/16px var(--font-sans)", whiteSpace: "nowrap" }}>{meName}</span>
             <span className="t-muted" style={{ font: "400 11px/14px var(--font-sans)", whiteSpace: "nowrap" }}>{roleName}</span>
           </span>

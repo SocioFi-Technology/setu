@@ -13,6 +13,18 @@ const login = async (identifier = "01711000002", password = "setu1234") => {
   const cookie = r.headers["set-cookie"]; return { r, cookie: Array.isArray(cookie) ? cookie[0]! : (cookie as string) };
 };
 
+describe("malformed requests", () => {
+  it("an empty body sent as JSON is a 400 in the usual error shape, not a 500 (hands-on test 02/10/2026)", async () => {
+    const r = await app.inject({ method: "POST", url: "/v1/auth/logout", headers: { "content-type": "application/json" }, payload: "" });
+    expect(r.statusCode).toBe(400);
+    expect(r.json()).toMatchObject({ code: "bad_request", message_en: "The request could not be read" });
+  });
+  it("sign-out without a body works", async () => {
+    const r = await app.inject({ method: "POST", url: "/v1/auth/logout" });
+    expect(r.statusCode).toBe(200);
+  });
+});
+
 describe("meta", () => {
   it("GET /health", async () => {
     const r = await app.inject({ method: "GET", url: "/health" });

@@ -50,6 +50,9 @@ a.btn, a.nav-item, a.kpi, a.row-btn, a.option { text-decoration: none; }
 .pill-high { background: var(--result-high-bg); color: var(--result-high-fg); border-color: var(--result-high-border); }
 .pill-off { background: var(--status-offline-bg); color: var(--status-offline-fg); border-color: var(--status-offline-border); }
 .pill-draft { background: var(--pattern-draft); color: var(--status-draft-fg); border: 1px dashed var(--status-draft-border); }
+/* A pill carrying a sentence (e.g. a vital-sign warning) wraps inside its card instead of running past it. */
+.pill-wrap { white-space: normal; height: auto; min-height: 22px; padding: 3px 8px; align-items: flex-start; max-width: 100%; }
+.pill-wrap > svg { margin-top: 2px; }
 .badge-count { min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--radius-pill); background: var(--danger-bg); color: var(--danger-fg); font: 600 11px/20px var(--font-sans); text-align: center; }
 
 /* ---------- surfaces ---------- */
@@ -77,7 +80,7 @@ textarea.input { height: auto; padding: 10px 12px; resize: vertical; }
 .shell-brand { font: 700 18px/24px var(--font-sans); color: var(--brand-primary-text); letter-spacing: .2px; padding: 0 6px; }
 .org-btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 10px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-card); cursor: pointer; text-align: left; }
 .org-btn b { font: 600 13px/16px var(--font-sans); white-space: nowrap; } .org-btn span { font: 400 11px/14px var(--font-sans); color: var(--text-muted); white-space: nowrap; }
-.search { flex: 1 1 320px; max-width: 520px; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 10px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-card); position: relative; }
+.search { flex: 1 1 320px; min-width: 0; max-width: 520px; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 10px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-card); position: relative; }
 .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: 400 14px/20px var(--font-sans); color: var(--text-primary); }
 .popover { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 50; background: var(--surface-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); box-shadow: var(--shadow-3); padding: 6px; display: flex; flex-direction: column; }
 .option { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-radius: var(--radius-sm); cursor: pointer; background: transparent; text-align: left; color: var(--text-primary); }
@@ -141,6 +144,14 @@ textarea.input { height: auto; padding: 10px 12px; resize: vertical; }
 .toasts { position: fixed; right: 16px; bottom: 16px; z-index: 70; display: flex; flex-direction: column; gap: 8px; }
 .toast { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--radius-md); background: var(--neutral-900); color: #fff; font: 500 13px/18px var(--font-sans); box-shadow: var(--shadow-3); }
 
+.shell-me-text { display: flex; flex-direction: column; min-width: 0; }
+/* tablet (1024 px, the vitals station): everything in the top bar keeps its size and the search box gives way;
+   the org subtitle, the palette's key hint and the user's name text step aside (hands-on test 02/10/2026). */
+@media (max-width: 1180px) {
+  .shell-top > * { flex: none; }
+  .shell-top > .search { flex: 1 1 160px; }
+  .org-btn span span, .shell-top .palette-kbd, .shell-me-text { display: none; }
+}
 /* phone: the staff shell is desktop/tablet first; keep the top bar usable on a phone for the Doctor App layout */
 @media (max-width: 900px) {
   .shell-top { flex-wrap: wrap; height: auto; padding: 8px 12px; gap: 8px; }

@@ -57,3 +57,23 @@ test("@phone staff shell fits 390 px", async ({ page }) => {
   await login(page, "01711000002");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390 + 1);
 });
+
+/* Hands-on test 02/10/2026: sign-out returned a 500 (an empty JSON body), and at tablet width the top bar pushed the
+   page sideways. Both read-only for the demo clinic. */
+test("sign out works and lands on the login page", async ({ page }) => {
+  await login(page, "01711000004");
+  const r = page.waitForResponse((x) => x.url().includes("/api/v1/auth/logout"));
+  await page.getByRole("button", { name: /লগআউট|Sign out/ }).click();
+  expect((await r).status()).toBe(200);
+  await page.waitForURL("**/login**");
+});
+for (const lang of ["বাং", "EN"]) {
+  test(`tablet 1024 px: the top bar fits without sideways scrolling (${lang})`, async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await login(page, "01711000004");
+    await page.getByRole("radio", { name: lang, exact: true }).click();
+    await page.goto("/m/fd/vitals");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1024);
+    for (const name of ["Language", "Numerals"]) expect((await page.getByRole("radiogroup", { name }).boundingBox())!.height).toBeLessThan(45);
+  });
+}

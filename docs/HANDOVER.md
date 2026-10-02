@@ -59,7 +59,14 @@ Plan agreed with Kamrul: two sessions (decision D5). Decisions D1–D4 and items
 - **Kamrul's decisions on 45–49 (same day):** default thresholds = prototype + adult NEWS2 (labelled pending clinician
   sign-off); "Critical vital sign" flag on the queue card; earlier readings from the owner's other branches shown
   read-only with the branch name; undoing a Link anyway turns its admin-queue entry into "Link undone + reason".
-- **Tests:** domain 78, api 64, i18n 3, contracts 2; Playwright 29 (13 shell + 12 `a1-a3` + 4 `a4`) with plain
+- **Hands-on test (02/10/2026)** in Green Life as receptionist 01711000001 → nurse 01711000004 at tablet 1024 px:
+  pulse 300 blocked (screen + API 400), glucose 40 needs the re-checked tick, language switched to English mid-entry
+  (values and tick kept), saved only after server confirm, the queue card showed "Critical vital sign"; the visit was
+  then marked no-show (Green Life keeps one A-001 no-show and that vitals batch for 02/10/2026). Found and fixed:
+  sign-out returned 500 (the client sent an empty JSON body; the API now answers Fastify client errors as 4xx);
+  the top bar overflowed at 1024 px (toggles squeezed, page scrolled sideways); the glucose warning ran past its card.
+  Regression specs added (shell: sign-out, tablet top bar in bn and en; a4: warning stays inside the card).
+- **Tests:** domain 78, api 66, i18n 3, contracts 2; Playwright 32 (16 shell + 12 `a1-a3` + 4 `a4`) with plain
   `pnpm e2e`, green twice in a row on 02/10/2026.
 
 ## How to run the journeys on this PC

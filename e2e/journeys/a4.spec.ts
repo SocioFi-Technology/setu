@@ -100,6 +100,10 @@ test("A4 / clinical review: glucose that may be in mg/dL needs a re-checked tick
   await page.getByRole("textbox", { name: "Blood glucose" }).fill("180");
   await expect(card(page, "rbs")).toContainText("Looks like mg/dL — enter mmol/L");
   await page.getByRole("textbox", { name: "Blood glucose" }).fill("32");
+  // Hands-on test 02/10/2026: the warning wrapped past the card's edge at 1024 px; it must stay inside the card.
+  const pill = card(page, "rbs").locator(".pill").first();
+  const [p, c] = [await pill.boundingBox(), await card(page, "rbs").boundingBox()];
+  expect(p!.x + p!.width).toBeLessThanOrEqual(c!.x + c!.width);
   const save = page.getByRole("button", { name: "Save vitals" });
   await expect(page.getByTestId("vitals-summary")).toHaveText("Re-check the marked value and tick to confirm");
   await expect(save).toBeDisabled();
