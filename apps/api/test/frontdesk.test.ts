@@ -109,6 +109,11 @@ describe.runIf(db)("A2 duplicate review (issue #4)", () => {
     const t2 = await db!.forTenant("t_greenlife", (tx) => tx.task.findFirst({ where: { id: r.json().taskId } }));
     expect(t2).toMatchObject({ status: "rejected", decisionNote: "withdrawn" });
   });
+  it("only real look-alikes are candidates: family members who merely share the phone are not", async () => {
+    const ids = (await get("/v1/patients/p_rbegum/matches")).json().candidates.map((c: { patient: { id: string } }) => c.patient.id);
+    expect(ids).toContain("p_rahima");
+    expect(ids).not.toContain("p_sumaiya"); expect(ids).not.toContain("p_ayesha"); expect(ids).not.toContain("p_karim");
+  });
   it("a child cannot be linked to the guardian's record, even with a reason", async () => {
     const r = await post("/v1/patients/p_sumaiya/match-decisions", { decision: "linkAnyway", candidateId: "p_karim", reason: "this is definitely the same person" });
     expect(r.statusCode).toBe(409); expect(r.json().code).toBe("link_blocked_guardian");

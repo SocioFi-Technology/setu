@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canLinkDirectly, compareRecords, concernsOf, linkAnywayAllowed, normalizeName, normalizePhone, validateRegistration, type MatchRecord, type RegistrationInput } from "./patient.js";
+import { canLinkDirectly, compareRecords, concernsOf, isCandidate, linkAnywayAllowed, linkBlocked, normalizeName, normalizePhone, validateRegistration, type MatchRecord, type RegistrationInput } from "./patient.js";
 
 const TODAY = new Date("2026-09-29T06:00:00Z");
 const empty: RegistrationInput = { nameBn: "", dobMode: "dob" };
@@ -119,6 +119,18 @@ describe("field-level comparison (walkthrough A2, issue #4)", () => {
     expect(c.isGuardian).toBe(true);
     expect(canLinkDirectly(c)).toBe(false);
     expect(linkAnywayAllowed(c, "this is definitely the same person")).toBe(false);
+  });
+  it("a shared family phone alone is not a possible match; a similar name on the same phone is", () => {
+    const karim: MatchRecord = { nameBn: "আব্দুল করিম", nameEn: "Abdul Karim", sex: "male", birthDate: "1979-02-02", phone: "1711234567", district: "Dhaka", upazila: "Mirpur" };
+    const ayesha: MatchRecord = { nameBn: "আয়েশা বেগম", nameEn: "Ayesha Begum", sex: "female", approxAgeYears: 71, approxAgeAt: "2026-09-01", phone: "1711234567", district: "Dhaka", upazila: "Mirpur" };
+    expect(isCandidate(compareRecords(begum, karim, NOW))).toBe(false);
+    expect(isCandidate(compareRecords(begum, ayesha, NOW))).toBe(false);
+    expect(isCandidate(compareRecords(begum, self, NOW))).toBe(true);
+  });
+  it("a different sex blocks any link, even with a reason", () => {
+    const c = compareRecords(entry, { ...self, sex: "male" }, NOW);
+    expect(linkBlocked(c)).toBe(true);
+    expect(linkAnywayAllowed(c, "patient insists it is them")).toBe(false);
   });
   it("guardian detection works both ways and on a near spelling", () => {
     const child: MatchRecord = { nameBn: "সুমাইয়া আক্তার", sex: "female", birthDate: "2017-05-01", guardianName: "রহিমা বেগম", phone: "1711234567", district: "Dhaka" };

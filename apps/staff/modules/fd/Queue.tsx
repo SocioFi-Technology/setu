@@ -2,7 +2,7 @@
 /* fd/queue — walkthrough A3 (lands on the token just created). Ported from docs/prototype/Setu Front Desk.dc.html
    (screen=queue). The board is a view of ENCOUNTER states; call / next / no-show go to the API, which applies them
    through the machine. Reorder with reason comes in a later slice. */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { QueueItem, QueueResponse } from "@setu/contracts";
 import { Button, Callout, Card, Dialog, PageState, Pill, useToast } from "@setu/ui";
@@ -30,9 +30,15 @@ export function FrontDeskQueue() {
 
   const all = q?.columns.flatMap((c) => c.items) ?? [];
   const picked: QueueItem | undefined = all.find((i) => i.id === sel);
-  useEffect(() => { s.setPatient(picked ? bannerOf(picked.patient, L) : null); }, [picked?.id, picked?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { s.setPatient(picked ? bannerOf(picked.patient, L) : null); }, [picked?.id, picked?.status, s.lang, s.numerals]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => s.setPatient(null), []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (sel) document.querySelector(`[data-token-id="${sel}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" }); }, [sel, q]);
+  // Bring the token we landed on into view once (not on every refresh or click, which would yank the page).
+  const landed = useRef(false);
+  useEffect(() => {
+    if (landed.current || !q || !sel) return;
+    const el = document.querySelector<HTMLElement>(`[data-token-id="${sel}"]`);
+    if (el) { landed.current = true; el.scrollIntoView({ block: "nearest", inline: "nearest" }); }
+  }, [q, sel]);
 
   const act = async (action: "call" | "next" | "noShow") => {
     if (!picked || busy || !picked.actions.includes(action)) return;
@@ -90,10 +96,11 @@ export function FrontDeskQueue() {
             ) : <span className="t-muted">{T("select_a_token")}</span>}
           </Card>
 
-          <div style={{ display: "grid", gridTemplateColumns: `repeat(${q.columns.length}, minmax(190px, 1fr))`, gap: 12, overflowX: "auto", paddingBottom: 4 }} aria-label={T("queue_title")}>
+          {/* The board fits the screen and each column scrolls on its own, so the action bar above never leaves view. */}
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${q.columns.length}, minmax(190px, 1fr))`, gap: 12, overflowX: "auto", paddingBottom: 4, height: "max(360px, calc(100vh - 300px))" }} aria-label={T("queue_title")}>
             {q.columns.map((col) => (
-              <section key={col.key} data-column={col.key} aria-label={T(`col_${col.key}`)} style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0, background: "var(--surface-sunken)", borderRadius: 10, padding: 8 }}>
-                <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "2px 4px" }}>
+              <section key={col.key} data-column={col.key} aria-label={T(`col_${col.key}`)} style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0, minHeight: 0, overflowY: "auto", background: "var(--surface-sunken)", borderRadius: 10, padding: 8 }}>
+                <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "2px 4px", position: "sticky", top: -8, background: "var(--surface-sunken)", zIndex: 1 }}>
                   <b className="t-small">{T(`col_${col.key}`)}</b><span className="badge-count num">{s.n(col.items.length)}</span>
                 </header>
                 {col.items.map((i) => {

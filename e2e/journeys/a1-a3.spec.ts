@@ -25,6 +25,7 @@ test.describe("A1 search", () => {
     await expect(page.getByTestId("shared-phone")).toHaveText("5 patients use 01711-234567");
     await expect(page.getByRole("option")).toHaveCount(5);
     await expect(page.getByText("Results never merge automatically")).toBeVisible();
+    await expect(page.locator(".pt-banner")).toHaveCount(0); // nobody chosen yet: no default patient in the banner
     await page.locator('[role=option][data-patient="GLC-230982"]').click();
     await expect(page.locator(".pt-banner")).toContainText("Rahima Begum");
     await page.getByRole("button", { name: "Compare" }).click();
@@ -93,14 +94,17 @@ test.describe("A2 duplicate review", () => {
     await page.goto("/m/fd/match?id=p_rbegum");
     await page.getByRole("textbox", { name: "Not sure? Reason" }).fill("guardian differs");
     await page.getByRole("button", { name: "Not sure — send for review" }).click();
-    await expect(page.getByTestId("decision")).toContainText("Sent to the records officer for review");
+    await expect(page.getByTestId("decision")).toContainText("Sent for review — an admin will check it");
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(page.getByTestId("decision")).toHaveCount(0);
   });
-  test("A2: child on parent's phone — the guardian's column cannot be linked", async ({ page }) => {
+  test("A2: child on parent's phone — family members who only share the phone are not offered as matches", async ({ page }) => {
     await login(page);
     await page.goto("/m/fd/match?id=p_sumaiya");
-    await expect(page.getByText("This is the guardian — cannot be linked")).toBeVisible();
+    await expect(page.getByText("No existing record matches")).toBeVisible();
+    await page.goto("/m/fd/match?id=p_rbegum");
+    await expect(page.locator("th[data-candidate]")).toHaveCount(1); // only Rahima Khatun, not the child or the grandmother
+    await expect(page.locator(".pt-banner")).toContainText("58y F"); // banner follows the EN / 0123 toggles
   });
 });
 
@@ -141,6 +145,7 @@ test.describe("A3 registration", () => {
     await expect(page.locator('[data-column="waiting"]')).toContainText(`Nusrat Jahan ${RUN}`);
     await expect(page.getByTestId("selected-token")).toHaveText(/^A-\d{3,}$/);
     await expect(page.locator(".pt-banner")).toContainText(`Nusrat Jahan ${RUN}`);
+    await expect(page.getByTestId("queue-selected")).toBeInViewport();
 
     // Queue moves go through ENCOUNTER: call, then to vitals.
     await page.getByRole("button", { name: "Call" }).click();
@@ -171,6 +176,12 @@ test.describe("A3 registration", () => {
 
 test("issue #21: nothing clipped on the front desk screens at 1440 px", async ({ page }) => {
   await login(page);
+  await page.goto("/m/fd/search");
+  await page.getByRole("combobox", { name: "Search patient" }).fill("01711234567");
+  await expect(page.getByRole("option")).toHaveCount(5);
+  // The results table must fit without a sideways scrollbar (round-3 walkthrough: the flags column was cut off).
+  expect(await page.locator("#fd-results").evaluate((e) => { const c = e.parentElement!; return c.scrollWidth <= c.clientWidth + 1; })).toBe(true);
+  expect(await clipped(page, ".btn, .pill")).toEqual([]);
   await page.goto("/m/fd/match?id=p_rbegum");
   await expect(page.locator("th[data-candidate]").first()).toBeVisible();
   expect(await clipped(page, ".btn, .pill")).toEqual([]);

@@ -187,13 +187,18 @@ export const LINK_REASON_MIN = 10;
     Bangla name and the birth both Same — twins and siblings share almost everything else (issue #4; clinical review). */
 export const canLinkDirectly = (c: Comparison) =>
   !c.isGuardian && c.conflicts.length === 0 && c.strong && c.fields.nameBn === "same" && c.fields.birth === "same";
-/** "Link anyway": any candidate that is not the guardian and cannot be linked directly, with a reason of ≥10 characters. */
+/** Never the same person whatever the reason: the guardian's record, or a different sex (prototype "Blocked: sex and age conflict"). */
+export const linkBlocked = (c: Comparison) => c.isGuardian || c.fields.sex === "different";
+/** "Link anyway": a candidate that is not blocked and cannot be linked directly, with a reason of ≥10 characters. */
 export const linkAnywayAllowed = (c: Comparison, reason: string | null | undefined) =>
-  !c.isGuardian && !canLinkDirectly(c) && (reason ?? "").trim().length >= LINK_REASON_MIN;
+  !linkBlocked(c) && !canLinkDirectly(c) && (reason ?? "").trim().length >= LINK_REASON_MIN;
 /** Fields that are not Same, conflicts first: what the person linking anyway must look at. */
 export const concernsOf = (c: Comparison): MatchField[] =>
   [...MATCH_FIELDS.filter((f) => c.fields[f] === "different"), ...MATCH_FIELDS.filter((f) => c.fields[f] === "similar" || c.fields[f] === "missing")];
-/** A record worth showing as a possible match: same phone or ID, or a name that agrees with a birth that agrees. */
-export const isCandidate = (c: Comparison) =>
-  c.fields.phone === "same" || c.fields.id === "same" ||
-  ((c.fields.nameBn === "same" || c.fields.nameEn === "same" || c.fields.nameBn === "similar" || c.fields.nameEn === "similar") && (c.fields.birth === "same" || c.fields.birth === "similar"));
+/** A record worth showing as a possible match: the same ID, or a name that agrees together with a phone or a birth
+    that agrees. A shared family phone alone is not a match (walkthrough A1: five people on one number). */
+export const isCandidate = (c: Comparison) => {
+  const name = c.fields.nameBn === "same" || c.fields.nameEn === "same" || c.fields.nameBn === "similar" || c.fields.nameEn === "similar";
+  const birth = c.fields.birth === "same" || c.fields.birth === "similar";
+  return c.fields.id === "same" || (name && (c.fields.phone === "same" || birth));
+};

@@ -22,7 +22,10 @@ move it to "Answered" with the date and who decided.
    - Address: Same if district and upazila match; Similar if only the district matches; Different if districts differ.
    - Guardian: compared as a name. NID / birth registration: Same or Different only when both records have one.
    - Strong match: ≥6 of 8 fields Same.
-   - Candidate list: same phone, same ID, or a Same/Similar name together with a Same/Similar birth.
+   - Candidate list: the same ID, or a Same/Similar name together with the same phone or a Same/Similar birth. A shared
+     family phone alone is **not** a match (hands-on walkthrough 02/10/2026: the 9-year-old and the grandmother were being
+     offered as matches for Rahima Begum). At most 3 candidates.
+   - A different sex blocks any link, even "Link anyway" (prototype: "Blocked: sex and age conflict").
    - The prototype shows Rahima Khatun vs Rahima Begum's English name as Different; with these rules it is Similar (same first word). The A2 requirement — conflicts block the one-click link — still holds (DOB and guardian are Different).
 2. **Queue columns:** Waiting = `arrived`, Vitals done = `triaged`, With doctor = `in-progress`, Completed = `finished`,
    No-show = `cancelled` (reason "no-show"). The prototype's **Sent to lab** and **Billing** columns have no ENCOUNTER state;
@@ -35,7 +38,7 @@ move it to "Answered" with the date and who decided.
    - Send for review: Task requested; A set to `possible-duplicate`; the visit continues on A.
    - Different person: Provenance `checked-different`; if A was `possible-duplicate` and has no open review it goes back to `unverified`.
    - Undo: reverses the last decision on A with a new Provenance row (never deletes); an open review Task is rejected with note "withdrawn"; an approved one stays approved (APPROVAL has no way back) and the unlink is recorded.
-5. **Who reviews:** "records officer" is not one of the nine roles. Review Tasks are visible to **admin** until that role exists.
+5. **Who reviews:** (screen text now says "an admin will check it") "records officer" is not one of the nine roles. Review Tasks are visible to **admin** until that role exists.
 6. **Login with a phone that exists in two tenants:** accepted only when exactly one account matches the password; otherwise "wrong phone or password". A tenant picker may be needed later.
 7. **Branch for the token:** the first `Location(kind=branch)` of the session's organisation. Multi-branch organisations need a branch choice at login.
 8. **Approximate age** is stored as years + months + the date it was recorded (`approxAgeAt`), so it ages forward; no estimated birth date is invented.

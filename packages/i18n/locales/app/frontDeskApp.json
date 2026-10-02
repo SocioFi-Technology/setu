@@ -384,8 +384,8 @@
     "Linked to {name} ({no}) with {n} conflicting field(s) — audited with your reason."
   ],
   "decided_review": [
-    "রেকর্ড অফিসারের কাছে রিভিউতে পাঠানো হয়েছে। ভিজিট এই রেকর্ডেই চলবে।",
-    "Sent to the records officer for review. The visit continues on this record."
+    "রিভিউতে পাঠানো হয়েছে — অ্যাডমিন দেখবেন। ভিজিট এই রেকর্ডেই চলবে।",
+    "Sent for review — an admin will check it. The visit continues on this record."
   ],
   "decided_different": [
     "আলাদা ব্যক্তি হিসেবে চিহ্নিত।",
@@ -838,5 +838,9 @@
   "check_on_match": [
     "অমিল আছে — একই ব্যক্তি হলে খুঁজে \"তুলনা করুন\" দিয়ে যাচাই করুন",
     "Fields differ — if this is the same person, find them in search and use Compare"
+  ],
+  "sex_conflict_note": [
+    "লিঙ্গ মেলেনি — লিংক করা যাবে না",
+    "Sex differs — cannot be linked"
   ]
 }

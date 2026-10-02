@@ -115,7 +115,7 @@ export function FrontDeskRegister() {
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(260px, 320px)", gap: 16, alignItems: "start" }} className="fd-split">
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
           <Card style={{ display: "flex", flexDirection: "column", gap: 12, padding: 16 }}>
-            <h3 className="t-h3" style={{ margin: 0 }}>1 · {T("sec_identity")}</h3>
+            <h3 className="t-h3" style={{ margin: 0 }}>{s.n(1)} · {T("sec_identity")}</h3>
             <div style={GRID2}>
               <div data-fld="nameBn"><TextField name="nameBn" label={T("name_bn")} lang="bn" value={f.nameBn} onChange={(e) => set("nameBn", e.target.value)} error={errOf("nameBn")} /></div>
               <div data-fld="nameEn"><TextField name="nameEn" label={T("name_en")} value={f.nameEn ?? ""} onChange={(e) => set("nameEn", e.target.value)} /></div>
@@ -148,7 +148,7 @@ export function FrontDeskRegister() {
           </Card>
 
           <Card style={{ display: "flex", flexDirection: "column", gap: 12, padding: 16 }}>
-            <h3 className="t-h3" style={{ margin: 0 }}>2 · {T("sec_guardian")}</h3>
+            <h3 className="t-h3" style={{ margin: 0 }}>{s.n(2)} · {T("sec_guardian")}</h3>
             <div style={GRID2}>
               <div data-fld="guardianName"><TextField name="guardianName" label={T("guardian_name")} value={f.guardianName} onChange={(e) => set("guardianName", e.target.value)} error={errOf("guardianName")} /></div>
               <div data-fld="guardianRelationship">
@@ -162,7 +162,7 @@ export function FrontDeskRegister() {
           </Card>
 
           <Card style={{ display: "flex", flexDirection: "column", gap: 12, padding: 16 }}>
-            <h3 className="t-h3" style={{ margin: 0 }}>3 · {T("sec_contact")}</h3>
+            <h3 className="t-h3" style={{ margin: 0 }}>{s.n(3)} · {T("sec_contact")}</h3>
             <div style={GRID2}>
               <div data-fld="phone">
                 <TextField name="phone" label={T("mobile")} inputMode="tel" placeholder="01XXXXXXXXX" value={f.phone ?? ""} onChange={(e) => set("phone", e.target.value)} error={errOf("phone")}
@@ -197,7 +197,7 @@ export function FrontDeskRegister() {
           </Card>
 
           <Card style={{ display: "flex", flexDirection: "column", gap: 12, padding: 16 }}>
-            <h3 className="t-h3" style={{ margin: 0 }}>4 · {T("sec_id")}</h3>
+            <h3 className="t-h3" style={{ margin: 0 }}>{s.n(4)} · {T("sec_id")}</h3>
             <div style={GRID2}>
               <SelectField name="idType" label={T("id_type")} value={f.idType ?? "none"} onChange={(e) => set("idType", e.target.value as Form["idType"])}>
                 {(["none", "nid", "brn", "passport"] as const).map((v) => <option key={v} value={v}>{T(`id_${v}`)}</option>)}

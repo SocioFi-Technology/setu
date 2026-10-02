@@ -14,7 +14,8 @@ export function FrontDeskSearch() {
   const [res, setRes] = useState<PatientSearchResponse | null>(null);
   const [resQ, setResQ] = useState("");
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
-  const [sel, setSel] = useState(0);
+  /** -1: nobody chosen yet. The banner and Enter act only on a patient the receptionist picked (never a default). */
+  const [sel, setSel] = useState(-1);
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const seq = useRef(0);
@@ -25,15 +26,15 @@ export function FrontDeskSearch() {
     const my = ++seq.current;
     setState("loading");
     const h = setTimeout(async () => {
-      try { const r = await fd.search(term); if (my === seq.current) { setRes(r); setResQ(term); setSel(0); setState("idle"); } }
+      try { const r = await fd.search(term); if (my === seq.current) { setRes(r); setResQ(term); setSel(-1); setState("idle"); } }
       catch { if (my === seq.current) setState("error"); }
     }, 220);
     return () => clearTimeout(h);
   }, [q]);
 
   const items = res?.items ?? [];
-  const picked: PatientSummary | undefined = items[Math.min(sel, items.length - 1)];
-  useEffect(() => { s.setPatient(picked ? bannerOf(picked, L) : null); }, [picked?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const picked: PatientSummary | undefined = sel >= 0 ? items[sel] : undefined;
+  useEffect(() => { s.setPatient(picked ? bannerOf(picked, L) : null); }, [picked?.id, s.lang, s.numerals]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => s.setPatient(null), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* Prefill travels in sessionStorage, never the URL (names and phones stay out of history and logs). */
@@ -61,7 +62,7 @@ export function FrontDeskSearch() {
   };
 
   const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === "ArrowDown") { e.preventDefault(); setSel((i) => Math.min(i + 1, Math.max(0, items.length - 1))); }
+    if (e.key === "ArrowDown") { e.preventDefault(); setSel((i) => Math.min(i + 1, items.length - 1)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setSel((i) => Math.max(i - 1, 0)); }
     // Never act on a list that is still loading or belongs to an earlier search (clinical review: wrong patient).
     else if (e.key === "Enter" && picked && state === "idle" && resQ === q.trim()) { e.preventDefault(); void createVisit(picked); }
@@ -112,12 +113,12 @@ export function FrontDeskSearch() {
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(280px, 340px)", gap: 16, alignItems: "start" }} className="fd-split">
               <Card style={{ padding: 0, overflowX: "auto" }}>
                 <div id="fd-results" role="listbox" aria-label={T("search_label")}>
-                  <div className="t-label t-muted" style={{ display: "grid", gridTemplateColumns: GRID, gap: 8, padding: "8px 12px", borderBottom: "1px solid var(--border-subtle)", minWidth: 720 }}>
+                  <div className="t-label t-muted" style={{ display: "grid", gridTemplateColumns: GRID, gap: 8, padding: "8px 12px", borderBottom: "1px solid var(--border-subtle)", minWidth: 640 }}>
                     <span>{T("col_name")}</span><span>{T("col_age")}</span><span>{T("col_guardian")}</span><span>{T("col_phone")}</span><span>{T("col_last")}</span><span>{T("col_flags")}</span>
                   </div>
                   {items.map((p, i) => (
                     <div key={p.id} role="option" aria-selected={i === sel} data-patient={p.facilityNo} onClick={() => setSel(i)} onDoubleClick={() => void createVisit(p)}
-                      style={{ display: "grid", gridTemplateColumns: GRID, gap: 8, padding: "10px 12px", alignItems: "center", cursor: "pointer", minWidth: 720, borderBottom: "1px solid var(--border-subtle)", background: i === sel ? "var(--brand-primary-subtle)" : undefined }}>
+                      style={{ display: "grid", gridTemplateColumns: GRID, gap: 8, padding: "10px 12px", alignItems: "center", cursor: "pointer", minWidth: 640, borderBottom: "1px solid var(--border-subtle)", background: i === sel ? "var(--brand-primary-subtle)" : undefined }}>
                       <span style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
                         <span className="avatar" style={{ width: 28, height: 28, flex: "none" }}>{initials(p.nameEn, p.nameBn)}</span>
                         <span style={{ minWidth: 0 }}><b>{nameOf(p)}</b><span className="t-small t-muted" style={{ display: "block" }}>{s.lang === "bn" ? p.nameEn : p.nameBn} · <span className="num">{p.facilityNo}</span></span></span>
@@ -126,7 +127,7 @@ export function FrontDeskSearch() {
                       <span>{p.guardian ? <>{p.guardian.name}<span className="t-small t-muted" style={{ display: "block" }}>{L.rel(p.guardian.relationship)}</span></> : p.phoneOwner === "self" ? <span className="t-muted">{L.rel("self")}</span> : "—"}</span>
                       <span className="num" style={{ whiteSpace: "nowrap" }}>{s.n(L.phone(p.phone))}</span>
                       <span className="num">{p.lastVisitAt ? s.n(new Date(p.lastVisitAt).toLocaleDateString("en-GB")) : T("never")}</span>
-                      <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{(flags.get(p.id) ?? []).slice(0, 2).map((f) => <Pill key={f.key} tone={f.tone} icon={f.icon}>{T(f.key)}</Pill>)}</span>
+                      <span className="fd-flags" style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{(flags.get(p.id) ?? []).slice(0, 2).map((f) => <Pill key={f.key} tone={f.tone} icon={f.icon}>{T(f.key)}</Pill>)}</span>
                     </div>
                   ))}
                 </div>
@@ -167,4 +168,4 @@ export function FrontDeskSearch() {
     </div>
   );
 }
-const GRID = "minmax(200px, 2.2fr) 80px minmax(120px, 1.4fr) 130px 100px minmax(150px, 1.4fr)";
+const GRID = "minmax(160px, 2fr) 76px minmax(100px, 1.3fr) 112px 84px minmax(120px, 1.3fr)";

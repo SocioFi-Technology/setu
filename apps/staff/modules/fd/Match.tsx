@@ -32,7 +32,7 @@ export function FrontDeskMatch() {
   useEffect(() => { void load(); }, [load]);
   // The banner shows the record the visit will go on: after a link, that is the record linked to (clinical review).
   const bannerPatient = decision ? decision.r.continueWith : data?.subject;
-  useEffect(() => { if (bannerPatient) s.setPatient(bannerOf(bannerPatient, L)); }, [bannerPatient?.id, bannerPatient?.identityConfidence]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (bannerPatient) s.setPatient(bannerOf(bannerPatient, L)); }, [bannerPatient?.id, bannerPatient?.identityConfidence, s.lang, s.numerals]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => s.setPatient(null), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const name = (p: PatientSummary) => (s.lang === "bn" ? p.nameBn : p.nameEn ?? p.nameBn);
@@ -110,10 +110,10 @@ export function FrontDeskMatch() {
         <>
           <Callout icon="info">{T("match_note")}</Callout>
           <Card style={{ padding: 0, overflowX: "auto" }}>
-            <table className="table" style={{ minWidth: 640 + cands.length * 220 }} aria-label={T("match_title")}>
+            <table className="table" style={{ minWidth: 150 + (cands.length + 1) * 200, width: "100%" }} aria-label={T("match_title")}>
               <thead>
                 <tr>
-                  <th style={{ width: 170 }}>{T("field")}</th>
+                  <th style={{ width: 150 }}>{T("field")}</th>
                   <th>{T("this_record")}<div className="t-small t-muted" style={{ fontWeight: 400 }}>{name(subj)} · <span className="num">{subj.facilityNo}</span></div></th>
                   {cands.map((c, i) => (
                     <th key={c.patient.id} data-candidate={c.patient.facilityNo}>
@@ -147,8 +147,8 @@ export function FrontDeskMatch() {
                   {cands.map((c) => (
                     <td key={c.patient.id} style={{ verticalAlign: "top" }}>
                       <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
-                        {c.comparison.isGuardian ? (
-                          <Pill tone="bad" icon="ban">{T("is_guardian_note")}</Pill>
+                        {c.comparison.isGuardian || c.comparison.fields.sex === "different" ? (
+                          <Pill tone="bad" icon="ban">{c.comparison.isGuardian ? T("is_guardian_note") : T("sex_conflict_note")}</Pill>
                         ) : c.canLink ? (
                           <>
                             <Button variant="primary" size="sm" icon="link" disabled={busy || linked} onClick={() => void decide("link", c)} style={{ whiteSpace: "nowrap" }}>{T("same_person_link")}</Button>
@@ -170,7 +170,7 @@ export function FrontDeskMatch() {
           </Card>
 
           <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-            <Button icon="user-x" disabled={busy || linked} onClick={() => void decide("different", top)}>{T("different_person")}</Button>
+            <Button icon="user-x" disabled={busy || linked} onClick={() => void decide("different")}>{T("different_person")}</Button>
             <span style={{ flex: "1 1 280px", minWidth: 0 }}><TextField label={T("not_sure_reason")} value={unsure} onChange={(e) => setUnsure(e.target.value)} /></span>
             <Button icon="send" disabled={busy || linked || !top || Boolean(data.openReview)} onClick={() => void decide("review", top, unsure)}>{T("not_sure_send")}</Button>
           </div>

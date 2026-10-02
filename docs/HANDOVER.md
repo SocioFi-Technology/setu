@@ -26,8 +26,9 @@ Read this at the start of a session when you need context beyond `CLAUDE.md`. Ke
 - **Models:** `Encounter` (token attributes, per-branch daily `Sequence`), `Task`, `Provenance` (append-only), `Tenant.patientNoPrefix`, Patient approx-age fields. Seed: Mirpur branch, the walkthrough family on 01711-234567, plan-demo tenants (Clinic nurse 01722000004, Lite doctor 01733000002).
 - **API:** search, matches, match-preview, match decisions + undo, register, create visit, queue, queue actions (`packages/contracts/src/frontdesk.ts`, `openapi.json`).
 - **Screens:** `fd/search`, `fd/match`, `fd/register`, `fd/queue` in `apps/staff/modules/fd/`; strings in `packages/i18n/locales/app/frontDeskApp.json`; offline outbox `apps/staff/lib/outbox.ts` (pending writes show "not synced", the shell's sync count reads it).
-- **Tests:** domain 47, api 40 (incl. 22 front desk + cross-tenant, 6 transaction/idempotency), i18n 3, contracts 2; Playwright 22 (13 shell + 9 `a1-a3.spec.ts`).
+- **Tests:** domain 49, api 41 (incl. 23 front desk + cross-tenant, 6 transaction/idempotency), i18n 3, contracts 2; Playwright 22 (13 shell + 9 `a1-a3.spec.ts`).
 - **Reviews:** security and clinical-safety reviews ran on the slice; fixes landed, the rest is in `docs/open-questions.md` 16–24 (16 needs your decision).
+- **Hands-on walkthrough (02/10/2026)** as receptionist 01711000001 through search → duplicate review → register → queue in the browser; 10 issues found and fixed (see commit "A1-A3: fixes from the hands-on walkthrough").
 - Decisions and rules chosen in this slice: `docs/open-questions.md` — please read and confirm.
 
 ## How to run the journeys on this PC

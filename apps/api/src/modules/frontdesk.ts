@@ -3,7 +3,7 @@
 import type { MatchCandidate, PatientSummary, QueueItem, RegistrationInput } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
-  APPROVAL, ENCOUNTER, canLinkDirectly, columnOf, compareRecords, dhakaDay, format, formatToken, frontDeskActions, isCandidate, linkAnywayAllowed,
+  APPROVAL, ENCOUNTER, canLinkDirectly, columnOf, compareRecords, dhakaDay, format, formatToken, frontDeskActions, isCandidate, linkAnywayAllowed, linkBlocked,
   normalizePhone, parseDob, tokenSequenceName, transition, type EncounterState, type MatchRecord,
 } from "@setu/domain";
 import type { SessionData } from "../plugins/session.js";
@@ -88,23 +88,27 @@ export async function searchPatients(tx: Tx, q: string) {
 /* ───── possible matches (A2) ───── */
 export async function findCandidates(tx: Tx, subject: MatchRecord, excludeId: string | null, now: Date): Promise<MatchCandidate[]> {
   const first = (s?: string | null) => (s ?? "").trim().split(/\s+/).find((w) => w.length > 2 && !/^(md|mst|মো|মোঃ)\.?$/i.test(w));
-  const or: object[] = [];
-  if (subject.phone) or.push({ phone: { in: [subject.phone, "0" + subject.phone] } });
-  if (subject.nid) or.push({ nid: subject.nid });
-  if (subject.birthRegNo) or.push({ birthRegNo: subject.birthRegNo });
+  const base = { linkedToId: null, ...(excludeId ? { id: { not: excludeId } } : {}) };
+  // Exact phone / ID matches first and always; name look-alikes after, so a common name can never crowd out the
+  // record that shares this person's phone or NID (walkthrough: many patients share a first name).
+  const exact: object[] = [];
+  if (subject.phone) exact.push({ phone: { in: [subject.phone, "0" + subject.phone] } });
+  if (subject.nid) exact.push({ nid: subject.nid });
+  if (subject.birthRegNo) exact.push({ birthRegNo: subject.birthRegNo });
+  const fuzzy: object[] = [];
   const fb = first(subject.nameBn), fe = first(subject.nameEn);
-  if (fb) or.push({ nameBn: { contains: fb } });
-  if (fe) or.push({ nameEn: { contains: fe, mode: "insensitive" } });
-  if (!or.length) return [];
-  const rows = (await tx.patient.findMany({
-    where: { OR: or, linkedToId: null, ...(excludeId ? { id: { not: excludeId } } : {}) }, include: patientInclude, take: 50,
-  })) as PatientRow[];
+  if (fb) fuzzy.push({ nameBn: { contains: fb } });
+  if (fe) fuzzy.push({ nameEn: { contains: fe, mode: "insensitive" } });
+  if (!exact.length && !fuzzy.length) return [];
+  const byExact = exact.length ? ((await tx.patient.findMany({ where: { ...base, OR: exact }, include: patientInclude, take: 50 })) as PatientRow[]) : [];
+  const byName = fuzzy.length ? ((await tx.patient.findMany({ where: { ...base, OR: fuzzy, id: { notIn: [...byExact.map((p) => p.id), ...(excludeId ? [excludeId] : [])] } }, include: patientInclude, orderBy: { createdAt: "desc" }, take: 50 })) as PatientRow[]) : [];
+  const rows = [...byExact, ...byName];
   return rows
     .map((p) => ({ p, c: compareRecords(subject, toMatchRecord(p), now) }))
     .filter(({ c }) => isCandidate(c))
     .sort((a, b) => b.c.score - a.c.score || a.c.conflicts.length - b.c.conflicts.length)
-    .slice(0, 5)
-    .map(({ p, c }) => ({ patient: toSummary(p), comparison: c, canLink: canLinkDirectly(c), canLinkAnyway: !c.isGuardian && !canLinkDirectly(c) }));
+    .slice(0, 3)
+    .map(({ p, c }) => ({ patient: toSummary(p), comparison: c, canLink: canLinkDirectly(c), canLinkAnyway: !linkBlocked(c) && !canLinkDirectly(c) }));
 }
 
 export async function patientMatches(tx: Tx, id: string, now: Date) {
@@ -133,7 +137,9 @@ export async function decide(tx: Tx, s: SessionData, subjectId: string, decision
     const hasOpen = await tx.task.count({ where: { kind: REVIEW, focusId: subject.id, status: "requested" } });
     const next = subject.identityConfidence === "possible_duplicate" && !hasOpen ? "unverified" : subject.identityConfidence;
     await tx.patient.update({ where: { id: subject.id }, data: { identityConfidence: next } });
-    await prov("checked-different", { candidateId: candidateId ?? null });
+    // Every candidate on screen was checked and found different, not just the first one.
+    const checked = candidateId ? [candidateId] : (await findCandidates(tx, toMatchRecord(subject), subject.id, now)).map((c) => c.patient.id);
+    await prov("checked-different", { candidateIds: checked });
     return { subject: await getPatient(tx, subject.id), continueWith: null, taskId: null, conflicts: [] as string[] };
   }
 
@@ -152,6 +158,7 @@ export async function decide(tx: Tx, s: SessionData, subjectId: string, decision
   }
 
   if (c.isGuardian) throw err(409, "link_blocked_guardian", "অভিভাবকের রেকর্ডের সাথে লিংক করা যাবে না", "Cannot link to the guardian's record: choose \"Different person\"");
+  if (linkBlocked(c)) throw err(409, "link_blocked_sex", "লিঙ্গ মেলেনি — লিংক করা যাবে না", "Sex does not match: these cannot be linked");
   if (decision === "link") {
     // Walkthrough issue #4: never a one-click link when any field conflicts.
     if (!canLinkDirectly(c)) throw c.conflicts.length
