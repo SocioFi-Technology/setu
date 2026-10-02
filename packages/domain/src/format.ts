@@ -30,8 +30,16 @@ const bn99 = (n: number): string => (n ? BN99[n - 1]! : "");
 
 /** Amount in words for receipts: "One thousand two hundred taka only" / "এক হাজার দুইশত টাকা মাত্র". */
 export const words = (amount: number, lang: Lang): string => {
-  let n = Math.floor(Math.abs(Number(amount) || 0));
-  const paisa = Math.round((Math.abs(Number(amount) || 0) - n) * 100);
+  const n = Math.floor(Math.abs(Number(amount) || 0));
+  return wordsOf(n, Math.round((Math.abs(Number(amount) || 0) - n) * 100), lang);
+};
+/** Amount in words from stored paisa: taka and paisa are split with integer division, never through a decimal. */
+export const wordsPaisa = (p: number, lang: Lang): string => {
+  if (!Number.isSafeInteger(p) || p < 0) throw new RangeError(`wordsPaisa(${p})`);
+  return wordsOf(Math.floor(p / 100), p % 100, lang);
+};
+const wordsOf = (taka: number, paisa: number, lang: Lang): string => {
+  let n = taka;
   const units: [number, string][] = lang === "bn"
     ? [[10000000, "কোটি"], [100000, "লক্ষ"], [1000, "হাজার"], [100, "শত"]]
     : [[10000000, "crore"], [100000, "lakh"], [1000, "thousand"], [100, "hundred"]];

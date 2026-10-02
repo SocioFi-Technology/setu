@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { age, ageLabel, date, dateTime, dose, parseDate, phone, taka, takaFromPaisa, time, toBn, toEn, words } from "./format.js";
+import { age, ageLabel, date, dateTime, dose, parseDate, phone, taka, takaFromPaisa, time, toBn, toEn, words, wordsPaisa } from "./format.js";
 
 describe("digits", () => {
   it("converts both ways", () => {
@@ -25,6 +25,9 @@ describe("words (receipt line)", () => {
   it("Bangla", () => {
     expect(words(1200, "bn")).toBe("এক হাজার দুই শত টাকা মাত্র");
     expect(words(2415.5, "bn")).toBe("দুই হাজার চার শত পনেরো টাকা পঞ্চাশ পয়সা মাত্র");
+    expect(wordsPaisa(241_550, "bn")).toBe("দুই হাজার চার শত পনেরো টাকা পঞ্চাশ পয়সা মাত্র");
+    expect(wordsPaisa(1, "en")).toBe("Zero taka and one paisa only");
+    expect(() => wordsPaisa(10.5, "en")).toThrow();
   });
 });
 describe("dates and age", () => {
