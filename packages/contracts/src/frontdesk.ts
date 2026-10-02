@@ -1,0 +1,145 @@
+/* Front desk contracts (slice A1–A3): patient search, duplicate review, registration, visit + token, queue board.
+   Validation rules live in @setu/domain (patient.ts, queue.ts); these schemas only fix the wire shape. */
+import { z } from "zod";
+import { PhoneDigits } from "./common.js";
+
+export const Sex = z.enum(["female", "male", "other"]);
+export const IdentityConfidence = z.enum(["verified", "unverified", "possible-duplicate", "provisional"]);
+export const FieldStatus = z.enum(["same", "similar", "different", "missing"]);
+export const MatchField = z.enum(["nameBn", "nameEn", "sex", "birth", "guardian", "phone", "address", "id"]);
+
+export const PatientSummary = z.object({
+  id: z.string(),
+  facilityNo: z.string(),
+  nameBn: z.string(),
+  nameEn: z.string().nullable(),
+  sex: Sex,
+  /** ISO yyyy-mm-dd, or null when only an approximate age is known. */
+  birthDate: z.string().nullable(),
+  approxAgeYears: z.number().int().nullable(),
+  approxAgeMonths: z.number().int().nullable(),
+  approxAgeAt: z.string().nullable(),
+  phone: PhoneDigits.nullable(),
+  phoneOwner: z.string().nullable(),
+  guardian: z.object({ name: z.string(), relationship: z.string() }).nullable(),
+  address: z.object({ division: z.string().nullable(), district: z.string().nullable(), upazila: z.string().nullable(), line: z.string().nullable() }),
+  hasNid: z.boolean(),
+  identityConfidence: IdentityConfidence,
+  /** Set when this record was linked into another (replaced-by). */
+  linkedToId: z.string().nullable(),
+  lastVisitAt: z.string().nullable(),
+});
+export type PatientSummary = z.infer<typeof PatientSummary>;
+
+/* GET /v1/patients/search?q= */
+export const PatientSearchQuery = z.object({ q: z.string().trim().min(1).max(100) });
+export const SearchMode = z.enum(["patientNo", "phone", "bn", "en"]);
+export const PatientSearchResponse = z.object({
+  mode: SearchMode,
+  items: z.array(PatientSummary),
+  /** Several patients use the searched phone number: choose by name, age and guardian, never merge automatically. */
+  sharedPhone: z.object({ phone: PhoneDigits, count: z.number().int() }).nullable(),
+});
+export type PatientSearchResponse = z.infer<typeof PatientSearchResponse>;
+
+/* Registration form (also the subject of a match preview). Strings as typed: Bangla or Latin digits are fine. */
+export const RegistrationInput = z.object({
+  nameBn: z.string().max(120),
+  nameEn: z.string().max(120).optional(),
+  sex: Sex.optional(),
+  dobMode: z.enum(["dob", "age"]),
+  dob: z.string().max(20).optional(),
+  ageYears: z.string().max(5).optional(),
+  ageMonths: z.string().max(4).optional(),
+  phone: z.string().max(30).optional(),
+  phoneOwner: z.enum(["self", "family", "other"]).optional(),
+  division: z.string().max(60).optional(),
+  district: z.string().max(60).optional(),
+  upazila: z.string().max(60).optional(),
+  addressLine: z.string().max(200).optional(),
+  guardian: z.object({ name: z.string().max(120).optional(), relationship: z.string().max(40).optional(), idNo: z.string().max(30).optional() }).optional(),
+  idType: z.enum(["none", "nid", "brn", "passport"]).optional(),
+  idNo: z.string().max(30).optional(),
+});
+export type RegistrationInput = z.infer<typeof RegistrationInput>;
+
+export const Comparison = z.object({
+  fields: z.record(MatchField, FieldStatus),
+  score: z.number().int(),
+  strong: z.boolean(),
+  conflicts: z.array(MatchField),
+  isGuardian: z.boolean(),
+});
+export const MatchCandidate = z.object({
+  patient: PatientSummary,
+  comparison: Comparison,
+  /** One click "Same person — link": nothing conflicts and the candidate is not the guardian. */
+  canLink: z.boolean(),
+  /** "Link anyway" with a reason: fields conflict and the candidate is not the guardian. */
+  canLinkAnyway: z.boolean(),
+});
+export type MatchCandidate = z.infer<typeof MatchCandidate>;
+
+/* GET /v1/patients/:id/matches — a saved record against its possible matches. */
+export const PatientMatches = z.object({ subject: PatientSummary, candidates: z.array(MatchCandidate), openReview: z.object({ taskId: z.string(), candidateId: z.string().nullable() }).nullable() });
+/* POST /v1/patients/match-preview — an unsaved registration against existing records (the register screen's live check). */
+export const MatchPreviewResponse = z.object({ candidates: z.array(MatchCandidate) });
+
+/* POST /v1/patients/:id/match-decisions */
+export const MatchDecision = z.enum(["link", "linkAnyway", "review", "different"]);
+export const MatchDecisionRequest = z.object({
+  decision: MatchDecision,
+  candidateId: z.string().optional(),
+  reason: z.string().max(500).optional(),
+});
+export const MatchDecisionResponse = z.object({
+  decision: z.union([MatchDecision, z.literal("undo")]),
+  subject: PatientSummary,
+  /** The record the visit continues on (the link target after a link, else the subject). */
+  continueWith: PatientSummary,
+  taskId: z.string().nullable(),
+  conflicts: z.array(MatchField),
+});
+export type MatchDecisionResponse = z.infer<typeof MatchDecisionResponse>;
+
+/* POST /v1/patients */
+export const RegisterRequest = RegistrationInput.extend({ createVisit: z.boolean().default(false), visitType: z.enum(["new", "follow-up", "report"]).default("new") });
+
+export const EncounterStatus = z.enum(["planned", "arrived", "triaged", "in-progress", "finished", "cancelled", "entered-in-error"]);
+export const QueueColumn = z.enum(["waiting", "vitals", "withDoctor", "done", "noShow"]);
+export const QueueAction = z.enum(["next", "noShow", "call"]);
+export const QueueItem = z.object({
+  id: z.string(),
+  token: z.string(),
+  tokenNo: z.number().int(),
+  day: z.string(),
+  status: EncounterStatus,
+  column: QueueColumn.nullable(),
+  visitType: z.string(),
+  patient: PatientSummary.pick({ id: true, facilityNo: true, nameBn: true, nameEn: true, sex: true, birthDate: true, approxAgeYears: true, approxAgeMonths: true, approxAgeAt: true, identityConfidence: true }),
+  arrivedAt: z.string().nullable(),
+  calledAt: z.string().nullable(),
+  statusAt: z.string(),
+  /** What the board may do next; the server applies these through the ENCOUNTER machine. */
+  actions: z.array(QueueAction),
+});
+export type QueueItem = z.infer<typeof QueueItem>;
+
+export const RegisterResponse = z.object({ patient: PatientSummary, encounter: QueueItem.nullable() });
+export type RegisterResponse = z.infer<typeof RegisterResponse>;
+
+/* POST /v1/encounters — a visit with today's token. */
+export const CreateVisitRequest = z.object({ patientId: z.string(), visitType: z.enum(["new", "follow-up", "report"]).default("new") });
+export const CreateVisitResponse = z.object({ encounter: QueueItem, patient: PatientSummary });
+export type CreateVisitResponse = z.infer<typeof CreateVisitResponse>;
+
+/* GET /v1/queue */
+export const QueueResponse = z.object({
+  day: z.string(),
+  branch: z.object({ id: z.string(), nameBn: z.string().nullable(), name: z.string() }),
+  columns: z.array(z.object({ key: QueueColumn, status: EncounterStatus, items: z.array(QueueItem) })),
+});
+export type QueueResponse = z.infer<typeof QueueResponse>;
+
+/* POST /v1/encounters/:id/actions */
+export const QueueActionRequest = z.object({ action: QueueAction });

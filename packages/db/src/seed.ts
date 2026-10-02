@@ -8,8 +8,8 @@ const hash = (s: string) => createHash("sha256").update("dev-only:" + s).digest(
 async function main() {
   const tenant = await prisma.tenant.upsert({
     where: { id: "t_greenlife" },
-    update: {},
-    create: { id: "t_greenlife", name: "Green Life Clinic", plan: "pro" },
+    update: { patientNoPrefix: "GLC" },
+    create: { id: "t_greenlife", name: "Green Life Clinic", plan: "pro", patientNoPrefix: "GLC" },
   });
   const org = await prisma.organization.upsert({
     where: { id: "o_greenlife_mirpur" },
@@ -85,7 +85,8 @@ async function main() {
   ];
   const planPhones: Record<string, string> = { u_clinic_nurse: "01722000004", u_lite_doctor: "01733000002" };
   for (const [tid, oid, plan, name, nameBn, uid, uBn, uEn, role] of planDemos) {
-    await prisma.tenant.upsert({ where: { id: tid }, update: {}, create: { id: tid, name, plan } });
+    const patientNoPrefix = tid === "t_clinicdemo" ? "SHC" : "MGH";
+    await prisma.tenant.upsert({ where: { id: tid }, update: { patientNoPrefix }, create: { id: tid, name, plan, patientNoPrefix } });
     await prisma.organization.upsert({ where: { id: oid }, update: {}, create: { id: oid, tenantId: tid, name, nameBn } });
     await prisma.location.upsert({ where: { id: `l_branch_${tid}` }, update: {}, create: { id: `l_branch_${tid}`, tenantId: tid, organizationId: oid, kind: "branch", name: "Main branch", nameBn: "প্রধান শাখা" } });
     await prisma.user.upsert({ where: { id: uid }, update: {}, create: { id: uid, tenantId: tid, nameBn: uBn, nameEn: uEn, phone: planPhones[uid], passwordHash: hash("setu1234"), pinHash: hash("1234") } });

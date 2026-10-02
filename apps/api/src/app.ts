@@ -8,6 +8,7 @@ import { auditPlugin } from "./plugins/audit.js";
 import { idempotencyPlugin } from "./plugins/idempotency.js";
 import { sessionPlugin } from "./plugins/session.js";
 import { authRoutes } from "./routes/auth.js";
+import { frontDeskRoutes } from "./routes/frontdesk.js";
 import { metaRoutes } from "./routes/meta.js";
 
 export async function buildApp() {
@@ -27,5 +28,6 @@ export async function buildApp() {
 
   await app.register(metaRoutes);
   await app.register(authRoutes);
+  await app.register(frontDeskRoutes);
   return app;
 }

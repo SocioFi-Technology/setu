@@ -1,0 +1,4293 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Setu Health API",
+    "version": "0.0.1"
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "components": {
+    "schemas": {},
+    "parameters": {}
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "liveness",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "version": {
+                      "type": "string"
+                    },
+                    "db": {
+                      "type": "string",
+                      "enum": [
+                        "up",
+                        "down",
+                        "skipped"
+                      ]
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "version",
+                    "db",
+                    "time"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "identifier": {
+                    "type": "string",
+                    "minLength": 3
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8
+                  },
+                  "deviceLabel": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "demoPlan": {
+                    "type": "string",
+                    "enum": [
+                      "clinic",
+                      "lite",
+                      "pro"
+                    ]
+                  }
+                },
+                "required": [
+                  "identifier",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "userId": {
+                      "type": "string"
+                    },
+                    "nameBn": {
+                      "type": "string"
+                    },
+                    "nameEn": {
+                      "type": "string"
+                    },
+                    "tenantId": {
+                      "type": "string"
+                    },
+                    "organizationId": {
+                      "type": "string"
+                    },
+                    "organizationName": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "receptionist",
+                        "doctor",
+                        "nurse",
+                        "labTech",
+                        "pathologist",
+                        "pharmacist",
+                        "cashier",
+                        "owner",
+                        "admin"
+                      ]
+                    },
+                    "plan": {
+                      "type": "string",
+                      "enum": [
+                        "clinic",
+                        "lite",
+                        "pro"
+                      ]
+                    },
+                    "roles": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "organizationId": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "receptionist",
+                              "doctor",
+                              "nurse",
+                              "labTech",
+                              "pathologist",
+                              "pharmacist",
+                              "cashier",
+                              "owner",
+                              "admin"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "organizationId",
+                          "role"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "userId",
+                    "nameBn",
+                    "nameEn",
+                    "tenantId",
+                    "organizationId",
+                    "organizationName",
+                    "role",
+                    "plan",
+                    "roles"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "bad credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "current session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "userId": {
+                      "type": "string"
+                    },
+                    "nameBn": {
+                      "type": "string"
+                    },
+                    "nameEn": {
+                      "type": "string"
+                    },
+                    "tenantId": {
+                      "type": "string"
+                    },
+                    "organizationId": {
+                      "type": "string"
+                    },
+                    "organizationName": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "receptionist",
+                        "doctor",
+                        "nurse",
+                        "labTech",
+                        "pathologist",
+                        "pharmacist",
+                        "cashier",
+                        "owner",
+                        "admin"
+                      ]
+                    },
+                    "plan": {
+                      "type": "string",
+                      "enum": [
+                        "clinic",
+                        "lite",
+                        "pro"
+                      ]
+                    },
+                    "roles": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "organizationId": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "receptionist",
+                              "doctor",
+                              "nurse",
+                              "labTech",
+                              "pathologist",
+                              "pharmacist",
+                              "cashier",
+                              "owner",
+                              "admin"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "organizationId",
+                          "role"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "userId",
+                    "nameBn",
+                    "nameEn",
+                    "tenantId",
+                    "organizationId",
+                    "organizationName",
+                    "role",
+                    "plan",
+                    "roles"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/capabilities": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "nav",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "modules": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "name_bn": {
+                            "type": "string"
+                          },
+                          "name_en": {
+                            "type": "string"
+                          },
+                          "icon": {
+                            "type": "string"
+                          },
+                          "plan": {
+                            "type": "string",
+                            "enum": [
+                              "clinic",
+                              "lite",
+                              "pro"
+                            ]
+                          },
+                          "locked": {
+                            "type": "string",
+                            "enum": [
+                              "role",
+                              "plan",
+                              "unknown"
+                            ]
+                          },
+                          "screens": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "type": "string"
+                                },
+                                "name_bn": {
+                                  "type": "string"
+                                },
+                                "name_en": {
+                                  "type": "string"
+                                },
+                                "icon": {
+                                  "type": "string"
+                                },
+                                "allowed": {
+                                  "type": "boolean"
+                                },
+                                "reason": {
+                                  "type": "string",
+                                  "enum": [
+                                    "role",
+                                    "plan",
+                                    "unknown"
+                                  ]
+                                },
+                                "needs": {
+                                  "type": "string",
+                                  "enum": [
+                                    "clinic",
+                                    "lite",
+                                    "pro"
+                                  ]
+                                },
+                                "needsPatient": {
+                                  "type": "boolean"
+                                },
+                                "badge": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "name_bn",
+                                "name_en",
+                                "icon",
+                                "allowed",
+                                "needsPatient"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "name_bn",
+                          "name_en",
+                          "icon",
+                          "plan",
+                          "screens"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "modules"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/pin/verify": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pin": {
+                    "type": "string",
+                    "pattern": "^\\d{4}$"
+                  }
+                },
+                "required": [
+                  "pin"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/patients/search": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "q",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "matches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "patientNo",
+                        "phone",
+                        "bn",
+                        "en"
+                      ]
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "facilityNo": {
+                            "type": "string"
+                          },
+                          "nameBn": {
+                            "type": "string"
+                          },
+                          "nameEn": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "sex": {
+                            "type": "string",
+                            "enum": [
+                              "female",
+                              "male",
+                              "other"
+                            ]
+                          },
+                          "birthDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "approxAgeYears": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "approxAgeMonths": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "approxAgeAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "phone": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "pattern": "^1[3-9]\\d{8}$"
+                          },
+                          "phoneOwner": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "guardian": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "relationship": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "relationship"
+                            ]
+                          },
+                          "address": {
+                            "type": "object",
+                            "properties": {
+                              "division": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "district": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "upazila": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "line": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "division",
+                              "district",
+                              "upazila",
+                              "line"
+                            ]
+                          },
+                          "hasNid": {
+                            "type": "boolean"
+                          },
+                          "identityConfidence": {
+                            "type": "string",
+                            "enum": [
+                              "verified",
+                              "unverified",
+                              "possible-duplicate",
+                              "provisional"
+                            ]
+                          },
+                          "linkedToId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "lastVisitAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "facilityNo",
+                          "nameBn",
+                          "nameEn",
+                          "sex",
+                          "birthDate",
+                          "approxAgeYears",
+                          "approxAgeMonths",
+                          "approxAgeAt",
+                          "phone",
+                          "phoneOwner",
+                          "guardian",
+                          "address",
+                          "hasNid",
+                          "identityConfidence",
+                          "linkedToId",
+                          "lastVisitAt"
+                        ]
+                      }
+                    },
+                    "sharedPhone": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "phone": {
+                          "type": "string",
+                          "pattern": "^1[3-9]\\d{8}$"
+                        },
+                        "count": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "phone",
+                        "count"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "mode",
+                    "items",
+                    "sharedPhone"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/patients/{id}/matches": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "possible matches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subject": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "facilityNo": {
+                          "type": "string"
+                        },
+                        "nameBn": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "sex": {
+                          "type": "string",
+                          "enum": [
+                            "female",
+                            "male",
+                            "other"
+                          ]
+                        },
+                        "birthDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "approxAgeYears": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "approxAgeMonths": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "approxAgeAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "phone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^1[3-9]\\d{8}$"
+                        },
+                        "phoneOwner": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "guardian": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "relationship": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "relationship"
+                          ]
+                        },
+                        "address": {
+                          "type": "object",
+                          "properties": {
+                            "division": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "district": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "upazila": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "line": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "division",
+                            "district",
+                            "upazila",
+                            "line"
+                          ]
+                        },
+                        "hasNid": {
+                          "type": "boolean"
+                        },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
+                        "linkedToId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastVisitAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "facilityNo",
+                        "nameBn",
+                        "nameEn",
+                        "sex",
+                        "birthDate",
+                        "approxAgeYears",
+                        "approxAgeMonths",
+                        "approxAgeAt",
+                        "phone",
+                        "phoneOwner",
+                        "guardian",
+                        "address",
+                        "hasNid",
+                        "identityConfidence",
+                        "linkedToId",
+                        "lastVisitAt"
+                      ]
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "patient": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "facilityNo": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "sex": {
+                                "type": "string",
+                                "enum": [
+                                  "female",
+                                  "male",
+                                  "other"
+                                ]
+                              },
+                              "birthDate": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "approxAgeYears": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "approxAgeMonths": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "approxAgeAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "phone": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^1[3-9]\\d{8}$"
+                              },
+                              "phoneOwner": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "guardian": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "relationship": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "relationship"
+                                ]
+                              },
+                              "address": {
+                                "type": "object",
+                                "properties": {
+                                  "division": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "district": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "upazila": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "line": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "division",
+                                  "district",
+                                  "upazila",
+                                  "line"
+                                ]
+                              },
+                              "hasNid": {
+                                "type": "boolean"
+                              },
+                              "identityConfidence": {
+                                "type": "string",
+                                "enum": [
+                                  "verified",
+                                  "unverified",
+                                  "possible-duplicate",
+                                  "provisional"
+                                ]
+                              },
+                              "linkedToId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "lastVisitAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "facilityNo",
+                              "nameBn",
+                              "nameEn",
+                              "sex",
+                              "birthDate",
+                              "approxAgeYears",
+                              "approxAgeMonths",
+                              "approxAgeAt",
+                              "phone",
+                              "phoneOwner",
+                              "guardian",
+                              "address",
+                              "hasNid",
+                              "identityConfidence",
+                              "linkedToId",
+                              "lastVisitAt"
+                            ]
+                          },
+                          "comparison": {
+                            "type": "object",
+                            "properties": {
+                              "fields": {
+                                "type": "object",
+                                "properties": {
+                                  "nameBn": {
+                                    "type": "string",
+                                    "enum": [
+                                      "same",
+                                      "similar",
+                                      "different",
+                                      "missing"
+                                    ]
+                                  },
+                                  "nameEn": {
+                                    "type": "string",
+                                    "enum": [
+                                      "same",
+                                      "similar",
+                                      "different",
+                                      "missing"
+                                    ]
+                                  },
+                                  "sex": {
+                                    "type": "string",
+                                    "enum": [
+                                      "same",
+                                      "similar",
+                                      "different",
+                                      "missing"
+                                    ]
+                                  },
+                                  "birth": {
+                                    "type": "string",
+                                    "enum": [
+                                      "same",
+                                      "similar",
+                                      "different",
+                                      "missing"
+                                    ]
+                                  },
+                                  "guardian": {
+                                    "type": "string",
+                                    "enum": [
+                                      "same",
+                                      "similar",
+                                      "different",
+                                      "missing"
+                                    ]
+                                  },
+                                  "phone": {
+                                    "type": "string",
+                                    "enum": [
+                                      "same",
+                                      "similar",
+                                      "different",
+                                      "missing"
+                                    ]
+                                  },
+                                  "address": {
+                                    "type": "string",
+                                    "enum": [
+                                      "same",
+                                      "similar",
+                                      "different",
+                                      "missing"
+                                    ]
+                                  },
+                                  "id": {
+                                    "type": "string",
+                                    "enum": [
+                                      "same",
+                                      "similar",
+                                      "different",
+                                      "missing"
+                                    ]
+                                  }
+                                }
+                              },
+                              "score": {
+                                "type": "integer"
+                              },
+                              "strong": {
+                                "type": "boolean"
+                              },
+                              "conflicts": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "nameBn",
+                                    "nameEn",
+                                    "sex",
+                                    "birth",
+                                    "guardian",
+                                    "phone",
+                                    "address",
+                                    "id"
+                                  ]
+                                }
+                              },
+                              "isGuardian": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "fields",
+                              "score",
+                              "strong",
+                              "conflicts",
+                              "isGuardian"
+                            ]
+                          },
+                          "canLink": {
+                            "type": "boolean"
+                          },
+                          "canLinkAnyway": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "patient",
+                          "comparison",
+                          "canLink",
+                          "canLinkAnyway"
+                        ]
+                      }
+                    },
+                    "openReview": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "taskId": {
+                          "type": "string"
+                        },
+                        "candidateId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "taskId",
+                        "candidateId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "subject",
+                    "candidates",
+                    "openReview"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/patients/match-preview": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nameBn": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "nameEn": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "sex": {
+                    "type": "string",
+                    "enum": [
+                      "female",
+                      "male",
+                      "other"
+                    ]
+                  },
+                  "dobMode": {
+                    "type": "string",
+                    "enum": [
+                      "dob",
+                      "age"
+                    ]
+                  },
+                  "dob": {
+                    "type": "string",
+                    "maxLength": 20
+                  },
+                  "ageYears": {
+                    "type": "string",
+                    "maxLength": 5
+                  },
+                  "ageMonths": {
+                    "type": "string",
+                    "maxLength": 4
+                  },
+                  "phone": {
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  "phoneOwner": {
+                    "type": "string",
+                    "enum": [
+                      "self",
+                      "family",
+                      "other"
+                    ]
+                  },
+                  "division": {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "district": {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "upazila": {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "addressLine": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "guardian": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 120
+                      },
+                      "relationship": {
+                        "type": "string",
+                        "maxLength": 40
+                      },
+                      "idNo": {
+                        "type": "string",
+                        "maxLength": 30
+                      }
+                    }
+                  },
+                  "idType": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "nid",
+                      "brn",
+                      "passport"
+                    ]
+                  },
+                  "idNo": {
+                    "type": "string",
+                    "maxLength": 30
+                  }
+                },
+                "required": [
+                  "nameBn",
+                  "dobMode"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "possible matches for an unsaved form",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "patient": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "facilityNo": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "sex": {
+                                "type": "string",
+                                "enum": [
+                                  "female",
+                                  "male",
+                                  "other"
+                                ]
+                              },
+                              "birthDate": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "approxAgeYears": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "approxAgeMonths": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "approxAgeAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "phone": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^1[3-9]\\d{8}$"
+                              },
+                              "phoneOwner": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "guardian": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "relationship": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "relationship"
+                                ]
+                              },
+                              "address": {
+                                "type": "object",
+                                "properties": {
+                                  "division": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "district": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "upazila": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "line": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "division",
+                                  "district",
+                                  "upazila",
+                                  "line"
+                                ]
+                              },
+                              "hasNid": {
+                                "type": "boolean"
+                              },
+                              "identityConfidence": {
+                                "type": "string",
+                                "enum": [
+                                  "verified",
+                                  "unverified",
+                                  "possible-duplicate",
+                                  "provisional"
+                                ]
+                              },
+                              "linkedToId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "lastVisitAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "facilityNo",
+                              "nameBn",
+                              "nameEn",
+                              "sex",
+                              "birthDate",
+                              "approxAgeYears",
+                              "approxAgeMonths",
+                              "approxAgeAt",
+                              "phone",
+                              "phoneOwner",
+                              "guardian",
+                              "address",
+                              "hasNid",
+                              "identityConfidence",
+                              "linkedToId",
+                              "lastVisitAt"
+                            ]
+                          },
+                          "comparison": {
+                            "type": "object",
+                            "properties": {
+                              "fields": {
+                                "type": "object",
+                                "properties": {
+                                  "nameBn": {
+                                    "type": "string",
+                                    "enum": [
+                                      "same",
+                                      "similar",
+                                      "different",
+                                      "missing"
+                                    ]
+                                  },
+                                  "nameEn": {
+                                    "type": "string",
+                                    "enum": [
+                                      "same",
+                                      "similar",
+                                      "different",
+                                      "missing"
+                                    ]
+                                  },
+                                  "sex": {
+                                    "type": "string",
+                                    "enum": [
+                                      "same",
+                                      "similar",
+                                      "different",
+                                      "missing"
+                                    ]
+                                  },
+                                  "birth": {
+                                    "type": "string",
+                                    "enum": [
+                                      "same",
+                                      "similar",
+                                      "different",
+                                      "missing"
+                                    ]
+                                  },
+                                  "guardian": {
+                                    "type": "string",
+                                    "enum": [
+                                      "same",
+                                      "similar",
+                                      "different",
+                                      "missing"
+                                    ]
+                                  },
+                                  "phone": {
+                                    "type": "string",
+                                    "enum": [
+                                      "same",
+                                      "similar",
+                                      "different",
+                                      "missing"
+                                    ]
+                                  },
+                                  "address": {
+                                    "type": "string",
+                                    "enum": [
+                                      "same",
+                                      "similar",
+                                      "different",
+                                      "missing"
+                                    ]
+                                  },
+                                  "id": {
+                                    "type": "string",
+                                    "enum": [
+                                      "same",
+                                      "similar",
+                                      "different",
+                                      "missing"
+                                    ]
+                                  }
+                                }
+                              },
+                              "score": {
+                                "type": "integer"
+                              },
+                              "strong": {
+                                "type": "boolean"
+                              },
+                              "conflicts": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "nameBn",
+                                    "nameEn",
+                                    "sex",
+                                    "birth",
+                                    "guardian",
+                                    "phone",
+                                    "address",
+                                    "id"
+                                  ]
+                                }
+                              },
+                              "isGuardian": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "fields",
+                              "score",
+                              "strong",
+                              "conflicts",
+                              "isGuardian"
+                            ]
+                          },
+                          "canLink": {
+                            "type": "boolean"
+                          },
+                          "canLinkAnyway": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "patient",
+                          "comparison",
+                          "canLink",
+                          "canLinkAnyway"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "candidates"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/patients/{id}/match-decisions": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "link",
+                      "linkAnyway",
+                      "review",
+                      "different"
+                    ]
+                  },
+                  "candidateId": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "decision"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "decision applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "decision": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "link",
+                            "linkAnyway",
+                            "review",
+                            "different"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "undo"
+                          ]
+                        }
+                      ]
+                    },
+                    "subject": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "facilityNo": {
+                          "type": "string"
+                        },
+                        "nameBn": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "sex": {
+                          "type": "string",
+                          "enum": [
+                            "female",
+                            "male",
+                            "other"
+                          ]
+                        },
+                        "birthDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "approxAgeYears": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "approxAgeMonths": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "approxAgeAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "phone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^1[3-9]\\d{8}$"
+                        },
+                        "phoneOwner": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "guardian": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "relationship": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "relationship"
+                          ]
+                        },
+                        "address": {
+                          "type": "object",
+                          "properties": {
+                            "division": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "district": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "upazila": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "line": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "division",
+                            "district",
+                            "upazila",
+                            "line"
+                          ]
+                        },
+                        "hasNid": {
+                          "type": "boolean"
+                        },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
+                        "linkedToId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastVisitAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "facilityNo",
+                        "nameBn",
+                        "nameEn",
+                        "sex",
+                        "birthDate",
+                        "approxAgeYears",
+                        "approxAgeMonths",
+                        "approxAgeAt",
+                        "phone",
+                        "phoneOwner",
+                        "guardian",
+                        "address",
+                        "hasNid",
+                        "identityConfidence",
+                        "linkedToId",
+                        "lastVisitAt"
+                      ]
+                    },
+                    "continueWith": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "facilityNo": {
+                          "type": "string"
+                        },
+                        "nameBn": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "sex": {
+                          "type": "string",
+                          "enum": [
+                            "female",
+                            "male",
+                            "other"
+                          ]
+                        },
+                        "birthDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "approxAgeYears": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "approxAgeMonths": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "approxAgeAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "phone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^1[3-9]\\d{8}$"
+                        },
+                        "phoneOwner": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "guardian": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "relationship": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "relationship"
+                          ]
+                        },
+                        "address": {
+                          "type": "object",
+                          "properties": {
+                            "division": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "district": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "upazila": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "line": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "division",
+                            "district",
+                            "upazila",
+                            "line"
+                          ]
+                        },
+                        "hasNid": {
+                          "type": "boolean"
+                        },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
+                        "linkedToId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastVisitAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "facilityNo",
+                        "nameBn",
+                        "nameEn",
+                        "sex",
+                        "birthDate",
+                        "approxAgeYears",
+                        "approxAgeMonths",
+                        "approxAgeAt",
+                        "phone",
+                        "phoneOwner",
+                        "guardian",
+                        "address",
+                        "hasNid",
+                        "identityConfidence",
+                        "linkedToId",
+                        "lastVisitAt"
+                      ]
+                    },
+                    "taskId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "conflicts": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "nameBn",
+                          "nameEn",
+                          "sex",
+                          "birth",
+                          "guardian",
+                          "phone",
+                          "address",
+                          "id"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "decision",
+                    "subject",
+                    "continueWith",
+                    "taskId",
+                    "conflicts"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/patients/{id}/match-decisions/undo": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "last decision undone",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "decision": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "link",
+                            "linkAnyway",
+                            "review",
+                            "different"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "undo"
+                          ]
+                        }
+                      ]
+                    },
+                    "subject": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "facilityNo": {
+                          "type": "string"
+                        },
+                        "nameBn": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "sex": {
+                          "type": "string",
+                          "enum": [
+                            "female",
+                            "male",
+                            "other"
+                          ]
+                        },
+                        "birthDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "approxAgeYears": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "approxAgeMonths": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "approxAgeAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "phone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^1[3-9]\\d{8}$"
+                        },
+                        "phoneOwner": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "guardian": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "relationship": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "relationship"
+                          ]
+                        },
+                        "address": {
+                          "type": "object",
+                          "properties": {
+                            "division": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "district": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "upazila": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "line": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "division",
+                            "district",
+                            "upazila",
+                            "line"
+                          ]
+                        },
+                        "hasNid": {
+                          "type": "boolean"
+                        },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
+                        "linkedToId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastVisitAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "facilityNo",
+                        "nameBn",
+                        "nameEn",
+                        "sex",
+                        "birthDate",
+                        "approxAgeYears",
+                        "approxAgeMonths",
+                        "approxAgeAt",
+                        "phone",
+                        "phoneOwner",
+                        "guardian",
+                        "address",
+                        "hasNid",
+                        "identityConfidence",
+                        "linkedToId",
+                        "lastVisitAt"
+                      ]
+                    },
+                    "continueWith": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "facilityNo": {
+                          "type": "string"
+                        },
+                        "nameBn": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "sex": {
+                          "type": "string",
+                          "enum": [
+                            "female",
+                            "male",
+                            "other"
+                          ]
+                        },
+                        "birthDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "approxAgeYears": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "approxAgeMonths": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "approxAgeAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "phone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^1[3-9]\\d{8}$"
+                        },
+                        "phoneOwner": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "guardian": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "relationship": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "relationship"
+                          ]
+                        },
+                        "address": {
+                          "type": "object",
+                          "properties": {
+                            "division": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "district": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "upazila": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "line": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "division",
+                            "district",
+                            "upazila",
+                            "line"
+                          ]
+                        },
+                        "hasNid": {
+                          "type": "boolean"
+                        },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
+                        "linkedToId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastVisitAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "facilityNo",
+                        "nameBn",
+                        "nameEn",
+                        "sex",
+                        "birthDate",
+                        "approxAgeYears",
+                        "approxAgeMonths",
+                        "approxAgeAt",
+                        "phone",
+                        "phoneOwner",
+                        "guardian",
+                        "address",
+                        "hasNid",
+                        "identityConfidence",
+                        "linkedToId",
+                        "lastVisitAt"
+                      ]
+                    },
+                    "taskId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "conflicts": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "nameBn",
+                          "nameEn",
+                          "sex",
+                          "birth",
+                          "guardian",
+                          "phone",
+                          "address",
+                          "id"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "decision",
+                    "subject",
+                    "continueWith",
+                    "taskId",
+                    "conflicts"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/patients": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nameBn": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "nameEn": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "sex": {
+                    "type": "string",
+                    "enum": [
+                      "female",
+                      "male",
+                      "other"
+                    ]
+                  },
+                  "dobMode": {
+                    "type": "string",
+                    "enum": [
+                      "dob",
+                      "age"
+                    ]
+                  },
+                  "dob": {
+                    "type": "string",
+                    "maxLength": 20
+                  },
+                  "ageYears": {
+                    "type": "string",
+                    "maxLength": 5
+                  },
+                  "ageMonths": {
+                    "type": "string",
+                    "maxLength": 4
+                  },
+                  "phone": {
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  "phoneOwner": {
+                    "type": "string",
+                    "enum": [
+                      "self",
+                      "family",
+                      "other"
+                    ]
+                  },
+                  "division": {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "district": {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "upazila": {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "addressLine": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "guardian": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 120
+                      },
+                      "relationship": {
+                        "type": "string",
+                        "maxLength": 40
+                      },
+                      "idNo": {
+                        "type": "string",
+                        "maxLength": 30
+                      }
+                    }
+                  },
+                  "idType": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "nid",
+                      "brn",
+                      "passport"
+                    ]
+                  },
+                  "idNo": {
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  "createVisit": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "visitType": {
+                    "type": "string",
+                    "enum": [
+                      "new",
+                      "follow-up",
+                      "report"
+                    ],
+                    "default": "new"
+                  }
+                },
+                "required": [
+                  "nameBn",
+                  "dobMode"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "patient": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "facilityNo": {
+                          "type": "string"
+                        },
+                        "nameBn": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "sex": {
+                          "type": "string",
+                          "enum": [
+                            "female",
+                            "male",
+                            "other"
+                          ]
+                        },
+                        "birthDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "approxAgeYears": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "approxAgeMonths": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "approxAgeAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "phone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^1[3-9]\\d{8}$"
+                        },
+                        "phoneOwner": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "guardian": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "relationship": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "relationship"
+                          ]
+                        },
+                        "address": {
+                          "type": "object",
+                          "properties": {
+                            "division": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "district": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "upazila": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "line": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "division",
+                            "district",
+                            "upazila",
+                            "line"
+                          ]
+                        },
+                        "hasNid": {
+                          "type": "boolean"
+                        },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
+                        "linkedToId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastVisitAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "facilityNo",
+                        "nameBn",
+                        "nameEn",
+                        "sex",
+                        "birthDate",
+                        "approxAgeYears",
+                        "approxAgeMonths",
+                        "approxAgeAt",
+                        "phone",
+                        "phoneOwner",
+                        "guardian",
+                        "address",
+                        "hasNid",
+                        "identityConfidence",
+                        "linkedToId",
+                        "lastVisitAt"
+                      ]
+                    },
+                    "encounter": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "token": {
+                          "type": "string"
+                        },
+                        "tokenNo": {
+                          "type": "integer"
+                        },
+                        "day": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "planned",
+                            "arrived",
+                            "triaged",
+                            "in-progress",
+                            "finished",
+                            "cancelled",
+                            "entered-in-error"
+                          ]
+                        },
+                        "column": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "waiting",
+                            "vitals",
+                            "withDoctor",
+                            "done",
+                            "noShow"
+                          ]
+                        },
+                        "visitType": {
+                          "type": "string"
+                        },
+                        "patient": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "facilityNo": {
+                              "type": "string"
+                            },
+                            "nameBn": {
+                              "type": "string"
+                            },
+                            "nameEn": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "sex": {
+                              "type": "string",
+                              "enum": [
+                                "female",
+                                "male",
+                                "other"
+                              ]
+                            },
+                            "birthDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approxAgeYears": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "approxAgeMonths": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "approxAgeAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "identityConfidence": {
+                              "type": "string",
+                              "enum": [
+                                "verified",
+                                "unverified",
+                                "possible-duplicate",
+                                "provisional"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "facilityNo",
+                            "nameBn",
+                            "nameEn",
+                            "sex",
+                            "birthDate",
+                            "approxAgeYears",
+                            "approxAgeMonths",
+                            "approxAgeAt",
+                            "identityConfidence"
+                          ]
+                        },
+                        "arrivedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "calledAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "statusAt": {
+                          "type": "string"
+                        },
+                        "actions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "next",
+                              "noShow",
+                              "call"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "token",
+                        "tokenNo",
+                        "day",
+                        "status",
+                        "column",
+                        "visitType",
+                        "patient",
+                        "arrivedAt",
+                        "calledAt",
+                        "statusAt",
+                        "actions"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "patient",
+                    "encounter"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/encounters": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "patientId": {
+                    "type": "string"
+                  },
+                  "visitType": {
+                    "type": "string",
+                    "enum": [
+                      "new",
+                      "follow-up",
+                      "report"
+                    ],
+                    "default": "new"
+                  }
+                },
+                "required": [
+                  "patientId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "visit with token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "encounter": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "token": {
+                          "type": "string"
+                        },
+                        "tokenNo": {
+                          "type": "integer"
+                        },
+                        "day": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "planned",
+                            "arrived",
+                            "triaged",
+                            "in-progress",
+                            "finished",
+                            "cancelled",
+                            "entered-in-error"
+                          ]
+                        },
+                        "column": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "waiting",
+                            "vitals",
+                            "withDoctor",
+                            "done",
+                            "noShow"
+                          ]
+                        },
+                        "visitType": {
+                          "type": "string"
+                        },
+                        "patient": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "facilityNo": {
+                              "type": "string"
+                            },
+                            "nameBn": {
+                              "type": "string"
+                            },
+                            "nameEn": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "sex": {
+                              "type": "string",
+                              "enum": [
+                                "female",
+                                "male",
+                                "other"
+                              ]
+                            },
+                            "birthDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approxAgeYears": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "approxAgeMonths": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "approxAgeAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "identityConfidence": {
+                              "type": "string",
+                              "enum": [
+                                "verified",
+                                "unverified",
+                                "possible-duplicate",
+                                "provisional"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "facilityNo",
+                            "nameBn",
+                            "nameEn",
+                            "sex",
+                            "birthDate",
+                            "approxAgeYears",
+                            "approxAgeMonths",
+                            "approxAgeAt",
+                            "identityConfidence"
+                          ]
+                        },
+                        "arrivedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "calledAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "statusAt": {
+                          "type": "string"
+                        },
+                        "actions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "next",
+                              "noShow",
+                              "call"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "token",
+                        "tokenNo",
+                        "day",
+                        "status",
+                        "column",
+                        "visitType",
+                        "patient",
+                        "arrivedAt",
+                        "calledAt",
+                        "statusAt",
+                        "actions"
+                      ]
+                    },
+                    "patient": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "facilityNo": {
+                          "type": "string"
+                        },
+                        "nameBn": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "sex": {
+                          "type": "string",
+                          "enum": [
+                            "female",
+                            "male",
+                            "other"
+                          ]
+                        },
+                        "birthDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "approxAgeYears": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "approxAgeMonths": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "approxAgeAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "phone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^1[3-9]\\d{8}$"
+                        },
+                        "phoneOwner": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "guardian": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "relationship": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "relationship"
+                          ]
+                        },
+                        "address": {
+                          "type": "object",
+                          "properties": {
+                            "division": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "district": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "upazila": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "line": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "division",
+                            "district",
+                            "upazila",
+                            "line"
+                          ]
+                        },
+                        "hasNid": {
+                          "type": "boolean"
+                        },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
+                        "linkedToId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastVisitAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "facilityNo",
+                        "nameBn",
+                        "nameEn",
+                        "sex",
+                        "birthDate",
+                        "approxAgeYears",
+                        "approxAgeMonths",
+                        "approxAgeAt",
+                        "phone",
+                        "phoneOwner",
+                        "guardian",
+                        "address",
+                        "hasNid",
+                        "identityConfidence",
+                        "linkedToId",
+                        "lastVisitAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "encounter",
+                    "patient"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queue": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "day",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "queue board",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "day": {
+                      "type": "string"
+                    },
+                    "branch": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "nameBn": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "nameBn",
+                        "name"
+                      ]
+                    },
+                    "columns": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string",
+                            "enum": [
+                              "waiting",
+                              "vitals",
+                              "withDoctor",
+                              "done",
+                              "noShow"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "planned",
+                              "arrived",
+                              "triaged",
+                              "in-progress",
+                              "finished",
+                              "cancelled",
+                              "entered-in-error"
+                            ]
+                          },
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "token": {
+                                  "type": "string"
+                                },
+                                "tokenNo": {
+                                  "type": "integer"
+                                },
+                                "day": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "planned",
+                                    "arrived",
+                                    "triaged",
+                                    "in-progress",
+                                    "finished",
+                                    "cancelled",
+                                    "entered-in-error"
+                                  ]
+                                },
+                                "column": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "enum": [
+                                    "waiting",
+                                    "vitals",
+                                    "withDoctor",
+                                    "done",
+                                    "noShow"
+                                  ]
+                                },
+                                "visitType": {
+                                  "type": "string"
+                                },
+                                "patient": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "facilityNo": {
+                                      "type": "string"
+                                    },
+                                    "nameBn": {
+                                      "type": "string"
+                                    },
+                                    "nameEn": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "sex": {
+                                      "type": "string",
+                                      "enum": [
+                                        "female",
+                                        "male",
+                                        "other"
+                                      ]
+                                    },
+                                    "birthDate": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "approxAgeYears": {
+                                      "type": [
+                                        "integer",
+                                        "null"
+                                      ]
+                                    },
+                                    "approxAgeMonths": {
+                                      "type": [
+                                        "integer",
+                                        "null"
+                                      ]
+                                    },
+                                    "approxAgeAt": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "identityConfidence": {
+                                      "type": "string",
+                                      "enum": [
+                                        "verified",
+                                        "unverified",
+                                        "possible-duplicate",
+                                        "provisional"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "facilityNo",
+                                    "nameBn",
+                                    "nameEn",
+                                    "sex",
+                                    "birthDate",
+                                    "approxAgeYears",
+                                    "approxAgeMonths",
+                                    "approxAgeAt",
+                                    "identityConfidence"
+                                  ]
+                                },
+                                "arrivedAt": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "calledAt": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "statusAt": {
+                                  "type": "string"
+                                },
+                                "actions": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "next",
+                                      "noShow",
+                                      "call"
+                                    ]
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "token",
+                                "tokenNo",
+                                "day",
+                                "status",
+                                "column",
+                                "visitType",
+                                "patient",
+                                "arrivedAt",
+                                "calledAt",
+                                "statusAt",
+                                "actions"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "status",
+                          "items"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "day",
+                    "branch",
+                    "columns"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/encounters/{id}/actions": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "next",
+                      "noShow",
+                      "call"
+                    ]
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "token moved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "token": {
+                      "type": "string"
+                    },
+                    "tokenNo": {
+                      "type": "integer"
+                    },
+                    "day": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "planned",
+                        "arrived",
+                        "triaged",
+                        "in-progress",
+                        "finished",
+                        "cancelled",
+                        "entered-in-error"
+                      ]
+                    },
+                    "column": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "waiting",
+                        "vitals",
+                        "withDoctor",
+                        "done",
+                        "noShow"
+                      ]
+                    },
+                    "visitType": {
+                      "type": "string"
+                    },
+                    "patient": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "facilityNo": {
+                          "type": "string"
+                        },
+                        "nameBn": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "sex": {
+                          "type": "string",
+                          "enum": [
+                            "female",
+                            "male",
+                            "other"
+                          ]
+                        },
+                        "birthDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "approxAgeYears": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "approxAgeMonths": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "approxAgeAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "facilityNo",
+                        "nameBn",
+                        "nameEn",
+                        "sex",
+                        "birthDate",
+                        "approxAgeYears",
+                        "approxAgeMonths",
+                        "approxAgeAt",
+                        "identityConfidence"
+                      ]
+                    },
+                    "arrivedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "calledAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "statusAt": {
+                      "type": "string"
+                    },
+                    "actions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "next",
+                          "noShow",
+                          "call"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "token",
+                    "tokenNo",
+                    "day",
+                    "status",
+                    "column",
+                    "visitType",
+                    "patient",
+                    "arrivedAt",
+                    "calledAt",
+                    "statusAt",
+                    "actions"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {}
+}

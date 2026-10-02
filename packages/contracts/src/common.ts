@@ -9,6 +9,10 @@ export const ApiError = z.object({
   /** For 403 on cross-facility reads (domain rule 4). */
   reason: z.string().optional(),
   canRequest: z.boolean().optional(),
+  /** Validation: every field that needs attention, with a code the screen maps to its i18n message. */
+  fields: z.array(z.object({ field: z.string(), code: z.string() })).optional(),
+  /** Conflict (409): the existing resource, e.g. the patient's open visit today. */
+  existing: z.record(z.unknown()).optional(),
 });
 export type ApiError = z.infer<typeof ApiError>;
 
