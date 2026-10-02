@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 02/10/2026 (slice A1–A3 done; A4–A5 session 1 of 2 done)
+# Handover to Claude Code — state of the project on 02/10/2026 (slice A1–A3 done; A4–A5 sessions 1 and 2 of 3 done)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -36,7 +36,7 @@ Status: **done**. Search, duplicate review, registration and queue work end to e
 - **Hands-on walkthrough (02/10/2026)** as receptionist 01711000001 through search → duplicate review → register → queue in the browser; 10 issues found and fixed (see commit "A1-A3: fixes from the hands-on walkthrough").
 - Decisions and rules chosen in this slice: `docs/open-questions.md` — please read and confirm.
 
-## Done (slice A4–A5, session 1 of 2, 02/10/2026) — follow-ups + vitals (A4) ✅
+## Done (slice A4–A5, session 1 of 3, 02/10/2026) — follow-ups + vitals (A4) ✅
 Plan agreed with Kamrul: two sessions (decision D5). Decisions D1–D4 and items 25–44: `docs/open-questions.md` (A4–A5).
 - **A1–A3 follow-ups (open questions 17, 18, 19, 22, 23):**
   - Undo of a desk decision: only its maker or an admin; undoing a "Link anyway" needs a reason (≥10); a dialog lists
@@ -69,6 +69,45 @@ Plan agreed with Kamrul: two sessions (decision D5). Decisions D1–D4 and items
 - **Tests:** domain 78, api 66, i18n 3, contracts 2; Playwright 32 (16 shell + 12 `a1-a3` + 4 `a4`) with plain
   `pnpm e2e`, green twice in a row on 02/10/2026.
 
+## Done (slice A4–A5, session 2 of 3, 02/10/2026) — consultation backend (A5 plan steps 1–6) ✅
+Plan agreed with Kamrul the same day, split after step 6 (decision 2): **session 3** does the screens, the journey spec,
+the reviews and the hands-on test. Kamrul's decisions for this session: open questions "Session 2 — decided by Kamrul".
+- **Rules in `@setu/domain`** (screen and API call the same functions):
+  - `catalog.ts`: the prototype's sample lists — 10 ICD-11 codes flagged `unverified-prototype`; 15 medicines labelled
+    sample with ingredient and class keys (no DGDA numbers, no prices); orderable tests incl. CBC, RBS, S. Electrolytes
+    (for the A6 bill); the demo interaction (Clopidogrel + Omeprazole) and duplicate-class (PPI) rules.
+  - `prescription.ts`: `rxWarnings` / `rxBlockers` — allergy (by class or ingredient; Remove only), same medicine (by
+    generic ingredient, Seclo = omeprazole; Remove or Keep both), same class, interaction acknowledge, dose and days.
+  - `consultation.ts`: `signBlockers` (Rx + complaint + diagnosis + AI "I reviewed" tick + free-text-allergy check +
+    amendment reason), `consultAccess` (decision 28; only a doctor starts the visit; re-open is a no-op),
+    `parseComplaint`.
+  - **ADR 0004** + `ALLERGY` machine (`active → entered-in-error`).
+- **Database** (migration `consultation`): sample catalogues per tenant (read-only for `setu_app`), AllergyIntolerance,
+  Composition (one row per version), Condition, MedicationRequest, ServiceRequest; RLS on all. **Triggers for every
+  role:** a signed note is never edited or deleted (only final/amended → superseded/entered-in-error); diagnoses and Rx
+  lines change only in a draft; a placed order is never edited or deleted; an allergy is never deleted or edited (only
+  active → entered-in-error with who, when and a reason ≥10). One draft and one current version per visit (partial
+  unique indexes). Seed: catalogues in all 4 tenants; Rahima Khatun's Penicillin (rash) and Sulfa allergies and her
+  signed 12/08/2026 note (5A11, BA00; Comet, Seclo, Amdocal) in Green Life and the E2E clinic; E2E doctor 2 (01799000003).
+- **API** (`apps/api/src/modules/consultation.ts`, `routes/consultation.ts`, `packages/contracts/src/consultation.ts`):
+  catalogue search (bn/en), worklist, consultation view (versions, allergies, current medicines and past diagnoses from
+  earlier signed notes, critical-vitals flag), open, save draft, sign, amend, AI draft, record allergy, mark
+  entered-in-error. **Sign** = PIN checked inside the transaction (shared 5 tries / 15 min, `modules/pin.ts`) →
+  `signBlockers` re-run on the server's data (422 `sign_blocked`) → `signDocument` (DOCUMENT) → orders `order`
+  (ORDER) → visit `finish` (ENCOUNTER) → Provenance for the note, every item and every reviewed AI section. Nothing is
+  final until that commits; there is no client-side "signed". **Amend** = new version (v+1) copying v1; signing it
+  supersedes v1 first, then signs v2 `amended`, in one transaction (ADR 0003). The PIN is never stored, not even in the
+  idempotency hash (`command(…, { hashOmit: ["pin"] })`). FakeAi adapter (`apps/api/src/adapters/ai.ts`) builds drafts
+  only from the patient's own record. A state-machine refusal now answers 409 `invalid_transition` (was 500).
+- **Tests:** domain 111 (+33), api 83 (+17 in `consultation.test.ts`: care relationship, cross-tenant, screen-and-API
+  same blocker, Napa + Ace, wrong PIN / lock, AI tick, free-text allergy, final only after the server, orders placed,
+  queue Done, replay, PIN not stored, DB refuses edits to a signed note, amend v1 → superseded, allergy
+  entered-in-error), contracts 2, i18n 3; `pnpm typecheck` 13/13. The API suite was green twice in a row.
+  **Playwright was not re-run this session** (no screen changed; the local server check was not available to Claude) —
+  run plain `pnpm e2e` at the start of session 3; 32 specs were green at the end of session 1.
+- Note on history: commit `dbc5a5d` (step 4) does not build on its own — its service file imports `adapters/ai.ts` and
+  `modules/pin.ts`, which arrived one commit later in `38a2c1c` (step 5). Every later commit builds.
+
 ## How to run the journeys on this PC
 - Playwright's Chromium is installed (02/10/2026): plain `pnpm e2e` runs the journeys against `pnpm dev` (staff :3000,
   api :4000). The installed-Chrome route still works: `cd e2e` then `CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" pnpm exec playwright test -c pw.local.config.ts`.
@@ -100,7 +139,10 @@ Plan agreed with Kamrul: two sessions (decision D5). Decisions D1–D4 and items
     - ICD-11: a clinician verifies the 10 seeded codes against the WHO ICD-11 browser; production source = WHO ICD-11
       API or a local extract.
     - Medicines: a licensed drug database with DGDA numbers + clinician-approved allergy/interaction rules; the demo
-      list's class matching is a demo check only.
+      list's class matching is a demo check only (`packages/domain/src/catalog.ts`, all rows `sample`).
+    - Clinician questions from session 2 (open questions 53, 54, 56, 58): esomeprazole in the interaction rule, same
+      medicine against earlier visits, allergy cross-reactivity, severity and blocking.
+    - Lawyer: AI scribe consent wording before any recording is turned on (the tick stays disabled until then).
     - Vitals limits (decision 46): clinician sign-off of the default thresholds (prototype + adult NEWS2) in
       `packages/domain/src/vitals.ts`, a critical-high glucose, and paediatric/infant ranges (none yet; under 18 the
       screen says the ranges are for adults).
@@ -108,11 +150,20 @@ Plan agreed with Kamrul: two sessions (decision D5). Decisions D1–D4 and items
 
 ## Next (in order)
 1. ~~`/slice A1-A3`~~ — done 02/10/2026.
-2. `/slice A4-A5` — **session 1 done 02/10/2026** (follow-ups + vitals). **Session 2 next:** plan steps 5–10 —
-   AllergyIntolerance, Composition (versions, ADR 0003), Condition, ServiceRequest, MedicationRequest, demo ICD-11 and
-   drug lists; Rx/sign rules (`signBlockers`: allergy, same medicine, same class, interaction ack); consultation API
-   (draft, sign with PIN in the same transaction, amend); screens `cons/draft|signed|amended` with "/" → Rx search;
-   `e2e/journeys/a5.spec.ts`; reviews. The plan text is in this session's transcript and `docs/open-questions.md` 25–36.
+2. `/slice A4-A5` — sessions 1 (follow-ups + vitals) and 2 (consultation backend, plan steps 1–6) done 02/10/2026.
+   **Session 3 next — plan steps 7–10:**
+   - Run `pnpm e2e` first (not re-run in session 2).
+   - Screens `cons/draft` (worklist → note: complaint, history, exam, vitals read-only, diagnosis search bn/en, orders,
+     Rx builder with the warnings from `rxWarnings`, Record allergy + entered-in-error, AI panel "draft — not a
+     diagnosis" with the scribe's "Patient agreed to recording" tick shown disabled "not available yet", sign sheet with
+     PIN showing "Waiting for server — still a draft" until the API answers, "Sign when back online" offline),
+     `cons/signed`, `cons/amended` (version history); "/" focuses the Rx search (#9), Ctrl+Enter sign, Alt+1…9, Esc.
+     Register in `apps/staff/modules/registry.tsx`; strings in `packages/i18n/locales/app/consultApp.json`.
+   - Offline drafts (Kamrul 02/10/2026): stored per user on the device, cleared at sign-out, kept at most 24 h; never
+     sign offline.
+   - `e2e/journeys/a5.spec.ts` (+ #9, #16 regressions, 1024 px) as the E2E doctor on Rahima Khatun; extend
+     `db:reset-e2e` so her allergies and visits start clean.
+   - Clinical-safety and security reviews, hands-on test as the doctor, HANDOVER, commit, push.
 3. `/slice A6-A7` — billing, payments (FakeProvider), receipt PDF (+ gap 2).
 4. `/slice A8-A11` — lab.
 5. `/slice A12-A13` — doctor app layout, printing; run all of Journey A.

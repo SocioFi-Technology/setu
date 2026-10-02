@@ -225,3 +225,57 @@ moved into `@setu/domain` `signDocument` (ADR 0003 updated).
 - **49 → only for undoing a "Link anyway":** the existing override entry in the admin queue changes to "Link undone"
   with the reason and who undid it (no new Task); the admin marks it reviewed. An ordinary undo is audit-only.
 
+
+## Slice A4–A5 session 2 (consultation backend) — 02/10/2026
+
+### Decided by Kamrul (02/10/2026, before the session)
+- **Record allergy now** (ADR 0004): substance or class, reaction, severity, source provider-verified, recorded by + time,
+  audited; never deleted, only marked entered-in-error; feeds the same domain check that blocks signing.
+- **Split:** stop after plan step 6 (rules, database, API, tests); screens and the journey spec in session 3. Commit
+  after each step.
+- **Same medicine** compares generic names (Seclo = omeprazole), not brand text.
+- **Opening the consultation** moves the visit to "With doctor" only through the ENCOUNTER transition, only when a
+  doctor opens it (not a receptionist viewing), and re-opening is a no-op.
+- **Offline drafts:** stored per user, cleared on sign-out, kept 24 h; never sign offline (built in session 3).
+- **AI scribe:** the "Patient agreed to recording" tick is visible but disabled, "not available yet"; no consent is
+  stored until the lawyer's wording exists.
+- Confirmed in the build: sign = draft → PIN verify → server ack → final through DOCUMENT `transition()`, no
+  client-side "signed"; allergy and same-medicine checks are pure functions in `@setu/domain` with unit tests, called by
+  the route and (session 3) the screen; amend = a new Composition version, the old one superseded, the signed row never
+  edited (ADR 0003; also enforced by a database trigger).
+
+### Chosen conservatively by Claude — please confirm
+52. **"No known allergies" (NKDA) is not recorded.** An empty list means "Allergies not recorded — ask the patient",
+    never NKDA. Recording NKDA needs a rule for what happens when an allergy is added later.
+53. **Interaction rule on the ingredient omeprazole** (the prototype matched the brand Seclo). Esomeprazole is not
+    included — a clinician should say whether it should be (and whether the rule should cover more PPIs).
+54. **Same medicine = any shared ingredient**, so a combination containing paracetamol counts as the same medicine as
+    Napa. Checked within this prescription only, not against medicines from earlier visits — clinician to decide.
+55. **Test names stay in English in both languages** (CBC, RBS, S. Electrolytes — as written on request slips); the
+    prototype gives no Bangla names. Bangla brand names were added for search where the prototype had none (e.g.
+    প্যান্টোনিক্স) — please check the spellings.
+56. **Allergy matching:** a class allergy blocks every medicine of that class; a substance allergy blocks that
+    ingredient only (an amoxicillin allergy does not block other penicillins). Cross-reactivity rules are for a
+    clinician. Substance names are the English ingredient keys (no Bangla ingredient names yet).
+57. **Free-text allergies** ("Egg") cannot be checked automatically: when anything is prescribed, signing needs the tick
+    "I checked the medicines against the allergies that are not coded".
+58. **Severity does not change blocking:** every match with an active allergy blocks, whatever its severity.
+59. **Signing needs at least one complaint and one diagnosis** (a provisional one is enough; it prints "Provisional").
+60. **Amendment content:** v2 starts as a copy of v1's sections, diagnoses and prescription; text that was reviewed and
+    signed in v1 counts as provider-verified in v2. An amendment can add orders but never removes one already placed
+    (cancelling is ORDER `revoke`, in the lab slice); the same test cannot be ordered twice in a visit.
+61. **Only the visit's doctor may amend** (care relationship, decision 28) — another doctor at the facility cannot.
+    Covering for an absent colleague needs a rule (and probably Journey E's emergency access).
+62. **AI provenance:** the server records every AI draft it produced (Provenance `ai-draft-generated`). Which text was
+    inserted is reported by the screen as the section's source; once a section is `ai-draft` the server keeps it so
+    until the version is signed with "I reviewed". FakeAi builds drafts only from the patient's own record, so a
+    dev/test draft never adds a fact the record does not hold.
+63. **Draft saves are not kept as versions** (the prototype's "draft autosaves kept 30 days for audit" is not built);
+    each save is audited with counts only.
+64. **Worklist:** every doctor at the branch sees the unassigned waiting visits (no per-doctor queue yet; per-doctor
+    token letters come later, open question 2's neighbour).
+65. **Signing PIN is 4 digits** (the existing PIN contract and seed); the prototype accepts 4–6.
+66. **A replay of a sign request** (same Idempotency-Key and body) returns the stored result without checking the PIN
+    again; it signs nothing new. The PIN itself is never stored, not even inside the request hash.
+67. **No prices on medicines either** (the prototype shows a price per tablet); prices come with the pharmacy/price
+    lists.
