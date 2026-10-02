@@ -6,6 +6,7 @@ import { format } from "@setu/domain";
 import { t as tr } from "@setu/i18n";
 import type { BannerPatient } from "@setu/ui";
 import { api } from "./api";
+import { onOutbox, pendingCount, setOutboxOwner } from "./outbox";
 
 export type Lang = "bn" | "en";
 export type Numerals = "bn" | "en";
@@ -45,6 +46,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [numerals, setNumS] = useState<Numerals>("bn");
   const [online, setOnline] = useState(true);
   const [patient, setPatient] = useState<BannerPatient | null>(null);
+  const [queued, setQueued] = useState(0);
+  useEffect(() => { setQueued(pendingCount()); return onOutbox(setQueued); }, []);
+  // The outbox only replays writes made by the signed-in user at this tenant and facility.
+  useEffect(() => { setOutboxOwner(me ? { userId: me.userId, tenantId: me.tenantId, organizationId: me.organizationId } : null); setQueued(pendingCount()); }, [me?.userId, me?.tenantId, me?.organizationId]); // eslint-disable-line react-hooks/exhaustive-deps
   const refresh = useCallback(async () => {
     try { const [m, c] = await Promise.all([api.me(), api.capabilities()]); setMe(m); setCaps(c); }
     catch { setMe(null); setCaps(null); }
@@ -58,15 +63,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
   const value = useMemo<Session>(() => ({
-    me, caps, loading, lang, numerals, online, queued: 0, patient, setPatient,
+    me, caps, loading, lang, numerals, online, queued, patient, setPatient,
     setLang: (l) => { setLangS(l); try { localStorage.setItem("setu.lang", l); } catch {} },
     setNumerals: (v) => { setNumS(v); try { localStorage.setItem("setu.num", v); } catch {} },
     L: (bn, en) => (lang === "bn" ? bn : en),
     n: (v) => convertDigits(v, numerals === "bn"),
     t: (ns, key) => tr(lang, ns, key),
     refresh,
-    logout: async () => { await api.logout(); setMe(null); setCaps(null); location.href = "/login"; },
-  }), [me, caps, loading, lang, numerals, online, patient, refresh]);
+    logout: async () => { setOutboxOwner(null); await api.logout(); setMe(null); setCaps(null); location.href = "/login"; },
+  }), [me, caps, loading, lang, numerals, online, queued, patient, refresh]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 export const useSession = () => useContext(Ctx);

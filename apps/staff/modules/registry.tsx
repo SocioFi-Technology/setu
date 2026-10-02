@@ -4,16 +4,24 @@
 import type { ComponentType } from "react";
 import { PageState } from "@setu/ui";
 import { useSession } from "../lib/session";
+import { FrontDeskMatch } from "./fd/Match";
+import { FrontDeskQueue } from "./fd/Queue";
+import { FrontDeskRegister } from "./fd/Register";
+import { FrontDeskSearch } from "./fd/Search";
 
 const SCREENS: Record<string, ComponentType> = {
-  // "fd/search": FrontDeskSearch,   ← slice A1
+  // slice A1–A3
+  "fd/search": FrontDeskSearch,
+  "fd/match": FrontDeskMatch,
+  "fd/register": FrontDeskRegister,
+  "fd/queue": FrontDeskQueue,
 };
 const SLICE: Record<string, string> = { fd: "A1–A3", cons: "A4–A5", bill: "A6–A7", lab: "A8–A11", ph: "phase 2", own: "phase 2", adm: "phase 2", er: "B1–B2", ipd: "B3–B4", nur: "B5–B6", net: "E1–E4" };
 
 export function ModuleScreen({ mod, screen }: { mod: string; screen: string }) {
   const s = useSession();
   const Cmp = SCREENS[`${mod}/${screen}`];
-  if (Cmp) return <Cmp />;
+  if (Cmp) return <div className="module-page"><Cmp /></div>;
   const m = s.caps?.modules.find((x) => x.key === mod); const sc = m?.screens.find((x) => x.key === screen);
   const name = sc ? (s.lang === "bn" ? sc.name_bn : sc.name_en) : screen;
   return (

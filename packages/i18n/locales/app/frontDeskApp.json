@@ -1,0 +1,842 @@
+{
+  "_about": [
+    "স্লাইস A1–A3-এর স্ক্রিনের লেখা (ডিজাইন এক্সপোর্টে নেই)",
+    "Strings for the slice A1–A3 screens that the design export does not carry"
+  ],
+  "search_placeholder": [
+    "ফোন, নাম (বাংলা/English), রোগী নং বা QR",
+    "Phone, name (Bangla/English), patient no. or QR"
+  ],
+  "search_label": [
+    "রোগী খুঁজুন",
+    "Search patient"
+  ],
+  "mode_any": [
+    "যেকোনো",
+    "Any"
+  ],
+  "mode_patientNo": [
+    "রোগী নং",
+    "Patient no."
+  ],
+  "mode_phone": [
+    "ফোন নম্বর",
+    "Phone"
+  ],
+  "mode_bn": [
+    "বাংলা নাম",
+    "Bangla name"
+  ],
+  "mode_en": [
+    "ইংরেজি নাম",
+    "English name"
+  ],
+  "hint_keys": [
+    "F2 খুঁজুন · ↑↓ বাছাই · Enter ভিজিট তৈরি · Alt N নতুন রোগী",
+    "F2 focus search · ↑↓ select · Enter create visit · Alt N new patient"
+  ],
+  "type_to_search_title": [
+    "ফোন নম্বর বা নাম লিখুন",
+    "Type a phone number or name"
+  ],
+  "type_to_search_body": [
+    "যেমন: 01711234567, রহিমা, Karim, GLC-2401",
+    "Try: 01711234567, রহিমা, Karim, GLC-2401"
+  ],
+  "searching": [
+    "খোঁজা হচ্ছে…",
+    "Searching…"
+  ],
+  "search_failed": [
+    "খোঁজা যায়নি — আবার চেষ্টা করুন",
+    "Search failed — try again"
+  ],
+  "shared_phone_title": [
+    "{phone} নম্বরে {n} জন রোগী",
+    "{n} patients use {phone}"
+  ],
+  "shared_phone_body": [
+    "একই পরিবারে অনেকে একটি মোবাইল নম্বর ব্যবহার করেন। নম্বর মিললেই একই রোগী নয় — নাম, বয়স ও অভিভাবক মিলিয়ে সঠিক জনকে বেছে নিন।",
+    "Families often share one mobile number. A phone match alone does not mean the same patient — check name, age and guardian before choosing."
+  ],
+  "col_name": [
+    "নাম",
+    "Name"
+  ],
+  "col_age": [
+    "বয়স",
+    "Age"
+  ],
+  "col_guardian": [
+    "অভিভাবক",
+    "Guardian"
+  ],
+  "col_phone": [
+    "ফোন",
+    "Phone"
+  ],
+  "col_last": [
+    "শেষ ভিজিট",
+    "Last visit"
+  ],
+  "col_flags": [
+    "চিহ্ন",
+    "Flags"
+  ],
+  "n_found": [
+    "{n} জন পাওয়া গেছে",
+    "{n} found"
+  ],
+  "never_merge": [
+    "ফলাফল কখনো নিজে থেকে একত্র হয় না",
+    "Results never merge automatically"
+  ],
+  "no_match_title": [
+    "\"{q}\" দিয়ে কোনো রোগী পাওয়া যায়নি",
+    "No patient matches \"{q}\""
+  ],
+  "no_match_body": [
+    "ফোন নম্বর দিয়ে, অথবা অন্য ভাষায় নাম লিখে দেখুন।",
+    "Try the phone number, or the name in the other script."
+  ],
+  "register_with_q": [
+    "\"{q}\" দিয়ে নতুন নিবন্ধন",
+    "Register \"{q}\" as new"
+  ],
+  "flag_verified": [
+    "যাচাইকৃত",
+    "Verified"
+  ],
+  "flag_unverified": [
+    "অযাচাইকৃত",
+    "Unverified"
+  ],
+  "flag_dup": [
+    "সম্ভাব্য ডুপ্লিকেট",
+    "Possible duplicate"
+  ],
+  "flag_provisional": [
+    "সাময়িক",
+    "Provisional"
+  ],
+  "flag_child": [
+    "শিশু · অভিভাবক যুক্ত",
+    "Child · guardian linked"
+  ],
+  "flag_approx": [
+    "আনুমানিক বয়স",
+    "Approx. age"
+  ],
+  "patient_no": [
+    "রোগী নং",
+    "Patient no."
+  ],
+  "address": [
+    "ঠিকানা",
+    "Address"
+  ],
+  "never": [
+    "কখনো না",
+    "Never"
+  ],
+  "dup_note": [
+    "নাম, ফোন বা জন্মতারিখ অন্য রেকর্ডের সাথে মিলছে।",
+    "Name, phone or date of birth are close to another record."
+  ],
+  "compare": [
+    "তুলনা করুন",
+    "Compare"
+  ],
+  "create_visit": [
+    "ভিজিট ও টোকেন",
+    "Create visit"
+  ],
+  "new_family_member": [
+    "এই নম্বরে নতুন সদস্য",
+    "New family member on this number"
+  ],
+  "new_patient": [
+    "নতুন রোগী",
+    "New patient"
+  ],
+  "visit_created": [
+    "টোকেন {token} — {name}",
+    "Token {token} — {name}"
+  ],
+  "rel_self": [
+    "নিজে",
+    "Self"
+  ],
+  "rel_husband": [
+    "স্বামী",
+    "Husband"
+  ],
+  "rel_wife": [
+    "স্ত্রী",
+    "Wife"
+  ],
+  "rel_father": [
+    "বাবা",
+    "Father"
+  ],
+  "rel_mother": [
+    "মা",
+    "Mother"
+  ],
+  "rel_son": [
+    "ছেলে",
+    "Son"
+  ],
+  "rel_daughter": [
+    "মেয়ে",
+    "Daughter"
+  ],
+  "rel_other": [
+    "অন্যান্য",
+    "Other"
+  ],
+  "rel_guardian": [
+    "অভিভাবক",
+    "Guardian"
+  ],
+  "sex_female": [
+    "মহিলা",
+    "F"
+  ],
+  "sex_male": [
+    "পুরুষ",
+    "M"
+  ],
+  "sex_other": [
+    "অন্য",
+    "Other"
+  ],
+  "years_short": [
+    "{n} বছর",
+    "{n}y"
+  ],
+  "approx_years_short": [
+    "~{n} বছর",
+    "~{n}y"
+  ],
+  "match_title": [
+    "সম্ভাব্য মিল যাচাই",
+    "Possible match review"
+  ],
+  "match_loading": [
+    "মিল খোঁজা হচ্ছে…",
+    "Finding possible matches…"
+  ],
+  "match_none_title": [
+    "কোনো রেকর্ডের সাথে মিল নেই",
+    "No existing record matches"
+  ],
+  "match_none_body": [
+    "নাম, ফোন, জন্মতারিখ ও NID দিয়ে দেখা হয়েছে।",
+    "Checked by name, phone, date of birth and NID."
+  ],
+  "match_note": [
+    "প্রতিটি ঘর আলাদা করে মিলিয়ে দেখুন। অমিল থাকলে এক ক্লিকে লিংক হয় না।",
+    "Compare each field. When any field conflicts there is no one-click link."
+  ],
+  "field": [
+    "ঘর",
+    "Field"
+  ],
+  "this_record": [
+    "এই রেকর্ড",
+    "This record"
+  ],
+  "candidate_n": [
+    "সম্ভাব্য মিল {n}",
+    "Candidate {n}"
+  ],
+  "score": [
+    "{n}/৮ মিলেছে",
+    "{n} of 8 match"
+  ],
+  "f_nameBn": [
+    "নাম (বাংলা)",
+    "Name (Bangla)"
+  ],
+  "f_nameEn": [
+    "নাম (English)",
+    "Name (English)"
+  ],
+  "f_sex": [
+    "লিঙ্গ",
+    "Sex"
+  ],
+  "f_birth": [
+    "জন্মতারিখ / বয়স",
+    "Date of birth / age"
+  ],
+  "f_guardian": [
+    "অভিভাবক",
+    "Guardian"
+  ],
+  "f_phone": [
+    "মোবাইল",
+    "Phone"
+  ],
+  "f_address": [
+    "ঠিকানা",
+    "Address"
+  ],
+  "f_id": [
+    "NID / জন্ম নিবন্ধন",
+    "NID / birth reg."
+  ],
+  "st_same": [
+    "মিলেছে",
+    "Same"
+  ],
+  "st_similar": [
+    "প্রায়",
+    "Similar"
+  ],
+  "st_different": [
+    "ভিন্ন",
+    "Different"
+  ],
+  "st_missing": [
+    "নেই",
+    "Missing"
+  ],
+  "on_file": [
+    "আছে",
+    "On file"
+  ],
+  "same_person_link": [
+    "একই ব্যক্তি — লিংক করুন",
+    "Same person — link"
+  ],
+  "send_for_review": [
+    "রিভিউতে পাঠান",
+    "Send for review"
+  ],
+  "link_anyway": [
+    "তবুও লিংক করুন",
+    "Link anyway"
+  ],
+  "is_guardian_note": [
+    "ইনিই অভিভাবক — লিংক করা যাবে না",
+    "This is the guardian — cannot be linked"
+  ],
+  "conflicts_note": [
+    "{n}টি ঘর মেলেনি",
+    "{n} field(s) conflict"
+  ],
+  "strong_note": [
+    "নতুন তথ্য সংশোধনী হিসেবে যোগ হবে",
+    "New details are added as amendments"
+  ],
+  "different_person": [
+    "ভিন্ন ব্যক্তি — আলাদা রাখুন",
+    "Different person — keep separate"
+  ],
+  "not_sure_reason": [
+    "নিশ্চিত নন? কারণ",
+    "Not sure? Reason"
+  ],
+  "not_sure_send": [
+    "নিশ্চিত নই — রিভিউতে পাঠান",
+    "Not sure — send for review"
+  ],
+  "la_title": [
+    "{n}টি অমিল তথ্যসহ লিংক করছেন",
+    "You are linking records with {n} conflicting field(s)"
+  ],
+  "la_sub": [
+    "এই রেকর্ড → {name} ({no})",
+    "This record → {name} ({no})"
+  ],
+  "reason_label": [
+    "কারণ *",
+    "Reason *"
+  ],
+  "reason_placeholder": [
+    "যেমন: রোগী বললেন NID-তে ভুল জন্মতারিখ",
+    "e.g. the patient says the date of birth on the NID is wrong"
+  ],
+  "reason_hint": [
+    "কমপক্ষে ১০ অক্ষর ({n}/১০)",
+    "At least 10 characters ({n}/10)"
+  ],
+  "la_officer": [
+    "আপনার কারণসহ এই লিংক সংরক্ষিত ও অডিট হবে। ভুল হলে অ্যাডমিন রেকর্ড দুটি আলাদা করতে পারবেন।",
+    "This link is saved and audited with your reason. If it is wrong, an admin can split the records."
+  ],
+  "cancel": [
+    "বাতিল",
+    "Cancel"
+  ],
+  "confirm_link": [
+    "নিশ্চিত — লিংক করুন",
+    "Confirm link"
+  ],
+  "decided_link": [
+    "{name} ({no})-এর সাথে লিংক হয়েছে",
+    "Linked to {name} ({no})"
+  ],
+  "decided_link_anyway": [
+    "{n}টি অমিলসহ {name} ({no})-এর সাথে লিংক হয়েছে — কারণসহ অডিট করা হয়েছে।",
+    "Linked to {name} ({no}) with {n} conflicting field(s) — audited with your reason."
+  ],
+  "decided_review": [
+    "রেকর্ড অফিসারের কাছে রিভিউতে পাঠানো হয়েছে। ভিজিট এই রেকর্ডেই চলবে।",
+    "Sent to the records officer for review. The visit continues on this record."
+  ],
+  "decided_different": [
+    "আলাদা ব্যক্তি হিসেবে চিহ্নিত।",
+    "Marked as a different person."
+  ],
+  "decided_undo": [
+    "সিদ্ধান্ত ফিরিয়ে নেওয়া হয়েছে।",
+    "Decision undone."
+  ],
+  "undo": [
+    "ফিরিয়ে নিন",
+    "Undo"
+  ],
+  "visit_for": [
+    "{name}-এর ভিজিট ও টোকেন",
+    "Create visit for {name}"
+  ],
+  "back_to_search": [
+    "খোঁজে ফিরুন",
+    "Back to search"
+  ],
+  "no_patient_chosen": [
+    "কোনো রোগী বাছা হয়নি",
+    "No patient chosen"
+  ],
+  "no_patient_chosen_body": [
+    "রোগী খুঁজে \"তুলনা করুন\" চাপুন।",
+    "Find the patient and press \"Compare\"."
+  ],
+  "reg_title": [
+    "নতুন রোগী নিবন্ধন",
+    "New registration"
+  ],
+  "clear": [
+    "মুছুন",
+    "Clear"
+  ],
+  "sec_identity": [
+    "পরিচয়",
+    "Identity"
+  ],
+  "sec_guardian": [
+    "অভিভাবক",
+    "Guardian"
+  ],
+  "sec_contact": [
+    "যোগাযোগ ও ঠিকানা",
+    "Contact & address"
+  ],
+  "sec_id": [
+    "পরিচয়পত্র",
+    "ID"
+  ],
+  "name_bn": [
+    "নাম (বাংলা) *",
+    "Name in Bangla *"
+  ],
+  "name_en": [
+    "নাম (ইংরেজি)",
+    "Name in English"
+  ],
+  "sex": [
+    "লিঙ্গ *",
+    "Sex *"
+  ],
+  "dob_or_age": [
+    "জন্মতারিখ বা বয়স *",
+    "Date of birth or age *"
+  ],
+  "dob_mode_dob": [
+    "জন্মতারিখ",
+    "Date of birth"
+  ],
+  "dob_mode_age": [
+    "আনুমানিক বয়স",
+    "Approximate age"
+  ],
+  "years": [
+    "বছর",
+    "years"
+  ],
+  "months": [
+    "মাস",
+    "months"
+  ],
+  "age_label_exact": [
+    "{y} বছর {m} মাস",
+    "{y}y {m}m"
+  ],
+  "age_label_approx": [
+    "আনুমানিক: {y} বছর {m} মাস",
+    "Approximate: {y}y {m}m"
+  ],
+  "guardian_name": [
+    "অভিভাবকের নাম",
+    "Guardian name"
+  ],
+  "relationship": [
+    "সম্পর্ক",
+    "Relationship"
+  ],
+  "choose": [
+    "বেছে নিন",
+    "Choose"
+  ],
+  "guardian_rule": [
+    "১৮ বছরের কম হলে অভিভাবক আবশ্যক।",
+    "Required under 18."
+  ],
+  "mobile": [
+    "মোবাইল *",
+    "Mobile *"
+  ],
+  "whose_number": [
+    "এই নম্বর কার?",
+    "Whose number?"
+  ],
+  "owner_self": [
+    "নিজের",
+    "Own"
+  ],
+  "owner_family": [
+    "পরিবারের",
+    "Family"
+  ],
+  "owner_other": [
+    "অন্যের",
+    "Other"
+  ],
+  "phone_hint": [
+    "SMS রিপোর্ট ও রিমাইন্ডারের জন্য",
+    "For SMS reports and reminders"
+  ],
+  "phone_new": [
+    "নতুন নম্বর",
+    "New number"
+  ],
+  "phone_shared": [
+    "এই নম্বরে আরও {n} জন রোগী আছেন",
+    "{n} patients already use this number"
+  ],
+  "division": [
+    "বিভাগ *",
+    "Division *"
+  ],
+  "district": [
+    "জেলা *",
+    "District *"
+  ],
+  "upazila": [
+    "উপজেলা / থানা *",
+    "Upazila *"
+  ],
+  "area": [
+    "এলাকা, রোড, বাসা",
+    "Area, road, house"
+  ],
+  "pick_division_first": [
+    "আগে বিভাগ",
+    "Choose division first"
+  ],
+  "pick_district_first": [
+    "আগে জেলা",
+    "Choose district first"
+  ],
+  "id_type": [
+    "পরিচয়পত্র",
+    "ID type"
+  ],
+  "id_none": [
+    "নেই",
+    "None"
+  ],
+  "id_nid": [
+    "জাতীয় পরিচয়পত্র",
+    "NID"
+  ],
+  "id_brn": [
+    "জন্ম নিবন্ধন",
+    "Birth reg."
+  ],
+  "id_passport": [
+    "পাসপোর্ট",
+    "Passport"
+  ],
+  "id_no": [
+    "নম্বর (ঐচ্ছিক)",
+    "Number (optional)"
+  ],
+  "id_no_hint": [
+    "১০, ১৩ বা ১৭ সংখ্যা",
+    "10, 13 or 17 digits"
+  ],
+  "dup_box_checking": [
+    "মিল খোঁজা হচ্ছে…",
+    "Checking for matches…"
+  ],
+  "dup_box_none": [
+    "কোনো মিল নেই",
+    "No matches found"
+  ],
+  "dup_box_n": [
+    "{n}টি সম্ভাব্য মিল",
+    "{n} possible match(es)"
+  ],
+  "dup_box_hint": [
+    "ফেরত আসা রোগী হলে নতুন রেকর্ড না করে তাঁর রেকর্ডে ভিজিট খুলুন।",
+    "If this is a returning patient, open a visit on their record instead of registering again."
+  ],
+  "use_this_record": [
+    "এই রেকর্ডে ভিজিট",
+    "Visit on this record"
+  ],
+  "fields_need_attention": [
+    "{n}টি ঘর ঠিক করুন",
+    "{n} field(s) need attention"
+  ],
+  "save": [
+    "সংরক্ষণ",
+    "Save"
+  ],
+  "save_and_visit": [
+    "সংরক্ষণ ও টোকেন",
+    "Save & create visit"
+  ],
+  "saving": [
+    "সংরক্ষণ হচ্ছে — এখনো সংরক্ষিত নয়",
+    "Saving — not saved yet"
+  ],
+  "saved_confirmed": [
+    "সংরক্ষিত — রোগী নং {no} · সার্ভার নিশ্চিত করেছে",
+    "Saved — patient no. {no} · server confirmed"
+  ],
+  "saved_offline": [
+    "এই ডিভাইসে রাখা হয়েছে · এখনো সিঙ্ক হয়নি",
+    "Saved on this device · not synced"
+  ],
+  "not_saved": [
+    "সংরক্ষণ হয়নি",
+    "Not saved"
+  ],
+  "kept_note": [
+    "আপনার লেখা সব তথ্য রাখা আছে।",
+    "Everything you typed is kept."
+  ],
+  "e_name_bn_required": [
+    "বাংলায় নাম লিখুন",
+    "Enter the name in Bangla"
+  ],
+  "e_name_bn_script": [
+    "বাংলা অক্ষরে নাম লিখুন",
+    "Type the name in Bangla"
+  ],
+  "e_sex_required": [
+    "লিঙ্গ বাছুন",
+    "Choose sex"
+  ],
+  "e_dob_required": [
+    "জন্মতারিখ বা আনুমানিক বয়স দিন",
+    "Enter date of birth or approximate age"
+  ],
+  "e_dob_format": [
+    "DD/MM/YYYY আকারে লিখুন",
+    "Use DD/MM/YYYY"
+  ],
+  "e_dob_future": [
+    "জন্মতারিখ ভবিষ্যতে হতে পারে না",
+    "Date of birth is in the future"
+  ],
+  "e_dob_range": [
+    "১২০ বছরের বেশি হতে পারে না",
+    "Cannot be more than 120 years ago"
+  ],
+  "e_age_required": [
+    "আনুমানিক বয়স লিখুন",
+    "Enter approximate age in years"
+  ],
+  "e_age_range": [
+    "বয়স ০–১২০ বছরের মধ্যে",
+    "Age must be 0–120 years"
+  ],
+  "e_age_months_range": [
+    "মাস ০–১১",
+    "Months must be 0–11"
+  ],
+  "e_phone_required": [
+    "মোবাইল নম্বর লিখুন (০১ দিয়ে শুরু ১১ সংখ্যা)",
+    "Enter mobile number (11 digits, starts 01)"
+  ],
+  "e_phone_invalid": [
+    "০১ দিয়ে শুরু ১১ সংখ্যা লাগবে",
+    "Needs 11 digits starting 01"
+  ],
+  "e_division_required": [
+    "বিভাগ বাছুন",
+    "Choose division"
+  ],
+  "e_district_required": [
+    "জেলা বাছুন",
+    "Choose district"
+  ],
+  "e_upazila_required": [
+    "উপজেলা বাছুন",
+    "Choose upazila"
+  ],
+  "e_guardian_name_required": [
+    "১৮ বছরের কম — অভিভাবকের নাম লিখুন",
+    "Under 18 — enter the guardian's name"
+  ],
+  "e_guardian_relationship_required": [
+    "অভিভাবকের সম্পর্ক বাছুন",
+    "Choose the guardian's relationship"
+  ],
+  "e_id_format": [
+    "নম্বরের সংখ্যা ঠিক নয়",
+    "Wrong number of digits"
+  ],
+  "queue_title": [
+    "সিরিয়াল বোর্ড",
+    "Queue board"
+  ],
+  "queue_loading": [
+    "সিরিয়াল লোড হচ্ছে…",
+    "Loading queue…"
+  ],
+  "queue_empty_title": [
+    "আজ এখনো কোনো টোকেন নেই",
+    "No tokens yet today"
+  ],
+  "queue_empty_body": [
+    "প্রথম রোগী চেক-ইন করলে টোকেন দেখা যাবে।",
+    "Tokens appear when the first patient checks in."
+  ],
+  "new_token": [
+    "নতুন টোকেন",
+    "New token"
+  ],
+  "col_waiting": [
+    "অপেক্ষমাণ",
+    "Waiting"
+  ],
+  "col_vitals": [
+    "ভাইটাল নেওয়া",
+    "Vitals done"
+  ],
+  "col_withDoctor": [
+    "ডাক্তারের কাছে",
+    "With doctor"
+  ],
+  "col_done": [
+    "শেষ",
+    "Completed"
+  ],
+  "col_noShow": [
+    "অনুপস্থিত",
+    "No-show"
+  ],
+  "selected": [
+    "নির্বাচিত",
+    "Selected"
+  ],
+  "call": [
+    "ডাকুন",
+    "Call"
+  ],
+  "called_at": [
+    "ডাকা হয়েছে {t}",
+    "Called {t}"
+  ],
+  "next_vitals": [
+    "ভাইটালে পাঠান",
+    "To vitals"
+  ],
+  "next_doctor": [
+    "ডাক্তারের কাছে",
+    "To doctor"
+  ],
+  "next_complete": [
+    "শেষ করুন",
+    "Complete"
+  ],
+  "no_show": [
+    "অনুপস্থিত",
+    "No-show"
+  ],
+  "just_registered": [
+    "নতুন নিবন্ধন",
+    "Just registered"
+  ],
+  "since": [
+    "{t} থেকে",
+    "since {t}"
+  ],
+  "position": [
+    "#{n}",
+    "#{n}"
+  ],
+  "visit_new": [
+    "নতুন",
+    "New"
+  ],
+  "visit_follow-up": [
+    "ফলো-আপ",
+    "Follow-up"
+  ],
+  "visit_report": [
+    "রিপোর্ট",
+    "Report"
+  ],
+  "select_a_token": [
+    "কোনো টোকেন বাছুন",
+    "Select a token"
+  ],
+  "stale_refresh": [
+    "অন্য কেউ আগেই বদলেছেন — বোর্ড নতুন করে দেখানো হলো",
+    "Someone else changed this token first — board refreshed"
+  ],
+  "lab_billing_later": [
+    "ল্যাব ও বিলিং কলাম পরের স্লাইসে আসবে",
+    "Lab and billing columns arrive with their slices"
+  ],
+  "queued_offline": [
+    "এই ডিভাইসে রাখা হয়েছে · এখনো সিঙ্ক হয়নি",
+    "Saved on this device · not synced"
+  ],
+  "error_generic": [
+    "কিছু একটা সমস্যা হয়েছে — আবার চেষ্টা করুন",
+    "Something went wrong — try again"
+  ],
+  "la_title_weak": [
+    "শক্ত মিল নয় — তবুও লিংক করছেন",
+    "Not a strong match — you are linking anyway"
+  ],
+  "not_strong_note": [
+    "শক্ত মিল নয় — নাম বা জন্মতারিখ পুরো মেলেনি",
+    "Not a strong match — name or date of birth not the same"
+  ],
+  "no_show_confirm_title": [
+    "{token} অনুপস্থিত হিসেবে চিহ্নিত করবেন?",
+    "Mark {token} as no-show?"
+  ],
+  "no_show_confirm_body": [
+    "এটি ফেরানো যায় না। রোগী পরে এলে নতুন টোকেন লাগবে।",
+    "This cannot be undone. If the patient comes back later they need a new token."
+  ],
+  "confirm": [
+    "নিশ্চিত",
+    "Confirm"
+  ],
+  "check_on_match": [
+    "অমিল আছে — একই ব্যক্তি হলে খুঁজে \"তুলনা করুন\" দিয়ে যাচাই করুন",
+    "Fields differ — if this is the same person, find them in search and use Compare"
+  ]
+}

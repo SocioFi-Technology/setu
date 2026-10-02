@@ -58,6 +58,10 @@ describe.runIf(db)("A1 search", () => {
     expect(nos).toContain("GLC-240117"); expect(nos.every((n: string) => n.startsWith("GLC-2401"))).toBe(true);
     expect((await get("/v1/patients/search?q=zzqqxx")).json().items).toEqual([]);
   });
+  it("an exact patient number comes first", async () => {
+    const r = (await get("/v1/patients/search?q=GLC-240117")).json();
+    expect(r.items[0].facilityNo).toBe("GLC-240117");
+  });
   it("a doctor may not use front desk search (role)", async () => {
     const r = await get("/v1/patients/search?q=karim", "doctor");
     expect(r.statusCode).toBe(403); expect(r.json()).toMatchObject({ reason: "role" });
@@ -125,15 +129,15 @@ describe.runIf(db)("A3 registration and visit (issue #5)", () => {
     expect(r.json().fields).toEqual([{ field: "dob", code: "dob_future" }, { field: "phone", code: "phone_invalid" }]);
   });
   it("Save & create visit: new facility number, own token, waiting; a replay does not register twice", async () => {
-    const key = randomUUID();
-    const a = await post("/v1/patients", form({ createVisit: true }), "desk", key);
+    const key = randomUUID(); const body = form({ createVisit: true });
+    const a = await post("/v1/patients", body, "desk", key);
     expect(a.statusCode).toBe(201);
     const b = a.json();
     expect(b.patient.facilityNo).toMatch(/^GLC-\d{6}$/);
     expect(b.patient).toMatchObject({ identityConfidence: "unverified", birthDate: "1992-07-12" });
     expect(b.encounter).toMatchObject({ status: "arrived", column: "waiting", patient: { id: b.patient.id } });
     expect(b.encounter.token).toMatch(/^A-\d{3,}$/);
-    const replay = await post("/v1/patients", form({ createVisit: true }), "desk", key);
+    const replay = await post("/v1/patients", body, "desk", key);
     expect(replay.headers["idempotent-replay"]).toBe("true"); expect(replay.json().patient.id).toBe(b.patient.id);
     // A second visit the same day is refused, naming the existing token.
     const again = await post("/v1/encounters", { patientId: b.patient.id });
@@ -153,6 +157,13 @@ describe.runIf(db)("A3 registration and visit (issue #5)", () => {
     const ok = await post("/v1/patients", { ...child, guardian: { name: "আব্দুল করিম", relationship: "father" } });
     expect(ok.statusCode).toBe(201); expect(ok.json().patient.guardian).toEqual({ name: "আব্দুল করিম", relationship: "father" });
   });
+  it("registering someone who strongly matches an existing record flags the new record as a possible duplicate", async () => {
+    // Its own patient on its own phone, so the seeded family on 01711-234567 stays at five.
+    const first = form({ guardian: { name: "আব্দুল করিম", relationship: "husband" } });
+    expect((await post("/v1/patients", first)).json().patient.identityConfidence).toBe("unverified");
+    const again = await post("/v1/patients", first);
+    expect(again.statusCode).toBe(201); expect(again.json().patient.identityConfidence).toBe("possible-duplicate");
+  });
   it("a write without Idempotency-Key is refused", async () => {
     const r = await post("/v1/patients", form(), "desk", null);
     expect(r.statusCode).toBe(400); expect(r.json().code).toBe("idempotency_key_required");
@@ -164,16 +175,17 @@ describe.runIf(db)("A3 registration and visit (issue #5)", () => {
 });
 
 describe.runIf(db)("queue actions go through ENCOUNTER", () => {
-  it("call → next (vitals) → next (doctor) → next (done); no-show is refused once with the doctor", async () => {
+  it("call → next (vitals) → next (doctor); the desk can neither finish the visit nor mark no-show once with the doctor", async () => {
     const v = (await post("/v1/patients", form({ createVisit: true }))).json().encounter;
     expect(v.actions).toEqual(["call", "next", "noShow"]);
     const called = (await post(`/v1/encounters/${v.id}/actions`, { action: "call" })).json();
     expect(called.calledAt).not.toBeNull(); expect(called.status).toBe("arrived");
     expect((await post(`/v1/encounters/${v.id}/actions`, { action: "next" })).json()).toMatchObject({ status: "triaged", column: "vitals" });
-    expect((await post(`/v1/encounters/${v.id}/actions`, { action: "next" })).json()).toMatchObject({ status: "in-progress", column: "withDoctor" });
+    expect((await post(`/v1/encounters/${v.id}/actions`, { action: "next" })).json()).toMatchObject({ status: "in-progress", column: "withDoctor", actions: [] });
     const ns = await post(`/v1/encounters/${v.id}/actions`, { action: "noShow" });
     expect(ns.statusCode).toBe(409); expect(ns.json().code).toBe("invalid_transition");
-    expect((await post(`/v1/encounters/${v.id}/actions`, { action: "next" })).json()).toMatchObject({ status: "finished", column: "done", actions: [] });
+    const fin = await post(`/v1/encounters/${v.id}/actions`, { action: "next" });
+    expect(fin.statusCode).toBe(409); expect(fin.json().code).toBe("invalid_transition");
   });
   it("no-show from waiting", async () => {
     const v = (await post("/v1/patients", form({ createVisit: true }))).json().encounter;

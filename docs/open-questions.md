@@ -30,8 +30,8 @@ move it to "Answered" with the date and who decided.
    **Requeue** from no-show is not possible because `cancelled` is terminal in ENCOUNTER.
 3. **"Call" (ডাকুন)** records `calledAt` and an audit event; it is not a state change.
 4. **What linking does** (A is the possible duplicate, B the record it is the same person as):
-   - Same person — link (no conflicts): A `replaced-by` B (`Patient.linkedToId`), Provenance `link`. A's identity confidence is left as it was; screens and new visits use B.
-   - Link anyway (conflicts, reason ≥10): as above, plus Task `patient-link-review` created and approved in the same transaction with the reason, and A set to `possible-duplicate` so the records officer can still split it later.
+   - Same person — link (strong match, no conflicts, Bangla name and birth Same): A `replaced-by` B (`Patient.linkedToId`), Provenance `link`. A's identity confidence is left as it was; screens and new visits use B.
+   - Link anyway (any candidate that is not a strong clean match, reason ≥10): as above, plus Task `patient-link-review` created and approved in the same transaction with the reason, and A set to `possible-duplicate` so it can still be split later.
    - Send for review: Task requested; A set to `possible-duplicate`; the visit continues on A.
    - Different person: Provenance `checked-different`; if A was `possible-duplicate` and has no open review it goes back to `unverified`.
    - Undo: reverses the last decision on A with a new Provenance row (never deletes); an open review Task is rejected with note "withdrawn"; an approved one stays approved (APPROVAL has no way back) and the unlink is recorded.
@@ -41,6 +41,39 @@ move it to "Answered" with the date and who decided.
 8. **Approximate age** is stored as years + months + the date it was recorded (`approxAgeAt`), so it ages forward; no estimated birth date is invented.
 9. **ID numbers:** NID must have 10, 13 or 17 digits and birth registration 17 when entered; passport numbers are not checked. Payer, photo and referral from the register form are not stored in this slice (no Coverage/Media model yet).
 10. **The A3 journey's "GLC-240117" result** is the prototype's sample number for a patient who already exists in A1. The A3 spec registers a new synthetic patient and checks that it gets the next facility number and its own token.
+
+13. **Register-screen Compare** for an unsaved form is replaced by "Visit on this record" on each candidate in the live
+    duplicate box (no new record is created). Linking with conflicts happens on saved records in `fd/match`.
+14. **Offline:** registrations and visits made offline wait in the device outbox (localStorage) with their Idempotency-Key
+    and show "Saved on this device · not synced"; they never show a facility number or token until the server answers.
+    The outbox holds patient details on the device until synced — acceptable for a desk PC, to revisit for shared devices.
+15. **Search scope:** results exclude records already linked into another (replaced-by); at most 20 results.
+
+### From the security and clinical-safety reviews (02/10/2026) — needs a human decision
+Fixed in the slice: one-click link only on a strong clean match (Bangla name and birth Same); guardian detection both
+ways and on near spellings; register-screen "Visit on this record" only for a clean match; Enter ignores stale search
+results and an exact patient number comes first; banner follows the record the visit goes on; strong duplicates are
+flagged on save; no-show needs a confirm; the desk cannot finish a visit; queue actions are scoped to the facility and
+branch; Idempotency-Keys are scoped to user + URL and bound to the body (reuse → 422), replays re-check permissions and
+are audited; the outbox only replays under the user/tenant/facility that queued it and expires after 24 h; request
+logs drop query strings; register prefill no longer travels in the URL; DOB "future" uses the Dhaka calendar day.
+
+Still open:
+16. **"Link anyway" approves itself (clinical review: High).** As decided on 02/10/2026 the review Task is created and
+    approved by the same desk user, and visits move to the linked record at once. The reviewer recommends a second
+    person (admin / records officer) before the link takes effect. The dialog no longer promises a review. Decide.
+17. **Undo after a link** does not move or flag visits created on the linked record in between, needs no reason, and
+    any desk user can undo another's link. Proposed: list those visits and require a reason to undo a link-anyway.
+18. **Provenance source for desk decisions** is `provider-verified` (the domain model's four sources have no "desk
+    decision"). The reviewer reads this as over-stating verification. Needs an ADR if a new source value is wanted.
+19. **Match preview** returns full summaries (phone, address, guardian) of candidates to anyone on the register
+    screen; consider reduced fields until a candidate is chosen.
+20. **Composite tenant foreign keys** (`(tenantId, id)`) for Patient.linkedToId, Task, Provenance and Encounter.patientId
+    as defence in depth (today every id is read through a tenant-filtered lookup first).
+21. **The patient index is tenant-wide** (Patient has no organizationId): a tenant's facilities share patients. Intended?
+22. **Refused outbox writes** (e.g. 409 visit already exists) leave the pending count silently; show them to staff.
+23. **Phone is required** (prototype rule); a patient without a phone pushes staff to type a placeholder. Allow "no phone"?
+24. `pnpm db:migrate` sends `ALTER ROLE … PASSWORD` in plain text; turn off `log_statement` or set it with a SCRAM hash.
 
 ### Infrastructure (step 1)
 11. **`auth_login_lookup` runs as its owner.** In local Docker the owner is the superuser. In production the migration

@@ -15,7 +15,7 @@ const probe = `cmdtest-${randomUUID()}`;
 
 beforeAll(async () => {
   app = await buildApp();
-  app.post("/test/probe", async (req, reply) => command(req, reply, async (tx, s) => {
+  app.post("/test/probe", { config: { ownTx: true } }, async (req, reply) => command(req, reply, async (tx, s) => {
     runs++;
     const { name, fail } = req.body as { name: string; fail?: boolean };
     await tx.sequence.create({ data: { tenantId: s.tenantId, name, value: 1 } });
@@ -35,7 +35,7 @@ const login = async () => {
 const state = (name: string, key: string) => db!.forTenant(T, async (tx) => ({
   seq: await tx.sequence.count({ where: { name } }),
   audit: await tx.auditEvent.count({ where: { entity: "TestProbe", entityId: name } }),
-  idem: await tx.idempotencyKey.count({ where: { key, route: "/test/probe" } }),
+  idem: await tx.idempotencyKey.count({ where: { key } }),
 }));
 
 describe.runIf(db)("command(): one transaction per request", () => {
@@ -64,6 +64,23 @@ describe.runIf(db)("command(): one transaction per request", () => {
     const [a, b] = await Promise.all([send(), send()]);
     expect([a.statusCode, b.statusCode]).toEqual([201, 201]);
     expect(await state(name, key)).toEqual({ seq: 1, audit: 1, idem: 1 });
+  });
+
+  it("a key reused with a different body is refused, not answered with the stored response", async () => {
+    const cookie = await login(); const key = randomUUID();
+    expect((await app.inject({ method: "POST", url: "/test/probe", headers: { cookie, "idempotency-key": key }, payload: { name: `${probe}-k1` } })).statusCode).toBe(201);
+    const other = await app.inject({ method: "POST", url: "/test/probe", headers: { cookie, "idempotency-key": key }, payload: { name: `${probe}-k2` } });
+    expect(other.statusCode).toBe(422); expect(other.json().code).toBe("idempotency_key_reused");
+  });
+
+  it("a key is scoped to the user: another user with the same key runs their own request", async () => {
+    const key = randomUUID();
+    const a = await app.inject({ method: "POST", url: "/test/probe", headers: { cookie: await login(), "idempotency-key": key }, payload: { name: `${probe}-u1` } });
+    const r2 = await app.inject({ method: "POST", url: "/v1/auth/login", payload: { identifier: "01711000010", password: "setu1234" } });
+    const c2 = r2.headers["set-cookie"]; const cookie2 = Array.isArray(c2) ? c2[0]! : (c2 as string);
+    const b = await app.inject({ method: "POST", url: "/test/probe", headers: { cookie: cookie2, "idempotency-key": key }, payload: { name: `${probe}-u2` } });
+    expect(a.statusCode).toBe(201); expect(b.statusCode).toBe(201); expect(b.headers["idempotent-replay"]).toBeUndefined();
+    expect(b.json().name).toBe(`${probe}-u2`);
   });
 
   it("refuses a write without Idempotency-Key", async () => {

@@ -3,8 +3,8 @@
 import type { MatchCandidate, PatientSummary, QueueItem, RegistrationInput } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
-  APPROVAL, ENCOUNTER, canLinkDirectly, columnOf, compareRecords, dhakaDay, format, formatToken, isCandidate, linkAnywayAllowed,
-  normalizePhone, parseDob, queueActions, tokenSequenceName, transition, type EncounterState, type MatchRecord,
+  APPROVAL, ENCOUNTER, canLinkDirectly, columnOf, compareRecords, dhakaDay, format, formatToken, frontDeskActions, isCandidate, linkAnywayAllowed,
+  normalizePhone, parseDob, tokenSequenceName, transition, type EncounterState, type MatchRecord,
 } from "@setu/domain";
 import type { SessionData } from "../plugins/session.js";
 import { err } from "../errors.js";
@@ -77,7 +77,9 @@ export async function searchPatients(tx: Tx, q: string) {
     : mode === "bn" ? { nameBn: { contains: term } }
     : { nameEn: { contains: term, mode: "insensitive" as const } };
   const rows = (await tx.patient.findMany({ where: { ...where, linkedToId: null }, include: patientInclude, orderBy: [{ nameBn: "asc" }], take: 20 })) as PatientRow[];
-  const items = rows.map(toSummary);
+  // An exact patient number (or exact phone) comes first, so Enter on "GLC-12" never picks GLC-120 (clinical review).
+  const exact = (p: PatientRow) => (mode === "patientNo" ? p.facilityNo.toUpperCase() === term : mode === "phone" ? normalizePhone(p.phone) === term : false);
+  const items = [...rows.filter(exact), ...rows.filter((p) => !exact(p))].map(toSummary);
   const phones = new Set(items.map((i) => i.phone));
   const sharedPhone = mode === "phone" && items.length > 1 && phones.size === 1 && items[0]!.phone ? { phone: items[0]!.phone, count: items.length } : null;
   return { mode, items, sharedPhone };
@@ -102,7 +104,7 @@ export async function findCandidates(tx: Tx, subject: MatchRecord, excludeId: st
     .filter(({ c }) => isCandidate(c))
     .sort((a, b) => b.c.score - a.c.score || a.c.conflicts.length - b.c.conflicts.length)
     .slice(0, 5)
-    .map(({ p, c }) => ({ patient: toSummary(p), comparison: c, canLink: canLinkDirectly(c), canLinkAnyway: !c.isGuardian && c.conflicts.length > 0 }));
+    .map(({ p, c }) => ({ patient: toSummary(p), comparison: c, canLink: canLinkDirectly(c), canLinkAnyway: !c.isGuardian && !canLinkDirectly(c) }));
 }
 
 export async function patientMatches(tx: Tx, id: string, now: Date) {
@@ -152,14 +154,16 @@ export async function decide(tx: Tx, s: SessionData, subjectId: string, decision
   if (c.isGuardian) throw err(409, "link_blocked_guardian", "অভিভাবকের রেকর্ডের সাথে লিংক করা যাবে না", "Cannot link to the guardian's record: choose \"Different person\"");
   if (decision === "link") {
     // Walkthrough issue #4: never a one-click link when any field conflicts.
-    if (!canLinkDirectly(c)) throw err(409, "link_has_conflicts", `${format.toBn(c.conflicts.length)}টি অমিল তথ্য — রিভিউতে পাঠান বা কারণসহ লিংক করুন`, `${c.conflicts.length} conflicting field(s): send for review or link with a reason`, { fields: c.conflicts.map((f) => ({ field: f, code: "different" })) });
+    if (!canLinkDirectly(c)) throw c.conflicts.length
+      ? err(409, "link_has_conflicts", `${format.toBn(c.conflicts.length)}টি অমিল তথ্য — রিভিউতে পাঠান বা কারণসহ লিংক করুন`, `${c.conflicts.length} conflicting field(s): send for review or link with a reason`, { fields: c.conflicts.map((f) => ({ field: f, code: "different" })) })
+      : err(409, "link_not_strong", "এক ক্লিকে লিংকের মতো যথেষ্ট মিল নেই — রিভিউতে পাঠান বা কারণসহ লিংক করুন", "Not enough evidence for a one-click link: send for review or link with a reason");
     await tx.patient.update({ where: { id: subject.id }, data: { linkedToId: candidate.id } });
     await prov("link", { candidateId: candidate.id });
     return { subject: await getPatient(tx, subject.id), continueWith: candidate, taskId: null, conflicts: [] as string[] };
   }
 
   // linkAnyway: conflicts, a reason of ≥10 characters, a review Task created and approved in this transaction.
-  if (c.conflicts.length === 0) throw err(409, "no_conflicts", "অমিল নেই — সাধারণ লিংক ব্যবহার করুন", "Nothing conflicts: use the normal link");
+  if (canLinkDirectly(c)) throw err(409, "no_conflicts", "সব মিলেছে — সাধারণ লিংক ব্যবহার করুন", "This is a clean strong match: use the normal link");
   if (!linkAnywayAllowed(c, reason)) throw err(400, "reason_too_short", "কমপক্ষে ১০ অক্ষরের কারণ লিখুন", "Give a reason of at least 10 characters", { field: "reason", fields: [{ field: "reason", code: "reason_too_short" }] });
   const status = transition("approval", APPROVAL, "requested", "approve");
   const task = await tx.task.create({ data: {
@@ -203,6 +207,8 @@ export async function registerPatient(tx: Tx, s: SessionData, i: RegistrationInp
   const years = i.dobMode === "age" ? Number(digitsOnly(i.ageYears)) : null;
   const months = i.dobMode === "age" && digitsOnly(i.ageMonths) ? Number(digitsOnly(i.ageMonths)) : null;
   const idDigits = digitsOnly(i.idNo) || null;
+  // Registered although a strong match exists (offline, or the desk chose to): flag it for review, never silently.
+  const strong = (await findCandidates(tx, draftToMatchRecord(i, now), null, now)).some((c) => c.comparison.strong || c.canLink);
   const p = await tx.patient.create({ data: {
     tenantId: s.tenantId, facilityNo: `${tenant.patientNoPrefix}-${seq.value}`,
     nameBn: i.nameBn.trim(), nameEn: i.nameEn?.trim() || null, sex: i.sex!,
@@ -210,7 +216,7 @@ export async function registerPatient(tx: Tx, s: SessionData, i: RegistrationInp
     phone: normalizePhone(i.phone), phoneOwner: i.phoneOwner ?? null,
     division: i.division ?? null, district: i.district ?? null, upazila: i.upazila ?? null, addressLine: i.addressLine?.trim() || null,
     nid: i.idType === "nid" ? idDigits : null, birthRegNo: i.idType === "brn" ? idDigits : null,
-    identityConfidence: "unverified", identityMethod: "desk",
+    identityConfidence: strong ? "possible_duplicate" : "unverified", identityMethod: "desk",
   } });
   if (i.guardian?.name?.trim())
     await tx.relatedPerson.create({ data: { tenantId: s.tenantId, patientId: p.id, relationship: i.guardian.relationship?.trim() || "guardian", nameBn: i.guardian.name.trim(), phone: normalizePhone(i.phone), guardianProof: digitsOnly(i.guardian.idNo) || null } });
@@ -235,7 +241,7 @@ export const toQueueItem = (e: EncounterRow): QueueItem => {
     id: e.id, token: e.token, tokenNo: e.tokenNo, day: e.tokenDay, status, column: columnOf(status), visitType: e.visitType,
     patient: { id: p.id, facilityNo: p.facilityNo, nameBn: p.nameBn, nameEn: p.nameEn, sex: p.sex, birthDate: p.birthDate, approxAgeYears: p.approxAgeYears, approxAgeMonths: p.approxAgeMonths, approxAgeAt: p.approxAgeAt, identityConfidence: p.identityConfidence },
     arrivedAt: iso(e.arrivedAt), calledAt: iso(e.calledAt), statusAt: e.statusAt.toISOString(),
-    actions: [...(status === "arrived" || status === "triaged" ? (["call"] as const) : []), ...queueActions(status).map((a) => a.key)],
+    actions: [...(status === "arrived" || status === "triaged" ? (["call"] as const) : []), ...frontDeskActions(status).map((a) => a.key)],
   };
 };
 const encounterInclude = { patient: { include: patientInclude } };
@@ -269,8 +275,10 @@ export async function queueBoard(tx: Tx, s: SessionData, day: string) {
   };
 }
 
-export async function queueAction(tx: Tx, encounterId: string, action: "next" | "noShow" | "call", now: Date) {
-  const e = (await tx.encounter.findFirst({ where: { id: encounterId }, include: encounterInclude })) as EncounterRow | null;
+export async function queueAction(tx: Tx, s: SessionData, encounterId: string, action: "next" | "noShow" | "call", now: Date) {
+  // RLS scopes to the tenant; the queue is also scoped to the session's facility and branch (security review A1–A3).
+  const branch = await branchOf(tx, s);
+  const e = (await tx.encounter.findFirst({ where: { id: encounterId, organizationId: s.organizationId, branchId: branch.id }, include: encounterInclude })) as EncounterRow | null;
   if (!e) throw notFound();
   const from = dash<EncounterState>(e.status);
   if (action === "call") {
@@ -278,7 +286,7 @@ export async function queueAction(tx: Tx, encounterId: string, action: "next" | 
     const u = await tx.encounter.update({ where: { id: e.id }, data: { calledAt: now }, include: encounterInclude });
     return { item: toQueueItem(u as EncounterRow), from, event: "call" };
   }
-  const a = queueActions(from).find((x) => x.key === action);
+  const a = frontDeskActions(from).find((x) => x.key === action);
   if (!a) throw err(409, "invalid_transition", "এই অবস্থায় এটি করা যায় না", "That step is not allowed from this state");
   const to = transition("encounter", ENCOUNTER, from, a.event);
   // Optimistic: only move it if nobody else moved it first.

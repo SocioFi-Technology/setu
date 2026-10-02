@@ -1,6 +1,7 @@
 /* One transaction per request. A command's writes, its AuditEvent(s) and its IdempotencyKey row commit together or not
    at all, under the session's tenant (RLS). Reads that reveal PHI use `query`, which writes the view audit in the same
    transaction. Routes built on these mark the request so the generic audit/idempotency hooks stand aside. */
+import { createHash } from "node:crypto";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Tx } from "@setu/db";
 import { config } from "./config.js";
@@ -33,29 +34,34 @@ export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (
   if (typeof key !== "string" || !key || key.length > 200) {
     throw err(400, "idempotency_key_required", "Idempotency-Key হেডার দরকার", "Idempotency-Key header is required");
   }
-  const route = req.routeOptions.url ?? "";
+  /* A key is scoped to this user and this exact URL, and bound to the request body: reusing it for another request is
+     refused rather than answered with someone else's stored response. */
+  const route = `${req.method} ${(req.url ?? "").split("?")[0]} #${s.userId}`;
+  const hash = createHash("sha256").update(JSON.stringify(req.body ?? null)).digest("hex");
+  type Stored = { hash: string; body: T };
   const { forTenant } = await import("@setu/db");
-  const replay = async () => forTenant(s.tenantId, (tx) => tx.idempotencyKey.findUnique({ where: { tenantId_key_route: { tenantId: s.tenantId, key, route } } }));
+  const find = (tx: Tx) => tx.idempotencyKey.findUnique({ where: { tenantId_key_route: { tenantId: s.tenantId, key, route } } });
+  const answer = async (tx: Tx, hit: { statusCode: number; response: unknown }) => {
+    const stored = hit.response as Stored;
+    if (stored.hash !== hash) throw err(422, "idempotency_key_reused", "এই Idempotency-Key অন্য অনুরোধে ব্যবহার হয়েছে", "This Idempotency-Key was used for a different request");
+    await writeAudit(tx, req, s, [{ action: "replay", entity: "IdempotencyKey", detail: { status: hit.statusCode } }]);
+    return { replayed: true as const, status: hit.statusCode, body: stored.body };
+  };
+  const send = (out: { replayed: boolean; status: number; body: T }) => { if (out.replayed) reply.header("Idempotent-Replay", "true"); reply.code(out.status); return out.body; };
   try {
-    const out = await forTenant(s.tenantId, async (tx) => {
-      const hit = await tx.idempotencyKey.findUnique({ where: { tenantId_key_route: { tenantId: s.tenantId, key, route } } });
-      if (hit) return { replayed: true as const, status: hit.statusCode, body: hit.response as T };
+    return send(await forTenant(s.tenantId, async (tx) => {
+      const hit = await find(tx);
+      if (hit) return answer(tx, hit);
       const r = await fn(tx, s);
       const status = r.status ?? 200;
       await writeAudit(tx, req, s, r.audit);
-      await tx.idempotencyKey.create({ data: { tenantId: s.tenantId, key, route, statusCode: status, response: r.body as object } });
+      await tx.idempotencyKey.create({ data: { tenantId: s.tenantId, key, route, statusCode: status, response: { hash, body: r.body } as object } });
       return { replayed: false as const, status, body: r.body };
-    });
-    if (out.replayed) reply.header("Idempotent-Replay", "true");
-    reply.code(out.status);
-    return out.body;
+    }));
   } catch (e) {
     // Two requests with the same key raced: the loser rolls back entirely and answers with the winner's response.
     if (!isUniqueViolation(e)) throw e;
-    const hit = await replay();
-    if (!hit) throw e;
-    reply.header("Idempotent-Replay", "true").code(hit.statusCode);
-    return hit.response as T;
+    return send(await forTenant(s.tenantId, async (tx) => { const hit = await find(tx); if (!hit) throw e; return answer(tx, hit); }));
   }
 }
 

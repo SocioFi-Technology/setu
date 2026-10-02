@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ENCOUNTER, can } from "./machines.js";
-import { QUEUE_COLUMNS, columnOf, dhakaDay, formatToken, queueActions } from "./queue.js";
+import { QUEUE_COLUMNS, columnOf, dhakaDay, formatToken, frontDeskActions, queueActions } from "./queue.js";
 
 describe("daily token (walkthrough A3)", () => {
   it("formats as A-017 in Latin digits", () => {
@@ -32,5 +32,9 @@ describe("queue board is a view of ENCOUNTER (no machine of its own)", () => {
     expect(queueActions("in-progress").map((a) => a.event)).toEqual(["finish"]);
     expect(queueActions("finished")).toEqual([]);
     expect(queueActions("cancelled")).toEqual([]);
+  });
+  it("the front desk cannot finish a visit — that is the doctor's step", () => {
+    expect(frontDeskActions("in-progress")).toEqual([]);
+    expect(frontDeskActions("arrived").map((a) => a.event)).toEqual(["triage", "cancel"]);
   });
 });

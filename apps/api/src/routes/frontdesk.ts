@@ -6,7 +6,6 @@ import {
   type CreateVisitResponse, type MatchDecisionResponse, type PatientMatches, type PatientSearchResponse, type QueueItem, type QueueResponse, type RegisterResponse,
 } from "@setu/contracts";
 import { authorize, dhakaDay, format, validateRegistration } from "@setu/domain";
-import type { z } from "zod";
 import { command, query } from "../command.js";
 import { err, forbidden } from "../errors.js";
 import {
@@ -37,7 +36,7 @@ export async function frontDeskRoutes(app: FastifyInstance) {
   });
 
   /* A2 — a saved record against its possible matches. */
-  app.get("/v1/patients/:id/matches", async (req): Promise<z.infer<typeof PatientMatches>> => {
+  app.get("/v1/patients/:id/matches", async (req): Promise<PatientMatches> => {
     requireScreen(req, "match");
     const { id } = req.params as { id: string };
     return query(req, async (tx) => {
@@ -57,7 +56,7 @@ export async function frontDeskRoutes(app: FastifyInstance) {
   });
 
   /* A2 — link / link anyway (reason ≥10) / send for review / different person. */
-  app.post("/v1/patients/:id/match-decisions", async (req, reply): Promise<MatchDecisionResponse> => {
+  app.post("/v1/patients/:id/match-decisions", { config: { ownTx: true } }, async (req, reply): Promise<MatchDecisionResponse> => {
     requireScreen(req, "match");
     const { id } = req.params as { id: string };
     const body = MatchDecisionRequest.parse(req.body);
@@ -71,7 +70,7 @@ export async function frontDeskRoutes(app: FastifyInstance) {
     });
   });
 
-  app.post("/v1/patients/:id/match-decisions/undo", async (req, reply): Promise<MatchDecisionResponse> => {
+  app.post("/v1/patients/:id/match-decisions/undo", { config: { ownTx: true } }, async (req, reply): Promise<MatchDecisionResponse> => {
     requireScreen(req, "match");
     const { id } = req.params as { id: string };
     return command(req, reply, async (tx, s) => {
@@ -82,7 +81,7 @@ export async function frontDeskRoutes(app: FastifyInstance) {
   });
 
   /* A3 — register; optionally create the visit and token in the same transaction. */
-  app.post("/v1/patients", async (req, reply): Promise<RegisterResponse> => {
+  app.post("/v1/patients", { config: { ownTx: true } }, async (req, reply): Promise<RegisterResponse> => {
     requireScreen(req, "register");
     const body = RegisterRequest.parse(req.body);
     const now = new Date();
@@ -102,7 +101,7 @@ export async function frontDeskRoutes(app: FastifyInstance) {
   });
 
   /* Create visit + token for an existing patient (search → Create visit). */
-  app.post("/v1/encounters", async (req, reply): Promise<CreateVisitResponse> => {
+  app.post("/v1/encounters", { config: { ownTx: true } }, async (req, reply): Promise<CreateVisitResponse> => {
     requireScreen(req, "search", "register");
     const body = CreateVisitRequest.parse(req.body);
     return command(req, reply, async (tx, s) => {
@@ -124,12 +123,12 @@ export async function frontDeskRoutes(app: FastifyInstance) {
   });
 
   /* Queue: call / next / no-show — next and no-show are ENCOUNTER transitions. */
-  app.post("/v1/encounters/:id/actions", async (req, reply): Promise<QueueItem> => {
+  app.post("/v1/encounters/:id/actions", { config: { ownTx: true } }, async (req, reply): Promise<QueueItem> => {
     requireScreen(req, "queue");
     const { id } = req.params as { id: string };
     const { action } = QueueActionRequest.parse(req.body);
-    return command(req, reply, async (tx) => {
-      const r = await queueAction(tx, id, action, new Date());
+    return command(req, reply, async (tx, s) => {
+      const r = await queueAction(tx, s, id, action, new Date());
       return { body: r.item, audit: [{ action: "update", entity: "Encounter", entityId: id, patientId: r.item.patient.id, detail: { queueAction: action, event: r.event, from: r.from, to: r.item.status } }] };
     });
   });

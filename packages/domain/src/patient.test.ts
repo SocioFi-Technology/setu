@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canLinkDirectly, compareRecords, linkAnywayAllowed, normalizeName, normalizePhone, validateRegistration, type MatchRecord, type RegistrationInput } from "./patient.js";
+import { canLinkDirectly, compareRecords, concernsOf, linkAnywayAllowed, normalizeName, normalizePhone, validateRegistration, type MatchRecord, type RegistrationInput } from "./patient.js";
 
 const TODAY = new Date("2026-09-29T06:00:00Z");
 const empty: RegistrationInput = { nameBn: "", dobMode: "dob" };
@@ -25,6 +25,10 @@ describe("registration validation (walkthrough A3, issue #5)", () => {
     expect(codeOf({ ...ok, dob: "31/02/2000" }, "dob")).toBe("dob_format");
     expect(codeOf({ ...ok, dob: "1984-03-15" }, "dob")).toBe("dob_format");
     expect(codeOf({ ...ok, dob: "01/01/2027" }, "dob")).toBe("dob_future");
+  });
+  it("a baby born today in Dhaka before 06:00 is not 'in the future' (Dhaka calendar day, not UTC)", () => {
+    const earlyDhaka = new Date("2026-09-29T20:30:00Z"); // 30/09/2026 02:30 in Dhaka
+    expect(validateRegistration({ ...ok, dob: "30/09/2026", guardian: { name: "রহিমা খাতুন", relationship: "mother" } }, earlyDhaka)).toEqual([]);
   });
   it("approximate age 0–120 years is accepted (Bangla digits too); 121 is not", () => {
     const a: RegistrationInput = { ...ok, dobMode: "age", dob: undefined, ageYears: "৪২", ageMonths: "৬" };
@@ -87,7 +91,20 @@ describe("field-level comparison (walkthrough A2, issue #4)", () => {
     const c = compareRecords(entry, begum, NOW);
     expect(linkAnywayAllowed(c, "  same woman ")).toBe(true);
     expect(linkAnywayAllowed(c, "  short   ")).toBe(false);
-    expect(linkAnywayAllowed(compareRecords(entry, self, NOW), "a long enough reason")).toBe(false); // nothing conflicts: plain link
+    expect(linkAnywayAllowed(compareRecords(entry, self, NOW), "a long enough reason")).toBe(false); // strong and clean: plain link
+  });
+  it("twins (names 2 letters apart, same birth, same everything else) are never a one-click link", () => {
+    const a: MatchRecord = { nameBn: "হাসান আলী", nameEn: "Hasan Ali", sex: "male", birthDate: "2015-04-04", guardianName: "আব্দুল করিম", phone: "1711234567", district: "Dhaka", upazila: "Mirpur" };
+    const b: MatchRecord = { ...a, nameBn: "হোসেন আলী", nameEn: "Hosen Ali" };
+    const c = compareRecords(a, b, NOW);
+    expect(c.conflicts).toEqual([]);
+    expect(canLinkDirectly(c)).toBe(false);
+    expect(linkAnywayAllowed(c, "confirmed with the father")).toBe(true);
+    expect(concernsOf(c)).toEqual(expect.arrayContaining(["nameBn", "nameEn"]));
+  });
+  it("siblings 11 months apart and a thin old record (name + family phone only) are never a one-click link", () => {
+    expect(canLinkDirectly(compareRecords(entry, { ...self, birthDate: "1985-02-01" }, NOW))).toBe(false);
+    expect(canLinkDirectly(compareRecords(entry, { nameBn: "রহিমা খাতুন", phone: "1711234567" }, NOW))).toBe(false);
   });
   it("dates: within a year is Similar; approximate age within 2 years is Similar; otherwise Different", () => {
     expect(compareRecords(entry, { ...self, birthDate: "1984-11-01" }, NOW).fields.birth).toBe("similar");
@@ -102,5 +119,13 @@ describe("field-level comparison (walkthrough A2, issue #4)", () => {
     expect(c.isGuardian).toBe(true);
     expect(canLinkDirectly(c)).toBe(false);
     expect(linkAnywayAllowed(c, "this is definitely the same person")).toBe(false);
+  });
+  it("guardian detection works both ways and on a near spelling", () => {
+    const child: MatchRecord = { nameBn: "সুমাইয়া আক্তার", sex: "female", birthDate: "2017-05-01", guardianName: "রহিমা বেগম", phone: "1711234567", district: "Dhaka" };
+    const mother: MatchRecord = { nameBn: "রহিমা খাতুন", nameEn: "Rahima Khatun", sex: "female", birthDate: "1984-03-14", phone: "1711234567", district: "Dhaka" };
+    expect(compareRecords(child, mother, NOW).isGuardian).toBe(true); // "রহিমা বেগম" ~ "রহিমা খাতুন"
+    const parentNew: MatchRecord = { nameBn: "আব্দুল করিম", sex: "male", birthDate: "1979-02-02", phone: "1711234567", district: "Dhaka" };
+    const childOnFile: MatchRecord = { nameBn: "সুমাইয়া আক্তার", sex: "female", birthDate: "2017-05-01", guardianName: "আব্দুল করিম", phone: "1711234567", district: "Dhaka" };
+    expect(compareRecords(parentNew, childOnFile, NOW).isGuardian).toBe(true); // registering the parent; the child's record names them
   });
 });

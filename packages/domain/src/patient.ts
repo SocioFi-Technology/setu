@@ -2,6 +2,7 @@
    comparison. Pure functions shared by the API (which enforces them) and the staff app (which shows them).
    The thresholds below are Setu decisions, not in the prototype — see docs/open-questions.md (A1–A3). */
 import { parseDate, phone as fmtPhone, toEn } from "./format.js";
+import { dhakaDay } from "./queue.js";
 
 /* ───────────── normalisation ───────────── */
 
@@ -80,7 +81,7 @@ export function validateRegistration(i: RegistrationInput, today: Date): Registr
     const iso = parseDob(raw);
     if (!raw) add("dob", "dob_required");
     else if (!iso) add("dob", "dob_format");
-    else if (new Date(iso + "T00:00:00Z") > today) add("dob", "dob_future");
+    else if (iso > dhakaDay(today)) add("dob", "dob_future"); // the calendar day in Dhaka, not UTC
     else if (yearsBetween(iso, today) > MAX_AGE_YEARS) add("dob", "dob_range");
   } else {
     const y = digitsOnly(i.ageYears), m = digitsOnly(i.ageMonths);
@@ -172,19 +173,26 @@ export function compareRecords(subject: MatchRecord, candidate: MatchRecord, now
     phone: eqOrMissing(subject.phone, candidate.phone),
     address, id,
   };
-  // The candidate is the subject's guardian (a child on a parent's phone): never the same person.
-  const g = subject.guardianName ? [compareNames(subject.guardianName, candidate.nameBn), compareNames(subject.guardianName, candidate.nameEn)] : [];
-  const isGuardian = g.includes("same");
+  /* One record is the other's guardian (a child on a parent's phone, either way round): never the same person.
+     A Similar spelling counts too — a missed guardian is a wrong-patient link (clinical review A1–A3). */
+  const near = (a?: string | null, b?: string | null) => { const st = compareNames(a, b); return st === "same" || st === "similar"; };
+  const isGuardian = (Boolean(subject.guardianName) && (near(subject.guardianName, candidate.nameBn) || near(subject.guardianName, candidate.nameEn)))
+    || (Boolean(candidate.guardianName) && (near(candidate.guardianName, subject.nameBn) || near(candidate.guardianName, subject.nameEn)));
   const score = MATCH_FIELDS.filter((f) => fields[f] === "same").length;
   return { fields, score, strong: score >= 6, conflicts: MATCH_FIELDS.filter((f) => fields[f] === "different"), isGuardian };
 }
 
 export const LINK_REASON_MIN = 10;
-/** One click "Same person — link" only when nothing conflicts (walkthrough issue #4). */
-export const canLinkDirectly = (c: Comparison) => !c.isGuardian && c.conflicts.length === 0;
-/** "Link anyway": only for a conflicting candidate that is not the guardian, with a reason of ≥10 characters. */
+/** One click "Same person — link" only on strong evidence: nothing conflicts, a strong match (≥6 of 8 Same), and the
+    Bangla name and the birth both Same — twins and siblings share almost everything else (issue #4; clinical review). */
+export const canLinkDirectly = (c: Comparison) =>
+  !c.isGuardian && c.conflicts.length === 0 && c.strong && c.fields.nameBn === "same" && c.fields.birth === "same";
+/** "Link anyway": any candidate that is not the guardian and cannot be linked directly, with a reason of ≥10 characters. */
 export const linkAnywayAllowed = (c: Comparison, reason: string | null | undefined) =>
-  !c.isGuardian && c.conflicts.length > 0 && (reason ?? "").trim().length >= LINK_REASON_MIN;
+  !c.isGuardian && !canLinkDirectly(c) && (reason ?? "").trim().length >= LINK_REASON_MIN;
+/** Fields that are not Same, conflicts first: what the person linking anyway must look at. */
+export const concernsOf = (c: Comparison): MatchField[] =>
+  [...MATCH_FIELDS.filter((f) => c.fields[f] === "different"), ...MATCH_FIELDS.filter((f) => c.fields[f] === "similar" || c.fields[f] === "missing")];
 /** A record worth showing as a possible match: same phone or ID, or a name that agrees with a birth that agrees. */
 export const isCandidate = (c: Comparison) =>
   c.fields.phone === "same" || c.fields.id === "same" ||

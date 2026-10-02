@@ -29,3 +29,7 @@ export const queueActions = (s: EncounterState): { key: QueueActionKey; event: E
     default: return [];
   }
 };
+
+/** The front desk may move a token up to "with doctor" or mark a no-show; finishing a visit is the doctor's step
+    (consultation, slice A4–A5), not the desk's (clinical review A1–A3). */
+export const frontDeskActions = (s: EncounterState) => queueActions(s).filter((a) => a.event !== "finish");

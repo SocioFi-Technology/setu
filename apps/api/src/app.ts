@@ -12,7 +12,8 @@ import { frontDeskRoutes } from "./routes/frontdesk.js";
 import { metaRoutes } from "./routes/meta.js";
 
 export async function buildApp() {
-  const app = Fastify({ logger: process.env.NODE_ENV !== "test" });
+  /* Request logs never carry the query string: search terms are phone numbers and names (security review A1–A3). */
+  const app = Fastify({ logger: process.env.NODE_ENV === "test" ? false : { serializers: { req: (r) => ({ method: r.method, url: (r.url ?? "").split("?")[0], id: r.id }) } } });
   await app.register(cors, { origin: [/^http:\/\/localhost:\d+$/], credentials: true });
   await app.register(cookie, { secret: config.sessionSecret });
   sessionPlugin(app);

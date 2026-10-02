@@ -3,10 +3,13 @@ import type { FastifyInstance } from "fastify";
 import { config } from "../config.js";
 
 const memory = new Map<string, { statusCode: number; body: unknown }>();
+/* Routes built on command() set `config.ownTx`: they replay inside their own transaction, after their own permission
+   check, so this generic hook must not answer for them (security review A1–A3). */
+declare module "fastify" { interface FastifyContextConfig { ownTx?: boolean } }
 
 export function idempotencyPlugin(app: FastifyInstance) {
   app.addHook("preHandler", async (req, reply) => {
-    if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method) || !req.session) return;
+    if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method) || !req.session || req.routeOptions.config.ownTx) return;
     const key = req.headers["idempotency-key"];
     if (typeof key !== "string" || !key) return;
     const id = `${req.session.tenantId}:${req.routeOptions.url}:${key}`;

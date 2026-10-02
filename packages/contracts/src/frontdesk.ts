@@ -83,6 +83,7 @@ export type MatchCandidate = z.infer<typeof MatchCandidate>;
 /* GET /v1/patients/:id/matches — a saved record against its possible matches. */
 export const PatientMatches = z.object({ subject: PatientSummary, candidates: z.array(MatchCandidate), openReview: z.object({ taskId: z.string(), candidateId: z.string().nullable() }).nullable() });
 /* POST /v1/patients/match-preview — an unsaved registration against existing records (the register screen's live check). */
+export type PatientMatches = z.infer<typeof PatientMatches>;
 export const MatchPreviewResponse = z.object({ candidates: z.array(MatchCandidate) });
 
 /* POST /v1/patients/:id/match-decisions */
