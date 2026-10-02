@@ -1,0 +1,34 @@
+/* User lookup: Prisma when DATABASE_URL is set, else the seeded demo users from memory so `pnpm dev` works before Docker. */
+import { createHash } from "node:crypto";
+import type { Plan, Role } from "@setu/domain";
+import { config } from "../config.js";
+
+export interface UserRecord { id: string; tenantId: string; nameBn: string; nameEn: string; phone?: string; email?: string; passwordHash: string; pinHash?: string; roles: { organizationId: string; organizationName: string; role: Role }[]; plan: Plan }
+export const devHash = (s: string) => createHash("sha256").update("dev-only:" + s).digest("hex");
+
+const DEMO: UserRecord[] = ([
+  ["u_sadia", "সাদিয়া রহমান", "Sadia Rahman", "1711000001", "receptionist"],
+  ["u_imran", "ডা. ইমরান কবির", "Dr. Imran Kabir", "1711000002", "doctor"],
+  ["u_shirin", "শিরিন আক্তার", "Shirin Akter", "1711000004", "nurse"],
+  ["u_tanvir", "তানভীর হাসান", "Tanvir Hasan", "1711000005", "labTech"],
+  ["u_kanta", "ডা. কান্তা পারভীন", "Dr. Kanta Parveen", "1711000006", "pathologist"],
+  ["u_jewel", "মো. জুয়েল রানা", "Md. Jewel Rana", "1711000007", "pharmacist"],
+  ["u_kafia", "কাফিয়া মিয়া", "Kafia Mia", "1711000008", "cashier"],
+  ["u_anwar", "আনোয়ার হোসেন", "Anwar Hossain", "1711000009", "owner"],
+  ["u_admin", "অ্যাডমিন", "Admin", "1711000010", "admin"],
+] as [string, string, string, string, Role][]).map(([id, nameBn, nameEn, phone, role]) => ({
+  id, tenantId: "t_greenlife", nameBn, nameEn, phone, passwordHash: devHash("setu1234"), pinHash: devHash("1234"), plan: "pro" as Plan,
+  roles: [{ organizationId: "o_greenlife_mirpur", organizationName: "Green Life Clinic, Mirpur", role }],
+}));
+
+export async function findUser(identifier: string): Promise<UserRecord | null> {
+  const digits = identifier.replace(/\D/g, "").replace(/^880/, "").replace(/^0/, "");
+  if (!config.dbEnabled) return DEMO.find((u) => u.phone === digits || u.email === identifier) ?? null;
+  const { prisma } = await import("@setu/db");
+  const u = await prisma.user.findFirst({ where: { OR: [{ phone: digits }, { phone: "0" + digits }, { email: identifier }], active: true }, include: { roles: { include: { organization: true } }, tenant: true } });
+  if (!u) return null;
+  return { id: u.id, tenantId: u.tenantId, nameBn: u.nameBn, nameEn: u.nameEn, phone: u.phone ?? undefined, email: u.email ?? undefined, passwordHash: u.passwordHash, pinHash: u.pinHash ?? undefined, plan: u.tenant.plan, roles: (u.roles as { organizationId: string; role: Role; organization: { name: string } }[]).map((r) => ({ organizationId: r.organizationId, organizationName: r.organization.name, role: r.role })) };
+}
+/** TODO(auth slice): replace devHash with argon2id. Kept simple so the scaffold runs without native deps. */
+export const checkPassword = (u: UserRecord, password: string) => u.passwordHash === devHash(password);
+export const checkPin = (u: UserRecord, pin: string) => Boolean(u.pinHash) && u.pinHash === devHash(pin);

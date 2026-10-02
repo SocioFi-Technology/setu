@@ -1,0 +1,14 @@
+{
+  "name": "@setu/patient",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'patient: screens ported per journey slice; e2e lives in /e2e'"
+  },
+  "dependencies": { "@setu/contracts": "workspace:*", "@setu/domain": "workspace:*", "@setu/i18n": "workspace:*", "@setu/ui": "workspace:*", "next": "^15.1.0", "react": "^19.0.0", "react-dom": "^19.0.0" },
+  "devDependencies": { "@types/node": "^22.0.0", "@types/react": "^19.0.0", "@types/react-dom": "^19.0.0", "typescript": "^5.6.0" }
+}

@@ -1,0 +1,1063 @@
+[
+  {
+    "id": "01",
+    "app": "Staff web",
+    "module": "Front desk",
+    "screen": "Find patient",
+    "screenBn": "রোগী খোঁজা",
+    "roles": [
+      "Receptionist"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=receptionist&plan=pro&mod=fd&screen=search"
+  },
+  {
+    "id": "02",
+    "app": "Staff web",
+    "module": "Front desk",
+    "screen": "Register",
+    "screenBn": "নিবন্ধন",
+    "roles": [
+      "Receptionist"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=receptionist&plan=pro&mod=fd&screen=register"
+  },
+  {
+    "id": "03",
+    "app": "Staff web",
+    "module": "Front desk",
+    "screen": "Duplicate review",
+    "screenBn": "ডুপ্লিকেট যাচাই",
+    "roles": [
+      "Receptionist"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=receptionist&plan=pro&mod=fd&screen=match"
+  },
+  {
+    "id": "04",
+    "app": "Staff web",
+    "module": "Front desk",
+    "screen": "Appointments",
+    "screenBn": "অ্যাপয়েন্টমেন্ট",
+    "roles": [
+      "Receptionist"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=receptionist&plan=pro&mod=fd&screen=calendar"
+  },
+  {
+    "id": "05",
+    "app": "Staff web",
+    "module": "Front desk",
+    "screen": "Queue board",
+    "screenBn": "সিরিয়াল বোর্ড",
+    "roles": [
+      "Receptionist"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=receptionist&plan=pro&mod=fd&screen=queue"
+  },
+  {
+    "id": "06",
+    "app": "Staff web",
+    "module": "Front desk",
+    "screen": "Vitals (tablet)",
+    "screenBn": "ভাইটাল",
+    "roles": [
+      "Nurse"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=nurse&plan=pro&mod=fd&screen=vitals"
+  },
+  {
+    "id": "07",
+    "app": "Staff web",
+    "module": "OPD consultation",
+    "screen": "Consultation · draft",
+    "screenBn": "পরামর্শ · খসড়া",
+    "roles": [
+      "Doctor"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=doctor&plan=pro&mod=cons&screen=draft"
+  },
+  {
+    "id": "08",
+    "app": "Staff web",
+    "module": "OPD consultation",
+    "screen": "Signed note & print",
+    "screenBn": "স্বাক্ষরিত নোট ও প্রিন্ট",
+    "roles": [
+      "Doctor"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=doctor&plan=pro&mod=cons&screen=signed"
+  },
+  {
+    "id": "09",
+    "app": "Staff web",
+    "module": "OPD consultation",
+    "screen": "Amended note (v2)",
+    "screenBn": "সংশোধিত নোট",
+    "roles": [
+      "Doctor"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=doctor&plan=pro&mod=cons&screen=amended"
+  },
+  {
+    "id": "10",
+    "app": "Staff web",
+    "module": "Billing & finance",
+    "screen": "OPD bill",
+    "screenBn": "ওপিডি বিল",
+    "roles": [
+      "Cashier"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=cashier&plan=pro&mod=bill&screen=opd"
+  },
+  {
+    "id": "11",
+    "app": "Staff web",
+    "module": "Billing & finance",
+    "screen": "Payment (cash, card, bKash, Nagad)",
+    "screenBn": "পেমেন্ট",
+    "roles": [
+      "Cashier"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=cashier&plan=pro&mod=bill&screen=pay"
+  },
+  {
+    "id": "12",
+    "app": "Staff web",
+    "module": "Billing & finance",
+    "screen": "Receipt & VAT invoice",
+    "screenBn": "রসিদ",
+    "roles": [
+      "Cashier"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=cashier&plan=pro&mod=bill&screen=receipt"
+  },
+  {
+    "id": "13",
+    "app": "Staff web",
+    "module": "Billing & finance",
+    "screen": "IPD running bill",
+    "screenBn": "আইপিডি বিল",
+    "roles": [
+      "Cashier"
+    ],
+    "plan": "Hospital Lite",
+    "prototype": "design/Setu Staff App.dc.html?role=cashier&plan=pro&mod=bill&screen=ipd"
+  },
+  {
+    "id": "14",
+    "app": "Staff web",
+    "module": "Billing & finance",
+    "screen": "Package setup",
+    "screenBn": "প্যাকেজ",
+    "roles": [
+      "Owner",
+      "Admin"
+    ],
+    "plan": "Hospital Lite",
+    "prototype": "design/Setu Staff App.dc.html?role=owner&plan=pro&mod=bill&screen=pkg"
+  },
+  {
+    "id": "15",
+    "app": "Staff web",
+    "module": "Billing & finance",
+    "screen": "Refunds",
+    "screenBn": "রিফান্ড",
+    "roles": [
+      "Cashier",
+      "Owner"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=cashier&plan=pro&mod=bill&screen=refund"
+  },
+  {
+    "id": "16",
+    "app": "Staff web",
+    "module": "Billing & finance",
+    "screen": "Shift close",
+    "screenBn": "শিফট ক্লোজ",
+    "roles": [
+      "Cashier",
+      "Owner"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=cashier&plan=pro&mod=bill&screen=shift"
+  },
+  {
+    "id": "17",
+    "app": "Staff web",
+    "module": "Billing & finance",
+    "screen": "Approvals inbox",
+    "screenBn": "অনুমোদন",
+    "roles": [
+      "Owner",
+      "Admin"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=owner&plan=pro&mod=bill&screen=approvals"
+  },
+  {
+    "id": "18",
+    "app": "Staff web",
+    "module": "Billing & finance",
+    "screen": "Share ledger",
+    "screenBn": "শেয়ার লেজার",
+    "roles": [
+      "Owner",
+      "Admin"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=owner&plan=pro&mod=bill&screen=ledger"
+  },
+  {
+    "id": "19",
+    "app": "Staff web",
+    "module": "IPD & beds",
+    "screen": "Admission",
+    "screenBn": "ভর্তি",
+    "roles": [
+      "Receptionist"
+    ],
+    "plan": "Hospital Lite",
+    "prototype": "design/Setu Staff App.dc.html?role=receptionist&plan=pro&mod=ipd&screen=admit"
+  },
+  {
+    "id": "20",
+    "app": "Staff web",
+    "module": "IPD & beds",
+    "screen": "Bed map",
+    "screenBn": "বেড ম্যাপ",
+    "roles": [
+      "Nurse",
+      "Receptionist",
+      "Doctor"
+    ],
+    "plan": "Hospital Lite",
+    "prototype": "design/Setu Staff App.dc.html?role=nurse&plan=pro&mod=ipd&screen=map"
+  },
+  {
+    "id": "21",
+    "app": "Staff web",
+    "module": "IPD & beds",
+    "screen": "Transfer",
+    "screenBn": "স্থানান্তর",
+    "roles": [
+      "Nurse"
+    ],
+    "plan": "Hospital Lite",
+    "prototype": "design/Setu Staff App.dc.html?role=nurse&plan=pro&mod=ipd&screen=transfer"
+  },
+  {
+    "id": "22",
+    "app": "Staff web",
+    "module": "IPD & beds",
+    "screen": "Doctor round",
+    "screenBn": "রাউন্ড",
+    "roles": [
+      "Doctor"
+    ],
+    "plan": "Hospital Lite",
+    "prototype": "design/Setu Staff App.dc.html?role=doctor&plan=pro&mod=ipd&screen=rounds"
+  },
+  {
+    "id": "23",
+    "app": "Staff web",
+    "module": "IPD & beds",
+    "screen": "Discharge checklist",
+    "screenBn": "ছুটি",
+    "roles": [
+      "Nurse",
+      "Doctor"
+    ],
+    "plan": "Hospital Lite",
+    "prototype": "design/Setu Staff App.dc.html?role=nurse&plan=pro&mod=ipd&screen=discharge"
+  },
+  {
+    "id": "24",
+    "app": "Staff web",
+    "module": "IPD & beds",
+    "screen": "Discharge summary",
+    "screenBn": "ছাড়পত্র",
+    "roles": [
+      "Doctor"
+    ],
+    "plan": "Hospital Lite",
+    "prototype": "design/Setu Staff App.dc.html?role=doctor&plan=pro&mod=ipd&screen=summary"
+  },
+  {
+    "id": "25",
+    "app": "Staff web",
+    "module": "IPD & beds",
+    "screen": "Occupancy & LOS",
+    "screenBn": "অকুপেন্সি",
+    "roles": [
+      "Owner"
+    ],
+    "plan": "Hospital Lite",
+    "prototype": "design/Setu Staff App.dc.html?role=owner&plan=pro&mod=ipd&screen=report"
+  },
+  {
+    "id": "26",
+    "app": "Staff web",
+    "module": "Nursing",
+    "screen": "My ward",
+    "screenBn": "আমার ওয়ার্ড",
+    "roles": [
+      "Nurse"
+    ],
+    "plan": "Hospital Lite",
+    "prototype": "design/Setu Staff App.dc.html?role=nurse&plan=pro&mod=nur&screen=ward"
+  },
+  {
+    "id": "27",
+    "app": "Staff web",
+    "module": "Nursing",
+    "screen": "Vitals & MEWS",
+    "screenBn": "ভাইটাল ও MEWS",
+    "roles": [
+      "Nurse"
+    ],
+    "plan": "Hospital Lite",
+    "prototype": "design/Setu Staff App.dc.html?role=nurse&plan=pro&mod=nur&screen=vitals"
+  },
+  {
+    "id": "28",
+    "app": "Staff web",
+    "module": "Nursing",
+    "screen": "Medication record (MAR)",
+    "screenBn": "ওষুধ (MAR)",
+    "roles": [
+      "Nurse"
+    ],
+    "plan": "Hospital Lite",
+    "prototype": "design/Setu Staff App.dc.html?role=nurse&plan=pro&mod=nur&screen=mar"
+  },
+  {
+    "id": "29",
+    "app": "Staff web",
+    "module": "Nursing",
+    "screen": "I/O, notes, care plan",
+    "screenBn": "I/O ও নোট",
+    "roles": [
+      "Nurse"
+    ],
+    "plan": "Hospital Lite",
+    "prototype": "design/Setu Staff App.dc.html?role=nurse&plan=pro&mod=nur&screen=io"
+  },
+  {
+    "id": "30",
+    "app": "Staff web",
+    "module": "Nursing",
+    "screen": "Handover",
+    "screenBn": "হ্যান্ডওভার",
+    "roles": [
+      "Nurse"
+    ],
+    "plan": "Hospital Lite",
+    "prototype": "design/Setu Staff App.dc.html?role=nurse&plan=pro&mod=nur&screen=handover"
+  },
+  {
+    "id": "31",
+    "app": "Staff web",
+    "module": "Lab & diagnostics",
+    "screen": "Intake",
+    "screenBn": "অর্ডার গ্রহণ",
+    "roles": [
+      "Lab tech"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=labTech&plan=pro&mod=lab&screen=intake"
+  },
+  {
+    "id": "32",
+    "app": "Staff web",
+    "module": "Lab & diagnostics",
+    "screen": "Collection",
+    "screenBn": "নমুনা সংগ্রহ",
+    "roles": [
+      "Lab tech"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=labTech&plan=pro&mod=lab&screen=collect"
+  },
+  {
+    "id": "33",
+    "app": "Staff web",
+    "module": "Lab & diagnostics",
+    "screen": "Home collection",
+    "screenBn": "বাড়িতে সংগ্রহ",
+    "roles": [
+      "Lab tech"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=labTech&plan=pro&mod=lab&screen=home"
+  },
+  {
+    "id": "34",
+    "app": "Staff web",
+    "module": "Lab & diagnostics",
+    "screen": "Accession & worklists",
+    "screenBn": "ওয়ার্কলিস্ট",
+    "roles": [
+      "Lab tech"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=labTech&plan=pro&mod=lab&screen=accession"
+  },
+  {
+    "id": "35",
+    "app": "Staff web",
+    "module": "Lab & diagnostics",
+    "screen": "Result entry",
+    "screenBn": "ফলাফল লেখা",
+    "roles": [
+      "Lab tech"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=labTech&plan=pro&mod=lab&screen=result"
+  },
+  {
+    "id": "36",
+    "app": "Staff web",
+    "module": "Lab & diagnostics",
+    "screen": "Verification & validation",
+    "screenBn": "যাচাই ও অনুমোদন",
+    "roles": [
+      "Pathologist",
+      "Lab tech"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=pathologist&plan=pro&mod=lab&screen=verify"
+  },
+  {
+    "id": "37",
+    "app": "Staff web",
+    "module": "Lab & diagnostics",
+    "screen": "Report (A4)",
+    "screenBn": "রিপোর্ট",
+    "roles": [
+      "Pathologist",
+      "Lab tech"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=pathologist&plan=pro&mod=lab&screen=report"
+  },
+  {
+    "id": "38",
+    "app": "Staff web",
+    "module": "Lab & diagnostics",
+    "screen": "Delivery",
+    "screenBn": "পাঠানো",
+    "roles": [
+      "Lab tech"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=labTech&plan=pro&mod=lab&screen=delivery"
+  },
+  {
+    "id": "39",
+    "app": "Staff web",
+    "module": "Lab & diagnostics",
+    "screen": "QC (Levey-Jennings)",
+    "screenBn": "কোয়ালিটি কন্ট্রোল",
+    "roles": [
+      "Pathologist"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=pathologist&plan=pro&mod=lab&screen=qc"
+  },
+  {
+    "id": "40",
+    "app": "Staff web",
+    "module": "Lab & diagnostics",
+    "screen": "Lab dashboard",
+    "screenBn": "ল্যাব ড্যাশবোর্ড",
+    "roles": [
+      "Pathologist",
+      "Owner"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=pathologist&plan=pro&mod=lab&screen=dash"
+  },
+  {
+    "id": "41",
+    "app": "Staff web",
+    "module": "Pharmacy & inventory",
+    "screen": "Dispense",
+    "screenBn": "ওষুধ দেওয়া",
+    "roles": [
+      "Pharmacist"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=pharmacist&plan=pro&mod=ph&screen=dispense"
+  },
+  {
+    "id": "42",
+    "app": "Staff web",
+    "module": "Pharmacy & inventory",
+    "screen": "OTC sale",
+    "screenBn": "ওটিসি বিক্রয়",
+    "roles": [
+      "Pharmacist"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=pharmacist&plan=pro&mod=ph&screen=otc"
+  },
+  {
+    "id": "43",
+    "app": "Staff web",
+    "module": "Pharmacy & inventory",
+    "screen": "Ward indents",
+    "screenBn": "ওয়ার্ড ইনডেন্ট",
+    "roles": [
+      "Pharmacist"
+    ],
+    "plan": "Hospital Lite",
+    "prototype": "design/Setu Staff App.dc.html?role=pharmacist&plan=pro&mod=ph&screen=indent"
+  },
+  {
+    "id": "44",
+    "app": "Staff web",
+    "module": "Pharmacy & inventory",
+    "screen": "Stock & expiry",
+    "screenBn": "মজুদ ও মেয়াদ",
+    "roles": [
+      "Pharmacist"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=pharmacist&plan=pro&mod=ph&screen=stock"
+  },
+  {
+    "id": "45",
+    "app": "Staff web",
+    "module": "Pharmacy & inventory",
+    "screen": "Purchase",
+    "screenBn": "ক্রয়",
+    "roles": [
+      "Pharmacist"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=pharmacist&plan=pro&mod=ph&screen=purchase"
+  },
+  {
+    "id": "46",
+    "app": "Staff web",
+    "module": "Pharmacy & inventory",
+    "screen": "Count & adjust",
+    "screenBn": "গণনা ও সমন্বয়",
+    "roles": [
+      "Pharmacist"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=pharmacist&plan=pro&mod=ph&screen=count"
+  },
+  {
+    "id": "47",
+    "app": "Staff web",
+    "module": "ER & OT",
+    "screen": "ER triage board",
+    "screenBn": "ট্রায়াজ",
+    "roles": [
+      "Doctor",
+      "Nurse"
+    ],
+    "plan": "Hospital Lite",
+    "prototype": "design/Setu Staff App.dc.html?role=doctor&plan=pro&mod=er&screen=triage"
+  },
+  {
+    "id": "48",
+    "app": "Staff web",
+    "module": "ER & OT",
+    "screen": "Unknown patient & merge",
+    "screenBn": "অজ্ঞাত রোগী",
+    "roles": [
+      "Doctor"
+    ],
+    "plan": "Hospital Lite",
+    "prototype": "design/Setu Staff App.dc.html?role=doctor&plan=pro&mod=er&screen=unknown"
+  },
+  {
+    "id": "49",
+    "app": "Staff web",
+    "module": "ER & OT",
+    "screen": "ER orders & disposition",
+    "screenBn": "অর্ডার ও সিদ্ধান্ত",
+    "roles": [
+      "Doctor"
+    ],
+    "plan": "Hospital Lite",
+    "prototype": "design/Setu Staff App.dc.html?role=doctor&plan=pro&mod=er&screen=orders"
+  },
+  {
+    "id": "50",
+    "app": "Staff web",
+    "module": "ER & OT",
+    "screen": "OT calendar",
+    "screenBn": "ওটি ক্যালেন্ডার",
+    "roles": [
+      "Doctor",
+      "Nurse"
+    ],
+    "plan": "Hospital Pro",
+    "prototype": "design/Setu Staff App.dc.html?role=doctor&plan=pro&mod=er&screen=otcal"
+  },
+  {
+    "id": "51",
+    "app": "Staff web",
+    "module": "ER & OT",
+    "screen": "Pre-op & WHO checklist",
+    "screenBn": "প্রি-অপ ও চেকলিস্ট",
+    "roles": [
+      "Doctor",
+      "Nurse"
+    ],
+    "plan": "Hospital Pro",
+    "prototype": "design/Setu Staff App.dc.html?role=doctor&plan=pro&mod=er&screen=safety"
+  },
+  {
+    "id": "52",
+    "app": "Staff web",
+    "module": "ER & OT",
+    "screen": "Intra-op record",
+    "screenBn": "ইন্ট্রা-অপ",
+    "roles": [
+      "Doctor",
+      "Nurse"
+    ],
+    "plan": "Hospital Pro",
+    "prototype": "design/Setu Staff App.dc.html?role=doctor&plan=pro&mod=er&screen=intraop"
+  },
+  {
+    "id": "53",
+    "app": "Staff web",
+    "module": "Owner dashboard",
+    "screen": "Revenue, leakage, operations",
+    "screenBn": "আয়, লিকেজ, অপারেশন",
+    "roles": [
+      "Owner"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=owner&plan=pro&mod=own&screen=dash"
+  },
+  {
+    "id": "54",
+    "app": "Staff web",
+    "module": "Admin & audit",
+    "screen": "Onboarding wizard & go-live",
+    "screenBn": "অনবোর্ডিং",
+    "roles": [
+      "Admin"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=admin&plan=pro&mod=adm&screen=wizard"
+  },
+  {
+    "id": "55",
+    "app": "Staff web",
+    "module": "Admin & audit",
+    "screen": "Users, roles, permission matrix",
+    "screenBn": "ব্যবহারকারী ও ভূমিকা",
+    "roles": [
+      "Admin"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=admin&plan=pro&mod=adm&screen=users"
+  },
+  {
+    "id": "56",
+    "app": "Staff web",
+    "module": "Admin & audit",
+    "screen": "Masters",
+    "screenBn": "মাস্টার ডেটা",
+    "roles": [
+      "Admin"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=admin&plan=pro&mod=adm&screen=masters"
+  },
+  {
+    "id": "57",
+    "app": "Staff web",
+    "module": "Admin & audit",
+    "screen": "Print template designer",
+    "screenBn": "প্রিন্ট টেমপ্লেট",
+    "roles": [
+      "Admin"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=admin&plan=pro&mod=adm&screen=print"
+  },
+  {
+    "id": "58",
+    "app": "Staff web",
+    "module": "Admin & audit",
+    "screen": "Audit log",
+    "screenBn": "অডিট লগ",
+    "roles": [
+      "Admin"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=admin&plan=pro&mod=adm&screen=audit"
+  },
+  {
+    "id": "59",
+    "app": "Staff web",
+    "module": "Admin & audit",
+    "screen": "Subscription & modules",
+    "screenBn": "সাবস্ক্রিপশন",
+    "roles": [
+      "Admin",
+      "Owner"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=admin&plan=pro&mod=adm&screen=plan"
+  },
+  {
+    "id": "60",
+    "app": "Staff web",
+    "module": "Admin & audit",
+    "screen": "Integrations",
+    "screenBn": "ইন্টিগ্রেশন",
+    "roles": [
+      "Admin"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=admin&plan=pro&mod=adm&screen=integ"
+  },
+  {
+    "id": "61",
+    "app": "Staff web",
+    "module": "Setu network",
+    "screen": "Portable lab order",
+    "screenBn": "পোর্টেবল ল্যাব অর্ডার",
+    "roles": [
+      "Doctor",
+      "Lab tech"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=doctor&plan=pro&mod=net&screen=lab"
+  },
+  {
+    "id": "62",
+    "app": "Staff web",
+    "module": "Setu network",
+    "screen": "Referral",
+    "screenBn": "রেফারেল",
+    "roles": [
+      "Doctor"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=doctor&plan=pro&mod=net&screen=ref"
+  },
+  {
+    "id": "63",
+    "app": "Staff web",
+    "module": "Setu network",
+    "screen": "Shared record view & request access",
+    "screenBn": "শেয়ার করা রেকর্ড",
+    "roles": [
+      "Doctor"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=doctor&plan=pro&mod=net&screen=shared"
+  },
+  {
+    "id": "64",
+    "app": "Staff web",
+    "module": "Setu network",
+    "screen": "Consent & access (patient + admin)",
+    "screenBn": "সম্মতি ও প্রবেশাধিকার",
+    "roles": [
+      "Admin",
+      "Owner"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=admin&plan=pro&mod=net&screen=consent"
+  },
+  {
+    "id": "65",
+    "app": "Staff web",
+    "module": "Setu network",
+    "screen": "Emergency access (break glass)",
+    "screenBn": "জরুরি প্রবেশ",
+    "roles": [
+      "Doctor"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html?role=doctor&plan=pro&mod=net&screen=glass"
+  },
+  {
+    "id": "66",
+    "app": "Staff web",
+    "module": "Front desk",
+    "screen": "TV token display (1920×1080)",
+    "screenBn": "টিভি ডিসপ্লে",
+    "roles": [
+      "Display (no login)"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Front Desk.dc.html"
+  },
+  {
+    "id": "67",
+    "app": "Staff web",
+    "module": "Shell",
+    "screen": "Home (per role) · permission denied · plan-locked · offline",
+    "screenBn": "হোম ও গ্লোবাল স্টেট",
+    "roles": [
+      "All staff"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Staff App.dc.html"
+  },
+  {
+    "id": "68",
+    "app": "Doctor app",
+    "module": "Doctor app",
+    "screen": "Onboarding & chamber linking",
+    "screenBn": "অনবোর্ডিং",
+    "roles": [
+      "Doctor"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Doctor App.dc.html"
+  },
+  {
+    "id": "69",
+    "app": "Doctor app",
+    "module": "Doctor app",
+    "screen": "Home · today across chambers",
+    "screenBn": "হোম",
+    "roles": [
+      "Doctor"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Doctor App.dc.html"
+  },
+  {
+    "id": "70",
+    "app": "Doctor app",
+    "module": "Doctor app",
+    "screen": "Live queue & patient card",
+    "screenBn": "সিরিয়াল",
+    "roles": [
+      "Doctor"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Doctor App.dc.html"
+  },
+  {
+    "id": "71",
+    "app": "Doctor app",
+    "module": "Doctor app",
+    "screen": "Quick consult · dose grid · voice AI draft",
+    "screenBn": "পরামর্শ",
+    "roles": [
+      "Doctor"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Doctor App.dc.html"
+  },
+  {
+    "id": "72",
+    "app": "Doctor app",
+    "module": "Doctor app",
+    "screen": "Results inbox",
+    "screenBn": "রিপোর্ট ইনবক্স",
+    "roles": [
+      "Doctor"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Doctor App.dc.html"
+  },
+  {
+    "id": "73",
+    "app": "Doctor app",
+    "module": "Doctor app",
+    "screen": "Admitted patients & round notes",
+    "screenBn": "ভর্তি রোগী",
+    "roles": [
+      "Doctor"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Doctor App.dc.html"
+  },
+  {
+    "id": "74",
+    "app": "Doctor app",
+    "module": "Doctor app",
+    "screen": "Earnings & share statement",
+    "screenBn": "আয়",
+    "roles": [
+      "Doctor"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Doctor App.dc.html"
+  },
+  {
+    "id": "75",
+    "app": "Patient app",
+    "module": "Health Passport",
+    "screen": "Language, OTP, privacy",
+    "screenBn": "অনবোর্ডিং",
+    "roles": [
+      "Patient",
+      "Guardian"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Patient App.dc.html"
+  },
+  {
+    "id": "76",
+    "app": "Patient app",
+    "module": "Health Passport",
+    "screen": "Claim my records (proof step)",
+    "screenBn": "রেকর্ড দাবি",
+    "roles": [
+      "Patient",
+      "Guardian"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Patient App.dc.html"
+  },
+  {
+    "id": "77",
+    "app": "Patient app",
+    "module": "Health Passport",
+    "screen": "Family profiles & guardian proof",
+    "screenBn": "পরিবার",
+    "roles": [
+      "Patient",
+      "Guardian"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Patient App.dc.html"
+  },
+  {
+    "id": "78",
+    "app": "Patient app",
+    "module": "Health Passport",
+    "screen": "Home",
+    "screenBn": "হোম",
+    "roles": [
+      "Patient",
+      "Guardian"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Patient App.dc.html"
+  },
+  {
+    "id": "79",
+    "app": "Patient app",
+    "module": "Health Passport",
+    "screen": "Timeline with source badges",
+    "screenBn": "ইতিহাস",
+    "roles": [
+      "Patient",
+      "Guardian"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Patient App.dc.html"
+  },
+  {
+    "id": "80",
+    "app": "Patient app",
+    "module": "Health Passport",
+    "screen": "Report · plain language & trend",
+    "screenBn": "রিপোর্ট",
+    "roles": [
+      "Patient",
+      "Guardian"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Patient App.dc.html"
+  },
+  {
+    "id": "81",
+    "app": "Patient app",
+    "module": "Health Passport",
+    "screen": "Prescription pictograms & reminders",
+    "screenBn": "প্রেসক্রিপশন",
+    "roles": [
+      "Patient",
+      "Guardian"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Patient App.dc.html"
+  },
+  {
+    "id": "82",
+    "app": "Patient app",
+    "module": "Health Passport",
+    "screen": "Share, revoke, who viewed",
+    "screenBn": "শেয়ার",
+    "roles": [
+      "Patient",
+      "Guardian"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Patient App.dc.html"
+  },
+  {
+    "id": "83",
+    "app": "Patient app",
+    "module": "Health Passport",
+    "screen": "Book & pay (bKash/Nagad), receipts",
+    "screenBn": "অ্যাপয়েন্টমেন্ট ও পেমেন্ট",
+    "roles": [
+      "Patient",
+      "Guardian"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Patient App.dc.html"
+  },
+  {
+    "id": "84",
+    "app": "Patient app",
+    "module": "Health Passport",
+    "screen": "Upload old papers (unverified)",
+    "screenBn": "পুরনো কাগজ",
+    "roles": [
+      "Patient",
+      "Guardian"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Patient App.dc.html"
+  },
+  {
+    "id": "85",
+    "app": "Patient app",
+    "module": "Health Passport",
+    "screen": "Settings · big text · numerals · low data",
+    "screenBn": "সেটিং",
+    "roles": [
+      "Patient",
+      "Guardian"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Patient App.dc.html"
+  },
+  {
+    "id": "86",
+    "app": "Owner mobile",
+    "module": "Owner dashboard",
+    "screen": "Dashboard, leakage, approvals, cash variance (412)",
+    "screenBn": "মালিকের ফোন",
+    "roles": [
+      "Owner"
+    ],
+    "plan": "Clinic",
+    "prototype": "design/Setu Owner Dashboard.dc.html"
+  }
+]

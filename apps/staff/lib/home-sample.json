@@ -1,0 +1,2006 @@
+{
+ "receptionist": {
+  "actions": [
+   {
+    "icon": "user-plus",
+    "label": {
+     "bn": "নতুন রোগী",
+     "en": "New patient"
+    },
+    "kbd": "Alt+N",
+    "mod": "fd",
+    "screen": "register",
+    "primary": true
+   },
+   {
+    "icon": "search",
+    "label": {
+     "bn": "রোগী খোঁজা",
+     "en": "Find patient"
+    },
+    "kbd": "/",
+    "mod": "fd",
+    "screen": "search",
+    "primary": false
+   }
+  ],
+  "kpis": [
+   {
+    "icon": "ticket",
+    "label": {
+     "bn": "অপেক্ষমাণ",
+     "en": "Waiting now"
+    },
+    "value": "১৪",
+    "sub": {
+     "bn": "৩ জন ৩০ মিনিটের বেশি",
+     "en": "3 waiting over 30 min"
+    },
+    "mod": "fd",
+    "screen": "queue"
+   },
+   {
+    "icon": "calendar-days",
+    "label": {
+     "bn": "আজকের অ্যাপয়েন্টমেন্ট",
+     "en": "Appointments today"
+    },
+    "value": "৪৮",
+    "sub": {
+     "bn": "৬টি SMS ব্যর্থ",
+     "en": "6 SMS failed"
+    },
+    "mod": "fd",
+    "screen": "calendar",
+    "tone": "warn"
+   },
+   {
+    "icon": "git-compare",
+    "label": {
+     "bn": "ডুপ্লিকেট যাচাই বাকি",
+     "en": "Duplicates to review"
+    },
+    "value": "২",
+    "sub": {
+     "bn": "নিবন্ধনের সময় পাওয়া",
+     "en": "found at registration"
+    },
+    "mod": "fd",
+    "screen": "match"
+   },
+   {
+    "icon": "wallet",
+    "label": {
+     "bn": "বকেয়া বিল",
+     "en": "Bills due"
+    },
+    "value": "৳ 12,350",
+    "sub": {
+     "bn": "৪ জন রোগী",
+     "en": "4 patients"
+    },
+    "mod": "bill",
+    "screen": "opd"
+   }
+  ],
+  "listT": {
+   "bn": "পরের অ্যাপয়েন্টমেন্ট",
+   "en": "Next appointments"
+  },
+  "listS": {
+   "bn": "ডা. মিজানুর · রুম ৩",
+   "en": "Dr. Mizanur · Room 3"
+  },
+  "rows": [
+   {
+    "a": "10:30",
+    "name": {
+     "bn": "রহিমা খাতুন",
+     "en": "Rahima Khatun"
+    },
+    "sub": {
+     "bn": "ফলো-আপ · GLC-240117",
+     "en": "Follow-up · GLC-240117"
+    },
+    "pill": {
+     "tone": "ok",
+     "label": {
+      "bn": "এসেছেন",
+      "en": "Arrived"
+     },
+     "icon": "check"
+    },
+    "mod": "fd",
+    "screen": "queue"
+   },
+   {
+    "a": "10:45",
+    "name": {
+     "bn": "নুসরাত জাহান",
+     "en": "Nusrat Jahan"
+    },
+    "sub": {
+     "bn": "নতুন · জ্বর ৩ দিন",
+     "en": "New · fever 3 days"
+    },
+    "pill": {
+     "tone": "pend",
+     "label": {
+      "bn": "বুকড",
+      "en": "Booked"
+     },
+     "icon": "clock"
+    },
+    "mod": "fd",
+    "screen": "calendar"
+   },
+   {
+    "a": "11:00",
+    "name": {
+     "bn": "আব্দুর রহিম",
+     "en": "Abdur Rahim"
+    },
+    "sub": {
+     "bn": "রিপোর্ট দেখানো · ECG",
+     "en": "Report review · ECG"
+    },
+    "pill": {
+     "tone": "warn",
+     "label": {
+      "bn": "SMS ব্যর্থ",
+      "en": "SMS failed"
+     },
+     "icon": "message-square-x"
+    },
+    "mod": "fd",
+    "screen": "calendar"
+   },
+   {
+    "a": "11:15",
+    "name": {
+     "bn": "ফারজানা আক্তার",
+     "en": "Farzana Akter"
+    },
+    "sub": {
+     "bn": "ফলো-আপ",
+     "en": "Follow-up"
+    },
+    "pill": {
+     "tone": "pend",
+     "label": {
+      "bn": "বুকড",
+      "en": "Booked"
+     },
+     "icon": "clock"
+    },
+    "mod": "fd",
+    "screen": "calendar"
+   }
+  ],
+  "sideT": {
+   "bn": "করণীয়",
+   "en": "To do"
+  },
+  "side": [
+   {
+    "icon": "git-compare",
+    "name": {
+     "bn": "রহিমা বেগম ↔ রহিমা খাতুন",
+     "en": "Rahima Begum ↔ Rahima Khatun"
+    },
+    "sub": {
+     "bn": "সম্ভাব্য ডুপ্লিকেট",
+     "en": "Possible duplicate"
+    },
+    "pill": {
+     "tone": "warn",
+     "label": {
+      "bn": "যাচাই",
+      "en": "Review"
+     },
+     "icon": "triangle-alert"
+    },
+    "mod": "fd",
+    "screen": "match"
+   },
+   {
+    "icon": "clipboard-plus",
+    "name": {
+     "bn": "ভর্তি · ইআর থেকে",
+     "en": "Admission · from ER"
+    },
+    "sub": {
+     "bn": "শহিদুল ইসলাম · ডিপোজিট বাকি",
+     "en": "Shahidul Islam · deposit pending"
+    },
+    "pill": {
+     "tone": "pend",
+     "label": {
+      "bn": "অপেক্ষমাণ",
+      "en": "Pending"
+     },
+     "icon": "clock"
+    },
+    "mod": "ipd",
+    "screen": "admit"
+   }
+  ],
+  "tip": {
+   "bn": "কীবোর্ড: F2 রোগী খোঁজা · Alt+N নতুন রোগী · Enter ভিজিট তৈরি · Ctrl+K কমান্ড",
+   "en": "Keyboard: F2 find patient · Alt+N new patient · Enter create visit · Ctrl+K commands"
+  }
+ },
+ "doctor": {
+  "actions": [
+   {
+    "icon": "stethoscope",
+    "label": {
+     "bn": "পরের রোগী · A-017",
+     "en": "Next patient · A-017"
+    },
+    "kbd": "Enter",
+    "mod": "cons",
+    "screen": "draft",
+    "primary": true
+   },
+   {
+    "icon": "inbox",
+    "label": {
+     "bn": "রিপোর্ট ইনবক্স",
+     "en": "Results inbox"
+    },
+    "kbd": "",
+    "mod": "lab",
+    "screen": "report",
+    "primary": false
+   }
+  ],
+  "kpis": [
+   {
+    "icon": "ticket",
+    "label": {
+     "bn": "অপেক্ষমাণ",
+     "en": "Waiting"
+    },
+    "value": "৬",
+    "sub": {
+     "bn": "গড় অপেক্ষা ১৮ মিনিট",
+     "en": "avg wait 18 min"
+    },
+    "mod": "fd",
+    "screen": "queue"
+   },
+   {
+    "icon": "siren",
+    "label": {
+     "bn": "জরুরি ফলাফল",
+     "en": "Critical results"
+    },
+    "value": "১",
+    "sub": {
+     "bn": "K⁺ 6.9 · রহিমা খাতুন",
+     "en": "K⁺ 6.9 · Rahima Khatun"
+    },
+    "mod": "lab",
+    "screen": "report",
+    "tone": "bad"
+   },
+   {
+    "icon": "bed-double",
+    "label": {
+     "bn": "ভর্তি রোগী",
+     "en": "Admitted patients"
+    },
+    "value": "৩",
+    "sub": {
+     "bn": "১ জন MEWS 6",
+     "en": "1 with MEWS 6"
+    },
+    "mod": "ipd",
+    "screen": "rounds",
+    "tone": "warn"
+   },
+   {
+    "icon": "send",
+    "label": {
+     "bn": "রেফারেল নোট ফেরত",
+     "en": "Referral notes back"
+    },
+    "value": "১",
+    "sub": {
+     "bn": "কাঞ্চন হার্ট",
+     "en": "Kanchan Heart"
+    },
+    "mod": "net",
+    "screen": "ref"
+   }
+  ],
+  "listT": {
+   "bn": "আজকের সিরিয়াল",
+   "en": "Today’s queue"
+  },
+  "listS": {
+   "bn": "রুম ৩ · ১৪ জন দেখা হয়েছে",
+   "en": "Room 3 · 14 seen"
+  },
+  "rows": [
+   {
+    "a": "A-017",
+    "name": {
+     "bn": "রহিমা খাতুন",
+     "en": "Rahima Khatun"
+    },
+    "sub": {
+     "bn": "42F · ফলো-আপ · ডায়াবেটিস · অ্যালার্জি: পেনিসিলিন",
+     "en": "42F · follow-up · diabetes · allergy: penicillin"
+    },
+    "pill": {
+     "tone": "info",
+     "label": {
+      "bn": "এখন",
+      "en": "Now"
+     },
+     "icon": "play"
+    },
+    "mod": "cons",
+    "screen": "draft"
+   },
+   {
+    "a": "A-018",
+    "name": {
+     "bn": "নুসরাত জাহান",
+     "en": "Nusrat Jahan"
+    },
+    "sub": {
+     "bn": "27F · নতুন · জ্বর ৩ দিন",
+     "en": "27F · new · fever 3 days"
+    },
+    "pill": {
+     "tone": "pend",
+     "label": {
+      "bn": "অপেক্ষমাণ",
+      "en": "Waiting"
+     },
+     "icon": "clock"
+    },
+    "mod": "fd",
+    "screen": "queue"
+   },
+   {
+    "a": "A-019",
+    "name": {
+     "bn": "আব্দুর রহিম",
+     "en": "Abdur Rahim"
+    },
+    "sub": {
+     "bn": "64M · রিপোর্ট দেখানো · ECG",
+     "en": "64M · report review · ECG"
+    },
+    "pill": {
+     "tone": "pend",
+     "label": {
+      "bn": "অপেক্ষমাণ",
+      "en": "Waiting"
+     },
+     "icon": "clock"
+    },
+    "mod": "fd",
+    "screen": "queue"
+   }
+  ],
+  "sideT": {
+   "bn": "স্বাক্ষর বাকি",
+   "en": "Awaiting your signature"
+  },
+  "side": [
+   {
+    "icon": "pen-line",
+    "name": {
+     "bn": "পরামর্শ নোট · কামরুল হাসান",
+     "en": "Consultation note · Kamrul Hasan"
+    },
+    "sub": {
+     "bn": "খসড়া · ১১:০২",
+     "en": "Draft · 11:02"
+    },
+    "pill": {
+     "tone": "draft",
+     "label": {
+      "bn": "খসড়া",
+      "en": "Draft"
+     },
+     "icon": "pencil-line"
+    },
+    "mod": "cons",
+    "screen": "draft"
+   },
+   {
+    "icon": "file-text",
+    "name": {
+     "bn": "ছাড়পত্র · করিম উদ্দিন",
+     "en": "Discharge summary · Karim Uddin"
+    },
+    "sub": {
+     "bn": "কাল ছুটি",
+     "en": "Discharge tomorrow"
+    },
+    "pill": {
+     "tone": "draft",
+     "label": {
+      "bn": "খসড়া",
+      "en": "Draft"
+     },
+     "icon": "pencil-line"
+    },
+    "mod": "ipd",
+    "screen": "summary"
+   },
+   {
+    "icon": "sparkles",
+    "name": {
+     "bn": "AI খসড়া · পর্যালোচনা",
+     "en": "AI draft · review"
+    },
+    "sub": {
+     "bn": "স্ক্রাইব · ২টি অংশ",
+     "en": "Scribe · 2 sections"
+    },
+    "pill": {
+     "tone": "warn",
+     "label": {
+      "bn": "যাচাই প্রয়োজন",
+      "en": "Needs review"
+     },
+     "icon": "sparkles"
+    },
+    "mod": "cons",
+    "screen": "draft"
+   }
+  ],
+  "tip": {
+   "bn": "কীবোর্ড: / ওষুধ খোঁজা · Alt+1–9 নোটের অংশ · Ctrl+Enter স্বাক্ষর · Ctrl+P প্রিন্ট",
+   "en": "Keyboard: / medicine search · Alt+1–9 note sections · Ctrl+Enter sign · Ctrl+P print"
+  }
+ },
+ "nurse": {
+  "actions": [
+   {
+    "icon": "pill",
+    "label": {
+     "bn": "এখনকার ওষুধ",
+     "en": "Meds due now"
+    },
+    "kbd": "",
+    "mod": "nur",
+    "screen": "mar",
+    "primary": true
+   },
+   {
+    "icon": "heart-pulse",
+    "label": {
+     "bn": "ভাইটাল লিখুন",
+     "en": "Record vitals"
+    },
+    "kbd": "",
+    "mod": "nur",
+    "screen": "vitals",
+    "primary": false
+   }
+  ],
+  "kpis": [
+   {
+    "icon": "siren",
+    "label": {
+     "bn": "MEWS ৫+",
+     "en": "MEWS 5+"
+    },
+    "value": "১",
+    "sub": {
+     "bn": "বেড 3B-05 · ডাক্তার জানানো বাকি",
+     "en": "Bed 3B-05 · doctor not yet informed"
+    },
+    "mod": "nur",
+    "screen": "vitals",
+    "tone": "bad"
+   },
+   {
+    "icon": "pill",
+    "label": {
+     "bn": "ওষুধ দেরি",
+     "en": "Meds overdue"
+    },
+    "value": "২",
+    "sub": {
+     "bn": "৬টি এখন",
+     "en": "6 due now"
+    },
+    "mod": "nur",
+    "screen": "mar",
+    "tone": "warn"
+   },
+   {
+    "icon": "clipboard-list",
+    "label": {
+     "bn": "নতুন অর্ডার",
+     "en": "New orders"
+    },
+    "value": "৩",
+    "sub": {
+     "bn": "রাউন্ড থেকে",
+     "en": "from rounds"
+    },
+    "mod": "nur",
+    "screen": "ward"
+   },
+   {
+    "icon": "bed-double",
+    "label": {
+     "bn": "ওয়ার্ড 3B",
+     "en": "Ward 3B"
+    },
+    "value": "১০/১২",
+    "sub": {
+     "bn": "শয্যা দখল",
+     "en": "beds occupied"
+    },
+    "mod": "ipd",
+    "screen": "map"
+   }
+  ],
+  "listT": {
+   "bn": "আমার রোগী · ঝুঁকি অনুযায়ী",
+   "en": "My patients · by risk"
+  },
+  "listS": {
+   "bn": "ওয়ার্ড 3B · সকালের শিফট",
+   "en": "Ward 3B · morning shift"
+  },
+  "rows": [
+   {
+    "a": "3B-05",
+    "name": {
+     "bn": "শহিদুল ইসলাম",
+     "en": "Shahidul Islam"
+    },
+    "sub": {
+     "bn": "57M · post-op D6 · MEWS 6 ↑",
+     "en": "57M · post-op D6 · MEWS 6 ↑"
+    },
+    "pill": {
+     "tone": "crit",
+     "label": {
+      "bn": "জরুরি ডাক্তার",
+      "en": "Urgent review"
+     },
+     "icon": "siren"
+    },
+    "mod": "nur",
+    "screen": "vitals"
+   },
+   {
+    "a": "3B-02",
+    "name": {
+     "bn": "আমেনা বেগম",
+     "en": "Amena Begum"
+    },
+    "sub": {
+     "bn": "74F · MEWS 3 → · ওষুধ ২টি দেরি",
+     "en": "74F · MEWS 3 → · 2 meds overdue"
+    },
+    "pill": {
+     "tone": "warn",
+     "label": {
+      "bn": "পর্যবেক্ষণ বাড়ান",
+      "en": "Increase monitoring"
+     },
+     "icon": "eye"
+    },
+    "mod": "nur",
+    "screen": "mar"
+   },
+   {
+    "a": "3B-09",
+    "name": {
+     "bn": "করিম উদ্দিন",
+     "en": "Karim Uddin"
+    },
+    "sub": {
+     "bn": "35M · MEWS 1 · কাল ছুটি",
+     "en": "35M · MEWS 1 · discharge tomorrow"
+    },
+    "pill": {
+     "tone": "ok",
+     "label": {
+      "bn": "রুটিন",
+      "en": "Routine"
+     },
+     "icon": "check"
+    },
+    "mod": "ipd",
+    "screen": "discharge"
+   }
+  ],
+  "sideT": {
+   "bn": "শিফট",
+   "en": "Shift"
+  },
+  "side": [
+   {
+    "icon": "arrow-left-right",
+    "name": {
+     "bn": "হ্যান্ডওভার ১৪:০০",
+     "en": "Handover 14:00"
+    },
+    "sub": {
+     "bn": "১২ জনের মধ্যে ৯ পর্যালোচিত",
+     "en": "9 of 12 reviewed"
+    },
+    "pill": {
+     "tone": "pend",
+     "label": {
+      "bn": "বাকি",
+      "en": "Pending"
+     },
+     "icon": "clock"
+    },
+    "mod": "nur",
+    "screen": "handover"
+   },
+   {
+    "icon": "sun",
+    "name": {
+     "bn": "উজ্জ্বল আলো",
+     "en": "Bright light mode"
+    },
+    "sub": {
+     "bn": "উচ্চ কনট্রাস্ট থিম",
+     "en": "High-contrast theme"
+    },
+    "pill": {
+     "tone": "neu",
+     "label": {
+      "bn": "বন্ধ",
+      "en": "Off"
+     },
+     "icon": "minus"
+    },
+    "mod": "nur",
+    "screen": "ward"
+   }
+  ],
+  "tip": {
+   "bn": "ট্যাবলেটে সব বোতাম ৪৮px+ · MEWS ৫+ হলে ডাক্তারকে জানানো লগ না করলে সতর্কতা বন্ধ হয় না",
+   "en": "All tablet targets ≥48px · a MEWS 5+ alert cannot be cleared until the doctor contact is logged"
+  }
+ },
+ "labTech": {
+  "actions": [
+   {
+    "icon": "inbox",
+    "label": {
+     "bn": "নতুন অর্ডার",
+     "en": "New orders"
+    },
+    "kbd": "",
+    "mod": "lab",
+    "screen": "intake",
+    "primary": true
+   },
+   {
+    "icon": "keyboard",
+    "label": {
+     "bn": "ফলাফল লেখা",
+     "en": "Result entry"
+    },
+    "kbd": "",
+    "mod": "lab",
+    "screen": "result",
+    "primary": false
+   }
+  ],
+  "kpis": [
+   {
+    "icon": "inbox",
+    "label": {
+     "bn": "গ্রহণ বাকি",
+     "en": "To accept"
+    },
+    "value": "৭",
+    "sub": {
+     "bn": "২টি নেটওয়ার্ক অর্ডার",
+     "en": "2 network orders"
+    },
+    "mod": "lab",
+    "screen": "intake"
+   },
+   {
+    "icon": "syringe",
+    "label": {
+     "bn": "নমুনা বাকি",
+     "en": "Samples pending"
+    },
+    "value": "১২",
+    "sub": {
+     "bn": "৩টি বাড়িতে",
+     "en": "3 home visits"
+    },
+    "mod": "lab",
+    "screen": "collect"
+   },
+   {
+    "icon": "keyboard",
+    "label": {
+     "bn": "ফলাফল লেখা বাকি",
+     "en": "Results to enter"
+    },
+    "value": "৯",
+    "sub": {
+     "bn": "হেমাটোলজি ৫ · বায়োকেম ৪",
+     "en": "Haematology 5 · Biochem 4"
+    },
+    "mod": "lab",
+    "screen": "result"
+   },
+   {
+    "icon": "timer",
+    "label": {
+     "bn": "TAT লক্ষ্য",
+     "en": "TAT on target"
+    },
+    "value": "৯২%",
+    "sub": {
+     "bn": "CBC গড় ১ঘ ৪০মি",
+     "en": "CBC avg 1 h 40 min"
+    },
+    "mod": "lab",
+    "screen": "dash",
+    "tone": "ok"
+   }
+  ],
+  "listT": {
+   "bn": "ওয়ার্কলিস্ট",
+   "en": "Worklist"
+  },
+  "listS": {
+   "bn": "হেমাটোলজি · Sysmex XN-550",
+   "en": "Haematology · Sysmex XN-550"
+  },
+  "rows": [
+   {
+    "a": "S-4412",
+    "name": {
+     "bn": "রহিমা খাতুন",
+     "en": "Rahima Khatun"
+    },
+    "sub": {
+     "bn": "CBC, HbA1c · EDTA · received 10:12",
+     "en": "CBC, HbA1c · EDTA · received 10:12"
+    },
+    "pill": {
+     "tone": "info",
+     "label": {
+      "bn": "প্রক্রিয়াধীন",
+      "en": "In process"
+     },
+     "icon": "loader"
+    },
+    "mod": "lab",
+    "screen": "result"
+   },
+   {
+    "a": "S-4413",
+    "name": {
+     "bn": "নুসরাত জাহান",
+     "en": "Nusrat Jahan"
+    },
+    "sub": {
+     "bn": "CBC, Widal · STAT",
+     "en": "CBC, Widal · STAT"
+    },
+    "pill": {
+     "tone": "warn",
+     "label": {
+      "bn": "জরুরি",
+      "en": "Urgent"
+     },
+     "icon": "zap"
+    },
+    "mod": "lab",
+    "screen": "accession"
+   },
+   {
+    "a": "S-4409",
+    "name": {
+     "bn": "কামরুল হাসান",
+     "en": "Kamrul Hasan"
+    },
+    "sub": {
+     "bn": "Lipid profile · fasting ✓",
+     "en": "Lipid profile · fasting ✓"
+    },
+    "pill": {
+     "tone": "pend",
+     "label": {
+      "bn": "নমুনা বাকি",
+      "en": "Awaiting sample"
+     },
+     "icon": "clock"
+    },
+    "mod": "lab",
+    "screen": "collect"
+   }
+  ],
+  "sideT": {
+   "bn": "সতর্কতা",
+   "en": "Alerts"
+  },
+  "side": [
+   {
+    "icon": "triangle-alert",
+    "name": {
+     "bn": "Bio-Rad D-10 অফলাইন",
+     "en": "Bio-Rad D-10 offline"
+    },
+    "sub": {
+     "bn": "HbA1c হাতে লিখতে হবে",
+     "en": "HbA1c must be entered manually"
+    },
+    "pill": {
+     "tone": "warn",
+     "label": {
+      "bn": "সমস্যা",
+      "en": "Attention"
+     },
+     "icon": "triangle-alert"
+    },
+    "mod": "lab",
+    "screen": "qc"
+   },
+   {
+    "icon": "undo-2",
+    "name": {
+     "bn": "নমুনা প্রত্যাখ্যাত",
+     "en": "Sample rejected"
+    },
+    "sub": {
+     "bn": "S-4401 · haemolysed · recollect",
+     "en": "S-4401 · haemolysed · recollect"
+    },
+    "pill": {
+     "tone": "bad",
+     "label": {
+      "bn": "আবার নিন",
+      "en": "Recollect"
+     },
+     "icon": "undo-2"
+    },
+    "mod": "lab",
+    "screen": "collect"
+   }
+  ],
+  "tip": {
+   "bn": "কীবোর্ড: Enter/↓ পরের ঘর · F2 বারকোড · ফ্ল্যাগ H/L/!! লেখা ও আইকনসহ",
+   "en": "Keyboard: Enter/↓ next field · F2 barcode · flags H/L/!! always have text + icon"
+  }
+ },
+ "pathologist": {
+  "actions": [
+   {
+    "icon": "shield-check",
+    "label": {
+     "bn": "অনুমোদন বাকি · ৪",
+     "en": "Validate · 4"
+    },
+    "kbd": "",
+    "mod": "lab",
+    "screen": "verify",
+    "primary": true
+   },
+   {
+    "icon": "flask-conical",
+    "label": {
+     "bn": "QC আজ",
+     "en": "QC today"
+    },
+    "kbd": "",
+    "mod": "lab",
+    "screen": "qc",
+    "primary": false
+   }
+  ],
+  "kpis": [
+   {
+    "icon": "siren",
+    "label": {
+     "bn": "জরুরি মান",
+     "en": "Critical values"
+    },
+    "value": "১",
+    "sub": {
+     "bn": "K⁺ 6.9 · কল-ব্যাক বাকি",
+     "en": "K⁺ 6.9 · call-back pending"
+    },
+    "mod": "lab",
+    "screen": "verify",
+    "tone": "bad"
+   },
+   {
+    "icon": "shield-check",
+    "label": {
+     "bn": "অনুমোদন বাকি",
+     "en": "Awaiting validation"
+    },
+    "value": "৪",
+    "sub": {
+     "bn": "সবচেয়ে পুরনো ৪৫ মিনিট",
+     "en": "oldest 45 min"
+    },
+    "mod": "lab",
+    "screen": "verify"
+   },
+   {
+    "icon": "flask-conical",
+    "label": {
+     "bn": "QC ব্যর্থ",
+     "en": "QC failures"
+    },
+    "value": "০",
+    "sub": {
+     "bn": "Westgard সব পাস",
+     "en": "all Westgard rules pass"
+    },
+    "mod": "lab",
+    "screen": "qc",
+    "tone": "ok"
+   },
+   {
+    "icon": "history",
+    "label": {
+     "bn": "সংশোধিত রিপোর্ট",
+     "en": "Amended reports"
+    },
+    "value": "১",
+    "sub": {
+     "bn": "এ সপ্তাহে",
+     "en": "this week"
+    },
+    "mod": "lab",
+    "screen": "report"
+   }
+  ],
+  "listT": {
+   "bn": "অনুমোদনের অপেক্ষায়",
+   "en": "Awaiting validation"
+  },
+  "listS": {
+   "bn": "টেকনোলজিস্ট যাচাই করেছেন",
+   "en": "Technologist-verified"
+  },
+  "rows": [
+   {
+    "a": "LR-6HBN",
+    "name": {
+     "bn": "রহিমা খাতুন",
+     "en": "Rahima Khatun"
+    },
+    "sub": {
+     "bn": "CBC, HbA1c, K⁺ 6.9 !! · delta check ⚠",
+     "en": "CBC, HbA1c, K⁺ 6.9 !! · delta check ⚠"
+    },
+    "pill": {
+     "tone": "crit",
+     "label": {
+      "bn": "জরুরি",
+      "en": "Critical"
+     },
+     "icon": "siren"
+    },
+    "mod": "lab",
+    "screen": "verify"
+   },
+   {
+    "a": "LR-6HBP",
+    "name": {
+     "bn": "কামরুল হাসান",
+     "en": "Kamrul Hasan"
+    },
+    "sub": {
+     "bn": "Lipid profile · সব স্বাভাবিক",
+     "en": "Lipid profile · all normal"
+    },
+    "pill": {
+     "tone": "pend",
+     "label": {
+      "bn": "অপেক্ষমাণ",
+      "en": "Pending"
+     },
+     "icon": "clock"
+    },
+    "mod": "lab",
+    "screen": "verify"
+   },
+   {
+    "a": "LR-6HBQ",
+    "name": {
+     "bn": "তাহমিনা বেগম",
+     "en": "Tahmina Begum"
+    },
+    "sub": {
+     "bn": "Hb 9.2 L · ferritin pending",
+     "en": "Hb 9.2 L · ferritin pending"
+    },
+    "pill": {
+     "tone": "pend",
+     "label": {
+      "bn": "অপেক্ষমাণ",
+      "en": "Pending"
+     },
+     "icon": "clock"
+    },
+    "mod": "lab",
+    "screen": "verify"
+   }
+  ],
+  "sideT": {
+   "bn": "আজকের QC",
+   "en": "Today’s QC"
+  },
+  "side": [
+   {
+    "icon": "flask-conical",
+    "name": {
+     "bn": "Glucose L1/L2",
+     "en": "Glucose L1/L2"
+    },
+    "sub": {
+     "bn": "within 1 SD",
+     "en": "within 1 SD"
+    },
+    "pill": {
+     "tone": "ok",
+     "label": {
+      "bn": "পাস",
+      "en": "Pass"
+     },
+     "icon": "check"
+    },
+    "mod": "lab",
+    "screen": "qc"
+   },
+   {
+    "icon": "flask-conical",
+    "name": {
+     "bn": "HbA1c",
+     "en": "HbA1c"
+    },
+    "sub": {
+     "bn": "Bio-Rad অফলাইন · QC হয়নি",
+     "en": "Bio-Rad offline · no QC run"
+    },
+    "pill": {
+     "tone": "warn",
+     "label": {
+      "bn": "বাকি",
+      "en": "Pending"
+     },
+     "icon": "clock"
+    },
+    "mod": "lab",
+    "screen": "qc"
+   }
+  ],
+  "tip": {
+   "bn": "জরুরি মানের কল-ব্যাক লগ না হলে অনুমোদন বন্ধ · সংশোধন = নতুন সংস্করণ, আগেরটি দেখা যায়",
+   "en": "Validation is blocked until the critical call-back is logged · amendment = new version, previous stays visible"
+  }
+ },
+ "pharmacist": {
+  "actions": [
+   {
+    "icon": "pill",
+    "label": {
+     "bn": "প্রেসক্রিপশন সারি · ৫",
+     "en": "Rx queue · 5"
+    },
+    "kbd": "",
+    "mod": "ph",
+    "screen": "dispense",
+    "primary": true
+   },
+   {
+    "icon": "clipboard-list",
+    "label": {
+     "bn": "ওয়ার্ড ইনডেন্ট",
+     "en": "Ward indents"
+    },
+    "kbd": "",
+    "mod": "ph",
+    "screen": "indent",
+    "primary": false
+   }
+  ],
+  "kpis": [
+   {
+    "icon": "pill",
+    "label": {
+     "bn": "ডিসপেন্স বাকি",
+     "en": "To dispense"
+    },
+    "value": "৫",
+    "sub": {
+     "bn": "সবচেয়ে পুরনো ১২ মিনিট",
+     "en": "oldest 12 min"
+    },
+    "mod": "ph",
+    "screen": "dispense"
+   },
+   {
+    "icon": "clipboard-list",
+    "label": {
+     "bn": "ইনডেন্ট",
+     "en": "Indents"
+    },
+    "value": "২",
+    "sub": {
+     "bn": "ওয়ার্ড 3B, HDU",
+     "en": "Ward 3B, HDU"
+    },
+    "mod": "ph",
+    "screen": "indent"
+   },
+   {
+    "icon": "calendar-x",
+    "label": {
+     "bn": "মেয়াদ ৩০ দিনে",
+     "en": "Expiring in 30 days"
+    },
+    "value": "৫",
+    "sub": {
+     "bn": "৳ 18,400 মূল্য",
+     "en": "৳ 18,400 value"
+    },
+    "mod": "ph",
+    "screen": "stock",
+    "tone": "warn"
+   },
+   {
+    "icon": "package-x",
+    "label": {
+     "bn": "স্টক শেষ",
+     "en": "Out of stock"
+    },
+    "value": "৩",
+    "sub": {
+     "bn": "Napa syrup, Seclo 40…",
+     "en": "Napa syrup, Seclo 40…"
+    },
+    "mod": "ph",
+    "screen": "purchase",
+    "tone": "bad"
+   }
+  ],
+  "listT": {
+   "bn": "প্রেসক্রিপশন সারি",
+   "en": "Prescription queue"
+  },
+  "listS": {
+   "bn": "স্বাক্ষরিত · পেমেন্ট নিশ্চিত",
+   "en": "Signed · payment confirmed"
+  },
+  "rows": [
+   {
+    "a": "RX-1187",
+    "name": {
+     "bn": "রহিমা খাতুন",
+     "en": "Rahima Khatun"
+    },
+    "sub": {
+     "bn": "Comet 500, Seclo 20, Rosuva 10 · ৩০ দিন",
+     "en": "Comet 500, Seclo 20, Rosuva 10 · 30 days"
+    },
+    "pill": {
+     "tone": "ok",
+     "label": {
+      "bn": "পরিশোধিত",
+      "en": "Paid"
+     },
+     "icon": "check"
+    },
+    "mod": "ph",
+    "screen": "dispense"
+   },
+   {
+    "a": "RX-1188",
+    "name": {
+     "bn": "নুসরাত জাহান",
+     "en": "Nusrat Jahan"
+    },
+    "sub": {
+     "bn": "Napa 500, Ciprocin 500 · ৫ দিন",
+     "en": "Napa 500, Ciprocin 500 · 5 days"
+    },
+    "pill": {
+     "tone": "warn",
+     "label": {
+      "bn": "পেমেন্ট বাকি",
+      "en": "Payment pending"
+     },
+     "icon": "clock"
+    },
+    "mod": "ph",
+    "screen": "dispense"
+   },
+   {
+    "a": "RX-1185",
+    "name": {
+     "bn": "আব্দুর রহিম",
+     "en": "Abdur Rahim"
+    },
+    "sub": {
+     "bn": "Clopirel 75 · substitute needed",
+     "en": "Clopirel 75 · substitute needed"
+    },
+    "pill": {
+     "tone": "warn",
+     "label": {
+      "bn": "বিকল্প",
+      "en": "Substitute"
+     },
+     "icon": "repeat"
+    },
+    "mod": "ph",
+    "screen": "dispense"
+   }
+  ],
+  "sideT": {
+   "bn": "মজুদ",
+   "en": "Stock"
+  },
+  "side": [
+   {
+    "icon": "boxes",
+    "name": {
+     "bn": "Ceftriaxone 1 g",
+     "en": "Ceftriaxone 1 g"
+    },
+    "sub": {
+     "bn": "batch CX-2205 মেয়াদ ১৫/১০",
+     "en": "batch CX-2205 expires 15/10"
+    },
+    "pill": {
+     "tone": "warn",
+     "label": {
+      "bn": "মেয়াদ",
+      "en": "Expiring"
+     },
+     "icon": "calendar-x"
+    },
+    "mod": "ph",
+    "screen": "stock"
+   },
+   {
+    "icon": "scale",
+    "name": {
+     "bn": "গণনা বাকি",
+     "en": "Count due"
+    },
+    "sub": {
+     "bn": "নিয়ন্ত্রিত ওষুধ · সাপ্তাহিক",
+     "en": "Controlled drugs · weekly"
+    },
+    "pill": {
+     "tone": "pend",
+     "label": {
+      "bn": "বাকি",
+      "en": "Due"
+     },
+     "icon": "clock"
+    },
+    "mod": "ph",
+    "screen": "count"
+   }
+  ],
+  "tip": {
+   "bn": "FEFO ব্যাচ আগে · জেনেরিক বিকল্পে ডাক্তার/রোগীর সম্মতি লগ হয়",
+   "en": "FEFO batch first · generic substitution logs doctor/patient consent"
+  }
+ },
+ "cashier": {
+  "actions": [
+   {
+    "icon": "receipt",
+    "label": {
+     "bn": "নতুন বিল",
+     "en": "New bill"
+    },
+    "kbd": "F2",
+    "mod": "bill",
+    "screen": "opd",
+    "primary": true
+   },
+   {
+    "icon": "lock",
+    "label": {
+     "bn": "শিফট ক্লোজ",
+     "en": "Shift close"
+    },
+    "kbd": "",
+    "mod": "bill",
+    "screen": "shift",
+    "primary": false
+   }
+  ],
+  "kpis": [
+   {
+    "icon": "wallet",
+    "label": {
+     "bn": "আজ সংগ্রহ",
+     "en": "Collected today"
+    },
+    "value": "৳ 1,18,450",
+    "sub": {
+     "bn": "নগদ ৪৮% · bKash ৩৫%",
+     "en": "cash 48% · bKash 35%"
+    },
+    "mod": "bill",
+    "screen": "shift"
+   },
+   {
+    "icon": "clock",
+    "label": {
+     "bn": "বকেয়া",
+     "en": "Dues"
+    },
+    "value": "৳ 12,350",
+    "sub": {
+     "bn": "৪টি বিল",
+     "en": "4 bills"
+    },
+    "mod": "bill",
+    "screen": "opd",
+    "tone": "warn"
+   },
+   {
+    "icon": "badge-check",
+    "label": {
+     "bn": "অনুমোদন অপেক্ষমাণ",
+     "en": "Approvals pending"
+    },
+    "value": "২",
+    "sub": {
+     "bn": "ছাড় ৳ 700, ৳ 2,470",
+     "en": "discounts ৳ 700, ৳ 2,470"
+    },
+    "mod": "bill",
+    "screen": "approvals"
+   },
+   {
+    "icon": "smartphone",
+    "label": {
+     "bn": "পেমেন্ট লিংক",
+     "en": "Payment links"
+    },
+    "value": "৩",
+    "sub": {
+     "bn": "১টি ব্যর্থ · Resend",
+     "en": "1 failed · resend"
+    },
+    "mod": "bill",
+    "screen": "pay",
+    "tone": "warn"
+   }
+  ],
+  "listT": {
+   "bn": "বকেয়া বিল",
+   "en": "Bills with dues"
+  },
+  "listS": {
+   "bn": "কাউন্টার ১",
+   "en": "Counter 1"
+  },
+  "rows": [
+   {
+    "a": "INV-0938",
+    "name": {
+     "bn": "রহিমা খাতুন",
+     "en": "Rahima Khatun"
+    },
+    "sub": {
+     "bn": "CBC, HbA1c, পরামর্শ · ৳ 3,500 · ছাড় অনুমোদন বাকি",
+     "en": "CBC, HbA1c, consult · ৳ 3,500 · discount awaiting approval"
+    },
+    "pill": {
+     "tone": "pend",
+     "label": {
+      "bn": "অনুমোদন বাকি",
+      "en": "Awaiting approval"
+     },
+     "icon": "clock"
+    },
+    "mod": "bill",
+    "screen": "opd"
+   },
+   {
+    "a": "INV-0940",
+    "name": {
+     "bn": "নুসরাত জাহান",
+     "en": "Nusrat Jahan"
+    },
+    "sub": {
+     "bn": "পরামর্শ, CBC · ৳ 1,250 · bKash লিংক পাঠানো",
+     "en": "Consult, CBC · ৳ 1,250 · bKash link sent"
+    },
+    "pill": {
+     "tone": "info",
+     "label": {
+      "bn": "গ্রাহকের অপেক্ষা",
+      "en": "Waiting customer"
+     },
+     "icon": "smartphone"
+    },
+    "mod": "bill",
+    "screen": "pay"
+   },
+   {
+    "a": "ADM-0077",
+    "name": {
+     "bn": "নাসরিন সুলতানা",
+     "en": "Nasrin Sultana"
+    },
+    "sub": {
+     "bn": "C-section প্যাকেজ · ডিপোজিট কম ৳ 8,000",
+     "en": "C-section package · deposit low by ৳ 8,000"
+    },
+    "pill": {
+     "tone": "warn",
+     "label": {
+      "bn": "ডিপোজিট কম",
+      "en": "Low deposit"
+     },
+     "icon": "triangle-alert"
+    },
+    "mod": "bill",
+    "screen": "ipd"
+   }
+  ],
+  "sideT": {
+   "bn": "শিফট",
+   "en": "Shift"
+  },
+  "side": [
+   {
+    "icon": "lock",
+    "name": {
+     "bn": "সকালের শিফট ক্লোজ",
+     "en": "Morning shift close"
+    },
+    "sub": {
+     "bn": "১৪:০০ · নগদ গণনা",
+     "en": "14:00 · cash count"
+    },
+    "pill": {
+     "tone": "pend",
+     "label": {
+      "bn": "বাকি",
+      "en": "Due"
+     },
+     "icon": "clock"
+    },
+    "mod": "bill",
+    "screen": "shift"
+   },
+   {
+    "icon": "printer",
+    "name": {
+     "bn": "রসিদ পুনর্মুদ্রণ",
+     "en": "Receipt reprints"
+    },
+    "sub": {
+     "bn": "আজ ১টি · কারণ লগ",
+     "en": "1 today · reason logged"
+    },
+    "pill": {
+     "tone": "neu",
+     "label": {
+      "bn": "অডিট",
+      "en": "Audited"
+     },
+     "icon": "scroll-text"
+    },
+    "mod": "bill",
+    "screen": "receipt"
+   }
+  ],
+  "tip": {
+   "bn": "কীবোর্ড: F2 নতুন বিল · F3 আইটেম যোগ · Del বাদ · Enter পেমেন্ট · শুধু নিশ্চিত টাকা গোনা হয়",
+   "en": "Keyboard: F2 new bill · F3 add item · Del remove · Enter payment · only confirmed money counts"
+  }
+ },
+ "owner": {
+  "actions": [
+   {
+    "icon": "bar-chart-3",
+    "label": {
+     "bn": "ড্যাশবোর্ড",
+     "en": "Dashboard"
+    },
+    "kbd": "",
+    "mod": "own",
+    "screen": "dash",
+    "primary": true
+   },
+   {
+    "icon": "badge-check",
+    "label": {
+     "bn": "অনুমোদন · ৩",
+     "en": "Approvals · 3"
+    },
+    "kbd": "",
+    "mod": "bill",
+    "screen": "approvals",
+    "primary": false
+   }
+  ],
+  "kpis": [
+   {
+    "icon": "wallet",
+    "label": {
+     "bn": "আজ আয়",
+     "en": "Revenue today"
+    },
+    "value": "৳ 2,84,300",
+    "sub": {
+     "bn": "+৮% গত সপ্তাহের চেয়ে",
+     "en": "+8% vs last week"
+    },
+    "mod": "own",
+    "screen": "dash"
+   },
+   {
+    "icon": "shield-alert",
+    "label": {
+     "bn": "লিকেজ ঝুঁকি",
+     "en": "Leakage at risk"
+    },
+    "value": "৳ 11,786",
+    "sub": {
+     "bn": "৬টি সংকেত · ২ উচ্চ",
+     "en": "6 signals · 2 high"
+    },
+    "mod": "own",
+    "screen": "dash",
+    "tone": "bad"
+   },
+   {
+    "icon": "bed-double",
+    "label": {
+     "bn": "অকুপেন্সি",
+     "en": "Occupancy"
+    },
+    "value": "৭৮%",
+    "sub": {
+     "bn": "ALOS 3.4 দিন",
+     "en": "ALOS 3.4 days"
+    },
+    "mod": "ipd",
+    "screen": "report"
+   },
+   {
+    "icon": "badge-check",
+    "label": {
+     "bn": "অনুমোদন",
+     "en": "Approvals"
+    },
+    "value": "৩",
+    "sub": {
+     "bn": "ছাড় ২ · কনসেশন ১",
+     "en": "discounts 2 · concession 1"
+    },
+    "mod": "bill",
+    "screen": "approvals",
+    "tone": "warn"
+   }
+  ],
+  "listT": {
+   "bn": "লিকেজ সংকেত",
+   "en": "Leakage signals"
+  },
+  "listS": {
+   "bn": "আজ · সব শাখা",
+   "en": "Today · all branches"
+  },
+  "rows": [
+   {
+    "a": "৳ 3,170",
+    "name": {
+     "bn": "নীতির বাইরে ছাড়",
+     "en": "Discounts above policy"
+    },
+    "sub": {
+     "bn": "রফিক মিয়া · ৬টি (সাধারণত ২)",
+     "en": "Rafiq Mia · 6 today (usual 2)"
+    },
+    "pill": {
+     "tone": "bad",
+     "label": {
+      "bn": "উচ্চ",
+      "en": "High"
+     },
+     "icon": "siren"
+    },
+    "mod": "bill",
+    "screen": "approvals"
+   },
+   {
+    "a": "৳ 500",
+    "name": {
+     "bn": "ক্যাশ গরমিল",
+     "en": "Cash variance"
+    },
+    "sub": {
+     "bn": "কাউন্টার ২ · গতকাল",
+     "en": "Counter 2 · yesterday"
+    },
+    "pill": {
+     "tone": "warn",
+     "label": {
+      "bn": "পর্যালোচনা",
+      "en": "Review"
+     },
+     "icon": "eye"
+    },
+    "mod": "bill",
+    "screen": "shift"
+   },
+   {
+    "a": "৳ 4,200",
+    "name": {
+     "bn": "বিল বাতিল, পেমেন্টের পর",
+     "en": "Bills voided after payment"
+    },
+    "sub": {
+     "bn": "২টি · একই ক্যাশিয়ার",
+     "en": "2 · same cashier"
+    },
+    "pill": {
+     "tone": "bad",
+     "label": {
+      "bn": "উচ্চ",
+      "en": "High"
+     },
+     "icon": "siren"
+    },
+    "mod": "adm",
+    "screen": "audit"
+   },
+   {
+    "a": "৳ 3,916",
+    "name": {
+     "bn": "অবিল সেবা",
+     "en": "Unbilled services"
+    },
+    "sub": {
+     "bn": "USG ৩টি · ECG ২টি",
+     "en": "3 USG · 2 ECG"
+    },
+    "pill": {
+     "tone": "warn",
+     "label": {
+      "bn": "পর্যালোচনা",
+      "en": "Review"
+     },
+     "icon": "eye"
+    },
+    "mod": "own",
+    "screen": "dash"
+   }
+  ],
+  "sideT": {
+   "bn": "আজকের চিত্র",
+   "en": "Today at a glance"
+  },
+  "side": [
+   {
+    "icon": "users",
+    "name": {
+     "bn": "ওপিডি ভিজিট",
+     "en": "OPD visits"
+    },
+    "sub": {
+     "bn": "১৪২ · ডাক্তার সময়মতো ৯১%",
+     "en": "142 · doctors on time 91%"
+    },
+    "pill": {
+     "tone": "ok",
+     "label": {
+      "bn": "ভালো",
+      "en": "Good"
+     },
+     "icon": "trending-up"
+    },
+    "mod": "own",
+    "screen": "dash"
+   },
+   {
+    "icon": "test-tube",
+    "name": {
+     "bn": "ল্যাব TAT",
+     "en": "Lab TAT"
+    },
+    "sub": {
+     "bn": "৯২% লক্ষ্যে",
+     "en": "92% on target"
+    },
+    "pill": {
+     "tone": "ok",
+     "label": {
+      "bn": "ভালো",
+      "en": "Good"
+     },
+     "icon": "check"
+    },
+    "mod": "lab",
+    "screen": "dash"
+   },
+   {
+    "icon": "share-2",
+    "name": {
+     "bn": "নেটওয়ার্ক অর্ডার",
+     "en": "Network orders"
+    },
+    "sub": {
+     "bn": "১১ এ সপ্তাহে · ৳ 38,200",
+     "en": "11 this week · ৳ 38,200"
+    },
+    "pill": {
+     "tone": "info",
+     "label": {
+      "bn": "বাড়ছে",
+      "en": "Growing"
+     },
+     "icon": "trending-up"
+    },
+    "mod": "net",
+    "screen": "lab"
+   }
+  ],
+  "tip": {
+   "bn": "প্রতিটি সংখ্যায় ক্লিক করলে উৎস বিল/রেকর্ড খোলে · দেখা লগ হয়",
+   "en": "Every number opens the source bills or records · viewing is logged"
+  }
+ },
+ "admin": {
+  "actions": [
+   {
+    "icon": "rocket",
+    "label": {
+     "bn": "গো-লাইভ চেকলিস্ট",
+     "en": "Go-live checklist"
+    },
+    "kbd": "",
+    "mod": "adm",
+    "screen": "wizard",
+    "primary": true
+   },
+   {
+    "icon": "scroll-text",
+    "label": {
+     "bn": "অডিট লগ",
+     "en": "Audit log"
+    },
+    "kbd": "",
+    "mod": "adm",
+    "screen": "audit",
+    "primary": false
+   }
+  ],
+  "kpis": [
+   {
+    "icon": "rocket",
+    "label": {
+     "bn": "অনবোর্ডিং",
+     "en": "Onboarding"
+    },
+    "value": "৫/১১",
+    "sub": {
+     "bn": "~১ ঘ ৩০ মি বাকি",
+     "en": "~1 h 30 min left"
+    },
+    "mod": "adm",
+    "screen": "wizard",
+    "tone": "warn"
+   },
+   {
+    "icon": "shield-x",
+    "label": {
+     "bn": "BMDC যাচাই",
+     "en": "BMDC checks"
+    },
+    "value": "১ ব্যর্থ",
+    "sub": {
+     "bn": "ডা. রফিক আহমেদ · স্বাক্ষর বন্ধ",
+     "en": "Dr. Rafiq Ahmed · cannot sign"
+    },
+    "mod": "adm",
+    "screen": "users",
+    "tone": "bad"
+   },
+   {
+    "icon": "siren",
+    "label": {
+     "bn": "অডিট সতর্কতা",
+     "en": "Audit flags"
+    },
+    "value": "২",
+    "sub": {
+     "bn": "১ ব্রেক-গ্লাস · ১ শিফটের বাইরে",
+     "en": "1 break-glass · 1 outside shift"
+    },
+    "mod": "adm",
+    "screen": "audit",
+    "tone": "bad"
+   },
+   {
+    "icon": "plug",
+    "label": {
+     "bn": "ইন্টিগ্রেশন",
+     "en": "Integrations"
+    },
+    "value": "৫/৭",
+    "sub": {
+     "bn": "Nagad বাকি · Bio-Rad অফলাইন",
+     "en": "Nagad pending · Bio-Rad offline"
+    },
+    "mod": "adm",
+    "screen": "integ",
+    "tone": "warn"
+   }
+  ],
+  "listT": {
+   "bn": "মনোযোগ দিন",
+   "en": "Needs attention"
+  },
+  "listS": {
+   "bn": "গত ২৪ ঘণ্টা",
+   "en": "Last 24 hours"
+  },
+  "rows": [
+   {
+    "a": "09:40",
+    "name": {
+     "bn": "ব্রেক-গ্লাস প্রবেশ",
+     "en": "Break-glass access"
+    },
+    "sub": {
+     "bn": "ডা. ইমরান কবির · GLC-240231 · পর্যালোচনা বাকি",
+     "en": "Dr. Imran Kabir · GLC-240231 · review due"
+    },
+    "pill": {
+     "tone": "bad",
+     "label": {
+      "bn": "পর্যালোচনা",
+      "en": "Review"
+     },
+     "icon": "siren"
+    },
+    "mod": "adm",
+    "screen": "audit"
+   },
+   {
+    "a": "22:14",
+    "name": {
+     "bn": "শিফটের বাইরে রেকর্ড দেখা",
+     "en": "Record viewed outside shift"
+    },
+    "sub": {
+     "bn": "সাদিয়া রহমান · বাড়ি থেকে",
+     "en": "Sadia Rahman · from home"
+    },
+    "pill": {
+     "tone": "bad",
+     "label": {
+      "bn": "সতর্কতা",
+      "en": "Flag"
+     },
+     "icon": "flag"
+    },
+    "mod": "adm",
+    "screen": "audit"
+   },
+   {
+    "a": "08:55",
+    "name": {
+     "bn": "অনুমোদন সীমা বদল",
+     "en": "Approval limit changed"
+    },
+    "sub": {
+     "bn": "ক্যাশিয়ার ছাড় ৳ 300 → 500 · মাহমুদুল হাসান",
+     "en": "Cashier discount ৳ 300 → 500 · Mahmudul Hasan"
+    },
+    "pill": {
+     "tone": "warn",
+     "label": {
+      "bn": "পরিবর্তন",
+      "en": "Change"
+     },
+     "icon": "pencil"
+    },
+    "mod": "adm",
+    "screen": "masters"
+   },
+   {
+    "a": "—",
+    "name": {
+     "bn": "সুরমা কেয়ার চুক্তি",
+     "en": "Surma Care agreement"
+    },
+    "sub": {
+     "bn": "নেটওয়ার্ক · স্বাক্ষর বাকি",
+     "en": "Network · pending signature"
+    },
+    "pill": {
+     "tone": "pend",
+     "label": {
+      "bn": "বাকি",
+      "en": "Pending"
+     },
+     "icon": "clock"
+    },
+    "mod": "net",
+    "screen": "consent"
+   }
+  ],
+  "sideT": {
+   "bn": "সাবস্ক্রিপশন",
+   "en": "Subscription"
+  },
+  "side": [
+   {
+    "icon": "package-check",
+    "name": {
+     "bn": "Hospital Pro",
+     "en": "Hospital Pro"
+    },
+    "sub": {
+     "bn": "২৩ ব্যবহারকারী · ২ শাখা",
+     "en": "23 users · 2 branches"
+    },
+    "pill": {
+     "tone": "final",
+     "label": {
+      "bn": "বর্তমান",
+      "en": "Current"
+     },
+     "icon": "check"
+    },
+    "mod": "adm",
+    "screen": "plan"
+   },
+   {
+    "icon": "receipt",
+    "name": {
+     "bn": "SETU-2609-118",
+     "en": "SETU-2609-118"
+    },
+    "sub": {
+     "bn": "৳ 12,500 · ০৫/১০ পর্যন্ত",
+     "en": "৳ 12,500 · due 05/10"
+    },
+    "pill": {
+     "tone": "warn",
+     "label": {
+      "bn": "বাকি",
+      "en": "Due"
+     },
+     "icon": "clock"
+    },
+    "mod": "adm",
+    "screen": "plan"
+   }
+  ],
+  "tip": {
+   "bn": "অনুমতি ম্যাট্রিক্সের প্রতিটি পরিবর্তন অডিটে · রিসেপশন/ক্যাশিয়ার কখনো “স্বাক্ষর” পায় না",
+   "en": "Every permission-matrix change is audited · reception and cashier can never be given Sign"
+  }
+ }
+}

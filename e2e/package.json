@@ -1,0 +1,14 @@
+{
+  "name": "@setu/e2e",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "e2e": "playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

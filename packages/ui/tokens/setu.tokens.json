@@ -1,0 +1,2271 @@
+{
+  "$schema": "Setu Health design tokens · DTCG-style · values per theme",
+  "meta": {
+    "name": "Setu Health",
+    "version": "1.0.0",
+    "updated": "29/09/2026",
+    "themes": [
+      "light",
+      "hc",
+      "dark"
+    ],
+    "note": "Every token has light / hc (high-contrast) / dark values. CSS variable name = \"--\" + path joined by \"-\" (see cssVar)."
+  },
+  "color": {
+    "scale": {
+      "teal": {
+        "50": {
+          "$type": "color",
+          "$value": "#ecfbf8",
+          "oklch": "oklch(0.975 0.016 183)",
+          "contrastOnWhite": 1.06,
+          "contrastOnBlack": 16.65,
+          "cssVar": "--teal-50"
+        },
+        "100": {
+          "$type": "color",
+          "$value": "#d6f4ef",
+          "oklch": "oklch(0.945 0.032 183)",
+          "contrastOnWhite": 1.16,
+          "contrastOnBlack": 15.23,
+          "cssVar": "--teal-100"
+        },
+        "200": {
+          "$type": "color",
+          "$value": "#b1e8de",
+          "oklch": "oklch(0.89 0.058 183)",
+          "contrastOnWhite": 1.36,
+          "contrastOnBlack": 13.06,
+          "cssVar": "--teal-200"
+        },
+        "300": {
+          "$type": "color",
+          "$value": "#82d3c6",
+          "oklch": "oklch(0.81 0.082 183)",
+          "contrastOnWhite": 1.74,
+          "contrastOnBlack": 10.2,
+          "cssVar": "--teal-300"
+        },
+        "400": {
+          "$type": "color",
+          "$value": "#4eb5a7",
+          "oklch": "oklch(0.71 0.098 183)",
+          "contrastOnWhite": 2.47,
+          "contrastOnBlack": 7.17,
+          "cssVar": "--teal-400"
+        },
+        "500": {
+          "$type": "color",
+          "$value": "#1e9386",
+          "oklch": "oklch(0.6 0.1 183)",
+          "contrastOnWhite": 3.77,
+          "contrastOnBlack": 4.7,
+          "cssVar": "--teal-500"
+        },
+        "600": {
+          "$type": "color",
+          "$value": "#00796d",
+          "oklch": "oklch(0.515 0.094 183)",
+          "contrastOnWhite": 5.31,
+          "contrastOnBlack": 3.34,
+          "cssVar": "--teal-600"
+        },
+        "700": {
+          "$type": "color",
+          "$value": "#006157",
+          "oklch": "oklch(0.44 0.084 183)",
+          "contrastOnWhite": 7.37,
+          "contrastOnBlack": 2.4,
+          "cssVar": "--teal-700"
+        },
+        "800": {
+          "$type": "color",
+          "$value": "#004b43",
+          "oklch": "oklch(0.37 0.07 183)",
+          "contrastOnWhite": 10.06,
+          "contrastOnBlack": 1.76,
+          "cssVar": "--teal-800"
+        },
+        "900": {
+          "$type": "color",
+          "$value": "#00342e",
+          "oklch": "oklch(0.29 0.054 183)",
+          "contrastOnWhite": 13.72,
+          "contrastOnBlack": 1.29,
+          "cssVar": "--teal-900"
+        }
+      },
+      "marigold": {
+        "50": {
+          "$type": "color",
+          "$value": "#fff5ea",
+          "oklch": "oklch(0.978 0.022 58)",
+          "contrastOnWhite": 1.08,
+          "contrastOnBlack": 16.46,
+          "cssVar": "--marigold-50"
+        },
+        "100": {
+          "$type": "color",
+          "$value": "#ffe7ce",
+          "oklch": "oklch(0.95 0.05 58)",
+          "contrastOnWhite": 1.19,
+          "contrastOnBlack": 14.83,
+          "cssVar": "--marigold-100"
+        },
+        "200": {
+          "$type": "color",
+          "$value": "#ffd1a4",
+          "oklch": "oklch(0.905 0.09 58)",
+          "contrastOnWhite": 1.41,
+          "contrastOnBlack": 12.58,
+          "cssVar": "--marigold-200"
+        },
+        "300": {
+          "$type": "color",
+          "$value": "#ffb874",
+          "oklch": "oklch(0.85 0.13 58)",
+          "contrastOnWhite": 1.7,
+          "contrastOnBlack": 10.43,
+          "cssVar": "--marigold-300"
+        },
+        "400": {
+          "$type": "color",
+          "$value": "#ff9f49",
+          "oklch": "oklch(0.79 0.155 58)",
+          "contrastOnWhite": 2.04,
+          "contrastOnBlack": 8.7,
+          "cssVar": "--marigold-400"
+        },
+        "500": {
+          "$type": "color",
+          "$value": "#ed8725",
+          "oklch": "oklch(0.72 0.16 58)",
+          "contrastOnWhite": 2.59,
+          "contrastOnBlack": 6.83,
+          "cssVar": "--marigold-500"
+        },
+        "600": {
+          "$type": "color",
+          "$value": "#ca6e03",
+          "oklch": "oklch(0.63 0.15 58)",
+          "contrastOnWhite": 3.66,
+          "contrastOnBlack": 4.85,
+          "cssVar": "--marigold-600"
+        },
+        "700": {
+          "$type": "color",
+          "$value": "#a25500",
+          "oklch": "oklch(0.53 0.13 58)",
+          "contrastOnWhite": 5.47,
+          "contrastOnBlack": 3.24,
+          "cssVar": "--marigold-700"
+        },
+        "800": {
+          "$type": "color",
+          "$value": "#7c4101",
+          "oklch": "oklch(0.44 0.105 58)",
+          "contrastOnWhite": 8.03,
+          "contrastOnBlack": 2.21,
+          "cssVar": "--marigold-800"
+        },
+        "900": {
+          "$type": "color",
+          "$value": "#592e04",
+          "oklch": "oklch(0.35 0.08 58)",
+          "contrastOnWhite": 11.56,
+          "contrastOnBlack": 1.53,
+          "cssVar": "--marigold-900"
+        }
+      },
+      "neutral": {
+        "0": {
+          "$type": "color",
+          "$value": "#ffffff",
+          "oklch": "oklch(1 0 0)",
+          "contrastOnWhite": 1,
+          "contrastOnBlack": 17.73,
+          "cssVar": "--neutral-0"
+        },
+        "50": {
+          "$type": "color",
+          "$value": "#f9fafa",
+          "oklch": "oklch(0.985 0.002 195)",
+          "contrastOnWhite": 1.05,
+          "contrastOnBlack": 16.95,
+          "cssVar": "--neutral-50"
+        },
+        "100": {
+          "$type": "color",
+          "$value": "#f0f4f4",
+          "oklch": "oklch(0.965 0.004 195)",
+          "contrastOnWhite": 1.11,
+          "contrastOnBlack": 16,
+          "cssVar": "--neutral-100"
+        },
+        "200": {
+          "$type": "color",
+          "$value": "#e2e7e7",
+          "oklch": "oklch(0.925 0.006 195)",
+          "contrastOnWhite": 1.25,
+          "contrastOnBlack": 14.2,
+          "cssVar": "--neutral-200"
+        },
+        "300": {
+          "$type": "color",
+          "$value": "#cfd6d6",
+          "oklch": "oklch(0.87 0.008 195)",
+          "contrastOnWhite": 1.47,
+          "contrastOnBlack": 12.02,
+          "cssVar": "--neutral-300"
+        },
+        "400": {
+          "$type": "color",
+          "$value": "#9ea7a6",
+          "oklch": "oklch(0.72 0.01 195)",
+          "contrastOnWhite": 2.46,
+          "contrastOnBlack": 7.2,
+          "cssVar": "--neutral-400"
+        },
+        "500": {
+          "$type": "color",
+          "$value": "#747e7e",
+          "oklch": "oklch(0.585 0.012 195)",
+          "contrastOnWhite": 4.18,
+          "contrastOnBlack": 4.24,
+          "cssVar": "--neutral-500"
+        },
+        "600": {
+          "$type": "color",
+          "$value": "#545f5e",
+          "oklch": "oklch(0.475 0.013 195)",
+          "contrastOnWhite": 6.61,
+          "contrastOnBlack": 2.68,
+          "cssVar": "--neutral-600"
+        },
+        "700": {
+          "$type": "color",
+          "$value": "#3c4646",
+          "oklch": "oklch(0.385 0.013 195)",
+          "contrastOnWhite": 9.74,
+          "contrastOnBlack": 1.82,
+          "cssVar": "--neutral-700"
+        },
+        "800": {
+          "$type": "color",
+          "$value": "#252f2f",
+          "oklch": "oklch(0.295 0.013 195)",
+          "contrastOnWhite": 13.76,
+          "contrastOnBlack": 1.29,
+          "cssVar": "--neutral-800"
+        },
+        "900": {
+          "$type": "color",
+          "$value": "#131b1b",
+          "oklch": "oklch(0.215 0.012 195)",
+          "contrastOnWhite": 17.5,
+          "contrastOnBlack": 1.01,
+          "cssVar": "--neutral-900"
+        },
+        "950": {
+          "$type": "color",
+          "$value": "#091010",
+          "oklch": "oklch(0.165 0.01 195)",
+          "contrastOnWhite": 19.21,
+          "contrastOnBlack": 1,
+          "cssVar": "--neutral-950"
+        }
+      },
+      "green": {
+        "50": {
+          "$type": "color",
+          "$value": "#edfaef",
+          "oklch": "oklch(0.972 0.02 150)",
+          "contrastOnWhite": 1.08,
+          "contrastOnBlack": 16.48,
+          "cssVar": "--green-50"
+        },
+        "100": {
+          "$type": "color",
+          "$value": "#d8f4dd",
+          "oklch": "oklch(0.94 0.042 150)",
+          "contrastOnWhite": 1.17,
+          "contrastOnBlack": 15.11,
+          "cssVar": "--green-100"
+        },
+        "200": {
+          "$type": "color",
+          "$value": "#b5e6be",
+          "oklch": "oklch(0.88 0.075 150)",
+          "contrastOnWhite": 1.4,
+          "contrastOnBlack": 12.68,
+          "cssVar": "--green-200"
+        },
+        "300": {
+          "$type": "color",
+          "$value": "#89d298",
+          "oklch": "oklch(0.8 0.11 150)",
+          "contrastOnWhite": 1.79,
+          "contrastOnBlack": 9.91,
+          "cssVar": "--green-300"
+        },
+        "400": {
+          "$type": "color",
+          "$value": "#56b870",
+          "oklch": "oklch(0.705 0.14 150)",
+          "contrastOnWhite": 2.47,
+          "contrastOnBlack": 7.16,
+          "cssVar": "--green-400"
+        },
+        "500": {
+          "$type": "color",
+          "$value": "#329c53",
+          "oklch": "oklch(0.615 0.145 150)",
+          "contrastOnWhite": 3.49,
+          "contrastOnBlack": 5.08,
+          "cssVar": "--green-500"
+        },
+        "600": {
+          "$type": "color",
+          "$value": "#1f8441",
+          "oklch": "oklch(0.54 0.135 150)",
+          "contrastOnWhite": 4.73,
+          "contrastOnBlack": 3.74,
+          "cssVar": "--green-600"
+        },
+        "700": {
+          "$type": "color",
+          "$value": "#196b34",
+          "oklch": "oklch(0.465 0.115 150)",
+          "contrastOnWhite": 6.57,
+          "contrastOnBlack": 2.7,
+          "cssVar": "--green-700"
+        },
+        "800": {
+          "$type": "color",
+          "$value": "#165229",
+          "oklch": "oklch(0.39 0.092 150)",
+          "contrastOnWhite": 9.24,
+          "contrastOnBlack": 1.92,
+          "cssVar": "--green-800"
+        },
+        "900": {
+          "$type": "color",
+          "$value": "#103a1c",
+          "oklch": "oklch(0.31 0.07 150)",
+          "contrastOnWhite": 12.77,
+          "contrastOnBlack": 1.39,
+          "cssVar": "--green-900"
+        }
+      },
+      "amber": {
+        "50": {
+          "$type": "color",
+          "$value": "#fff7e5",
+          "oklch": "oklch(0.978 0.025 85)",
+          "contrastOnWhite": 1.07,
+          "contrastOnBlack": 16.62,
+          "cssVar": "--amber-50"
+        },
+        "100": {
+          "$type": "color",
+          "$value": "#ffecc5",
+          "oklch": "oklch(0.95 0.055 85)",
+          "contrastOnWhite": 1.16,
+          "contrastOnBlack": 15.24,
+          "cssVar": "--amber-100"
+        },
+        "200": {
+          "$type": "color",
+          "$value": "#fddb96",
+          "oklch": "oklch(0.905 0.095 85)",
+          "contrastOnWhite": 1.33,
+          "contrastOnBlack": 13.29,
+          "cssVar": "--amber-200"
+        },
+        "300": {
+          "$type": "color",
+          "$value": "#f5c761",
+          "oklch": "oklch(0.85 0.13 85)",
+          "contrastOnWhite": 1.59,
+          "contrastOnBlack": 11.16,
+          "cssVar": "--amber-300"
+        },
+        "400": {
+          "$type": "color",
+          "$value": "#e6b22d",
+          "oklch": "oklch(0.79 0.15 85)",
+          "contrastOnWhite": 1.95,
+          "contrastOnBlack": 9.09,
+          "cssVar": "--amber-400"
+        },
+        "500": {
+          "$type": "color",
+          "$value": "#cf9b00",
+          "oklch": "oklch(0.72 0.15 85)",
+          "contrastOnWhite": 2.52,
+          "contrastOnBlack": 7.04,
+          "cssVar": "--amber-500"
+        },
+        "600": {
+          "$type": "color",
+          "$value": "#ae8100",
+          "oklch": "oklch(0.63 0.135 85)",
+          "contrastOnWhite": 3.54,
+          "contrastOnBlack": 5.01,
+          "cssVar": "--amber-600"
+        },
+        "700": {
+          "$type": "color",
+          "$value": "#8a6500",
+          "oklch": "oklch(0.53 0.115 85)",
+          "contrastOnWhite": 5.33,
+          "contrastOnBlack": 3.33,
+          "cssVar": "--amber-700"
+        },
+        "800": {
+          "$type": "color",
+          "$value": "#694e00",
+          "oklch": "oklch(0.44 0.09 85)",
+          "contrastOnWhite": 7.81,
+          "contrastOnBlack": 2.27,
+          "cssVar": "--amber-800"
+        },
+        "900": {
+          "$type": "color",
+          "$value": "#4b3702",
+          "oklch": "oklch(0.35 0.07 85)",
+          "contrastOnWhite": 11.37,
+          "contrastOnBlack": 1.56,
+          "cssVar": "--amber-900"
+        }
+      },
+      "red": {
+        "50": {
+          "$type": "color",
+          "$value": "#fff2f0",
+          "oklch": "oklch(0.972 0.015 27)",
+          "contrastOnWhite": 1.09,
+          "contrastOnBlack": 16.22,
+          "cssVar": "--red-50"
+        },
+        "100": {
+          "$type": "color",
+          "$value": "#ffe3df",
+          "oklch": "oklch(0.94 0.035 27)",
+          "contrastOnWhite": 1.21,
+          "contrastOnBlack": 14.61,
+          "cssVar": "--red-100"
+        },
+        "200": {
+          "$type": "color",
+          "$value": "#ffc7bf",
+          "oklch": "oklch(0.88 0.07 27)",
+          "contrastOnWhite": 1.48,
+          "contrastOnBlack": 11.96,
+          "cssVar": "--red-200"
+        },
+        "300": {
+          "$type": "color",
+          "$value": "#ffa095",
+          "oklch": "oklch(0.8 0.115 27)",
+          "contrastOnWhite": 1.96,
+          "contrastOnBlack": 9.04,
+          "cssVar": "--red-300"
+        },
+        "400": {
+          "$type": "color",
+          "$value": "#f37368",
+          "oklch": "oklch(0.705 0.16 27)",
+          "contrastOnWhite": 2.81,
+          "contrastOnBlack": 6.3,
+          "cssVar": "--red-400"
+        },
+        "500": {
+          "$type": "color",
+          "$value": "#e04840",
+          "oklch": "oklch(0.615 0.19 27)",
+          "contrastOnWhite": 4.06,
+          "contrastOnBlack": 4.36,
+          "cssVar": "--red-500"
+        },
+        "600": {
+          "$type": "color",
+          "$value": "#c72827",
+          "oklch": "oklch(0.54 0.195 27)",
+          "contrastOnWhite": 5.58,
+          "contrastOnBlack": 3.17,
+          "cssVar": "--red-600"
+        },
+        "700": {
+          "$type": "color",
+          "$value": "#a31d1d",
+          "oklch": "oklch(0.465 0.17 27)",
+          "contrastOnWhite": 7.63,
+          "contrastOnBlack": 2.32,
+          "cssVar": "--red-700"
+        },
+        "800": {
+          "$type": "color",
+          "$value": "#801616",
+          "oklch": "oklch(0.39 0.14 27)",
+          "contrastOnWhite": 10.27,
+          "contrastOnBlack": 1.73,
+          "cssVar": "--red-800"
+        },
+        "900": {
+          "$type": "color",
+          "$value": "#5a1110",
+          "oklch": "oklch(0.31 0.105 27)",
+          "contrastOnWhite": 13.79,
+          "contrastOnBlack": 1.29,
+          "cssVar": "--red-900"
+        }
+      },
+      "blue": {
+        "50": {
+          "$type": "color",
+          "$value": "#eff7ff",
+          "oklch": "oklch(0.972 0.014 252)",
+          "contrastOnWhite": 1.08,
+          "contrastOnBlack": 16.39,
+          "cssVar": "--blue-50"
+        },
+        "100": {
+          "$type": "color",
+          "$value": "#ddedff",
+          "oklch": "oklch(0.94 0.03 252)",
+          "contrastOnWhite": 1.19,
+          "contrastOnBlack": 14.88,
+          "cssVar": "--blue-100"
+        },
+        "200": {
+          "$type": "color",
+          "$value": "#bcdbfd",
+          "oklch": "oklch(0.88 0.058 252)",
+          "contrastOnWhite": 1.43,
+          "contrastOnBlack": 12.4,
+          "cssVar": "--blue-200"
+        },
+        "300": {
+          "$type": "color",
+          "$value": "#91c2fa",
+          "oklch": "oklch(0.8 0.095 252)",
+          "contrastOnWhite": 1.86,
+          "contrastOnBlack": 9.54,
+          "cssVar": "--blue-300"
+        },
+        "400": {
+          "$type": "color",
+          "$value": "#60a4ee",
+          "oklch": "oklch(0.705 0.13 252)",
+          "contrastOnWhite": 2.61,
+          "contrastOnBlack": 6.79,
+          "cssVar": "--blue-400"
+        },
+        "500": {
+          "$type": "color",
+          "$value": "#3587db",
+          "oklch": "oklch(0.615 0.15 252)",
+          "contrastOnWhite": 3.72,
+          "contrastOnBlack": 4.76,
+          "cssVar": "--blue-500"
+        },
+        "600": {
+          "$type": "color",
+          "$value": "#1870c2",
+          "oklch": "oklch(0.54 0.15 252)",
+          "contrastOnWhite": 5.08,
+          "contrastOnBlack": 3.49,
+          "cssVar": "--blue-600"
+        },
+        "700": {
+          "$type": "color",
+          "$value": "#105a9f",
+          "oklch": "oklch(0.465 0.13 252)",
+          "contrastOnWhite": 7.03,
+          "contrastOnBlack": 2.52,
+          "cssVar": "--blue-700"
+        },
+        "800": {
+          "$type": "color",
+          "$value": "#0f467b",
+          "oklch": "oklch(0.39 0.105 252)",
+          "contrastOnWhite": 9.62,
+          "contrastOnBlack": 1.84,
+          "cssVar": "--blue-800"
+        },
+        "900": {
+          "$type": "color",
+          "$value": "#0b3157",
+          "oklch": "oklch(0.31 0.08 252)",
+          "contrastOnWhite": 13.2,
+          "contrastOnBlack": 1.34,
+          "cssVar": "--blue-900"
+        }
+      },
+      "violet": {
+        "50": {
+          "$type": "color",
+          "$value": "#f7f4fe",
+          "oklch": "oklch(0.972 0.014 298)",
+          "contrastOnWhite": 1.09,
+          "contrastOnBlack": 16.31,
+          "cssVar": "--violet-50"
+        },
+        "100": {
+          "$type": "color",
+          "$value": "#ede7fd",
+          "oklch": "oklch(0.94 0.03 298)",
+          "contrastOnWhite": 1.2,
+          "contrastOnBlack": 14.73,
+          "cssVar": "--violet-100"
+        },
+        "200": {
+          "$type": "color",
+          "$value": "#dcd0fa",
+          "oklch": "oklch(0.88 0.058 298)",
+          "contrastOnWhite": 1.45,
+          "contrastOnBlack": 12.19,
+          "cssVar": "--violet-200"
+        },
+        "300": {
+          "$type": "color",
+          "$value": "#c5b1f3",
+          "oklch": "oklch(0.8 0.095 298)",
+          "contrastOnWhite": 1.92,
+          "contrastOnBlack": 9.25,
+          "cssVar": "--violet-300"
+        },
+        "400": {
+          "$type": "color",
+          "$value": "#aa8de6",
+          "oklch": "oklch(0.705 0.13 298)",
+          "contrastOnWhite": 2.74,
+          "contrastOnBlack": 6.47,
+          "cssVar": "--violet-400"
+        },
+        "500": {
+          "$type": "color",
+          "$value": "#916dd2",
+          "oklch": "oklch(0.615 0.15 298)",
+          "contrastOnWhite": 3.95,
+          "contrastOnBlack": 4.49,
+          "cssVar": "--violet-500"
+        },
+        "600": {
+          "$type": "color",
+          "$value": "#7b57b9",
+          "oklch": "oklch(0.54 0.15 298)",
+          "contrastOnWhite": 5.38,
+          "contrastOnBlack": 3.3,
+          "cssVar": "--violet-600"
+        },
+        "700": {
+          "$type": "color",
+          "$value": "#634598",
+          "oklch": "oklch(0.465 0.13 298)",
+          "contrastOnWhite": 7.41,
+          "contrastOnBlack": 2.39,
+          "cssVar": "--violet-700"
+        },
+        "800": {
+          "$type": "color",
+          "$value": "#4d3675",
+          "oklch": "oklch(0.39 0.105 298)",
+          "contrastOnWhite": 10,
+          "contrastOnBlack": 1.77,
+          "cssVar": "--violet-800"
+        },
+        "900": {
+          "$type": "color",
+          "$value": "#362653",
+          "oklch": "oklch(0.31 0.08 298)",
+          "contrastOnWhite": 13.47,
+          "contrastOnBlack": 1.32,
+          "cssVar": "--violet-900"
+        }
+      }
+    },
+    "surface": {
+      "surface-page": {
+        "$type": "color",
+        "$value": "#f9fafa",
+        "hc": "#ffffff",
+        "dark": "#091010",
+        "cssVar": "--surface-page",
+        "$description": "App background"
+      },
+      "surface-card": {
+        "$type": "color",
+        "$value": "#ffffff",
+        "dark": "#131b1b",
+        "cssVar": "--surface-card",
+        "$description": "Cards, tables, panels"
+      },
+      "surface-sunken": {
+        "$type": "color",
+        "$value": "#f0f4f4",
+        "dark": "#091010",
+        "cssVar": "--surface-sunken",
+        "$description": "Wells, table header, inputs read-only"
+      },
+      "surface-raised": {
+        "$type": "color",
+        "$value": "#ffffff",
+        "dark": "#252f2f",
+        "cssVar": "--surface-raised",
+        "$description": "Popovers, menus, modals"
+      },
+      "surface-inverse": {
+        "$type": "color",
+        "$value": "#131b1b",
+        "hc": "#091010",
+        "dark": "#f0f4f4",
+        "cssVar": "--surface-inverse",
+        "$description": "Tooltips, offline bar"
+      },
+      "surface-selected": {
+        "$type": "color",
+        "$value": "#ecfbf8",
+        "hc": "#d6f4ef",
+        "dark": "#00342e",
+        "cssVar": "--surface-selected",
+        "$description": "Selected row / nav item"
+      },
+      "surface-hover": {
+        "$type": "color",
+        "$value": "#f0f4f4",
+        "hc": "#e2e7e7",
+        "dark": "#252f2f",
+        "cssVar": "--surface-hover",
+        "$description": "Row & ghost hover"
+      },
+      "text-primary": {
+        "$type": "color",
+        "$value": "#131b1b",
+        "hc": "#091010",
+        "dark": "#f9fafa",
+        "cssVar": "--text-primary",
+        "$description": "Body & headings"
+      },
+      "text-secondary": {
+        "$type": "color",
+        "$value": "#3c4646",
+        "hc": "#131b1b",
+        "dark": "#e2e7e7",
+        "cssVar": "--text-secondary",
+        "$description": "Supporting text"
+      },
+      "text-muted": {
+        "$type": "color",
+        "$value": "#545f5e",
+        "hc": "#252f2f",
+        "dark": "#cfd6d6",
+        "cssVar": "--text-muted",
+        "$description": "Meta, captions (AA on card)"
+      },
+      "text-disabled": {
+        "$type": "color",
+        "$value": "#747e7e",
+        "hc": "#545f5e",
+        "cssVar": "--text-disabled",
+        "$description": "Disabled only — not for content"
+      },
+      "text-inverse": {
+        "$type": "color",
+        "$value": "#ffffff",
+        "dark": "#131b1b",
+        "cssVar": "--text-inverse",
+        "$description": "Text on inverse surface"
+      },
+      "text-on-primary": {
+        "$type": "color",
+        "$value": "#ffffff",
+        "dark": "#091010",
+        "cssVar": "--text-on-primary",
+        "$description": "Text on brand-primary"
+      },
+      "text-on-accent": {
+        "$type": "color",
+        "$value": "#091010",
+        "cssVar": "--text-on-accent",
+        "$description": "Text on brand-accent"
+      },
+      "border-subtle": {
+        "$type": "color",
+        "$value": "#e2e7e7",
+        "hc": "#545f5e",
+        "dark": "#252f2f",
+        "cssVar": "--border-subtle",
+        "$description": "Dividers, card edges"
+      },
+      "border-default": {
+        "$type": "color",
+        "$value": "#cfd6d6",
+        "hc": "#252f2f",
+        "dark": "#3c4646",
+        "cssVar": "--border-default",
+        "$description": "Inputs, controls"
+      },
+      "border-strong": {
+        "$type": "color",
+        "$value": "#747e7e",
+        "hc": "#091010",
+        "cssVar": "--border-strong",
+        "$description": "Hover border, emphasis"
+      },
+      "brand-primary": {
+        "$type": "color",
+        "$value": "#006157",
+        "hc": "#00342e",
+        "dark": "#82d3c6",
+        "cssVar": "--brand-primary",
+        "$description": "Primary buttons, active nav"
+      },
+      "brand-primary-hover": {
+        "$type": "color",
+        "$value": "#004b43",
+        "hc": "#091010",
+        "dark": "#b1e8de",
+        "cssVar": "--brand-primary-hover",
+        "$description": "Primary hover/pressed"
+      },
+      "brand-primary-subtle": {
+        "$type": "color",
+        "$value": "#ecfbf8",
+        "hc": "#ffffff",
+        "dark": "#00342e",
+        "cssVar": "--brand-primary-subtle",
+        "$description": "Tinted brand surface"
+      },
+      "brand-primary-text": {
+        "$type": "color",
+        "$value": "#004b43",
+        "hc": "#00342e",
+        "dark": "#b1e8de",
+        "cssVar": "--brand-primary-text",
+        "$description": "Links, selected labels"
+      },
+      "brand-accent": {
+        "$type": "color",
+        "$value": "#ff9f49",
+        "cssVar": "--brand-accent",
+        "$description": "Key action (one per screen)"
+      },
+      "brand-accent-hover": {
+        "$type": "color",
+        "$value": "#ed8725",
+        "dark": "#ffb874",
+        "cssVar": "--brand-accent-hover",
+        "$description": "Key action hover"
+      },
+      "brand-accent-subtle": {
+        "$type": "color",
+        "$value": "#fff5ea",
+        "dark": "#592e04",
+        "cssVar": "--brand-accent-subtle",
+        "$description": "Accent tint"
+      },
+      "focus-ring": {
+        "$type": "color",
+        "$value": "#1870c2",
+        "hc": "#0f467b",
+        "dark": "#91c2fa",
+        "cssVar": "--focus-ring",
+        "$description": "Keyboard focus outline"
+      }
+    },
+    "semantic": {
+      "success-fg": {
+        "$type": "color",
+        "$value": "#165229",
+        "hc": "#103a1c",
+        "dark": "#b5e6be",
+        "cssVar": "--success-fg",
+        "$description": "Success — text & icon"
+      },
+      "success-bg": {
+        "$type": "color",
+        "$value": "#edfaef",
+        "hc": "#ffffff",
+        "dark": "#103a1c",
+        "cssVar": "--success-bg",
+        "$description": "Success — subtle surface"
+      },
+      "success-border": {
+        "$type": "color",
+        "$value": "#89d298",
+        "hc": "#165229",
+        "dark": "#1f8441",
+        "cssVar": "--success-border",
+        "$description": "Success — border"
+      },
+      "success-solid": {
+        "$type": "color",
+        "$value": "#196b34",
+        "hc": "#103a1c",
+        "dark": "#56b870",
+        "cssVar": "--success-solid",
+        "$description": "Success — solid fill"
+      },
+      "success-on-solid": {
+        "$type": "color",
+        "$value": "#ffffff",
+        "dark": "#091010",
+        "cssVar": "--success-on-solid",
+        "$description": "Success — text on solid"
+      },
+      "warning-fg": {
+        "$type": "color",
+        "$value": "#694e00",
+        "hc": "#4b3702",
+        "dark": "#fddb96",
+        "cssVar": "--warning-fg",
+        "$description": "Warning — text & icon"
+      },
+      "warning-bg": {
+        "$type": "color",
+        "$value": "#fff7e5",
+        "hc": "#ffffff",
+        "dark": "#4b3702",
+        "cssVar": "--warning-bg",
+        "$description": "Warning — subtle surface"
+      },
+      "warning-border": {
+        "$type": "color",
+        "$value": "#f5c761",
+        "hc": "#694e00",
+        "dark": "#ae8100",
+        "cssVar": "--warning-border",
+        "$description": "Warning — border"
+      },
+      "warning-solid": {
+        "$type": "color",
+        "$value": "#e6b22d",
+        "cssVar": "--warning-solid",
+        "$description": "Warning — solid fill"
+      },
+      "warning-on-solid": {
+        "$type": "color",
+        "$value": "#091010",
+        "cssVar": "--warning-on-solid",
+        "$description": "Warning — text on solid"
+      },
+      "danger-fg": {
+        "$type": "color",
+        "$value": "#801616",
+        "hc": "#5a1110",
+        "dark": "#ffc7bf",
+        "cssVar": "--danger-fg",
+        "$description": "Danger — text & icon"
+      },
+      "danger-bg": {
+        "$type": "color",
+        "$value": "#fff2f0",
+        "hc": "#ffffff",
+        "dark": "#5a1110",
+        "cssVar": "--danger-bg",
+        "$description": "Danger — subtle surface"
+      },
+      "danger-border": {
+        "$type": "color",
+        "$value": "#ffa095",
+        "hc": "#801616",
+        "dark": "#c72827",
+        "cssVar": "--danger-border",
+        "$description": "Danger — border"
+      },
+      "danger-solid": {
+        "$type": "color",
+        "$value": "#a31d1d",
+        "hc": "#5a1110",
+        "dark": "#f37368",
+        "cssVar": "--danger-solid",
+        "$description": "Danger — solid fill"
+      },
+      "danger-on-solid": {
+        "$type": "color",
+        "$value": "#ffffff",
+        "dark": "#091010",
+        "cssVar": "--danger-on-solid",
+        "$description": "Danger — text on solid"
+      },
+      "info-fg": {
+        "$type": "color",
+        "$value": "#0f467b",
+        "hc": "#0b3157",
+        "dark": "#bcdbfd",
+        "cssVar": "--info-fg",
+        "$description": "Info — text & icon"
+      },
+      "info-bg": {
+        "$type": "color",
+        "$value": "#eff7ff",
+        "hc": "#ffffff",
+        "dark": "#0b3157",
+        "cssVar": "--info-bg",
+        "$description": "Info — subtle surface"
+      },
+      "info-border": {
+        "$type": "color",
+        "$value": "#91c2fa",
+        "hc": "#0f467b",
+        "dark": "#1870c2",
+        "cssVar": "--info-border",
+        "$description": "Info — border"
+      },
+      "info-solid": {
+        "$type": "color",
+        "$value": "#105a9f",
+        "hc": "#0b3157",
+        "dark": "#60a4ee",
+        "cssVar": "--info-solid",
+        "$description": "Info — solid fill"
+      },
+      "info-on-solid": {
+        "$type": "color",
+        "$value": "#ffffff",
+        "dark": "#091010",
+        "cssVar": "--info-on-solid",
+        "$description": "Info — text on solid"
+      },
+      "neutral-fg": {
+        "$type": "color",
+        "$value": "#252f2f",
+        "hc": "#091010",
+        "dark": "#e2e7e7",
+        "cssVar": "--neutral-fg",
+        "$description": "Neutral — text & icon"
+      },
+      "neutral-bg": {
+        "$type": "color",
+        "$value": "#f0f4f4",
+        "hc": "#ffffff",
+        "dark": "#252f2f",
+        "cssVar": "--neutral-bg",
+        "$description": "Neutral — subtle surface"
+      },
+      "neutral-border": {
+        "$type": "color",
+        "$value": "#cfd6d6",
+        "hc": "#091010",
+        "dark": "#545f5e",
+        "cssVar": "--neutral-border",
+        "$description": "Neutral — border"
+      },
+      "neutral-solid": {
+        "$type": "color",
+        "$value": "#3c4646",
+        "hc": "#131b1b",
+        "dark": "#9ea7a6",
+        "cssVar": "--neutral-solid",
+        "$description": "Neutral — solid fill"
+      },
+      "neutral-on-solid": {
+        "$type": "color",
+        "$value": "#ffffff",
+        "dark": "#091010",
+        "cssVar": "--neutral-on-solid",
+        "$description": "Neutral — text on solid"
+      }
+    },
+    "clinical": {
+      "result-normal-fg": {
+        "$type": "color",
+        "$value": "#131b1b",
+        "hc": "#091010",
+        "dark": "#f9fafa",
+        "cssVar": "--result-normal-fg",
+        "$description": "Normal value — no fill, no flag"
+      },
+      "result-high-fg": {
+        "$type": "color",
+        "$value": "#694e00",
+        "hc": "#4b3702",
+        "dark": "#fddb96",
+        "cssVar": "--result-high-fg",
+        "$description": "Above range · H ↑ — text"
+      },
+      "result-high-bg": {
+        "$type": "color",
+        "$value": "#fff7e5",
+        "hc": "#ffffff",
+        "dark": "#4b3702",
+        "cssVar": "--result-high-bg",
+        "$description": "Above range · H ↑ — fill"
+      },
+      "result-high-border": {
+        "$type": "color",
+        "$value": "#e6b22d",
+        "hc": "#4b3702",
+        "dark": "#cf9b00",
+        "cssVar": "--result-high-border",
+        "$description": "Above range · H ↑ — border"
+      },
+      "result-low-fg": {
+        "$type": "color",
+        "$value": "#0f467b",
+        "hc": "#0b3157",
+        "dark": "#bcdbfd",
+        "cssVar": "--result-low-fg",
+        "$description": "Below range · L ↓ — text"
+      },
+      "result-low-bg": {
+        "$type": "color",
+        "$value": "#eff7ff",
+        "hc": "#ffffff",
+        "dark": "#0b3157",
+        "cssVar": "--result-low-bg",
+        "$description": "Below range · L ↓ — fill"
+      },
+      "result-low-border": {
+        "$type": "color",
+        "$value": "#60a4ee",
+        "hc": "#0b3157",
+        "dark": "#3587db",
+        "cssVar": "--result-low-border",
+        "$description": "Below range · L ↓ — border"
+      },
+      "result-critical-fg": {
+        "$type": "color",
+        "$value": "#ffffff",
+        "cssVar": "--result-critical-fg",
+        "$description": "Critical · !! (solid) — text"
+      },
+      "result-critical-bg": {
+        "$type": "color",
+        "$value": "#a31d1d",
+        "hc": "#5a1110",
+        "dark": "#c72827",
+        "cssVar": "--result-critical-bg",
+        "$description": "Critical · !! (solid) — fill"
+      },
+      "result-critical-border": {
+        "$type": "color",
+        "$value": "#801616",
+        "hc": "#091010",
+        "dark": "#f37368",
+        "cssVar": "--result-critical-border",
+        "$description": "Critical · !! (solid) — border"
+      },
+      "result-critical-row": {
+        "$type": "color",
+        "$value": "#fff2f0",
+        "dark": "#5a1110",
+        "cssVar": "--result-critical-row",
+        "$description": "Row tint behind a critical value"
+      },
+      "allergy-bg": {
+        "$type": "color",
+        "$value": "#a31d1d",
+        "hc": "#5a1110",
+        "dark": "#c72827",
+        "cssVar": "--allergy-bg",
+        "$description": "Allergy strip in patient header"
+      },
+      "allergy-fg": {
+        "$type": "color",
+        "$value": "#ffffff",
+        "cssVar": "--allergy-fg",
+        "$description": "Allergy text"
+      }
+    },
+    "status": {
+      "status-draft-fg": {
+        "$type": "color",
+        "$value": "#4d3675",
+        "hc": "#362653",
+        "dark": "#dcd0fa",
+        "cssVar": "--status-draft-fg",
+        "$description": "Draft — not final (dashed + hatch) — text"
+      },
+      "status-draft-bg": {
+        "$type": "color",
+        "$value": "#f7f4fe",
+        "hc": "#ffffff",
+        "dark": "#362653",
+        "cssVar": "--status-draft-bg",
+        "$description": "Draft — not final (dashed + hatch) — fill"
+      },
+      "status-draft-border": {
+        "$type": "color",
+        "$value": "#aa8de6",
+        "hc": "#362653",
+        "dark": "#916dd2",
+        "cssVar": "--status-draft-border",
+        "$description": "Draft — not final (dashed + hatch) — border"
+      },
+      "status-pending-fg": {
+        "$type": "color",
+        "$value": "#694e00",
+        "hc": "#4b3702",
+        "dark": "#fddb96",
+        "cssVar": "--status-pending-fg",
+        "$description": "Pending / awaiting — text"
+      },
+      "status-pending-bg": {
+        "$type": "color",
+        "$value": "#fff7e5",
+        "hc": "#ffffff",
+        "dark": "#4b3702",
+        "cssVar": "--status-pending-bg",
+        "$description": "Pending / awaiting — fill"
+      },
+      "status-pending-border": {
+        "$type": "color",
+        "$value": "#e6b22d",
+        "hc": "#4b3702",
+        "dark": "#cf9b00",
+        "cssVar": "--status-pending-border",
+        "$description": "Pending / awaiting — border"
+      },
+      "status-in-progress-fg": {
+        "$type": "color",
+        "$value": "#0f467b",
+        "hc": "#0b3157",
+        "dark": "#bcdbfd",
+        "cssVar": "--status-in-progress-fg",
+        "$description": "In progress / partially complete — text"
+      },
+      "status-in-progress-bg": {
+        "$type": "color",
+        "$value": "#eff7ff",
+        "hc": "#ffffff",
+        "dark": "#0b3157",
+        "cssVar": "--status-in-progress-bg",
+        "$description": "In progress / partially complete — fill"
+      },
+      "status-in-progress-border": {
+        "$type": "color",
+        "$value": "#60a4ee",
+        "hc": "#0b3157",
+        "dark": "#3587db",
+        "cssVar": "--status-in-progress-border",
+        "$description": "In progress / partially complete — border"
+      },
+      "status-amended-fg": {
+        "$type": "color",
+        "$value": "#004b43",
+        "hc": "#00342e",
+        "dark": "#b1e8de",
+        "cssVar": "--status-amended-fg",
+        "$description": "Amended — final with history — text"
+      },
+      "status-amended-bg": {
+        "$type": "color",
+        "$value": "#ecfbf8",
+        "hc": "#ffffff",
+        "dark": "#00342e",
+        "cssVar": "--status-amended-bg",
+        "$description": "Amended — final with history — fill"
+      },
+      "status-amended-border": {
+        "$type": "color",
+        "$value": "#4eb5a7",
+        "hc": "#00342e",
+        "dark": "#1e9386",
+        "cssVar": "--status-amended-border",
+        "$description": "Amended — final with history — border"
+      },
+      "status-syncing-fg": {
+        "$type": "color",
+        "$value": "#0f467b",
+        "hc": "#0b3157",
+        "dark": "#bcdbfd",
+        "cssVar": "--status-syncing-fg",
+        "$description": "Syncing with server — text"
+      },
+      "status-syncing-bg": {
+        "$type": "color",
+        "$value": "#eff7ff",
+        "hc": "#ffffff",
+        "dark": "#0b3157",
+        "cssVar": "--status-syncing-bg",
+        "$description": "Syncing with server — fill"
+      },
+      "status-syncing-border": {
+        "$type": "color",
+        "$value": "#60a4ee",
+        "hc": "#0b3157",
+        "dark": "#3587db",
+        "cssVar": "--status-syncing-border",
+        "$description": "Syncing with server — border"
+      },
+      "status-failed-fg": {
+        "$type": "color",
+        "$value": "#801616",
+        "hc": "#5a1110",
+        "dark": "#ffc7bf",
+        "cssVar": "--status-failed-fg",
+        "$description": "Failed — retry — text"
+      },
+      "status-failed-bg": {
+        "$type": "color",
+        "$value": "#fff2f0",
+        "hc": "#ffffff",
+        "dark": "#5a1110",
+        "cssVar": "--status-failed-bg",
+        "$description": "Failed — retry — fill"
+      },
+      "status-failed-border": {
+        "$type": "color",
+        "$value": "#f37368",
+        "hc": "#5a1110",
+        "dark": "#e04840",
+        "cssVar": "--status-failed-border",
+        "$description": "Failed — retry — border"
+      },
+      "status-final-fg": {
+        "$type": "color",
+        "$value": "#ffffff",
+        "dark": "#091010",
+        "cssVar": "--status-final-fg",
+        "$description": "Signed / final (solid) — text"
+      },
+      "status-final-bg": {
+        "$type": "color",
+        "$value": "#006157",
+        "hc": "#00342e",
+        "dark": "#82d3c6",
+        "cssVar": "--status-final-bg",
+        "$description": "Signed / final (solid) — fill"
+      },
+      "status-final-border": {
+        "$type": "color",
+        "$value": "#006157",
+        "hc": "#00342e",
+        "dark": "#82d3c6",
+        "cssVar": "--status-final-border",
+        "$description": "Signed / final (solid) — border"
+      },
+      "status-cancelled-fg": {
+        "$type": "color",
+        "$value": "#3c4646",
+        "hc": "#091010",
+        "dark": "#cfd6d6",
+        "cssVar": "--status-cancelled-fg",
+        "$description": "Cancelled (strike-through label) — text"
+      },
+      "status-cancelled-bg": {
+        "$type": "color",
+        "$value": "#f0f4f4",
+        "hc": "#ffffff",
+        "dark": "#252f2f",
+        "cssVar": "--status-cancelled-bg",
+        "$description": "Cancelled (strike-through label) — fill"
+      },
+      "status-cancelled-border": {
+        "$type": "color",
+        "$value": "#cfd6d6",
+        "hc": "#091010",
+        "dark": "#545f5e",
+        "cssVar": "--status-cancelled-border",
+        "$description": "Cancelled (strike-through label) — border"
+      },
+      "status-offline-fg": {
+        "$type": "color",
+        "$value": "#ffffff",
+        "dark": "#091010",
+        "cssVar": "--status-offline-fg",
+        "$description": "Offline (solid dark) — text"
+      },
+      "status-offline-bg": {
+        "$type": "color",
+        "$value": "#252f2f",
+        "hc": "#091010",
+        "dark": "#e2e7e7",
+        "cssVar": "--status-offline-bg",
+        "$description": "Offline (solid dark) — fill"
+      },
+      "status-offline-border": {
+        "$type": "color",
+        "$value": "#252f2f",
+        "hc": "#091010",
+        "dark": "#e2e7e7",
+        "cssVar": "--status-offline-border",
+        "$description": "Offline (solid dark) — border"
+      }
+    },
+    "provenance": {
+      "prov-verified-fg": {
+        "$type": "color",
+        "$value": "#004b43",
+        "hc": "#00342e",
+        "dark": "#b1e8de",
+        "cssVar": "--prov-verified-fg",
+        "$description": "Provider verified — text"
+      },
+      "prov-verified-bg": {
+        "$type": "color",
+        "$value": "#ecfbf8",
+        "hc": "#ffffff",
+        "dark": "#00342e",
+        "cssVar": "--prov-verified-bg",
+        "$description": "Provider verified — fill"
+      },
+      "prov-verified-border": {
+        "$type": "color",
+        "$value": "#82d3c6",
+        "hc": "#00342e",
+        "dark": "#1e9386",
+        "cssVar": "--prov-verified-border",
+        "$description": "Provider verified — border"
+      },
+      "prov-uploaded-fg": {
+        "$type": "color",
+        "$value": "#252f2f",
+        "hc": "#091010",
+        "dark": "#e2e7e7",
+        "cssVar": "--prov-uploaded-fg",
+        "$description": "Uploaded by patient — text"
+      },
+      "prov-uploaded-bg": {
+        "$type": "color",
+        "$value": "#f0f4f4",
+        "hc": "#ffffff",
+        "dark": "#252f2f",
+        "cssVar": "--prov-uploaded-bg",
+        "$description": "Uploaded by patient — fill"
+      },
+      "prov-uploaded-border": {
+        "$type": "color",
+        "$value": "#cfd6d6",
+        "hc": "#091010",
+        "dark": "#545f5e",
+        "cssVar": "--prov-uploaded-border",
+        "$description": "Uploaded by patient — border"
+      },
+      "prov-patient-fg": {
+        "$type": "color",
+        "$value": "#7c4101",
+        "hc": "#592e04",
+        "dark": "#ffd1a4",
+        "cssVar": "--prov-patient-fg",
+        "$description": "Patient reported — text"
+      },
+      "prov-patient-bg": {
+        "$type": "color",
+        "$value": "#fff5ea",
+        "hc": "#ffffff",
+        "dark": "#592e04",
+        "cssVar": "--prov-patient-bg",
+        "$description": "Patient reported — fill"
+      },
+      "prov-patient-border": {
+        "$type": "color",
+        "$value": "#ffb874",
+        "hc": "#592e04",
+        "dark": "#ed8725",
+        "cssVar": "--prov-patient-border",
+        "$description": "Patient reported — border"
+      },
+      "prov-ai-fg": {
+        "$type": "color",
+        "$value": "#4d3675",
+        "hc": "#362653",
+        "dark": "#dcd0fa",
+        "cssVar": "--prov-ai-fg",
+        "$description": "AI draft — unverified — text"
+      },
+      "prov-ai-bg": {
+        "$type": "color",
+        "$value": "#f7f4fe",
+        "hc": "#ffffff",
+        "dark": "#362653",
+        "cssVar": "--prov-ai-bg",
+        "$description": "AI draft — unverified — fill"
+      },
+      "prov-ai-border": {
+        "$type": "color",
+        "$value": "#c5b1f3",
+        "hc": "#362653",
+        "dark": "#916dd2",
+        "cssVar": "--prov-ai-border",
+        "$description": "AI draft — unverified — border"
+      }
+    },
+    "bed": {
+      "bed-available-fg": {
+        "$type": "color",
+        "$value": "#165229",
+        "hc": "#103a1c",
+        "dark": "#b5e6be",
+        "cssVar": "--bed-available-fg",
+        "$description": "Available — text"
+      },
+      "bed-available-bg": {
+        "$type": "color",
+        "$value": "#edfaef",
+        "hc": "#ffffff",
+        "dark": "#103a1c",
+        "cssVar": "--bed-available-bg",
+        "$description": "Available — fill"
+      },
+      "bed-available-border": {
+        "$type": "color",
+        "$value": "#56b870",
+        "hc": "#103a1c",
+        "dark": "#329c53",
+        "cssVar": "--bed-available-border",
+        "$description": "Available — border"
+      },
+      "bed-occupied-fg": {
+        "$type": "color",
+        "$value": "#004b43",
+        "hc": "#00342e",
+        "dark": "#b1e8de",
+        "cssVar": "--bed-occupied-fg",
+        "$description": "Occupied — text"
+      },
+      "bed-occupied-bg": {
+        "$type": "color",
+        "$value": "#ecfbf8",
+        "hc": "#ffffff",
+        "dark": "#00342e",
+        "cssVar": "--bed-occupied-bg",
+        "$description": "Occupied — fill"
+      },
+      "bed-occupied-border": {
+        "$type": "color",
+        "$value": "#4eb5a7",
+        "hc": "#00342e",
+        "dark": "#1e9386",
+        "cssVar": "--bed-occupied-border",
+        "$description": "Occupied — border"
+      },
+      "bed-reserved-fg": {
+        "$type": "color",
+        "$value": "#0f467b",
+        "hc": "#0b3157",
+        "dark": "#bcdbfd",
+        "cssVar": "--bed-reserved-fg",
+        "$description": "Reserved — text"
+      },
+      "bed-reserved-bg": {
+        "$type": "color",
+        "$value": "#eff7ff",
+        "hc": "#ffffff",
+        "dark": "#0b3157",
+        "cssVar": "--bed-reserved-bg",
+        "$description": "Reserved — fill"
+      },
+      "bed-reserved-border": {
+        "$type": "color",
+        "$value": "#60a4ee",
+        "hc": "#0b3157",
+        "dark": "#3587db",
+        "cssVar": "--bed-reserved-border",
+        "$description": "Reserved — border"
+      },
+      "bed-cleaning-fg": {
+        "$type": "color",
+        "$value": "#694e00",
+        "hc": "#4b3702",
+        "dark": "#fddb96",
+        "cssVar": "--bed-cleaning-fg",
+        "$description": "Cleaning / turnover — text"
+      },
+      "bed-cleaning-bg": {
+        "$type": "color",
+        "$value": "#fff7e5",
+        "hc": "#ffffff",
+        "dark": "#4b3702",
+        "cssVar": "--bed-cleaning-bg",
+        "$description": "Cleaning / turnover — fill"
+      },
+      "bed-cleaning-border": {
+        "$type": "color",
+        "$value": "#e6b22d",
+        "hc": "#4b3702",
+        "dark": "#cf9b00",
+        "cssVar": "--bed-cleaning-border",
+        "$description": "Cleaning / turnover — border"
+      },
+      "bed-blocked-fg": {
+        "$type": "color",
+        "$value": "#3c4646",
+        "hc": "#091010",
+        "dark": "#cfd6d6",
+        "cssVar": "--bed-blocked-fg",
+        "$description": "Blocked / maintenance — text"
+      },
+      "bed-blocked-bg": {
+        "$type": "color",
+        "$value": "#f0f4f4",
+        "hc": "#ffffff",
+        "dark": "#252f2f",
+        "cssVar": "--bed-blocked-bg",
+        "$description": "Blocked / maintenance — fill"
+      },
+      "bed-blocked-border": {
+        "$type": "color",
+        "$value": "#9ea7a6",
+        "hc": "#091010",
+        "dark": "#545f5e",
+        "cssVar": "--bed-blocked-border",
+        "$description": "Blocked / maintenance — border"
+      }
+    }
+  },
+  "fontFamily": {
+    "sans": {
+      "$type": "type",
+      "$value": "\"IBM Plex Sans\", \"Noto Sans Bengali\", \"Hind Siliguri\", system-ui, sans-serif",
+      "cssVar": "--font-sans",
+      "$description": "UI text; Bangla glyphs fall through to Noto Sans Bengali"
+    },
+    "bn": {
+      "$type": "type",
+      "$value": "\"Noto Sans Bengali\", \"Hind Siliguri\", system-ui, sans-serif",
+      "cssVar": "--font-bn",
+      "$description": "Bangla-only runs (patient app long-form)"
+    },
+    "mono": {
+      "$type": "type",
+      "$value": "\"IBM Plex Mono\", \"Noto Sans Bengali\", ui-monospace, monospace",
+      "cssVar": "--font-mono",
+      "$description": "IDs, codes, token names"
+    },
+    "stacks": {
+      "$description": "Script-aware stacks. Latin UI = IBM Plex Sans; Bangla = Noto Sans Bengali (primary) with Hind Siliguri fallback. Mixed strings render with --font-sans because Plex has no Bengali glyphs, so the browser falls through per-glyph.",
+      "latinUi": [
+        "IBM Plex Sans",
+        "Noto Sans Bengali",
+        "Hind Siliguri",
+        "system-ui",
+        "sans-serif"
+      ],
+      "banglaUi": [
+        "Noto Sans Bengali",
+        "Hind Siliguri",
+        "system-ui",
+        "sans-serif"
+      ],
+      "mono": [
+        "IBM Plex Mono",
+        "Noto Sans Bengali",
+        "ui-monospace",
+        "monospace"
+      ],
+      "flutter": {
+        "latin": "IBMPlexSans",
+        "bangla": "NotoSansBengali",
+        "fallback": [
+          "HindSiliguri"
+        ],
+        "mono": "IBMPlexMono"
+      },
+      "googleFonts": "IBM Plex Sans 400/500/600/700, IBM Plex Mono 400/500/600, Noto Sans Bengali 400/500/600/700, Hind Siliguri 400/500/600/700",
+      "rule": "When the active language is bn, use lineHeightBn for every text style (Bangla conjuncts and matras need ~15–20% more leading)."
+    }
+  },
+  "typography": {
+    "display": {
+      "fontSize": {
+        "$type": "type",
+        "$value": "40px",
+        "cssVar": "--text-display-size",
+        "$description": "display size"
+      },
+      "lineHeight": {
+        "$type": "type",
+        "$value": "48px",
+        "cssVar": "--text-display-lh",
+        "$description": "display line-height (Latin)"
+      },
+      "lineHeightBn": {
+        "$type": "type",
+        "$value": "56px",
+        "cssVar": "--text-display-lh-bn",
+        "$description": "display line-height (Bangla — room for matra & conjuncts)"
+      },
+      "fontWeight": {
+        "$type": "type",
+        "$value": "600",
+        "cssVar": "--text-display-weight",
+        "$description": "display weight"
+      }
+    },
+    "h1": {
+      "fontSize": {
+        "$type": "type",
+        "$value": "30px",
+        "cssVar": "--text-h1-size",
+        "$description": "h1 size"
+      },
+      "lineHeight": {
+        "$type": "type",
+        "$value": "38px",
+        "cssVar": "--text-h1-lh",
+        "$description": "h1 line-height (Latin)"
+      },
+      "lineHeightBn": {
+        "$type": "type",
+        "$value": "44px",
+        "cssVar": "--text-h1-lh-bn",
+        "$description": "h1 line-height (Bangla — room for matra & conjuncts)"
+      },
+      "fontWeight": {
+        "$type": "type",
+        "$value": "600",
+        "cssVar": "--text-h1-weight",
+        "$description": "h1 weight"
+      }
+    },
+    "h2": {
+      "fontSize": {
+        "$type": "type",
+        "$value": "24px",
+        "cssVar": "--text-h2-size",
+        "$description": "h2 size"
+      },
+      "lineHeight": {
+        "$type": "type",
+        "$value": "32px",
+        "cssVar": "--text-h2-lh",
+        "$description": "h2 line-height (Latin)"
+      },
+      "lineHeightBn": {
+        "$type": "type",
+        "$value": "36px",
+        "cssVar": "--text-h2-lh-bn",
+        "$description": "h2 line-height (Bangla — room for matra & conjuncts)"
+      },
+      "fontWeight": {
+        "$type": "type",
+        "$value": "600",
+        "cssVar": "--text-h2-weight",
+        "$description": "h2 weight"
+      }
+    },
+    "h3": {
+      "fontSize": {
+        "$type": "type",
+        "$value": "20px",
+        "cssVar": "--text-h3-size",
+        "$description": "h3 size"
+      },
+      "lineHeight": {
+        "$type": "type",
+        "$value": "28px",
+        "cssVar": "--text-h3-lh",
+        "$description": "h3 line-height (Latin)"
+      },
+      "lineHeightBn": {
+        "$type": "type",
+        "$value": "32px",
+        "cssVar": "--text-h3-lh-bn",
+        "$description": "h3 line-height (Bangla — room for matra & conjuncts)"
+      },
+      "fontWeight": {
+        "$type": "type",
+        "$value": "600",
+        "cssVar": "--text-h3-weight",
+        "$description": "h3 weight"
+      }
+    },
+    "h4": {
+      "fontSize": {
+        "$type": "type",
+        "$value": "17px",
+        "cssVar": "--text-h4-size",
+        "$description": "h4 size"
+      },
+      "lineHeight": {
+        "$type": "type",
+        "$value": "24px",
+        "cssVar": "--text-h4-lh",
+        "$description": "h4 line-height (Latin)"
+      },
+      "lineHeightBn": {
+        "$type": "type",
+        "$value": "28px",
+        "cssVar": "--text-h4-lh-bn",
+        "$description": "h4 line-height (Bangla — room for matra & conjuncts)"
+      },
+      "fontWeight": {
+        "$type": "type",
+        "$value": "600",
+        "cssVar": "--text-h4-weight",
+        "$description": "h4 weight"
+      }
+    },
+    "body-lg": {
+      "fontSize": {
+        "$type": "type",
+        "$value": "17px",
+        "cssVar": "--text-body-lg-size",
+        "$description": "body-lg size"
+      },
+      "lineHeight": {
+        "$type": "type",
+        "$value": "26px",
+        "cssVar": "--text-body-lg-lh",
+        "$description": "body-lg line-height (Latin)"
+      },
+      "lineHeightBn": {
+        "$type": "type",
+        "$value": "28px",
+        "cssVar": "--text-body-lg-lh-bn",
+        "$description": "body-lg line-height (Bangla — room for matra & conjuncts)"
+      },
+      "fontWeight": {
+        "$type": "type",
+        "$value": "400",
+        "cssVar": "--text-body-lg-weight",
+        "$description": "body-lg weight"
+      }
+    },
+    "body": {
+      "fontSize": {
+        "$type": "type",
+        "$value": "15px",
+        "cssVar": "--text-body-size",
+        "$description": "body size"
+      },
+      "lineHeight": {
+        "$type": "type",
+        "$value": "22px",
+        "cssVar": "--text-body-lh",
+        "$description": "body line-height (Latin)"
+      },
+      "lineHeightBn": {
+        "$type": "type",
+        "$value": "26px",
+        "cssVar": "--text-body-lh-bn",
+        "$description": "body line-height (Bangla — room for matra & conjuncts)"
+      },
+      "fontWeight": {
+        "$type": "type",
+        "$value": "400",
+        "cssVar": "--text-body-weight",
+        "$description": "body weight"
+      }
+    },
+    "small": {
+      "fontSize": {
+        "$type": "type",
+        "$value": "13px",
+        "cssVar": "--text-small-size",
+        "$description": "small size"
+      },
+      "lineHeight": {
+        "$type": "type",
+        "$value": "18px",
+        "cssVar": "--text-small-lh",
+        "$description": "small line-height (Latin)"
+      },
+      "lineHeightBn": {
+        "$type": "type",
+        "$value": "22px",
+        "cssVar": "--text-small-lh-bn",
+        "$description": "small line-height (Bangla — room for matra & conjuncts)"
+      },
+      "fontWeight": {
+        "$type": "type",
+        "$value": "400",
+        "cssVar": "--text-small-weight",
+        "$description": "small weight"
+      }
+    },
+    "caption": {
+      "fontSize": {
+        "$type": "type",
+        "$value": "12px",
+        "cssVar": "--text-caption-size",
+        "$description": "caption size"
+      },
+      "lineHeight": {
+        "$type": "type",
+        "$value": "16px",
+        "cssVar": "--text-caption-lh",
+        "$description": "caption line-height (Latin)"
+      },
+      "lineHeightBn": {
+        "$type": "type",
+        "$value": "20px",
+        "cssVar": "--text-caption-lh-bn",
+        "$description": "caption line-height (Bangla — room for matra & conjuncts)"
+      },
+      "fontWeight": {
+        "$type": "type",
+        "$value": "500",
+        "cssVar": "--text-caption-weight",
+        "$description": "caption weight"
+      }
+    },
+    "table": {
+      "fontSize": {
+        "$type": "type",
+        "$value": "13px",
+        "cssVar": "--text-table-size",
+        "$description": "table size"
+      },
+      "lineHeight": {
+        "$type": "type",
+        "$value": "20px",
+        "cssVar": "--text-table-lh",
+        "$description": "table line-height (Latin)"
+      },
+      "lineHeightBn": {
+        "$type": "type",
+        "$value": "22px",
+        "cssVar": "--text-table-lh-bn",
+        "$description": "table line-height (Bangla — room for matra & conjuncts)"
+      },
+      "fontWeight": {
+        "$type": "type",
+        "$value": "400",
+        "cssVar": "--text-table-weight",
+        "$description": "table weight"
+      }
+    }
+  },
+  "numeric": {
+    "fontFeatureSettings": {
+      "$type": "type",
+      "$value": "\"tnum\" 1, \"lnum\" 1",
+      "cssVar": "--numeric-features",
+      "$description": "Tabular lining figures for money, results, tables"
+    },
+    "digits": {
+      "bn": "০১২৩৪৫৬৭৮৯",
+      "en": "0123456789",
+      "$description": "User setting (numerals: bn | en) independent of UI language. IDs, tokens (A-017), barcodes, BMDC numbers and codes always stay Latin."
+    },
+    "money": {
+      "format": "৳ 1,25,000",
+      "grouping": "South Asian: last 3 digits, then groups of 2 (lakh, crore)",
+      "symbol": "৳",
+      "symbolSpacing": "one space",
+      "decimals": "omit when .00; otherwise 2",
+      "inWords": {
+        "bn": "এক লক্ষ পঁচিশ হাজার টাকা মাত্র",
+        "en": "Taka One Lakh Twenty-Five Thousand Only"
+      }
+    },
+    "date": {
+      "display": "DD/MM/YYYY",
+      "time": "HH:mm (24h staff) · h:mm সকাল/বিকাল (patient app)",
+      "phone": "+880 1XXX-XXXXXX"
+    }
+  },
+  "spacing": {
+    "space-0": {
+      "$type": "space",
+      "$value": "0",
+      "cssVar": "--space-0",
+      "$description": "0 spacing"
+    },
+    "space-0-5": {
+      "$type": "space",
+      "$value": "2px",
+      "cssVar": "--space-0-5",
+      "$description": "2px spacing"
+    },
+    "space-1": {
+      "$type": "space",
+      "$value": "4px",
+      "cssVar": "--space-1",
+      "$description": "4px spacing"
+    },
+    "space-2": {
+      "$type": "space",
+      "$value": "8px",
+      "cssVar": "--space-2",
+      "$description": "8px spacing"
+    },
+    "space-3": {
+      "$type": "space",
+      "$value": "12px",
+      "cssVar": "--space-3",
+      "$description": "12px spacing"
+    },
+    "space-4": {
+      "$type": "space",
+      "$value": "16px",
+      "cssVar": "--space-4",
+      "$description": "16px spacing"
+    },
+    "space-5": {
+      "$type": "space",
+      "$value": "20px",
+      "cssVar": "--space-5",
+      "$description": "20px spacing"
+    },
+    "space-6": {
+      "$type": "space",
+      "$value": "24px",
+      "cssVar": "--space-6",
+      "$description": "24px spacing"
+    },
+    "space-8": {
+      "$type": "space",
+      "$value": "32px",
+      "cssVar": "--space-8",
+      "$description": "32px spacing"
+    },
+    "space-10": {
+      "$type": "space",
+      "$value": "40px",
+      "cssVar": "--space-10",
+      "$description": "40px spacing"
+    },
+    "space-12": {
+      "$type": "space",
+      "$value": "48px",
+      "cssVar": "--space-12",
+      "$description": "48px spacing"
+    },
+    "space-16": {
+      "$type": "space",
+      "$value": "64px",
+      "cssVar": "--space-16",
+      "$description": "64px spacing"
+    }
+  },
+  "radius": {
+    "radius-xs": {
+      "$type": "radius",
+      "$value": "4px",
+      "cssVar": "--radius-xs",
+      "$description": "Chips, flags"
+    },
+    "radius-sm": {
+      "$type": "radius",
+      "$value": "6px",
+      "cssVar": "--radius-sm",
+      "$description": "Buttons, inputs"
+    },
+    "radius-md": {
+      "$type": "radius",
+      "$value": "8px",
+      "cssVar": "--radius-md",
+      "$description": "Menus, small cards"
+    },
+    "radius-lg": {
+      "$type": "radius",
+      "$value": "12px",
+      "cssVar": "--radius-lg",
+      "$description": "Cards, panels, modals"
+    },
+    "radius-xl": {
+      "$type": "radius",
+      "$value": "16px",
+      "cssVar": "--radius-xl",
+      "$description": "Mobile sheets, patient app cards"
+    },
+    "radius-pill": {
+      "$type": "radius",
+      "$value": "999px",
+      "cssVar": "--radius-pill",
+      "$description": "Status pills, toggles"
+    }
+  },
+  "shadow": {
+    "shadow-1": {
+      "$type": "elevation",
+      "$value": "0 1px 2px rgba(14,30,30,.06), 0 0 0 1px rgba(14,30,30,.03)",
+      "cssVar": "--shadow-1",
+      "$description": "Resting card"
+    },
+    "shadow-2": {
+      "$type": "elevation",
+      "$value": "0 2px 8px rgba(14,30,30,.08), 0 1px 2px rgba(14,30,30,.06)",
+      "cssVar": "--shadow-2",
+      "$description": "Hover card, sticky header"
+    },
+    "shadow-3": {
+      "$type": "elevation",
+      "$value": "0 10px 28px rgba(14,30,30,.14), 0 2px 6px rgba(14,30,30,.06)",
+      "cssVar": "--shadow-3",
+      "$description": "Popover, drawer, toast"
+    },
+    "shadow-4": {
+      "$type": "elevation",
+      "$value": "0 24px 56px rgba(14,30,30,.22), 0 4px 12px rgba(14,30,30,.08)",
+      "cssVar": "--shadow-4",
+      "$description": "Modal"
+    }
+  },
+  "borderWidth": {
+    "border-width": {
+      "$type": "border",
+      "$value": "1px",
+      "cssVar": "--border-width",
+      "$description": "Default"
+    },
+    "border-width-strong": {
+      "$type": "border",
+      "$value": "2px",
+      "cssVar": "--border-width-strong",
+      "$description": "Selected, focus, HC theme"
+    },
+    "border-draft": {
+      "$type": "border",
+      "$value": "1.5px dashed",
+      "cssVar": "--border-draft",
+      "$description": "Draft / AI draft outline — never solid"
+    }
+  },
+  "size": {
+    "control-sm": {
+      "$type": "size",
+      "$value": "32px",
+      "cssVar": "--control-sm",
+      "$description": "Compact desktop controls"
+    },
+    "control-md": {
+      "$type": "size",
+      "$value": "40px",
+      "cssVar": "--control-md",
+      "$description": "Default desktop controls"
+    },
+    "control-lg": {
+      "$type": "size",
+      "$value": "48px",
+      "cssVar": "--control-lg",
+      "$description": "Tablet & mobile — min touch target"
+    },
+    "row-comfortable": {
+      "$type": "size",
+      "$value": "44px",
+      "cssVar": "--row-comfortable",
+      "$description": "Table row, comfortable"
+    },
+    "row-compact": {
+      "$type": "size",
+      "$value": "32px",
+      "cssVar": "--row-compact",
+      "$description": "Table row, compact (worklists)"
+    },
+    "cell-px-comfortable": {
+      "$type": "size",
+      "$value": "16px",
+      "cssVar": "--cell-px-comfortable",
+      "$description": "Cell padding x"
+    },
+    "cell-px-compact": {
+      "$type": "size",
+      "$value": "10px",
+      "cssVar": "--cell-px-compact",
+      "$description": "Cell padding x, compact"
+    },
+    "sidebar-width": {
+      "$type": "size",
+      "$value": "248px",
+      "cssVar": "--sidebar-width",
+      "$description": "Desktop grouped nav"
+    },
+    "patient-header-height": {
+      "$type": "size",
+      "$value": "88px",
+      "cssVar": "--patient-header-height",
+      "$description": "Desktop patient banner"
+    }
+  },
+  "icon": {
+    "icon-sm": {
+      "$type": "icon",
+      "$value": "16px",
+      "cssVar": "--icon-sm",
+      "$description": "Lucide line icon size"
+    },
+    "icon-md": {
+      "$type": "icon",
+      "$value": "20px",
+      "cssVar": "--icon-md",
+      "$description": "Lucide line icon size"
+    },
+    "icon-lg": {
+      "$type": "icon",
+      "$value": "24px",
+      "cssVar": "--icon-lg",
+      "$description": "Lucide line icon size"
+    }
+  },
+  "grid": {
+    "grid-desktop": {
+      "$type": "grid",
+      "$value": "\"1440px · 12 col · 24px gutter · 32px margin\"",
+      "cssVar": "--grid-desktop",
+      "$description": "Layout grid"
+    },
+    "grid-tablet-lg": {
+      "$type": "grid",
+      "$value": "\"1024px · 12 col · 20px gutter · 24px margin\"",
+      "cssVar": "--grid-tablet-lg",
+      "$description": "Layout grid"
+    },
+    "grid-tablet": {
+      "$type": "grid",
+      "$value": "\"768px · 8 col · 16px gutter · 24px margin\"",
+      "cssVar": "--grid-tablet",
+      "$description": "Layout grid"
+    },
+    "grid-mobile": {
+      "$type": "grid",
+      "$value": "\"360–412px · 4 col · 16px gutter · 16px margin\"",
+      "cssVar": "--grid-mobile",
+      "$description": "Layout grid"
+    }
+  },
+  "motion": {
+    "duration-fast": {
+      "$type": "motion",
+      "$value": "120ms",
+      "cssVar": "--duration-fast",
+      "$description": "Hover, press"
+    },
+    "duration-base": {
+      "$type": "motion",
+      "$value": "200ms",
+      "cssVar": "--duration-base",
+      "$description": "Menus, toasts"
+    },
+    "duration-slow": {
+      "$type": "motion",
+      "$value": "320ms",
+      "cssVar": "--duration-slow",
+      "$description": "Drawers, modals"
+    },
+    "ease-standard": {
+      "$type": "motion",
+      "$value": "cubic-bezier(.2,0,0,1)",
+      "cssVar": "--ease-standard",
+      "$description": "Enter / move"
+    },
+    "ease-exit": {
+      "$type": "motion",
+      "$value": "cubic-bezier(.4,0,1,1)",
+      "cssVar": "--ease-exit",
+      "$description": "Exit"
+    }
+  },
+  "zIndex": {
+    "z-sticky": {
+      "$type": "z-index",
+      "$value": "10",
+      "cssVar": "--z-sticky",
+      "$description": "Layer"
+    },
+    "z-drawer": {
+      "$type": "z-index",
+      "$value": "40",
+      "cssVar": "--z-drawer",
+      "$description": "Layer"
+    },
+    "z-modal": {
+      "$type": "z-index",
+      "$value": "50",
+      "cssVar": "--z-modal",
+      "$description": "Layer"
+    },
+    "z-toast": {
+      "$type": "z-index",
+      "$value": "60",
+      "cssVar": "--z-toast",
+      "$description": "Layer"
+    }
+  }
+}

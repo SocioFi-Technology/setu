@@ -1,0 +1,257 @@
+// Setu Health — phase 0 schema: tenancy, identity, audit, idempotency.
+// Source of truth for the shape: docs/design-handoff/domain-model.md. Add models in the order
+// docs/BUILD-PLAN.md gives. Every model has tenantId; RLS policies live in the migration SQL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  clinic
+  lite
+  pro
+}
+enum Role {
+  receptionist
+  doctor
+  nurse
+  labTech
+  pathologist
+  pharmacist
+  cashier
+  owner
+  admin
+}
+enum LocationKind {
+  branch
+  department
+  ward
+  room
+  bed
+}
+enum BedState {
+  vacant
+  reserved
+  occupied
+  discharge_pending
+  cleaning
+  blocked
+}
+enum IdentityConfidence {
+  verified
+  unverified
+  possible_duplicate
+  provisional
+}
+enum Sex {
+  male
+  female
+  other
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  plan      Plan     @default(clinic)
+  createdAt DateTime @default(now())
+  organizations Organization[]
+  users     User[]
+  patients  Patient[]
+  auditEvents AuditEvent[]
+}
+
+/// A facility (hospital or clinic). A tenant may own several.
+model Organization {
+  id        String  @id @default(cuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id])
+  name      String
+  nameBn    String?
+  licenceNo String?
+  address   String?
+  locations Location[]
+  practitionerRoles PractitionerRole[]
+  @@index([tenantId])
+}
+
+/// Branch → department → ward → room → bed.
+model Location {
+  id             String       @id @default(cuid())
+  tenantId       String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  parentId       String?
+  parent         Location?    @relation("tree", fields: [parentId], references: [id])
+  children       Location[]   @relation("tree")
+  kind           LocationKind
+  name           String
+  nameBn         String?
+  /// bed class (General/Cabin/HDU/ICU) and state apply when kind = bed
+  bedClass       String?
+  bedState       BedState?
+  @@index([tenantId, organizationId])
+  @@index([parentId])
+}
+
+/// Login identity. A receptionist is a User with a role but no Practitioner record.
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  phone        String?
+  email        String?
+  nameBn       String
+  nameEn       String
+  passwordHash String
+  pinHash      String?
+  active       Boolean  @default(true)
+  roles        PractitionerRole[]
+  sessions     Session[]
+  practitioner Practitioner?
+  createdAt    DateTime @default(now())
+  @@unique([tenantId, phone])
+  @@unique([tenantId, email])
+}
+
+/// Which role a user holds at which facility.
+model PractitionerRole {
+  id             String       @id @default(cuid())
+  tenantId       String
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  role           Role
+  @@unique([userId, organizationId, role])
+  @@index([tenantId])
+}
+
+/// Clinical identity for doctors, nurses, pathologists.
+model Practitioner {
+  id          String  @id @default(cuid())
+  tenantId    String
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id])
+  regBody     String? // BMDC / BNMC
+  regNo       String?
+  regVerified Boolean @default(false)
+  degrees     String?
+  speciality  String?
+  @@index([tenantId])
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  deviceId   String?
+  device     Device?  @relation(fields: [deviceId], references: [id])
+  organizationId String
+  role       Role
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  @@index([tenantId, userId])
+}
+
+model Device {
+  id         String    @id @default(cuid())
+  tenantId   String
+  label      String?
+  pushToken  String?
+  lastSyncAt DateTime?
+  sessions   Session[]
+  @@index([tenantId])
+}
+
+model Patient {
+  id                 String             @id @default(cuid())
+  tenantId           String
+  tenant             Tenant             @relation(fields: [tenantId], references: [id])
+  /// display number, e.g. GLC-240117 — from a per-tenant sequence, Latin digits
+  facilityNo         String
+  setuId             String?            @unique
+  nid                String?
+  birthRegNo         String?
+  nameBn             String
+  nameEn             String?
+  sex                Sex
+  birthDate          DateTime?
+  approxAgeYears     Int?
+  phone              String?
+  phoneOwner         String?            // self | guardian | shared
+  division           String?
+  district           String?
+  upazila            String?
+  addressLine        String?
+  photoKey           String?
+  identityConfidence IdentityConfidence @default(unverified)
+  identityMethod     String?
+  linkedToId         String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  relatedPersons     RelatedPerson[]
+  @@unique([tenantId, facilityNo])
+  @@index([tenantId, phone])
+  @@index([tenantId, nameBn])
+  @@index([tenantId, nameEn])
+}
+
+model RelatedPerson {
+  id            String  @id @default(cuid())
+  tenantId      String
+  patientId     String
+  patient       Patient @relation(fields: [patientId], references: [id])
+  relationship  String
+  nameBn        String
+  phone         String?
+  guardianProof String?
+  verified      Boolean @default(false)
+  @@index([tenantId, patientId])
+}
+
+/// Rule 5: every PHI-revealing action. Append-only; no updates or deletes (enforced in migration SQL).
+model AuditEvent {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  at         DateTime @default(now())
+  userId     String?
+  role       Role?
+  action     String   // view | create | update | sign | print | reprint | break-glass | login
+  entity     String   // model name
+  entityId   String?
+  patientId  String?
+  deviceId   String?
+  ip         String?
+  basis      String?  // patient | referral | policy | emergency
+  detail     Json?
+  @@index([tenantId, patientId, at])
+  @@index([tenantId, at])
+}
+
+/// Stored response for a replayed mutation (offline retries never double-post).
+model IdempotencyKey {
+  id         String   @id @default(cuid())
+  tenantId   String
+  key        String
+  route      String
+  statusCode Int
+  response   Json
+  createdAt  DateTime @default(now())
+  @@unique([tenantId, key, route])
+  @@index([createdAt])
+}
+
+/// Per-tenant counters for display numbers (facility no, invoice no, daily tokens).
+model Sequence {
+  tenantId String
+  name     String
+  value    Int    @default(0)
+  @@id([tenantId, name])
+}

@@ -1,0 +1,202 @@
+[
+  {
+    "name": "Button",
+    "reference": "ds/Actions",
+    "props": "variant: primary|accent|secondary|ghost|danger|split; size: sm 32|md 40|lg 48|touch 52; icon?: LucideName; iconOnly?: boolean; loading?: boolean",
+    "states": "default, hover, active, focus-visible, disabled, loading (spinner + label kept)",
+    "a11y": "Accent (marigold) only for the single key action per screen (Sign, Pay, Start). Icon-only buttons need aria-label + tooltip. Disabled buttons keep a visible reason nearby.",
+    "usedBy": "all"
+  },
+  {
+    "name": "IconButton + Tooltip",
+    "reference": "ds/Actions",
+    "props": "icon; label (tooltip + aria-label); shortcut?",
+    "states": "default, hover, focus, disabled",
+    "a11y": "Tooltip on hover AND focus; shows keyboard shortcut.",
+    "usedBy": "shell, consult, billing, lab"
+  },
+  {
+    "name": "TextField",
+    "reference": "ds/Actions",
+    "props": "label (bn · en); hint; error; required; prefix/suffix; size md 40 | touch 48 | vitals 56",
+    "states": "default, hover, focus, disabled, read-only, error, loading",
+    "a11y": "Label always visible (no placeholder-only labels). Error text + icon below field, linked with aria-describedby.",
+    "usedBy": "all forms"
+  },
+  {
+    "name": "BilingualNameField",
+    "reference": "ds/Actions",
+    "props": "valueBn; valueEn; transliterate?: boolean; source chip",
+    "states": "default, focus, error (either script missing), source changed",
+    "a11y": "Two inputs with lang=\"bn\" / lang=\"en\"; source chip is a button with its own label.",
+    "usedBy": "frontDesk.register, erOt.unknown, patientApp.family"
+  },
+  {
+    "name": "PhoneField (+880)",
+    "reference": "ds/Actions",
+    "props": "value; owner: self|guardian|spouse|other; masks 1XXX-XXXXXX",
+    "states": "default, focus, invalid operator prefix, error",
+    "a11y": "inputmode=\"tel\"; announces format.",
+    "usedBy": "frontDesk, doctorApp.onboard, patientApp.onboard"
+  },
+  {
+    "name": "DateAgeField",
+    "reference": "ds/Actions",
+    "props": "mode: dob|approx; value DD/MM/YYYY; shows y/m/d age",
+    "states": "default, approximate (dashed amber + \"approx.\" text), future date error",
+    "a11y": "Approximate age is labelled in text, not just by the dashed border.",
+    "usedBy": "frontDesk.register, erOt.unknown, patientApp.family"
+  },
+  {
+    "name": "MoneyField (৳)",
+    "reference": "ds/Actions",
+    "props": "value; min/max; showWords: bn|en|both",
+    "states": "default, focus, over limit, error",
+    "a11y": "Shows amount in words live; tabular figures; South Asian grouping on blur.",
+    "usedBy": "billing, ipd.admit, admin"
+  },
+  {
+    "name": "DosePatternField",
+    "reference": "ds/Actions",
+    "props": "slots: 3|4 (morning/noon/night[/bedtime]); values 0–3 or ½; meal: before|after|with; days",
+    "states": "default, focus per slot, invalid (all zero), read-only",
+    "a11y": "Keyboard: digits + ← →; renders \"১+০+১\" per numeral setting; each slot has its own aria-label.",
+    "usedBy": "consult, doctorApp.consult, ipd.summary, patientApp.rx (read-only pictogram)"
+  },
+  {
+    "name": "SearchField + Results",
+    "reference": "ds/Actions",
+    "props": "detects phone | name bn/en | patient no | QR; results list with highlight",
+    "states": "idle, typing, loading, results, no results, error, offline (local cache badge)",
+    "a11y": "Combobox pattern (aria-activedescendant); ↑↓ Enter; results announce count.",
+    "usedBy": "frontDesk.search, shell command palette, consult Rx search"
+  },
+  {
+    "name": "Select / MultiSelect / Chips",
+    "reference": "ds/Actions",
+    "props": "options; multiple; chips removable",
+    "states": "default, open, focus, disabled, error",
+    "a11y": "Native select on mobile. Chips have remove button with label.",
+    "usedBy": "all"
+  },
+  {
+    "name": "Toggle / Segmented",
+    "reference": "ds/Actions",
+    "props": "options 2–5; value",
+    "states": "default, hover, focus, disabled",
+    "a11y": "role=\"radiogroup\"; state conveyed by text, not colour only.",
+    "usedBy": "all"
+  },
+  {
+    "name": "FileUpload + Camera",
+    "reference": "ds/Actions",
+    "props": "accept; camera: boolean; compress on slow network",
+    "states": "empty, dragging, uploading (progress), queued offline, uploaded, failed-retry",
+    "a11y": "Upload result carries \"Uploaded — not verified\" provenance.",
+    "usedBy": "frontDesk.register, lab.intake, patientApp.upload"
+  },
+  {
+    "name": "DataTable",
+    "reference": "ds/DataTable",
+    "props": "columns (chooser); density: comfortable 48 | compact 36; stickyHeader; stickyTotals; inlineEdit; bulkActions; pagination; filters",
+    "states": "loading (skeleton rows), empty (with next action), error, partial selection, editing row",
+    "a11y": "Grid role with roving tabindex; ↑↓←→ Enter to edit, Esc to cancel; row status badge = text + colour.",
+    "usedBy": "billing, lab, pharmacy, admin, owner drill-down"
+  },
+  {
+    "name": "PatientHeaderBanner",
+    "reference": "ds/Clinical",
+    "props": "context: opd|ipd|lab|pharmacy|billing|mobile; patient {nameBn,nameEn,age,sex,patientNo,photo}; allergies[]; identity: verified|unverified|possibleDuplicate|provisional; payer; location/bed; alerts[]",
+    "states": "normal, unverified identity (amber warning row), possible duplicate (warning + \"Review\"), no allergies recorded (explicit text), loading, restricted (permission)",
+    "a11y": "Allergy strip is always visible and never collapses; red + icon + text. Identity warning uses text, never colour alone.",
+    "usedBy": "every clinical screen"
+  },
+  {
+    "name": "ProvenanceBadge",
+    "reference": "ds/Clinical",
+    "props": "kind: verified|uploaded|patientReported|aiDraft; author; organisation; recordedAt",
+    "states": "default, popover open (hover/tap/focus)",
+    "a11y": "Badge has text; popover is keyboard reachable; AI draft uses dashed border + \"unverified\".",
+    "usedBy": "consult, network, patientApp.timeline, lab"
+  },
+  {
+    "name": "StatusPill",
+    "reference": "ds/Clinical",
+    "props": "status: draft|pending|inProgress|partiallyComplete|signed|final|amended|cancelled|critical|offline|syncing|failedRetry",
+    "states": "static; syncing animates icon only",
+    "a11y": "Always icon + text; draft uses hatched background.",
+    "usedBy": "all"
+  },
+  {
+    "name": "ResultRow",
+    "reference": "ds/Clinical",
+    "props": "analyte; value; unit; refRange (age/sex aware); flag: N|H|L|HH|LL|critical; delta?; source: analyser|manual",
+    "states": "normal, high, low, critical, pending, amended (shows previous value)",
+    "a11y": "Flag rendered as letter + arrow icon + colour; critical adds \"!!\" and siren icon.",
+    "usedBy": "lab.result, lab.report, consult history, patientApp.report"
+  },
+  {
+    "name": "TimelineItem",
+    "reference": "ds/Clinical",
+    "props": "type: visit|labReport|prescription|admission|document; date; facility; provenance",
+    "states": "default, selected, restricted (locked row), draft",
+    "a11y": "List semantics; dashed card for patient-supplied items.",
+    "usedBy": "consult history, patientApp.timeline, network.shared"
+  },
+  {
+    "name": "QueueTokenCard / BedCard / WorklistCard",
+    "reference": "ds/Clinical",
+    "props": "token/bed/worklist item; state; badges",
+    "states": "each state carries text + icon; bed: vacant|occupied|reserved|cleaning|blocked|dischargePending",
+    "a11y": "Cards are buttons or links, 44/48px min height; bed \"blocked\" uses hatch pattern.",
+    "usedBy": "frontDesk.queue, ipd.map, nursing.ward, lab"
+  },
+  {
+    "name": "SignOffModal",
+    "reference": "ds/Overlays",
+    "props": "items that become final; confirm identity (PIN); aiReviewed checkbox when AI text present",
+    "states": "idle, missing PIN, submitting, waiting for server, confirmed, failed",
+    "a11y": "Lists exactly what becomes final; nothing shows \"Signed\" until server confirms. Focus trapped; Esc cancels.",
+    "usedBy": "consult, lab.verify, ipd.summary, nursing.handover"
+  },
+  {
+    "name": "ApprovalModal",
+    "reference": "ds/Overlays",
+    "props": "kind: discount|concession|refund|cancel; amount; reason (required); approver",
+    "states": "draft, pending, approved, rejected (needs note)",
+    "a11y": "Reason required before submit; shows policy limit in text.",
+    "usedBy": "billing, owner (mobile), admin.limits"
+  },
+  {
+    "name": "PermissionDenied / BreakGlassPanel",
+    "reference": "ds/Overlays",
+    "props": "resource; reason; canRequest; breakGlass {categories, minChars:20, durationMin:60}",
+    "states": "denied, request sent, break-glass form, active (countdown), ended",
+    "a11y": "Explains why and who can grant. Break glass: reason + acknowledgement + PIN; persistent red banner with timer.",
+    "usedBy": "consult (no access), network.glass, admin"
+  },
+  {
+    "name": "OfflineBanner / SyncIndicator / ConflictPanel",
+    "reference": "ds/Overlays",
+    "props": "pendingCount; lastSync; conflicts[]",
+    "states": "online, offline, syncing, failed-retry, conflict",
+    "a11y": "role=\"status\"; conflicts show both values and author, user picks.",
+    "usedBy": "all apps"
+  },
+  {
+    "name": "Toast / InlineAlert / ConfirmDialog / Drawer / Stepper / Tabs / CommandPalette",
+    "reference": "ds/Overlays",
+    "props": "standard",
+    "states": "standard",
+    "a11y": "Toasts never carry the only copy of an error; command palette ⌘K / Ctrl+K.",
+    "usedBy": "all"
+  },
+  {
+    "name": "QRVerificationBlock",
+    "reference": "ds/Print",
+    "props": "documentId; verifyUrl; shortCode (6 chars); size 18–24 mm",
+    "states": "final (QR shown), draft (no QR, watermark)",
+    "a11y": "Short code printed beside QR for manual entry; black ink only.",
+    "usedBy": "print templates, patientApp.claim"
+  }
+]

@@ -1,0 +1,1038 @@
+[
+  {
+    "route": "/[facility]/home",
+    "app": "staff",
+    "module": "Shell",
+    "designFile": "design/Setu Staff Shell.dc.html",
+    "roles": "all staff (role-specific home)",
+    "device": "desktop 1440 · tablet 1024",
+    "dataShown": "role worklist, today counts, alerts",
+    "primaryActions": "open task, switch branch, ⌘K",
+    "states": "empty day, offline, no access (plan/role), session expiring",
+    "backendObjects": [
+      "Practitioner",
+      "PractitionerRole",
+      "Organization",
+      "Location",
+      "Task"
+    ],
+    "transitions": "—",
+    "plan": "Clinic",
+    "sitemapId": "67"
+  },
+  {
+    "route": "/[facility]/front-desk/search",
+    "app": "staff",
+    "module": "Front desk",
+    "designFile": "design/Setu Front Desk.dc.html",
+    "roles": "receptionist",
+    "device": "desktop 1440",
+    "dataShown": "patients matched by phone/name/no/QR, family on same phone, identity confidence",
+    "primaryActions": "select, new patient (Alt+N), create visit (Enter)",
+    "states": "empty, loading, no results, offline (local cache), error",
+    "backendObjects": [
+      "Patient",
+      "RelatedPerson",
+      "Encounter"
+    ],
+    "transitions": "Encounter: planned → arrived",
+    "plan": "Clinic"
+  },
+  {
+    "route": "/[facility]/front-desk/register",
+    "app": "staff",
+    "module": "Front desk",
+    "designFile": "design/Setu Front Desk.dc.html",
+    "roles": "receptionist",
+    "device": "desktop 1440",
+    "dataShown": "bn/en name, DOB or approx age, phone owner, address cascade, IDs, payer, photo, live duplicate check",
+    "primaryActions": "save, fill from NID, link guardian",
+    "states": "validation errors, possible duplicate, offline draft (not registered until synced)",
+    "backendObjects": [
+      "Patient",
+      "RelatedPerson",
+      "Identifier(NID/BRN)",
+      "Coverage",
+      "Media"
+    ],
+    "transitions": "Patient: draft → active; identity: unverified → verified",
+    "plan": "Clinic",
+    "sitemapId": "02"
+  },
+  {
+    "route": "/[facility]/front-desk/match/[a]/[b]",
+    "app": "staff",
+    "module": "Front desk",
+    "designFile": "design/Setu Front Desk.dc.html",
+    "roles": "receptionist, records officer",
+    "device": "desktop 1440",
+    "dataShown": "field-by-field compare (Same/Similar/Different/Missing)",
+    "primaryActions": "link, keep separate, undo",
+    "states": "blocked link (sex/age conflict), no access",
+    "backendObjects": [
+      "Patient (link)",
+      "AuditEvent"
+    ],
+    "transitions": "Patient.link: none → replaced-by (reversible)",
+    "plan": "Clinic"
+  },
+  {
+    "route": "/[facility]/front-desk/appointments",
+    "app": "staff",
+    "module": "Front desk",
+    "designFile": "design/Setu Front Desk.dc.html",
+    "roles": "receptionist",
+    "device": "desktop 1440",
+    "dataShown": "day/week by doctor & chamber, slot types, SMS status",
+    "primaryActions": "book, walk-in insert, check in, reschedule/cancel (reason)",
+    "states": "empty day, doctor on leave, SMS failed",
+    "backendObjects": [
+      "Appointment",
+      "Slot",
+      "Schedule",
+      "Communication"
+    ],
+    "transitions": "Appointment: booked → arrived → fulfilled | cancelled | noshow",
+    "plan": "Clinic",
+    "sitemapId": "04"
+  },
+  {
+    "route": "/[facility]/front-desk/queue",
+    "app": "staff",
+    "module": "Front desk",
+    "designFile": "design/Setu Front Desk.dc.html",
+    "roles": "receptionist",
+    "device": "desktop 1440",
+    "dataShown": "tokens per doctor in 7 state columns, waits",
+    "primaryActions": "reorder (reason), call next",
+    "states": "empty, offline",
+    "backendObjects": [
+      "Encounter",
+      "Task(queue)",
+      "AuditEvent"
+    ],
+    "transitions": "Token: waiting → called → in-consult → done | skipped",
+    "plan": "Clinic",
+    "sitemapId": "05"
+  },
+  {
+    "route": "/tv/[facility]/[room]",
+    "app": "tv",
+    "module": "Front desk",
+    "designFile": "design/Setu Front Desk.dc.html",
+    "roles": "display (no login)",
+    "device": "TV 1920×1080",
+    "dataShown": "now serving + next 3, first name + initial",
+    "primaryActions": "—",
+    "states": "offline (last update time)",
+    "backendObjects": [
+      "Encounter (read-only projection)"
+    ],
+    "transitions": "—",
+    "plan": "Clinic",
+    "sitemapId": "66"
+  },
+  {
+    "route": "/[facility]/front-desk/vitals",
+    "app": "staff",
+    "module": "Front desk",
+    "designFile": "design/Setu Front Desk.dc.html",
+    "roles": "nurse",
+    "device": "tablet 1024",
+    "dataShown": "BP, pulse, temp, SpO₂, weight, height, BMI (Asian cut-offs), last values",
+    "primaryActions": "save",
+    "states": "out-of-range warning, impossible value block, saving, offline",
+    "backendObjects": [
+      "Observation (vital-signs)"
+    ],
+    "transitions": "Observation: preliminary → final (server confirm)",
+    "plan": "Clinic",
+    "sitemapId": "06"
+  },
+  {
+    "route": "/[facility]/opd/consult/[encounterId]",
+    "app": "staff",
+    "module": "Consultation",
+    "designFile": "design/Setu Consultation.dc.html",
+    "roles": "doctor",
+    "device": "desktop 1440 · tablet 1024",
+    "dataShown": "history, trends, network records (consented), note sections, orders, Rx, AI draft panel",
+    "primaryActions": "add dx/orders/Rx, insert AI draft, sign (Ctrl+Enter), amend, print (Ctrl+P)",
+    "states": "draft, offline draft, signed, amended, no access, allergy block, interaction ack",
+    "backendObjects": [
+      "Encounter",
+      "Condition",
+      "ServiceRequest",
+      "MedicationRequest",
+      "ClinicalImpression/Composition",
+      "DocumentReference",
+      "Consent",
+      "AuditEvent",
+      "Provenance"
+    ],
+    "transitions": "Composition: draft → signed(final) → amended (v2, v1 superseded)",
+    "plan": "Clinic"
+  },
+  {
+    "route": "/[facility]/billing/opd/[invoiceId]",
+    "app": "staff",
+    "module": "Billing",
+    "designFile": "design/Setu Billing.dc.html",
+    "roles": "cashier",
+    "device": "desktop 1440",
+    "dataShown": "charge items with source, packages, discount, VAT, totals in words",
+    "primaryActions": "add item (F3), discount (approval), pay",
+    "states": "empty bill, pending approval, VAT off, no access",
+    "backendObjects": [
+      "Invoice",
+      "ChargeItem",
+      "ChargeItemDefinition",
+      "Task(approval)"
+    ],
+    "transitions": "Invoice: draft → issued → balanced | cancelled",
+    "plan": "Clinic",
+    "sitemapId": "10"
+  },
+  {
+    "route": "/[facility]/billing/pay/[invoiceId]",
+    "app": "staff",
+    "module": "Billing",
+    "designFile": "design/Setu Billing.dc.html",
+    "roles": "cashier",
+    "device": "desktop 1440",
+    "dataShown": "split tender, bKash/Nagad link status, change",
+    "primaryActions": "send link, confirm, retry",
+    "states": "sending, waiting customer, failed, partially paid",
+    "backendObjects": [
+      "PaymentNotice",
+      "PaymentReconciliation",
+      "Communication"
+    ],
+    "transitions": "Payment: initiated → pending → confirmed | failed",
+    "plan": "Clinic",
+    "sitemapId": "11"
+  },
+  {
+    "route": "/[facility]/billing/receipt/[id]",
+    "app": "staff",
+    "module": "Billing",
+    "designFile": "design/Setu Billing.dc.html",
+    "roles": "cashier",
+    "device": "desktop 1440",
+    "dataShown": "80 mm / A5 VAT invoice (Mushak-6.3), QR",
+    "primaryActions": "print, reprint (reason)",
+    "states": "duplicate watermark",
+    "backendObjects": [
+      "Invoice",
+      "DocumentReference",
+      "AuditEvent"
+    ],
+    "transitions": "Print: original → duplicate #n",
+    "plan": "Clinic",
+    "sitemapId": "12"
+  },
+  {
+    "route": "/[facility]/billing/ipd/[admissionId]",
+    "app": "staff",
+    "module": "Billing",
+    "designFile": "design/Setu Billing.dc.html",
+    "roles": "IPD billing, cashier",
+    "device": "desktop 1440",
+    "dataShown": "running bill, package/included/excluded, payer split, deposit",
+    "primaryActions": "post charge, change bed class (preview), payment link, final summary",
+    "states": "low deposit, returns pending (blocks final), corporate cap",
+    "backendObjects": [
+      "Account",
+      "ChargeItem",
+      "Coverage",
+      "Invoice"
+    ],
+    "transitions": "Account: active → final-billing → closed",
+    "plan": "Hospital Lite",
+    "sitemapId": "13"
+  },
+  {
+    "route": "/[facility]/billing/refunds",
+    "app": "staff",
+    "module": "Billing",
+    "designFile": "design/Setu Billing.dc.html",
+    "roles": "cashier, manager",
+    "device": "desktop 1440",
+    "dataShown": "refundable items (performed = locked)",
+    "primaryActions": "request, approve/reject",
+    "states": "pending approval, rejected",
+    "backendObjects": [
+      "Invoice",
+      "Task(approval)",
+      "PaymentReconciliation"
+    ],
+    "transitions": "Refund: requested → approved → paid | rejected",
+    "plan": "Clinic",
+    "sitemapId": "15"
+  },
+  {
+    "route": "/[facility]/billing/shift",
+    "app": "staff",
+    "module": "Billing",
+    "designFile": "design/Setu Billing.dc.html",
+    "roles": "cashier, manager",
+    "device": "desktop 1440",
+    "dataShown": "cash count by note, digital vs settlement, variance",
+    "primaryActions": "close shift (reason if variance), hand over, approve",
+    "states": "variance, not approved",
+    "backendObjects": [
+      "ShiftClose (custom)",
+      "AuditEvent"
+    ],
+    "transitions": "Shift: open → counted → closed → approved",
+    "plan": "Clinic",
+    "sitemapId": "16"
+  },
+  {
+    "route": "/[facility]/billing/approvals",
+    "app": "staff",
+    "module": "Billing",
+    "designFile": "design/Setu Billing.dc.html",
+    "roles": "manager, owner",
+    "device": "desktop 1440 · Android (owner)",
+    "dataShown": "pending approvals with leak signals",
+    "primaryActions": "approve (A), reject with note (R)",
+    "states": "empty, already actioned",
+    "backendObjects": [
+      "Task(approval)",
+      "AuditEvent"
+    ],
+    "transitions": "Task: requested → accepted | rejected",
+    "plan": "Clinic",
+    "sitemapId": "17"
+  },
+  {
+    "route": "/[facility]/billing/ledger",
+    "app": "staff",
+    "module": "Billing",
+    "designFile": "design/Setu Billing.dc.html",
+    "roles": "owner, accountant (cashier read-only)",
+    "device": "desktop 1440",
+    "dataShown": "doctor/referrer share rules and entries",
+    "primaryActions": "statement print",
+    "states": "no access (reception)",
+    "backendObjects": [
+      "ShareRule",
+      "ShareEntry (custom)"
+    ],
+    "transitions": "ShareEntry: payable → paid | reversed",
+    "plan": "Clinic",
+    "sitemapId": "18"
+  },
+  {
+    "route": "/[facility]/ipd/admit",
+    "app": "staff",
+    "module": "IPD",
+    "designFile": "design/Setu IPD.dc.html",
+    "roles": "admission desk",
+    "device": "desktop 1440",
+    "dataShown": "source (OPD/ER), doctor, dx, bed class, package, deposit, consents, passes",
+    "primaryActions": "pick bed, collect deposit, admit",
+    "states": "checklist incomplete, no vacant bed",
+    "backendObjects": [
+      "Encounter(inpatient)",
+      "Location(bed)",
+      "Account",
+      "Consent",
+      "PaymentNotice"
+    ],
+    "transitions": "Encounter: planned → in-progress; Bed: vacant/reserved → occupied",
+    "plan": "Hospital Lite"
+  },
+  {
+    "route": "/[facility]/ipd/beds",
+    "app": "staff",
+    "module": "IPD",
+    "designFile": "design/Setu IPD.dc.html",
+    "roles": "ward in-charge, admission desk, doctor",
+    "device": "desktop 1440",
+    "dataShown": "32 beds, state, MEWS, deposit, EDD",
+    "primaryActions": "filter, admit here, transfer, discharge, mark ready",
+    "states": "empty ward, offline",
+    "backendObjects": [
+      "Location(bed)",
+      "Encounter",
+      "Observation(MEWS)"
+    ],
+    "transitions": "Bed: vacant → reserved → occupied → discharge-pending → cleaning → vacant | blocked",
+    "plan": "Hospital Lite"
+  },
+  {
+    "route": "/[facility]/ipd/transfer/[admissionId]",
+    "app": "staff",
+    "module": "IPD",
+    "designFile": "design/Setu IPD.dc.html",
+    "roles": "ward in-charge",
+    "device": "desktop 1440",
+    "dataShown": "destination, price delta",
+    "primaryActions": "confirm (reason + handover)",
+    "states": "no destination, payer cap",
+    "backendObjects": [
+      "Encounter.location",
+      "ChargeItem",
+      "AuditEvent"
+    ],
+    "transitions": "Bed: occupied → cleaning (old); vacant → occupied (new)",
+    "plan": "Hospital Lite"
+  },
+  {
+    "route": "/[facility]/ipd/rounds",
+    "app": "staff",
+    "module": "IPD",
+    "designFile": "design/Setu IPD.dc.html",
+    "roles": "doctor",
+    "device": "desktop 1440",
+    "dataShown": "patients by risk, overnight events, SOAP",
+    "primaryActions": "sign note, next patient",
+    "states": "no patients, draft",
+    "backendObjects": [
+      "Composition(progress note)",
+      "Observation"
+    ],
+    "transitions": "Note: draft → signed",
+    "plan": "Hospital Lite"
+  },
+  {
+    "route": "/[facility]/ipd/discharge/[admissionId]",
+    "app": "staff",
+    "module": "IPD",
+    "designFile": "design/Setu IPD.dc.html",
+    "roles": "ward, doctor, pharmacy, billing",
+    "device": "desktop 1440",
+    "dataShown": "6-step checklist with owner and wait",
+    "primaryActions": "complete step, remind",
+    "states": "blocked by step, overdue",
+    "backendObjects": [
+      "Task (per step)",
+      "Encounter"
+    ],
+    "transitions": "Discharge: initiated → summary-signed → pharmacy-cleared → billed → paid → left; Bed → cleaning",
+    "plan": "Hospital Lite"
+  },
+  {
+    "route": "/[facility]/ipd/summary/[admissionId]",
+    "app": "staff",
+    "module": "IPD",
+    "designFile": "design/Setu IPD.dc.html",
+    "roles": "doctor",
+    "device": "desktop 1440 · A4 print",
+    "dataShown": "final dx, procedures, course, discharge meds, advice, follow-up",
+    "primaryActions": "sign, print, send to app",
+    "states": "draft (watermark, no QR)",
+    "backendObjects": [
+      "Composition(discharge summary)",
+      "MedicationRequest",
+      "DocumentReference"
+    ],
+    "transitions": "draft → signed → amended",
+    "plan": "Hospital Lite"
+  },
+  {
+    "route": "/[facility]/ipd/reports",
+    "app": "staff",
+    "module": "IPD",
+    "designFile": "design/Setu IPD.dc.html",
+    "roles": "manager, owner",
+    "device": "desktop 1440",
+    "dataShown": "occupancy, ALOS, discharges before noon, turnover",
+    "primaryActions": "change period",
+    "states": "no data",
+    "backendObjects": [
+      "Encounter",
+      "Location (aggregates)"
+    ],
+    "transitions": "—",
+    "plan": "Hospital Lite"
+  },
+  {
+    "route": "/[facility]/nursing/ward",
+    "app": "staff",
+    "module": "Nursing",
+    "designFile": "design/Setu Nursing.dc.html",
+    "roles": "nurse",
+    "device": "tablet 1024 · desktop",
+    "dataShown": "bed cards with MEWS + trend, due items",
+    "primaryActions": "open patient",
+    "states": "empty, offline, bright-light (HC)",
+    "backendObjects": [
+      "Encounter",
+      "Observation",
+      "MedicationAdministration",
+      "Task"
+    ],
+    "transitions": "—",
+    "plan": "Hospital Lite",
+    "sitemapId": "26"
+  },
+  {
+    "route": "/[facility]/nursing/vitals/[admissionId]",
+    "app": "staff",
+    "module": "Nursing",
+    "designFile": "design/Setu Nursing.dc.html",
+    "roles": "nurse",
+    "device": "tablet 1024",
+    "dataShown": "vitals entry with MEWS points, 72 h chart",
+    "primaryActions": "save, inform doctor (log)",
+    "states": "MEWS ≥5 escalation (must log contact), offline",
+    "backendObjects": [
+      "Observation",
+      "Communication",
+      "Flag"
+    ],
+    "transitions": "Escalation: raised → doctor informed (logged) → resolved",
+    "plan": "Hospital Lite",
+    "sitemapId": "27"
+  },
+  {
+    "route": "/[facility]/nursing/mar/[admissionId]",
+    "app": "staff",
+    "module": "Nursing",
+    "designFile": "design/Setu Nursing.dc.html",
+    "roles": "nurse",
+    "device": "tablet 1024",
+    "dataShown": "dose grid, orders, 5 rights",
+    "primaryActions": "scan wristband + medicine, give / hold / refuse (reason)",
+    "states": "missed, due, allergy conflict, scan mismatch",
+    "backendObjects": [
+      "MedicationRequest",
+      "MedicationAdministration"
+    ],
+    "transitions": "Dose: scheduled → due → given | held | refused | missed",
+    "plan": "Hospital Lite",
+    "sitemapId": "28"
+  },
+  {
+    "route": "/[facility]/nursing/io, /notes, /careplan",
+    "app": "staff",
+    "module": "Nursing",
+    "designFile": "design/Setu Nursing.dc.html",
+    "roles": "nurse",
+    "device": "tablet 1024",
+    "dataShown": "intake/output totals, notes, tasks",
+    "primaryActions": "add, sign, tick",
+    "states": "overdue task",
+    "backendObjects": [
+      "Observation(I/O)",
+      "Composition",
+      "CarePlan",
+      "Task"
+    ],
+    "transitions": "Task: requested → completed",
+    "plan": "Hospital Lite",
+    "sitemapId": "29"
+  },
+  {
+    "route": "/[facility]/nursing/handover",
+    "app": "staff",
+    "module": "Nursing",
+    "designFile": "design/Setu Nursing.dc.html",
+    "roles": "nurse (outgoing + incoming)",
+    "device": "tablet 1024",
+    "dataShown": "SBAR per patient, outstanding tasks",
+    "primaryActions": "mark reviewed, dual PIN sign",
+    "states": "not all reviewed (blocks sign)",
+    "backendObjects": [
+      "Composition(handover)",
+      "AuditEvent"
+    ],
+    "transitions": "Handover: draft → outgoing-signed → accepted",
+    "plan": "Hospital Lite",
+    "sitemapId": "30"
+  },
+  {
+    "route": "/[facility]/lab/intake",
+    "app": "staff",
+    "module": "Lab",
+    "designFile": "design/Setu Lab.dc.html",
+    "roles": "lab front desk",
+    "device": "desktop 1440",
+    "dataShown": "orders from own doctors, network, walk-in paper Rx",
+    "primaryActions": "accept all/some, decline (reason), bill",
+    "states": "unpaid (policy), network billing",
+    "backendObjects": [
+      "ServiceRequest",
+      "Task(network)",
+      "Invoice"
+    ],
+    "transitions": "ServiceRequest: active → accepted | partially-accepted | declined",
+    "plan": "Clinic"
+  },
+  {
+    "route": "/[facility]/lab/collect",
+    "app": "staff",
+    "module": "Lab",
+    "designFile": "design/Setu Lab.dc.html",
+    "roles": "phlebotomist",
+    "device": "desktop 1440",
+    "dataShown": "pending samples, tube guidance, labels",
+    "primaryActions": "collect, reject, print label",
+    "states": "partially collected, rejected",
+    "backendObjects": [
+      "Specimen",
+      "ServiceRequest"
+    ],
+    "transitions": "Specimen: pending → collected | rejected",
+    "plan": "Clinic"
+  },
+  {
+    "route": "/[facility]/lab/home",
+    "app": "staff",
+    "module": "Lab",
+    "designFile": "design/Setu Lab.dc.html",
+    "roles": "lab manager, rider",
+    "device": "desktop 1440",
+    "dataShown": "route, riders, stops",
+    "primaryActions": "assign, mark collected, bKash link",
+    "states": "en route, failed visit",
+    "backendObjects": [
+      "Appointment(home)",
+      "Specimen",
+      "PaymentNotice"
+    ],
+    "transitions": "Home visit: assigned → en-route → collected",
+    "plan": "Clinic"
+  },
+  {
+    "route": "/[facility]/lab/accession",
+    "app": "staff",
+    "module": "Lab",
+    "designFile": "design/Setu Lab.dc.html",
+    "roles": "lab technologist",
+    "device": "desktop 1440",
+    "dataShown": "worklists by department",
+    "primaryActions": "receive (scan), start, reject (recollect)",
+    "states": "empty worklist",
+    "backendObjects": [
+      "Specimen",
+      "Task"
+    ],
+    "transitions": "Specimen: received → in-process",
+    "plan": "Clinic"
+  },
+  {
+    "route": "/[facility]/lab/result/[srId]",
+    "app": "staff",
+    "module": "Lab",
+    "designFile": "design/Setu Lab.dc.html",
+    "roles": "lab technologist",
+    "device": "desktop 1440",
+    "dataShown": "analytes, ref ranges (age/sex), delta, source analyser/manual",
+    "primaryActions": "enter (Enter/↓), save",
+    "states": "critical, delta fail, analyser offline",
+    "backendObjects": [
+      "Observation",
+      "Device"
+    ],
+    "transitions": "Observation: registered → preliminary",
+    "plan": "Clinic"
+  },
+  {
+    "route": "/[facility]/lab/verify/[reportId]",
+    "app": "staff",
+    "module": "Lab",
+    "designFile": "design/Setu Lab.dc.html",
+    "roles": "technologist, pathologist",
+    "device": "desktop 1440",
+    "dataShown": "results, critical call-back log",
+    "primaryActions": "verify, validate (PIN)",
+    "states": "blocked until critical call logged",
+    "backendObjects": [
+      "DiagnosticReport",
+      "Communication(critical)"
+    ],
+    "transitions": "DiagnosticReport: preliminary → final → amended",
+    "plan": "Clinic"
+  },
+  {
+    "route": "/[facility]/lab/report/[reportId]",
+    "app": "staff",
+    "module": "Lab",
+    "designFile": "design/Setu Lab.dc.html",
+    "roles": "lab, doctor",
+    "device": "desktop · A4 print",
+    "dataShown": "report bn/en/both, signatures, QR",
+    "primaryActions": "print, amend (reason)",
+    "states": "PRELIMINARY watermark, amended v2 banner",
+    "backendObjects": [
+      "DiagnosticReport",
+      "DocumentReference"
+    ],
+    "transitions": "as above",
+    "plan": "Clinic"
+  },
+  {
+    "route": "/[facility]/lab/delivery",
+    "app": "staff",
+    "module": "Lab",
+    "designFile": "design/Setu Lab.dc.html",
+    "roles": "lab front desk",
+    "device": "desktop 1440",
+    "dataShown": "channel status per report",
+    "primaryActions": "send, retry, re-send v2",
+    "states": "not released (blocked), failed",
+    "backendObjects": [
+      "Communication"
+    ],
+    "transitions": "Communication: preparation → in-progress → completed | failed",
+    "plan": "Clinic"
+  },
+  {
+    "route": "/[facility]/lab/qc, /lab/dashboard",
+    "app": "staff",
+    "module": "Lab",
+    "designFile": "design/Setu Lab.dc.html",
+    "roles": "lab manager",
+    "device": "desktop 1440",
+    "dataShown": "Levey-Jennings + Westgard; TAT, rejections, criticals",
+    "primaryActions": "enter QC, hold results",
+    "states": "QC fail (holds patient results)",
+    "backendObjects": [
+      "Observation(QC)",
+      "Device"
+    ],
+    "transitions": "Run: accepted | warning | rejected",
+    "plan": "Clinic"
+  },
+  {
+    "route": "/[facility]/pharmacy/*",
+    "app": "staff",
+    "module": "Pharmacy",
+    "designFile": "design/Setu Pharmacy.dc.html",
+    "roles": "pharmacist, store keeper",
+    "device": "desktop 1440",
+    "dataShown": "dispense from Rx, OTC, ward indent, stock/expiry, purchase",
+    "primaryActions": "dispense (batch FEFO), substitute (generic), return",
+    "states": "out of stock, expired batch, controlled drug",
+    "backendObjects": [
+      "MedicationDispense",
+      "Medication",
+      "SupplyRequest",
+      "SupplyDelivery",
+      "InventoryItem"
+    ],
+    "transitions": "Dispense: preparation → completed | declined; Indent: requested → issued",
+    "plan": "Clinic",
+    "sitemapId": "41"
+  },
+  {
+    "route": "/[facility]/er/triage, /er/unknown, /er/orders",
+    "app": "staff",
+    "module": "ER",
+    "designFile": "design/Setu ER and OT.dc.html",
+    "roles": "ER doctor, triage nurse",
+    "device": "desktop 1440",
+    "dataShown": "triage board by level, unknown patient reg, merge, STAT orders, disposition",
+    "primaryActions": "triage, assign, register unknown, merge (2 confirmers), admit/discharge/refer/death",
+    "states": "over target, identity provisional, death checklist",
+    "backendObjects": [
+      "Encounter(emergency)",
+      "Patient(temporary)",
+      "Patient.link",
+      "ServiceRequest"
+    ],
+    "transitions": "Encounter: triaged → in-progress → disposition; Patient: temporary → merged",
+    "plan": "Hospital Pro"
+  },
+  {
+    "route": "/[facility]/ot/calendar, /ot/safety/[caseId], /ot/intraop/[caseId]",
+    "app": "staff",
+    "module": "OT",
+    "designFile": "design/Setu ER and OT.dc.html",
+    "roles": "OT coordinator, surgeon, anaesthetist, OT nurse",
+    "device": "desktop 1440",
+    "dataShown": "OT timeline, pre-op, WHO checklist, intra-op record, counts, CSSD",
+    "primaryActions": "book (clash check), sign phases, close case",
+    "states": "blocked (fitness), count mismatch, expired set",
+    "backendObjects": [
+      "Appointment(OT)",
+      "Procedure",
+      "Task(checklist)",
+      "Observation",
+      "Device(CSSD)"
+    ],
+    "transitions": "Case: requested → scheduled → sign-in → time-out → sign-out → closed | cancelled",
+    "plan": "Hospital Pro"
+  },
+  {
+    "route": "/[facility]/owner",
+    "app": "staff",
+    "module": "Owner",
+    "designFile": "design/Setu Owner Dashboard.dc.html",
+    "roles": "owner, manager",
+    "device": "desktop 1440 · Android 412",
+    "dataShown": "KPIs with deltas, revenue vs collected, methods, payers, operations, leakage",
+    "primaryActions": "change period/branch, drill down, export",
+    "states": "no data, offline (last refresh), no access",
+    "backendObjects": [
+      "aggregates over Invoice",
+      "PaymentReconciliation",
+      "Encounter",
+      "AuditEvent"
+    ],
+    "transitions": "—",
+    "plan": "Clinic"
+  },
+  {
+    "route": "/[facility]/admin/*",
+    "app": "staff",
+    "module": "Admin",
+    "designFile": "design/Setu Admin.dc.html",
+    "roles": "admin, owner",
+    "device": "desktop 1440",
+    "dataShown": "onboarding wizard, users/roles/permission matrix, masters, print designer, audit log, plan, integrations",
+    "primaryActions": "save step, go live, invite, toggle permission, export audit, test integration",
+    "states": "go-live blocked, BMDC not found (cannot sign), integration failing",
+    "backendObjects": [
+      "Organization",
+      "Location",
+      "HealthcareService",
+      "Practitioner(Role)",
+      "ChargeItemDefinition",
+      "PlanDefinition",
+      "AuditEvent",
+      "Endpoint",
+      "Subscription"
+    ],
+    "transitions": "Facility: setup → live; Credential: pending → verified | not-found",
+    "plan": "Clinic",
+    "sitemapId": "54"
+  },
+  {
+    "route": "doctor://onboard",
+    "app": "doctor",
+    "module": "Doctor app",
+    "designFile": "design/Setu Doctor App.dc.html",
+    "roles": "doctor",
+    "device": "Android 360–412",
+    "dataShown": "phone OTP, chambers to link",
+    "primaryActions": "send OTP, link/unlink chamber",
+    "states": "OTP wrong, invite pending",
+    "backendObjects": [
+      "Practitioner",
+      "PractitionerRole"
+    ],
+    "transitions": "Role: invited → active",
+    "plan": "Clinic",
+    "sitemapId": "68"
+  },
+  {
+    "route": "doctor://home",
+    "app": "doctor",
+    "module": "Doctor app",
+    "designFile": "design/Setu Doctor App.dc.html",
+    "roles": "doctor",
+    "device": "Android 412",
+    "dataShown": "today per chamber (colour + name), counts, urgent items",
+    "primaryActions": "switch chamber (switches access context)",
+    "states": "offline (cached day), no chambers",
+    "backendObjects": [
+      "PractitionerRole",
+      "Schedule",
+      "Encounter"
+    ],
+    "transitions": "—",
+    "plan": "Clinic",
+    "sitemapId": "69"
+  },
+  {
+    "route": "doctor://queue",
+    "app": "doctor",
+    "module": "Doctor app",
+    "designFile": "design/Setu Doctor App.dc.html",
+    "roles": "doctor",
+    "device": "Android 412",
+    "dataShown": "current patient card (allergies, identity, flags), waiting list",
+    "primaryActions": "start consult",
+    "states": "IPD-only facility (no OPD queue), empty, offline",
+    "backendObjects": [
+      "Encounter",
+      "AllergyIntolerance",
+      "Observation"
+    ],
+    "transitions": "Token: called → in-consult",
+    "plan": "Clinic",
+    "sitemapId": "70"
+  },
+  {
+    "route": "doctor://consult/[encounterId]",
+    "app": "doctor",
+    "module": "Doctor app",
+    "designFile": "design/Setu Doctor App.dc.html",
+    "roles": "doctor",
+    "device": "Android 412",
+    "dataShown": "complaints, dx, Rx with 4-slot dose grid, voice AI draft",
+    "primaryActions": "record, insert draft, sign & send",
+    "states": "offline draft (not synced), AI draft unreviewed",
+    "backendObjects": [
+      "Composition",
+      "MedicationRequest",
+      "Condition",
+      "Provenance(AI)"
+    ],
+    "transitions": "draft → queued(offline) → signed",
+    "plan": "Clinic",
+    "sitemapId": "71"
+  },
+  {
+    "route": "doctor://results, doctor://ipd, doctor://earnings",
+    "app": "doctor",
+    "module": "Doctor app",
+    "designFile": "design/Setu Doctor App.dc.html",
+    "roles": "doctor",
+    "device": "Android 412",
+    "dataShown": "results by severity per chamber; admitted patients + round note; earnings by chamber",
+    "primaryActions": "acknowledge, comment, notify; sign round note; statement PDF",
+    "states": "acknowledged not synced, no admitted",
+    "backendObjects": [
+      "DiagnosticReport",
+      "Communication",
+      "Composition",
+      "ShareEntry"
+    ],
+    "transitions": "Report ack: unread → acknowledged",
+    "plan": "Clinic",
+    "sitemapId": "74"
+  },
+  {
+    "route": "patient://onboard, /claim, /family",
+    "app": "patient",
+    "module": "Patient app",
+    "designFile": "design/Setu Patient App.dc.html",
+    "roles": "patient, guardian",
+    "device": "Android 360–412",
+    "dataShown": "language, OTP, privacy; record candidates (facility + month only); dependents",
+    "primaryActions": "claim with receipt code / QR / desk code; add dependent with proof",
+    "states": "wrong code (lockout after 3), pending desk verification, dependent locked",
+    "backendObjects": [
+      "Patient",
+      "Person",
+      "RelatedPerson",
+      "Consent",
+      "Task(verification)"
+    ],
+    "transitions": "Claim: candidate → proof-pending → linked | rejected; Dependent: pending → verified",
+    "plan": "Clinic"
+  },
+  {
+    "route": "patient://home, /timeline, /report/[id], /rx/[id]",
+    "app": "patient",
+    "module": "Patient app",
+    "designFile": "design/Setu Patient App.dc.html",
+    "roles": "patient",
+    "device": "Android 412",
+    "dataShown": "next appointment, latest report, doses; timeline with provenance; plain-language results + trend; pictogram Rx",
+    "primaryActions": "mark dose taken, filter, download PDF, reminder toggle, read aloud",
+    "states": "slow network (light mode), offline (cached), big text",
+    "backendObjects": [
+      "Appointment",
+      "DiagnosticReport",
+      "Observation",
+      "MedicationRequest",
+      "Provenance"
+    ],
+    "transitions": "—",
+    "plan": "Clinic"
+  },
+  {
+    "route": "patient://share, /book, /upload",
+    "app": "patient",
+    "module": "Patient app",
+    "designFile": "design/Setu Patient App.dc.html",
+    "roles": "patient",
+    "device": "Android 412",
+    "dataShown": "share selection/recipient/period, active shares, access log; doctor/slot/pay; photo upload",
+    "primaryActions": "share, revoke (confirm), book, pay bKash/Nagad, upload",
+    "states": "offline (blocked), payment failed, upload queued",
+    "backendObjects": [
+      "Consent",
+      "AuditEvent",
+      "Appointment",
+      "PaymentNotice",
+      "DocumentReference(patient-supplied)"
+    ],
+    "transitions": "Consent: active → revoked | expired; Payment: pending → confirmed | failed; Upload: queued → uploaded (unverified)",
+    "plan": "Clinic"
+  },
+  {
+    "route": "/network/orders/[id]",
+    "app": "staff + patient",
+    "module": "Connected care",
+    "designFile": "design/Setu Connected Care.dc.html",
+    "roles": "ordering doctor, patient, diagnostic centre",
+    "device": "desktop · Android",
+    "dataShown": "portable order tracker visible to authorised parties only",
+    "primaryActions": "choose centre, accept some, re-order, collect, release, acknowledge",
+    "states": "centre sees nothing before chosen, partial decline",
+    "backendObjects": [
+      "ServiceRequest",
+      "Task(fulfilment)",
+      "Consent",
+      "DiagnosticReport"
+    ],
+    "transitions": "Order: ordered → centre-chosen → accepted(partial) → collected → released → received",
+    "plan": "Clinic"
+  },
+  {
+    "route": "/network/referrals/[id]",
+    "app": "staff + patient",
+    "module": "Connected care",
+    "designFile": "design/Setu Connected Care.dc.html",
+    "roles": "referring doctor, receiving facility, patient",
+    "device": "desktop · Android",
+    "dataShown": "referral summary (selected), slots, consultation note",
+    "primaryActions": "send (consent), accept + schedule, sign note back, acknowledge",
+    "states": "needs info, returned",
+    "backendObjects": [
+      "ServiceRequest(referral)",
+      "Task",
+      "Appointment",
+      "Composition",
+      "Consent"
+    ],
+    "transitions": "Referral: draft → sent → scheduled → seen → note-returned → acknowledged",
+    "plan": "Clinic"
+  },
+  {
+    "route": "/[facility]/patients/[id]/network",
+    "app": "staff",
+    "module": "Connected care",
+    "designFile": "design/Setu Connected Care.dc.html",
+    "roles": "doctor at another facility",
+    "device": "desktop 1440",
+    "dataShown": "external records by policy/consent with source, author, date, badge",
+    "primaryActions": "request access (scope, period, reason)",
+    "states": "policy-only, pending, consented, patient opted out, sensitive never hinted",
+    "backendObjects": [
+      "Consent",
+      "Provenance",
+      "AuditEvent",
+      "all clinical resources"
+    ],
+    "transitions": "Access request: sent → granted | denied; Consent expires automatically",
+    "plan": "Clinic"
+  },
+  {
+    "route": "/[facility]/break-glass/[patientId]",
+    "app": "staff",
+    "module": "Connected care",
+    "designFile": "design/Setu Connected Care.dc.html",
+    "roles": "ER doctor, ICU consultant; privacy officer",
+    "device": "desktop 1440",
+    "dataShown": "denied state → form → active banner + countdown → ended; review queue",
+    "primaryActions": "request (reason ≥20 chars, ack, PIN), end early, review justified/investigate",
+    "states": "expired automatically at 60 min",
+    "backendObjects": [
+      "Consent(emergency override)",
+      "AuditEvent",
+      "Communication(patient SMS)",
+      "Task(review)"
+    ],
+    "transitions": "BreakGlass: requested → active → ended → reviewed(justified | investigating)",
+    "plan": "Clinic"
+  }
+]

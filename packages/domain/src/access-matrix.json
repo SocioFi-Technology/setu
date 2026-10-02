@@ -1,0 +1,995 @@
+{
+ "roles": [
+  "receptionist",
+  "doctor",
+  "nurse",
+  "labTech",
+  "pathologist",
+  "pharmacist",
+  "cashier",
+  "owner",
+  "admin"
+ ],
+ "plans": [
+  "clinic",
+  "lite",
+  "pro"
+ ],
+ "modules": [
+  {
+   "key": "fd",
+   "name_bn": "ফ্রন্ট ডেস্ক",
+   "name_en": "Front desk",
+   "icon": "concierge-bell",
+   "plan": "clinic",
+   "roles": [
+    "receptionist",
+    "nurse",
+    "admin",
+    "owner"
+   ],
+   "screens": [
+    {
+     "key": "search",
+     "name_bn": "রোগী খোঁজা",
+     "name_en": "Find patient",
+     "icon": "search",
+     "roles": [
+      "receptionist",
+      "admin",
+      "owner"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "register",
+     "name_bn": "নিবন্ধন",
+     "name_en": "Register",
+     "icon": "user-plus",
+     "roles": [
+      "receptionist",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "match",
+     "name_bn": "ডুপ্লিকেট যাচাই",
+     "name_en": "Duplicate review",
+     "icon": "git-compare",
+     "roles": [
+      "receptionist",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "calendar",
+     "name_bn": "অ্যাপয়েন্টমেন্ট",
+     "name_en": "Appointments",
+     "icon": "calendar-days",
+     "roles": [
+      "receptionist",
+      "admin",
+      "owner"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "queue",
+     "name_bn": "সিরিয়াল বোর্ড",
+     "name_en": "Queue board",
+     "icon": "ticket",
+     "roles": [
+      "receptionist",
+      "admin",
+      "owner"
+     ],
+     "plan": "clinic",
+     "needsPatient": false,
+     "badge": "6"
+    },
+    {
+     "key": "vitals",
+     "name_bn": "ভাইটাল",
+     "name_en": "Vitals (nurse)",
+     "icon": "heart-pulse",
+     "roles": [
+      "nurse",
+      "receptionist"
+     ],
+     "plan": "clinic",
+     "needsPatient": true
+    }
+   ]
+  },
+  {
+   "key": "cons",
+   "name_bn": "ওপিডি পরামর্শ",
+   "name_en": "OPD consultation",
+   "icon": "stethoscope",
+   "plan": "clinic",
+   "roles": [
+    "doctor"
+   ],
+   "screens": [
+    {
+     "key": "draft",
+     "name_bn": "আজকের রোগী · খসড়া",
+     "name_en": "Consultation · draft",
+     "icon": "pen-line",
+     "roles": [
+      "doctor"
+     ],
+     "plan": "clinic",
+     "needsPatient": true
+    },
+    {
+     "key": "signed",
+     "name_bn": "স্বাক্ষরিত নোট",
+     "name_en": "Signed note",
+     "icon": "shield-check",
+     "roles": [
+      "doctor"
+     ],
+     "plan": "clinic",
+     "needsPatient": true
+    },
+    {
+     "key": "amended",
+     "name_bn": "সংশোধিত নোট",
+     "name_en": "Amended note",
+     "icon": "history",
+     "roles": [
+      "doctor"
+     ],
+     "plan": "clinic",
+     "needsPatient": true
+    }
+   ]
+  },
+  {
+   "key": "bill",
+   "name_bn": "বিলিং ও অর্থ",
+   "name_en": "Billing & finance",
+   "icon": "receipt",
+   "plan": "clinic",
+   "roles": [
+    "cashier",
+    "owner",
+    "admin",
+    "receptionist"
+   ],
+   "screens": [
+    {
+     "key": "opd",
+     "name_bn": "ওপিডি বিল",
+     "name_en": "OPD bill",
+     "icon": "receipt",
+     "roles": [
+      "cashier",
+      "owner",
+      "admin",
+      "receptionist"
+     ],
+     "plan": "clinic",
+     "needsPatient": true
+    },
+    {
+     "key": "pay",
+     "name_bn": "পেমেন্ট",
+     "name_en": "Payment",
+     "icon": "wallet",
+     "roles": [
+      "cashier",
+      "owner",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": true
+    },
+    {
+     "key": "receipt",
+     "name_bn": "রসিদ",
+     "name_en": "Receipt",
+     "icon": "printer",
+     "roles": [
+      "cashier",
+      "owner",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": true
+    },
+    {
+     "key": "ipd",
+     "name_bn": "আইপিডি বিল",
+     "name_en": "IPD running bill",
+     "icon": "bed-double",
+     "roles": [
+      "cashier",
+      "owner",
+      "admin"
+     ],
+     "plan": "lite",
+     "needsPatient": true
+    },
+    {
+     "key": "pkg",
+     "name_bn": "প্যাকেজ",
+     "name_en": "Packages",
+     "icon": "package",
+     "roles": [
+      "owner",
+      "admin"
+     ],
+     "plan": "lite",
+     "needsPatient": false
+    },
+    {
+     "key": "refund",
+     "name_bn": "রিফান্ড",
+     "name_en": "Refunds",
+     "icon": "undo-2",
+     "roles": [
+      "cashier",
+      "owner",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "shift",
+     "name_bn": "শিফট ক্লোজ",
+     "name_en": "Shift close",
+     "icon": "lock",
+     "roles": [
+      "cashier",
+      "owner",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "approvals",
+     "name_bn": "অনুমোদন",
+     "name_en": "Approvals",
+     "icon": "badge-check",
+     "roles": [
+      "owner",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false,
+     "badge": "3"
+    },
+    {
+     "key": "ledger",
+     "name_bn": "শেয়ার লেজার",
+     "name_en": "Share ledger",
+     "icon": "book-open",
+     "roles": [
+      "owner",
+      "admin"
+     ],
+     "plan": "pro",
+     "needsPatient": false
+    }
+   ]
+  },
+  {
+   "key": "ipd",
+   "name_bn": "আইপিডি ও শয্যা",
+   "name_en": "IPD & beds",
+   "icon": "bed-double",
+   "plan": "lite",
+   "roles": [
+    "receptionist",
+    "doctor",
+    "nurse",
+    "owner",
+    "admin"
+   ],
+   "screens": [
+    {
+     "key": "admit",
+     "name_bn": "ভর্তি",
+     "name_en": "Admission",
+     "icon": "clipboard-plus",
+     "roles": [
+      "receptionist",
+      "admin"
+     ],
+     "plan": "lite",
+     "needsPatient": false
+    },
+    {
+     "key": "map",
+     "name_bn": "বেড ম্যাপ",
+     "name_en": "Bed map",
+     "icon": "layout-grid",
+     "roles": [
+      "receptionist",
+      "doctor",
+      "nurse",
+      "owner",
+      "admin"
+     ],
+     "plan": "lite",
+     "needsPatient": false
+    },
+    {
+     "key": "transfer",
+     "name_bn": "স্থানান্তর",
+     "name_en": "Transfer",
+     "icon": "arrow-right-left",
+     "roles": [
+      "nurse",
+      "receptionist",
+      "admin"
+     ],
+     "plan": "lite",
+     "needsPatient": true
+    },
+    {
+     "key": "rounds",
+     "name_bn": "রাউন্ড",
+     "name_en": "Doctor round",
+     "icon": "stethoscope",
+     "roles": [
+      "doctor",
+      "admin"
+     ],
+     "plan": "lite",
+     "needsPatient": false
+    },
+    {
+     "key": "discharge",
+     "name_bn": "ছুটি",
+     "name_en": "Discharge",
+     "icon": "log-out",
+     "roles": [
+      "nurse",
+      "doctor",
+      "receptionist",
+      "admin"
+     ],
+     "plan": "lite",
+     "needsPatient": true
+    },
+    {
+     "key": "summary",
+     "name_bn": "ছাড়পত্র",
+     "name_en": "Discharge summary",
+     "icon": "file-text",
+     "roles": [
+      "doctor",
+      "admin"
+     ],
+     "plan": "lite",
+     "needsPatient": true
+    },
+    {
+     "key": "report",
+     "name_bn": "অকুপেন্সি",
+     "name_en": "Occupancy & LOS",
+     "icon": "bar-chart-3",
+     "roles": [
+      "owner",
+      "admin"
+     ],
+     "plan": "lite",
+     "needsPatient": false
+    }
+   ]
+  },
+  {
+   "key": "nur",
+   "name_bn": "নার্সিং",
+   "name_en": "Nursing",
+   "icon": "heart-pulse",
+   "plan": "lite",
+   "roles": [
+    "nurse",
+    "admin"
+   ],
+   "screens": [
+    {
+     "key": "ward",
+     "name_bn": "আমার ওয়ার্ড",
+     "name_en": "My ward",
+     "icon": "layout-grid",
+     "roles": [
+      "nurse",
+      "admin"
+     ],
+     "plan": "lite",
+     "needsPatient": false
+    },
+    {
+     "key": "vitals",
+     "name_bn": "ভাইটাল ও MEWS",
+     "name_en": "Vitals & MEWS",
+     "icon": "activity",
+     "roles": [
+      "nurse",
+      "admin"
+     ],
+     "plan": "lite",
+     "needsPatient": true
+    },
+    {
+     "key": "mar",
+     "name_bn": "ওষুধ (MAR)",
+     "name_en": "Medication (MAR)",
+     "icon": "pill",
+     "roles": [
+      "nurse",
+      "admin"
+     ],
+     "plan": "lite",
+     "needsPatient": true,
+     "badge": "2"
+    },
+    {
+     "key": "io",
+     "name_bn": "I/O ও নোট",
+     "name_en": "I/O, notes, care plan",
+     "icon": "droplets",
+     "roles": [
+      "nurse",
+      "admin"
+     ],
+     "plan": "lite",
+     "needsPatient": true
+    },
+    {
+     "key": "handover",
+     "name_bn": "হ্যান্ডওভার",
+     "name_en": "Handover",
+     "icon": "arrow-left-right",
+     "roles": [
+      "nurse",
+      "admin"
+     ],
+     "plan": "lite",
+     "needsPatient": false
+    }
+   ]
+  },
+  {
+   "key": "lab",
+   "name_bn": "ল্যাব ও ডায়াগনস্টিক",
+   "name_en": "Lab & diagnostics",
+   "icon": "test-tube",
+   "plan": "clinic",
+   "roles": [
+    "labTech",
+    "pathologist",
+    "admin",
+    "owner"
+   ],
+   "screens": [
+    {
+     "key": "intake",
+     "name_bn": "অর্ডার গ্রহণ",
+     "name_en": "Intake",
+     "icon": "inbox",
+     "roles": [
+      "labTech",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "collect",
+     "name_bn": "নমুনা সংগ্রহ",
+     "name_en": "Collection",
+     "icon": "syringe",
+     "roles": [
+      "labTech",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "home",
+     "name_bn": "বাড়িতে সংগ্রহ",
+     "name_en": "Home collection",
+     "icon": "bike",
+     "roles": [
+      "labTech",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "accession",
+     "name_bn": "ওয়ার্কলিস্ট",
+     "name_en": "Accession & worklists",
+     "icon": "list-checks",
+     "roles": [
+      "labTech",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "result",
+     "name_bn": "ফলাফল লেখা",
+     "name_en": "Result entry",
+     "icon": "keyboard",
+     "roles": [
+      "labTech",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": true
+    },
+    {
+     "key": "verify",
+     "name_bn": "যাচাই ও অনুমোদন",
+     "name_en": "Verification",
+     "icon": "shield-check",
+     "roles": [
+      "pathologist",
+      "labTech",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": true,
+     "badge": "4"
+    },
+    {
+     "key": "report",
+     "name_bn": "রিপোর্ট",
+     "name_en": "Report",
+     "icon": "file-text",
+     "roles": [
+      "pathologist",
+      "labTech",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "delivery",
+     "name_bn": "পাঠানো",
+     "name_en": "Delivery",
+     "icon": "send",
+     "roles": [
+      "labTech",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "qc",
+     "name_bn": "কোয়ালিটি কন্ট্রোল",
+     "name_en": "QC",
+     "icon": "flask-conical",
+     "roles": [
+      "pathologist",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "dash",
+     "name_bn": "ল্যাব ড্যাশবোর্ড",
+     "name_en": "Lab dashboard",
+     "icon": "gauge",
+     "roles": [
+      "pathologist",
+      "owner",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    }
+   ]
+  },
+  {
+   "key": "ph",
+   "name_bn": "ফার্মেসি ও ইনভেন্টরি",
+   "name_en": "Pharmacy & inventory",
+   "icon": "pill",
+   "plan": "clinic",
+   "roles": [
+    "pharmacist",
+    "admin",
+    "owner"
+   ],
+   "screens": [
+    {
+     "key": "dispense",
+     "name_bn": "ওষুধ দেওয়া",
+     "name_en": "Dispense",
+     "icon": "pill",
+     "roles": [
+      "pharmacist",
+      "admin",
+      "owner"
+     ],
+     "plan": "clinic",
+     "needsPatient": true
+    },
+    {
+     "key": "otc",
+     "name_bn": "ওটিসি বিক্রয়",
+     "name_en": "OTC sale",
+     "icon": "shopping-bag",
+     "roles": [
+      "pharmacist",
+      "admin",
+      "owner"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "indent",
+     "name_bn": "ওয়ার্ড ইনডেন্ট",
+     "name_en": "Ward indents",
+     "icon": "clipboard-list",
+     "roles": [
+      "pharmacist",
+      "admin",
+      "owner"
+     ],
+     "plan": "lite",
+     "needsPatient": false
+    },
+    {
+     "key": "stock",
+     "name_bn": "মজুদ ও মেয়াদ",
+     "name_en": "Stock & expiry",
+     "icon": "boxes",
+     "roles": [
+      "pharmacist",
+      "admin",
+      "owner"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "purchase",
+     "name_bn": "ক্রয়",
+     "name_en": "Purchase",
+     "icon": "truck",
+     "roles": [
+      "pharmacist",
+      "admin",
+      "owner"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "count",
+     "name_bn": "গণনা ও সমন্বয়",
+     "name_en": "Count & adjust",
+     "icon": "scale",
+     "roles": [
+      "pharmacist",
+      "admin",
+      "owner"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    }
+   ]
+  },
+  {
+   "key": "er",
+   "name_bn": "ইমার্জেন্সি ও ওটি",
+   "name_en": "ER & OT",
+   "icon": "siren",
+   "plan": "lite",
+   "roles": [
+    "doctor",
+    "nurse",
+    "admin"
+   ],
+   "screens": [
+    {
+     "key": "triage",
+     "name_bn": "ট্রায়াজ",
+     "name_en": "ER triage",
+     "icon": "siren",
+     "roles": [
+      "doctor",
+      "nurse",
+      "admin"
+     ],
+     "plan": "lite",
+     "needsPatient": false
+    },
+    {
+     "key": "unknown",
+     "name_bn": "অজ্ঞাত রোগী",
+     "name_en": "Unknown & merge",
+     "icon": "user-search",
+     "roles": [
+      "doctor",
+      "nurse",
+      "admin"
+     ],
+     "plan": "lite",
+     "needsPatient": false
+    },
+    {
+     "key": "orders",
+     "name_bn": "অর্ডার ও সিদ্ধান্ত",
+     "name_en": "ER orders & disposition",
+     "icon": "clipboard-list",
+     "roles": [
+      "doctor",
+      "nurse",
+      "admin"
+     ],
+     "plan": "lite",
+     "needsPatient": true
+    },
+    {
+     "key": "otcal",
+     "name_bn": "ওটি ক্যালেন্ডার",
+     "name_en": "OT calendar",
+     "icon": "calendar-range",
+     "roles": [
+      "doctor",
+      "nurse",
+      "admin"
+     ],
+     "plan": "pro",
+     "needsPatient": false
+    },
+    {
+     "key": "safety",
+     "name_bn": "প্রি-অপ ও চেকলিস্ট",
+     "name_en": "Pre-op & WHO checklist",
+     "icon": "list-checks",
+     "roles": [
+      "doctor",
+      "nurse",
+      "admin"
+     ],
+     "plan": "pro",
+     "needsPatient": true
+    },
+    {
+     "key": "intraop",
+     "name_bn": "ইন্ট্রা-অপ",
+     "name_en": "Intra-op record",
+     "icon": "scissors",
+     "roles": [
+      "doctor",
+      "nurse",
+      "admin"
+     ],
+     "plan": "pro",
+     "needsPatient": true
+    }
+   ]
+  },
+  {
+   "key": "own",
+   "name_bn": "মালিকের ড্যাশবোর্ড",
+   "name_en": "Owner dashboard",
+   "icon": "briefcase",
+   "plan": "clinic",
+   "roles": [
+    "owner",
+    "admin"
+   ],
+   "screens": [
+    {
+     "key": "dash",
+     "name_bn": "আয়, লিকেজ, অপারেশন",
+     "name_en": "Revenue, leakage, operations",
+     "icon": "bar-chart-3",
+     "roles": [
+      "owner",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    }
+   ]
+  },
+  {
+   "key": "adm",
+   "name_bn": "অ্যাডমিন ও অডিট",
+   "name_en": "Admin & audit",
+   "icon": "settings",
+   "plan": "clinic",
+   "roles": [
+    "admin",
+    "owner"
+   ],
+   "screens": [
+    {
+     "key": "wizard",
+     "name_bn": "অনবোর্ডিং",
+     "name_en": "Onboarding",
+     "icon": "rocket",
+     "roles": [
+      "admin",
+      "owner"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "users",
+     "name_bn": "ব্যবহারকারী ও ভূমিকা",
+     "name_en": "Users & roles",
+     "icon": "users",
+     "roles": [
+      "admin",
+      "owner"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "masters",
+     "name_bn": "মাস্টার ডেটা",
+     "name_en": "Masters",
+     "icon": "database",
+     "roles": [
+      "admin",
+      "owner"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "print",
+     "name_bn": "প্রিন্ট টেমপ্লেট",
+     "name_en": "Print templates",
+     "icon": "printer",
+     "roles": [
+      "admin",
+      "owner"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "audit",
+     "name_bn": "অডিট লগ",
+     "name_en": "Audit log",
+     "icon": "scroll-text",
+     "roles": [
+      "admin",
+      "owner"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "plan",
+     "name_bn": "সাবস্ক্রিপশন",
+     "name_en": "Subscription",
+     "icon": "package-check",
+     "roles": [
+      "admin",
+      "owner"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "integ",
+     "name_bn": "ইন্টিগ্রেশন",
+     "name_en": "Integrations",
+     "icon": "plug",
+     "roles": [
+      "admin",
+      "owner"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    }
+   ]
+  },
+  {
+   "key": "net",
+   "name_bn": "সেতু নেটওয়ার্ক",
+   "name_en": "Setu network",
+   "icon": "share-2",
+   "plan": "clinic",
+   "roles": [
+    "doctor",
+    "admin",
+    "owner",
+    "labTech",
+    "receptionist"
+   ],
+   "screens": [
+    {
+     "key": "lab",
+     "name_bn": "পোর্টেবল ল্যাব অর্ডার",
+     "name_en": "Portable lab order",
+     "icon": "test-tube",
+     "roles": [
+      "doctor",
+      "admin",
+      "owner",
+      "labTech",
+      "receptionist"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "ref",
+     "name_bn": "রেফারেল",
+     "name_en": "Referral",
+     "icon": "send",
+     "roles": [
+      "doctor",
+      "admin",
+      "owner",
+      "labTech",
+      "receptionist"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "shared",
+     "name_bn": "শেয়ার করা রেকর্ড",
+     "name_en": "Shared record view",
+     "icon": "folder-open",
+     "roles": [
+      "doctor",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "consent",
+     "name_bn": "সম্মতি ও প্রবেশাধিকার",
+     "name_en": "Consent & access",
+     "icon": "shield-check",
+     "roles": [
+      "admin",
+      "owner",
+      "doctor"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "glass",
+     "name_bn": "জরুরি প্রবেশ",
+     "name_en": "Emergency access",
+     "icon": "siren",
+     "roles": [
+      "doctor",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    }
+   ]
+  }
+ ]
+}
