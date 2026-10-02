@@ -46,11 +46,15 @@ export const TestItem = z.object({ code: z.string(), nameEn: z.string(), nameBn:
 export const Icd11Search = z.object({ items: z.array(Icd11Item) });
 export const MedicineSearch = z.object({ items: z.array(MedicineItem) });
 export const TestList = z.object({ items: z.array(TestItem) });
+export type Icd11Search = z.infer<typeof Icd11Search>;
+export type MedicineSearch = z.infer<typeof MedicineSearch>;
+export type TestList = z.infer<typeof TestList>;
 export const AllergyOptions = z.object({
   classes: z.array(z.object({ key: z.string(), bn: z.string(), en: z.string() })),
   /** ingredient keys a substance allergy can name (from the sample medicines) */
   ingredients: z.array(z.string()),
 });
+export type AllergyOptions = z.infer<typeof AllergyOptions>;
 
 /* ── allergies (ADR 0004) ── */
 export const AllergyKind = z.enum(["class", "substance", "other"]);
@@ -172,7 +176,7 @@ export const AiDraftResponse = z.object({
   label: z.literal("draft-not-a-diagnosis"),
   model: z.string(),
   /** pre-visit summary lines, each naming where it came from */
-  summary: z.array(z.object({ text: z.string(), source: z.string() })),
+  summary: z.array(z.object({ textBn: z.string(), textEn: z.string(), source: z.string() })),
   /** suggested note text the doctor may insert */
   proposals: z.object({ history: z.string().optional(), exam: z.object({ general: z.string().optional(), abdomen: z.string().optional() }).optional() }),
 });
