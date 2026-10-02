@@ -19,7 +19,7 @@ export function idempotencyPlugin(app: FastifyInstance) {
   });
   app.addHook("onSend", async (req, reply, payload) => {
     const id = (req as any).idemId as string | undefined;
-    if (!id || reply.statusCode >= 500) return payload;
+    if (!id || reply.statusCode >= 500 || req.txManaged) return payload; // command() stores its key inside its own transaction
     const body = typeof payload === "string" ? JSON.parse(payload) : payload;
     if (!config.dbEnabled) memory.set(id, { statusCode: reply.statusCode, body });
     else await (await import("@setu/db")).forTenant(req.session!.tenantId, (tx) => tx.idempotencyKey.create({ data: { tenantId: req.session!.tenantId, key: (req as any).idemKey, route: req.routeOptions.url ?? "", statusCode: reply.statusCode, response: body } }));

@@ -9,7 +9,7 @@ declare module "fastify" { interface FastifyContextConfig { audit?: AuditMark } 
 export function auditPlugin(app: FastifyInstance) {
   app.addHook("onResponse", async (req, reply) => {
     const mark = req.routeOptions.config.audit;
-    if (!mark || !req.session || reply.statusCode >= 400) return;
+    if (!mark || !req.session || reply.statusCode >= 400 || req.txManaged) return; // command/query routes audit inside their own transaction
     const event = {
       tenantId: req.session.tenantId, userId: req.session.userId, role: req.session.role,
       action: mark.action, entity: mark.entity, entityId: mark.entityId?.(req), patientId: mark.patientId?.(req),
