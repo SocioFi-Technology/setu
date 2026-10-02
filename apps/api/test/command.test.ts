@@ -8,7 +8,7 @@ import { err } from "../src/errors.js";
 
 const db = config.dbEnabled ? await import("@setu/db") : null;
 if (!db) console.warn("command.test: DATABASE_URL_APP not set — transaction tests SKIPPED");
-const T = "t_greenlife";
+const T = "t_e2e"; // the E2E Test Clinic, never the demo clinic
 let app: Awaited<ReturnType<typeof buildApp>>;
 let runs = 0;
 const probe = `cmdtest-${randomUUID()}`;
@@ -29,7 +29,7 @@ afterAll(async () => {
 });
 
 const login = async () => {
-  const r = await app.inject({ method: "POST", url: "/v1/auth/login", payload: { identifier: "01711000001", password: "setu1234" } });
+  const r = await app.inject({ method: "POST", url: "/v1/auth/login", payload: { identifier: "01799000001", password: "setu1234" } });
   const c = r.headers["set-cookie"]; return Array.isArray(c) ? c[0]! : (c as string);
 };
 const state = (name: string, key: string) => db!.forTenant(T, async (tx) => ({
@@ -76,7 +76,7 @@ describe.runIf(db)("command(): one transaction per request", () => {
   it("a key is scoped to the user: another user with the same key runs their own request", async () => {
     const key = randomUUID();
     const a = await app.inject({ method: "POST", url: "/test/probe", headers: { cookie: await login(), "idempotency-key": key }, payload: { name: `${probe}-u1` } });
-    const r2 = await app.inject({ method: "POST", url: "/v1/auth/login", payload: { identifier: "01711000010", password: "setu1234" } });
+    const r2 = await app.inject({ method: "POST", url: "/v1/auth/login", payload: { identifier: "01799000010", password: "setu1234" } });
     const c2 = r2.headers["set-cookie"]; const cookie2 = Array.isArray(c2) ? c2[0]! : (c2 as string);
     const b = await app.inject({ method: "POST", url: "/test/probe", headers: { cookie: cookie2, "idempotency-key": key }, payload: { name: `${probe}-u2` } });
     expect(a.statusCode).toBe(201); expect(b.statusCode).toBe(201); expect(b.headers["idempotent-replay"]).toBeUndefined();

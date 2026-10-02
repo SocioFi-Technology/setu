@@ -842,5 +842,61 @@
   "sex_conflict_note": [
     "লিঙ্গ মেলেনি — লিংক করা যাবে না",
     "Sex differs — cannot be linked"
+  ],
+  "review_queue_title": [
+    "ডুপ্লিকেট রিভিউ তালিকা",
+    "Duplicate review queue"
+  ],
+  "review_queue_admin_note": [
+    "রিভিউতে পাঠানো রেকর্ড ও কারণসহ করা লিংক (ওভাররাইড) এখানে আসে। ভুল লিংক আলাদা করুন, ঠিক হলে রেখে দিন।",
+    "Records sent for review and links made with an override come here. Unlink a wrong link, or keep it if it is right."
+  ],
+  "review_queue_desk_note": [
+    "রিভিউ অ্যাডমিন করবেন। আপনি রেকর্ড খুলে দেখতে পারেন।",
+    "An admin reviews these. You can open each record."
+  ],
+  "review_queue_empty": [
+    "রিভিউয়ের অপেক্ষায় কিছু নেই",
+    "Nothing is waiting for review"
+  ],
+  "linked_with_override": [
+    "ওভাররাইডসহ লিংক",
+    "Linked with override"
+  ],
+  "waiting_for_review": [
+    "রিভিউয়ের অপেক্ষায়",
+    "Waiting for review"
+  ],
+  "open_review": [
+    "রেকর্ড খুলুন",
+    "Open"
+  ],
+  "unlink": [
+    "লিংক খুলুন",
+    "Unlink"
+  ],
+  "keep_link": [
+    "লিংক রাখুন — দেখা হয়েছে",
+    "Keep link — reviewed"
+  ],
+  "unlink_title": [
+    "{name} ও {other}-কে আলাদা করবেন?",
+    "Unlink {name} from {other}?"
+  ],
+  "unlink_body": [
+    "দুটি রেকর্ড আবার আলাদা হবে এবং কারণসহ অডিট হবে। লিংকের পরে যে ভিজিট খোলা হয়েছে তা যেখানে আছে সেখানেই থাকবে — দরকার হলে দেখে নিন।",
+    "The two records become separate again, audited with your reason. Visits opened after the link stay where they are — check them if needed."
+  ],
+  "unlinked_done": [
+    "আলাদা করা হয়েছে",
+    "Unlinked"
+  ],
+  "kept_done": [
+    "লিংক রাখা হয়েছে — রিভিউ শেষ",
+    "Link kept — review done"
+  ],
+  "linked_note": [
+    "এই রেকর্ড {name} ({no})-এর সাথে লিংক করা আছে।",
+    "This record is linked to {name} ({no})."
   ]
 }

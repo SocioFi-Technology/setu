@@ -1,7 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
-/* Journeys run against the real stack: `pnpm dev` (api :4000, staff :3000, patient :3001) with the seeded demo tenant. */
+/* Journeys run against the real stack: `pnpm dev` (api :4000, staff :3000, patient :3001). Specs that create patients
+   or visits sign in to the seeded E2E Test Clinic (017990000xx), never the demo clinic; global-setup resets its family. */
 export default defineConfig({
   testDir: "./journeys",
+  globalSetup: "./global-setup.ts",
   timeout: 30_000,
   use: { baseURL: process.env.STAFF_URL ?? "http://localhost:3000", trace: "retain-on-failure" },
   projects: [

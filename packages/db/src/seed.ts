@@ -64,19 +64,23 @@ async function main() {
     { id: "p_shahidul", no: "GLC-240201", bn: "শহিদুল ইসলাম", en: "Shahidul Islam", sex: "male", dob: "1969-01-20", phone: "1811223344", owner: "self", upazila: "Mirpur", conf: "verified" },
     { id: "p_nasrin", no: "GLC-240210", bn: "নাসরিন সুলতানা", en: "Nasrin Sultana", sex: "female", dob: "1988-11-11", phone: "1911556677", owner: "self", upazila: "Mirpur", conf: "verified" },
   ];
-  for (const x of patients) {
+  /* The same family in any tenant: ids get `idPrefix`, facility numbers the tenant's prefix. */
+  const seedFamily = async (tenantId: string, idPrefix: string, noPrefix: string) => { for (const p of patients) {
+    const x = { ...p, id: idPrefix + p.id, no: p.no.replace(/^GLC/, noPrefix) };
     const data = {
       facilityNo: x.no, nameBn: x.bn, nameEn: x.en, sex: x.sex, birthDate: x.dob ? new Date(x.dob + "T00:00:00Z") : null,
       approxAgeYears: x.approx ?? null, approxAgeAt: x.approx ? new Date("2026-09-01T00:00:00Z") : null,
       phone: x.phone, phoneOwner: x.owner, division: "Dhaka", district: "Dhaka", upazila: x.upazila,
       identityConfidence: x.conf, identityMethod: "desk",
     };
-    await prisma.patient.upsert({ where: { id: x.id }, update: data, create: { id: x.id, tenantId: tenant.id, ...data } });
+    // `linkedToId: null` and the seeded confidence on every run: a seed run resets the walkthrough family.
+    await prisma.patient.upsert({ where: { id: x.id }, update: { ...data, linkedToId: null }, create: { id: x.id, tenantId, ...data } });
     if (x.guardian) {
       const [relationship, nameBn, phone] = x.guardian;
-      await prisma.relatedPerson.upsert({ where: { id: `rp_${x.id}` }, update: { relationship, nameBn, phone }, create: { id: `rp_${x.id}`, tenantId: tenant.id, patientId: x.id, relationship, nameBn, phone } });
+      await prisma.relatedPerson.upsert({ where: { id: `rp_${x.id}` }, update: { relationship, nameBn, phone }, create: { id: `rp_${x.id}`, tenantId, patientId: x.id, relationship, nameBn, phone } });
     }
-  }
+  } };
+  await seedFamily(tenant.id, "", "GLC");
   /* Two small tenants on the lower plans, so the plan-lock journey runs against the real database (one user each,
      on their own phone numbers: login refuses a phone+password that matches in more than one tenant). */
   const planDemos: [string, string, "clinic" | "lite", string, string, string, string, string, "nurse" | "doctor"][] = [
@@ -93,7 +97,26 @@ async function main() {
     await prisma.practitionerRole.upsert({ where: { userId_organizationId_role: { userId: uid, organizationId: oid, role } }, update: {}, create: { tenantId: tid, userId: uid, organizationId: oid, role } });
   }
   await prisma.sequence.upsert({ where: { tenantId_name: { tenantId: tenant.id, name: "patient" } }, update: {}, create: { tenantId: tenant.id, name: "patient", value: 240210 } });
-  console.log("seeded demo tenant: Green Life Clinic, Mirpur — 10 users (password setu1234, PIN 1234), 8 patients (5 share 01711-234567), Mirpur branch, ward 2A; plan demos: Clinic-plan nurse 01722000004, Lite-plan doctor 01733000002");
+
+  /* E2E Test Clinic: the API contract tests and the Playwright journeys run here, so the patients and visits they create
+     never appear in the demo clinic's queue. Same family, own users (phones 017990000xx), own branch and numbers. */
+  const E2E = { tenant: "t_e2e", org: "o_e2e", branch: "l_branch_e2e" };
+  await prisma.tenant.upsert({ where: { id: E2E.tenant }, update: { patientNoPrefix: "E2E" }, create: { id: E2E.tenant, name: "E2E Test Clinic", plan: "pro", patientNoPrefix: "E2E" } });
+  await prisma.organization.upsert({ where: { id: E2E.org }, update: {}, create: { id: E2E.org, tenantId: E2E.tenant, name: "E2E Test Clinic", nameBn: "ই২ই টেস্ট ক্লিনিক" } });
+  await prisma.location.upsert({ where: { id: E2E.branch }, update: {}, create: { id: E2E.branch, tenantId: E2E.tenant, organizationId: E2E.org, kind: "branch", name: "Test branch", nameBn: "টেস্ট শাখা" } });
+  const e2eUsers: [string, string, string, string, "receptionist" | "doctor" | "owner" | "admin"][] = [
+    ["u_e2e_desk", "টেস্ট রিসেপশন", "Test Receptionist", "01799000001", "receptionist"],
+    ["u_e2e_doctor", "ডা. টেস্ট", "Dr. Test", "01799000002", "doctor"],
+    ["u_e2e_owner", "টেস্ট মালিক", "Test Owner", "01799000009", "owner"],
+    ["u_e2e_admin", "টেস্ট অ্যাডমিন", "Test Admin", "01799000010", "admin"],
+  ];
+  for (const [id, nameBn, nameEn, phone, role] of e2eUsers) {
+    await prisma.user.upsert({ where: { id }, update: {}, create: { id, tenantId: E2E.tenant, nameBn, nameEn, phone, passwordHash: hash("setu1234"), pinHash: hash("1234") } });
+    await prisma.practitionerRole.upsert({ where: { userId_organizationId_role: { userId: id, organizationId: E2E.org, role } }, update: {}, create: { tenantId: E2E.tenant, userId: id, organizationId: E2E.org, role } });
+  }
+  await seedFamily(E2E.tenant, "e2e_", "E2E");
+  await prisma.sequence.upsert({ where: { tenantId_name: { tenantId: E2E.tenant, name: "patient" } }, update: {}, create: { tenantId: E2E.tenant, name: "patient", value: 240210 } });
+  console.log("seeded demo tenant: Green Life Clinic, Mirpur — 10 users (password setu1234, PIN 1234), 8 patients (5 share 01711-234567), Mirpur branch, ward 2A; plan demos: Clinic-plan nurse 01722000004, Lite-plan doctor 01733000002; E2E Test Clinic (tests only): 017990000xx");
 }
 
 main().finally(() => prisma.$disconnect());

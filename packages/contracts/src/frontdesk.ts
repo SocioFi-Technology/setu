@@ -81,7 +81,7 @@ export const MatchCandidate = z.object({
 export type MatchCandidate = z.infer<typeof MatchCandidate>;
 
 /* GET /v1/patients/:id/matches — a saved record against its possible matches. */
-export const PatientMatches = z.object({ subject: PatientSummary, candidates: z.array(MatchCandidate), openReview: z.object({ taskId: z.string(), candidateId: z.string().nullable() }).nullable() });
+export const PatientMatches = z.object({ subject: PatientSummary, linkedTo: PatientSummary.nullable(), candidates: z.array(MatchCandidate), openReview: z.object({ taskId: z.string(), candidateId: z.string().nullable() }).nullable() });
 /* POST /v1/patients/match-preview — an unsaved registration against existing records (the register screen's live check). */
 export type PatientMatches = z.infer<typeof PatientMatches>;
 export const MatchPreviewResponse = z.object({ candidates: z.array(MatchCandidate) });
@@ -144,3 +144,23 @@ export type QueueResponse = z.infer<typeof QueueResponse>;
 
 /* POST /v1/encounters/:id/actions */
 export const QueueActionRequest = z.object({ action: QueueAction });
+
+/* Decision 16 (02/10/2026): "Link anyway" stays immediate; an admin reviews it afterwards and can unlink. */
+export const UnlinkRequest = z.object({ reason: z.string().max(500) });
+export const ReviewKind = z.enum(["review", "override"]);
+export const ReviewItem = z.object({
+  taskId: z.string(),
+  /** review = "Send for review" (still open); override = "Link anyway" (linked with override, awaiting admin review). */
+  kind: ReviewKind,
+  subject: PatientSummary,
+  candidate: PatientSummary.nullable(),
+  reason: z.string().nullable(),
+  conflicts: z.array(MatchField),
+  requestedBy: z.object({ id: z.string(), nameBn: z.string(), nameEn: z.string() }).nullable(),
+  requestedAt: z.string(),
+});
+export type ReviewItem = z.infer<typeof ReviewItem>;
+export const ReviewQueueResponse = z.object({ items: z.array(ReviewItem) });
+export type ReviewQueueResponse = z.infer<typeof ReviewQueueResponse>;
+export const ReviewOutcomeResponse = z.object({ taskId: z.string().nullable(), subject: PatientSummary, outcome: z.enum(["unlinked", "kept"]) });
+export type ReviewOutcomeResponse = z.infer<typeof ReviewOutcomeResponse>;

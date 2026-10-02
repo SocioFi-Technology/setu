@@ -24,6 +24,9 @@ r.registerPath({ method: "post", path: "/v1/patients", request: { headers: idem,
 r.registerPath({ method: "post", path: "/v1/encounters", request: { headers: idem, body: json(C.CreateVisitRequest) }, responses: { 201: { description: "visit with token", ...json(C.CreateVisitResponse) }, 409: err } });
 r.registerPath({ method: "get", path: "/v1/queue", request: { query: z.object({ day: z.string().optional() }) }, responses: { 200: { description: "queue board", ...json(C.QueueResponse) } } });
 r.registerPath({ method: "post", path: "/v1/encounters/{id}/actions", request: { params: z.object({ id: z.string() }), headers: idem, body: json(C.QueueActionRequest) }, responses: { 200: { description: "token moved", ...json(C.QueueItem) }, 409: err } });
+r.registerPath({ method: "get", path: "/v1/reviews/duplicates", responses: { 200: { description: "open reviews and overrides", ...json(C.ReviewQueueResponse) } } });
+r.registerPath({ method: "post", path: "/v1/patients/{id}/unlink", request: { params: z.object({ id: z.string() }), headers: idem, body: json(C.UnlinkRequest) }, responses: { 200: { description: "unlinked (admin)", ...json(C.ReviewOutcomeResponse) }, 403: err, 409: err } });
+r.registerPath({ method: "post", path: "/v1/reviews/{taskId}/keep", request: { params: z.object({ taskId: z.string() }), headers: idem }, responses: { 200: { description: "override kept (admin)", ...json(C.ReviewOutcomeResponse) }, 403: err, 409: err } });
 const doc = new OpenApiGeneratorV31(r.definitions).generateDocument({ openapi: "3.1.0", info: { title: "Setu Health API", version: "0.0.1" }, servers: [{ url: "/" }] });
 writeFileSync(new URL("../openapi.json", import.meta.url), JSON.stringify(doc, null, 2));
 console.log("wrote packages/contracts/openapi.json");

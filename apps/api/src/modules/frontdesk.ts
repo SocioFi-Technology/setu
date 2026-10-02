@@ -63,7 +63,8 @@ export const draftToMatchRecord = (i: RegistrationInput, now: Date): MatchRecord
 export type Mode = "patientNo" | "phone" | "bn" | "en";
 export function searchMode(q: string): { mode: Mode; term: string } {
   const t = format.toEn(q).trim();
-  if (/^[a-z]{2,5}-\d*$/i.test(t)) return { mode: "patientNo", term: t.toUpperCase() };
+  // Facility prefixes are 2–5 characters starting with a letter (GLC, MGH, E2E), then "-" and digits.
+  if (/^[a-z][a-z0-9]{1,4}-\d*$/i.test(t)) return { mode: "patientNo", term: t.toUpperCase() };
   if (/^[+0-9\s-]{3,}$/.test(t) && t.replace(/\D/g, "").length >= 3) return { mode: "phone", term: t.replace(/\D/g, "").replace(/^880/, "").replace(/^0/, "") };
   if (/[ঀ-৿]/.test(q)) return { mode: "bn", term: q.trim().replace(/\s+/g, " ") };
   return { mode: "en", term: t.replace(/\s+/g, " ") };
@@ -115,12 +116,15 @@ export async function patientMatches(tx: Tx, id: string, now: Date) {
   const p = await getPatient(tx, id);
   const candidates = await findCandidates(tx, toMatchRecord(p), p.id, now);
   const open = await tx.task.findFirst({ where: { kind: REVIEW, focusId: p.id, status: "requested" }, orderBy: { requestedAt: "desc" } });
-  return { subject: toSummary(p), candidates, openReview: open ? { taskId: open.id, candidateId: open.candidateId } : null };
+  const linkedTo = p.linkedToId ? toSummary(await getPatient(tx, p.linkedToId)) : null;
+  return { subject: toSummary(p), linkedTo, candidates, openReview: open ? { taskId: open.id, candidateId: open.candidateId } : null };
 }
 
 /* ───── decisions: link / link anyway / review / different / undo ───── */
 const REVIEW = "patient-link-review";
 const DECISION_ACTIVITIES = ["link", "link-anyway", "review-requested", "checked-different"];
+/* An admin unlink or review closes the desk's decision: Undo must not reach back past it. */
+const BARRIERS = ["undo", "unlink", "link-reviewed"];
 type Decision = "link" | "linkAnyway" | "review" | "different";
 
 export async function decide(tx: Tx, s: SessionData, subjectId: string, decision: Decision, candidateId: string | undefined, reasonRaw: string | undefined, now: Date) {
@@ -187,8 +191,8 @@ export async function decide(tx: Tx, s: SessionData, subjectId: string, decision
 
 export async function undoDecision(tx: Tx, s: SessionData, subjectId: string, now: Date) {
   const subject = await getPatient(tx, subjectId);
-  const last = await tx.provenance.findFirst({ where: { targetType: "Patient", targetId: subject.id, activity: { in: [...DECISION_ACTIVITIES, "undo"] } }, orderBy: { recorded: "desc" } });
-  if (!last || last.activity === "undo") throw err(409, "nothing_to_undo", "ফিরিয়ে নেওয়ার মতো কিছু নেই", "There is no decision to undo");
+  const last = await tx.provenance.findFirst({ where: { targetType: "Patient", targetId: subject.id, activity: { in: [...DECISION_ACTIVITIES, ...BARRIERS] } }, orderBy: { recorded: "desc" } });
+  if (!last || BARRIERS.includes(last.activity)) throw err(409, "nothing_to_undo", "ফিরিয়ে নেওয়ার মতো কিছু নেই", "There is no decision to undo");
   const d = (last.detail ?? {}) as { previous?: { identityConfidence: typeof subject.identityConfidence; linkedToId: string | null }; taskId?: string };
   if (!d.previous) throw err(409, "nothing_to_undo", "ফিরিয়ে নেওয়ার মতো কিছু নেই", "There is no decision to undo");
   await tx.patient.update({ where: { id: subject.id }, data: { identityConfidence: d.previous.identityConfidence, linkedToId: d.previous.linkedToId } });
@@ -301,4 +305,67 @@ export async function queueAction(tx: Tx, s: SessionData, encounterId: string, a
   if (n.count !== 1) throw err(409, "stale", "অন্য কেউ আগেই বদলেছেন — আবার দেখুন", "Someone else changed this token first — refresh");
   const u = await tx.encounter.findFirst({ where: { id: e.id }, include: encounterInclude });
   return { item: toQueueItem(u as EncounterRow), from, event: a.event };
+}
+
+/* ───── admin after-the-fact review (decision 16, 02/10/2026) ───── */
+type ReviewDetail = { conflicts?: string[]; fields?: unknown; review?: { by: string; at: string; outcome: "unlinked" | "kept"; reason?: string | null } };
+const isOpenOverride = (t: { status: string; decisionNote: string | null; detail: unknown }) =>
+  t.status === "approved" && t.decisionNote === "link-anyway" && !(t.detail as ReviewDetail | null)?.review;
+
+/** Open "Send for review" Tasks and "Link anyway" overrides nobody has reviewed yet, newest first. */
+export async function reviewQueue(tx: Tx) {
+  const tasks = await tx.task.findMany({ where: { kind: REVIEW, status: { in: ["requested", "approved"] } }, orderBy: { requestedAt: "desc" }, take: 200 });
+  const live = tasks.filter((t) => t.status === "requested" || isOpenOverride(t));
+  const ids = [...new Set(live.flatMap((t) => [t.focusId, t.candidateId]).filter((x): x is string => Boolean(x)))];
+  const patients = new Map(((await tx.patient.findMany({ where: { id: { in: ids } }, include: patientInclude })) as PatientRow[]).map((p) => [p.id, p]));
+  const users = new Map((await tx.user.findMany({ where: { id: { in: [...new Set(live.map((t) => t.requestedById))] } }, select: { id: true, nameBn: true, nameEn: true } })).map((u) => [u.id, u]));
+  return live.flatMap((t) => {
+    const subject = t.focusId ? patients.get(t.focusId) : undefined;
+    if (!subject) return [];
+    // An override whose link was undone since is no longer an override.
+    if (t.status === "approved" && subject.linkedToId !== t.candidateId) return [];
+    const candidate = t.candidateId ? patients.get(t.candidateId) : undefined;
+    return [{
+      taskId: t.id, kind: (t.status === "requested" ? "review" : "override") as "review" | "override",
+      subject: toSummary(subject), candidate: candidate ? toSummary(candidate) : null, reason: t.reason,
+      conflicts: ((t.detail as ReviewDetail | null)?.conflicts ?? []) as never[], requestedBy: users.get(t.requestedById) ?? null, requestedAt: t.requestedAt.toISOString(),
+    }];
+  });
+}
+
+const markReviewed = async (tx: Tx, s: SessionData, taskId: string, outcome: "unlinked" | "kept", reason: string | null, now: Date) => {
+  const t = await tx.task.findFirst({ where: { id: taskId } });
+  if (!t) return;
+  const detail = { ...((t.detail ?? {}) as ReviewDetail), review: { by: s.userId, at: now.toISOString(), outcome, reason } };
+  // The Task stays `approved` (APPROVAL has no way back); the review outcome is recorded beside it.
+  await tx.task.update({ where: { id: t.id }, data: { detail: detail as object } });
+};
+
+/** Admin: split a linked record from the record it was linked to. Reason ≥10 characters; recorded in Provenance. */
+export async function unlinkPatient(tx: Tx, s: SessionData, subjectId: string, reasonRaw: string, now: Date) {
+  const reason = reasonRaw.trim();
+  if (reason.length < 10) throw err(400, "reason_too_short", "কমপক্ষে ১০ অক্ষরের কারণ লিখুন", "Give a reason of at least 10 characters", { field: "reason", fields: [{ field: "reason", code: "reason_too_short" }] });
+  const subject = await getPatient(tx, subjectId);
+  if (!subject.linkedToId) throw err(409, "not_linked", "এই রেকর্ড কোনো রেকর্ডের সাথে লিংক করা নেই", "This record is not linked to another");
+  const from = subject.linkedToId;
+  // Two people again: neither record has been verified as this person at the desk.
+  await tx.patient.update({ where: { id: subject.id }, data: { linkedToId: null, identityConfidence: "unverified" } });
+  const open = (await tx.task.findMany({ where: { kind: REVIEW, focusId: subject.id, candidateId: from, status: "approved", decisionNote: "link-anyway" } })).filter(isOpenOverride);
+  for (const t of open) await markReviewed(tx, s, t.id, "unlinked", reason, now);
+  await tx.provenance.create({ data: {
+    tenantId: s.tenantId, targetType: "Patient", targetId: subject.id, activity: "unlink", agentId: s.userId, onBehalfOf: s.organizationId,
+    source: "provider_verified", reason, detail: { previous: { identityConfidence: subject.identityConfidence, linkedToId: from }, taskIds: open.map((t) => t.id) } as object,
+  } });
+  return { subject: await getPatient(tx, subject.id), taskId: open[0]?.id ?? null, unlinkedFrom: from };
+}
+
+/** Admin: the override was right — keep the link and take it off the review queue. */
+export async function keepOverride(tx: Tx, s: SessionData, taskId: string, now: Date) {
+  const t = await tx.task.findFirst({ where: { id: taskId, kind: REVIEW } });
+  if (!t || !isOpenOverride(t) || !t.focusId) throw err(409, "not_an_open_override", "এটি রিভিউয়ের অপেক্ষায় থাকা লিংক নয়", "This is not a link awaiting review");
+  const subject = await getPatient(tx, t.focusId);
+  if (subject.linkedToId !== t.candidateId) throw err(409, "not_an_open_override", "এটি রিভিউয়ের অপেক্ষায় থাকা লিংক নয়", "This is not a link awaiting review");
+  await markReviewed(tx, s, t.id, "kept", null, now);
+  await tx.provenance.create({ data: { tenantId: s.tenantId, targetType: "Patient", targetId: subject.id, activity: "link-reviewed", agentId: s.userId, onBehalfOf: s.organizationId, source: "provider_verified", detail: { taskId: t.id, outcome: "kept" } as object } });
+  return { subject, taskId: t.id };
 }

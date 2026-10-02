@@ -62,9 +62,9 @@ are audited; the outbox only replays under the user/tenant/facility that queued 
 logs drop query strings; register prefill no longer travels in the URL; DOB "future" uses the Dhaka calendar day.
 
 Still open:
-16. **"Link anyway" approves itself (clinical review: High).** As decided on 02/10/2026 the review Task is created and
-    approved by the same desk user, and visits move to the linked record at once. The reviewer recommends a second
-    person (admin / records officer) before the link takes effect. The dialog no longer promises a review. Decide.
+16. ~~"Link anyway" approves itself~~ — **answered by Kamrul, 02/10/2026:** keep it immediate; add an admin "Unlink" on
+    the patient record and show overrides in the admin duplicate-review queue as "Linked with override" for
+    after-the-fact review. Built in A1–A3 (see HANDOVER).
 17. **Undo after a link** does not move or flag visits created on the linked record in between, needs no reason, and
     any desk user can undo another's link. Proposed: list those visits and require a reason to undo a link-anyway.
 18. **Provenance source for desk decisions** is `provider-verified` (the domain model's four sources have no "desk
@@ -84,4 +84,5 @@ Still open:
 12. **`setu_app` password** is set by `pnpm db:migrate` from `DATABASE_URL_APP`; production sets it from the secrets vault (`ALTER ROLE setu_app PASSWORD …`), never in a migration.
 
 ## Answered
-(none yet)
+- **16** (02/10/2026, Kamrul): "Link anyway" stays immediate; admin Unlink + "Linked with override" in the review queue.
+- **Decided at the start of A1–A3** (02/10/2026, Kamrul): token per branch per day, under-18 guardian blocks the save, same-script name search, queue board with call / next / no-show, no new state machines.

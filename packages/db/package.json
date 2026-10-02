@@ -16,7 +16,8 @@
     "migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
     "seed": "dotenv -e ../../.env -- tsx src/seed.ts",
     "studio": "dotenv -e ../../.env -- prisma studio",
-    "test": "echo 'db: no unit tests (contract tests live in apps/api)'"
+    "test": "echo 'db: no unit tests (contract tests live in apps/api)'",
+    "reset-e2e": "dotenv -e ../../.env -- tsx src/reset-e2e.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.1.0",

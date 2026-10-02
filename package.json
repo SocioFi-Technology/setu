@@ -17,7 +17,8 @@
     "db:migrate": "pnpm --filter @setu/db migrate",
     "db:seed": "pnpm --filter @setu/db seed",
     "db:studio": "pnpm --filter @setu/db studio",
-    "contracts:gen": "pnpm --filter @setu/contracts gen"
+    "contracts:gen": "pnpm --filter @setu/contracts gen",
+    "db:reset-e2e": "pnpm --filter @setu/db reset-e2e"
   },
   "devDependencies": {
     "turbo": "^2.5.0",

@@ -1,5 +1,5 @@
 import type {
-  ApiError, Capabilities, CreateVisitResponse, MatchCandidate, MatchDecisionResponse, Me, PatientMatches, PatientSearchResponse, QueueItem, QueueResponse, RegisterResponse, RegistrationInput,
+  ApiError, Capabilities, CreateVisitResponse, MatchCandidate, MatchDecisionResponse, Me, PatientMatches, PatientSearchResponse, QueueItem, QueueResponse, RegisterResponse, RegistrationInput, ReviewOutcomeResponse, ReviewQueueResponse,
 } from "@setu/contracts";
 import { enqueue, flush } from "./outbox";
 export class ApiFailure extends Error { constructor(public status: number, public body: ApiError) { super(body.message_en); } }
@@ -37,6 +37,9 @@ export const fd = {
   register: (body: RegistrationInput & { createVisit: boolean }, key: string) => write<RegisterResponse>("POST", "/v1/patients", body, "register", key),
   createVisit: (patientId: string) => write<CreateVisitResponse>("POST", "/v1/encounters", { patientId }, "visit"),
   queue: () => call<QueueResponse>("GET", "/v1/queue"),
+  reviews: () => call<ReviewQueueResponse>("GET", "/v1/reviews/duplicates"),
+  unlink: (id: string, reason: string) => call<ReviewOutcomeResponse>("POST", `/v1/patients/${encodeURIComponent(id)}/unlink`, { reason }, crypto.randomUUID()),
+  keep: (taskId: string) => call<ReviewOutcomeResponse>("POST", `/v1/reviews/${encodeURIComponent(taskId)}/keep`, {}, crypto.randomUUID()),
   act: (id: string, action: "next" | "noShow" | "call") => call<QueueItem>("POST", `/v1/encounters/${encodeURIComponent(id)}/actions`, { action }, crypto.randomUUID()),
 };
 

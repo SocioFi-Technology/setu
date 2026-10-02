@@ -2,14 +2,14 @@
    nav uses), runs in one transaction (command/query) under RLS, and audits what it reveals or changes. */
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import {
-  CreateVisitRequest, MatchDecisionRequest, PatientSearchQuery, QueueActionRequest, RegisterRequest, RegistrationInput,
-  type CreateVisitResponse, type MatchDecisionResponse, type PatientMatches, type PatientSearchResponse, type QueueItem, type QueueResponse, type RegisterResponse,
+  CreateVisitRequest, MatchDecisionRequest, PatientSearchQuery, QueueActionRequest, RegisterRequest, RegistrationInput, UnlinkRequest,
+  type CreateVisitResponse, type MatchDecisionResponse, type PatientMatches, type ReviewOutcomeResponse, type ReviewQueueResponse, type PatientSearchResponse, type QueueItem, type QueueResponse, type RegisterResponse,
 } from "@setu/contracts";
 import { authorize, dhakaDay, format, validateRegistration } from "@setu/domain";
 import { command, query } from "../command.js";
 import { err, forbidden } from "../errors.js";
 import {
-  createVisit, decide, draftToMatchRecord, findCandidates, patientMatches, queueAction, queueBoard, registerPatient, searchPatients, toSummary, undoDecision,
+  createVisit, decide, draftToMatchRecord, findCandidates, keepOverride, patientMatches, queueAction, queueBoard, registerPatient, reviewQueue, searchPatients, toSummary, undoDecision, unlinkPatient,
 } from "../modules/frontdesk.js";
 import { requireSession } from "../plugins/session.js";
 
@@ -24,7 +24,44 @@ function requireScreen(req: FastifyRequest, ...screens: string[]) {
 const validationError = (fields: { field: string; code: string }[]) =>
   err(400, "validation", `${format.toBn(fields.length)}টি ঘর ঠিক করুন`, `${fields.length} field${fields.length === 1 ? "" : "s"} need${fields.length === 1 ? "s" : ""} attention`, { field: fields[0]?.field, fields });
 
+/** Admin-only actions (decision 16): the duplicate-review screen plus the admin role. */
+function requireAdmin(req: FastifyRequest) {
+  const s = requireScreen(req, "match");
+  if (s.role !== "admin") throw forbidden("role");
+  return s;
+}
+
 export async function frontDeskRoutes(app: FastifyInstance) {
+  /* Duplicate-review queue: open reviews and "linked with override" links awaiting an admin. */
+  app.get("/v1/reviews/duplicates", async (req): Promise<ReviewQueueResponse> => {
+    requireScreen(req, "match");
+    return query(req, async (tx) => {
+      const items = await reviewQueue(tx);
+      return { body: { items }, audit: [{ action: "view", entity: "Task", detail: { purpose: "duplicate-review-queue", count: items.length } }] };
+    });
+  });
+
+  /* Admin: unlink a record from the record it was linked to (after-the-fact review of a link anyway). */
+  app.post("/v1/patients/:id/unlink", { config: { ownTx: true } }, async (req, reply): Promise<ReviewOutcomeResponse> => {
+    requireAdmin(req);
+    const { id } = req.params as { id: string };
+    const { reason } = UnlinkRequest.parse(req.body);
+    return command(req, reply, async (tx, s) => {
+      const r = await unlinkPatient(tx, s, id, reason, new Date());
+      return { body: { taskId: r.taskId, subject: toSummary(r.subject), outcome: "unlinked" }, audit: [{ action: "update", entity: "Patient", entityId: id, patientId: id, detail: { decision: "unlink", from: r.unlinkedFrom, taskId: r.taskId, reason: reason.trim() } }] };
+    });
+  });
+
+  /* Admin: keep an override link; it leaves the review queue. */
+  app.post("/v1/reviews/:taskId/keep", { config: { ownTx: true } }, async (req, reply): Promise<ReviewOutcomeResponse> => {
+    requireAdmin(req);
+    const { taskId } = req.params as { taskId: string };
+    return command(req, reply, async (tx, s) => {
+      const r = await keepOverride(tx, s, taskId, new Date());
+      return { body: { taskId: r.taskId, subject: toSummary(r.subject), outcome: "kept" }, audit: [{ action: "update", entity: "Task", entityId: taskId, patientId: r.subject.id, detail: { decision: "keep-link" } }] };
+    });
+  });
+
   /* A1 — search by patient no., phone, Bangla or English name. */
   app.get("/v1/patients/search", async (req): Promise<PatientSearchResponse> => {
     requireScreen(req, "search");

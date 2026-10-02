@@ -10,6 +10,7 @@ import { Button, Callout, Card, Dialog, PageState, Pill, TextArea, TextField, us
 import { ApiFailure, fd } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { bannerOf, useLabels, useT } from "./common";
+import { ReviewQueue, UnlinkDialog } from "./Review";
 
 const TONE: Record<FieldStatus, Tone> = { same: "ok", similar: "info", different: "bad", missing: "neu" };
 
@@ -23,6 +24,7 @@ export function FrontDeskMatch() {
   const [reason, setReason] = useState("");
   const [unsure, setUnsure] = useState("");
   const [busy, setBusy] = useState(false);
+  const [unlinkOpen, setUnlinkOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -66,7 +68,7 @@ export function FrontDeskMatch() {
     } finally { setBusy(false); }
   };
 
-  if (!id) return <PageState icon="git-compare" title={T("no_patient_chosen")} body={T("no_patient_chosen_body")} actions={<Button onClick={() => router.push("/m/fd/search")}>{T("back_to_search")}</Button>} />;
+  if (!id) return <ReviewQueue />;
   if (state === "loading" && !data) return <div aria-busy="true" className="t-muted">{T("match_loading")}</div>;
   if (state === "error" || !data) return <Callout tone="warn" icon="triangle-alert">{T("error_generic")}</Callout>;
 
@@ -94,6 +96,17 @@ export function FrontDeskMatch() {
         <h1 className="t-h2" style={{ margin: 0 }}>{T("match_title")}</h1>
         <Button size="sm" icon="arrow-left" onClick={() => router.push("/m/fd/search")}>{T("back_to_search")}</Button>
       </div>
+
+      {linked && data.linkedTo && !decision && (
+        <div role="status" className="callout callout-warn" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }} data-testid="linked-note">
+          <span style={{ flex: "1 1 300px" }}>{T("linked_note", { name: name(data.linkedTo), no: data.linkedTo.facilityNo })}</span>
+          {s.me?.role === "admin" && <Button size="sm" variant="danger" icon="unlink" onClick={() => setUnlinkOpen(true)}>{T("unlink")}</Button>}
+        </div>
+      )}
+      {data.linkedTo && (
+        <UnlinkDialog open={unlinkOpen} subjectId={subj.id} onClose={() => setUnlinkOpen(false)} onDone={() => { setUnlinkOpen(false); setDecision(null); void load(); }}
+          title={T("unlink_title", { name: name(subj), other: name(data.linkedTo) })} />
+      )}
 
       {decision && (
         <div role="status" className="callout" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
