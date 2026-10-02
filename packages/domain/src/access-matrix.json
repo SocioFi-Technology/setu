@@ -270,6 +270,17 @@
      "badge": "3"
     },
     {
+     "key": "reconcile",
+     "name_bn": "পেমেন্ট মিলিয়ে দেখা",
+     "name_en": "Payment reconciliation",
+     "icon": "scale",
+     "roles": [
+      "owner"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
      "key": "ledger",
      "name_bn": "শেয়ার লেজার",
      "name_en": "Share ledger",

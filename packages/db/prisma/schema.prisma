@@ -713,6 +713,8 @@ enum InvoiceStatus {
   partially_paid @map("partially-paid")
   balanced
   cancelled
+  /// ADR 0005: void (owner/admin, reason; never with confirmed money)
+  entered_in_error @map("entered-in-error")
 }
 
 /// An OPD bill for one visit. Lines change only while it is a draft; issuing assigns INV/yy/nnnn (per facility per
@@ -746,6 +748,13 @@ model Invoice {
   createdAt           DateTime      @default(now())
   issuedById          String?
   issuedAt            DateTime?
+  /// ADR 0005: void (entered-in-error) — who, when, why
+  voidReason          String?
+  voidedById          String?
+  voidedAt            DateTime?
+  /// the voided bill this one replaces (same visit); on the voided bill, the replacement once it is issued
+  replacesId          String?
+  replacedById        String?
   statusAt            DateTime      @default(now())
   lines               ChargeItem[]
   payments            Payment[]
@@ -783,6 +792,10 @@ model ChargeItem {
   netPaisa      Int          @default(0)
   vatPaisa      Int          @default(0)
   totalPaisa    Int          @default(0)
+  /// decision 98: "Not billed here" — an unpriced order line excluded by an approved bill-elsewhere Task
+  notBilledReason String?
+  notBilledTaskId String?
+  notBilledAt     DateTime?
   addedById     String
   createdAt     DateTime     @default(now())
   @@unique([invoiceId, position])

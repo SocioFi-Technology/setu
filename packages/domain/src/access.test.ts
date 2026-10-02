@@ -45,3 +45,12 @@ describe("capabilities", () => {
     expect(capabilities("receptionist", "pro").map((c) => c.key)).toEqual(["fd", "bill", "ipd", "net"]);
   });
 });
+
+describe("bill/reconcile (ADR 0005: beyond the design handoff — the prototype gets it in the next design round)", () => {
+  it("only the owner opens the payment-reconciliation queue (decision 89), on every plan", () => {
+    for (const plan of ["clinic", "lite", "pro"] as const) {
+      expect(authorize("owner", plan, "bill", "reconcile").allowed).toBe(true);
+      for (const role of ["admin", "cashier", "receptionist", "doctor"] as const) expect(authorize(role, plan, "bill", "reconcile").allowed).toBe(false);
+    }
+  });
+});
