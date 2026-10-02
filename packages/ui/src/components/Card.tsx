@@ -14,6 +14,6 @@ export function CardHead({ title, subtitle, right }: { title: ReactNode; subtitl
     </div>
   );
 }
-export function Callout({ icon = "info", tone = "info", children }: { icon?: string; tone?: "info" | "warn"; children: ReactNode }) {
-  return <div className={`callout${tone === "warn" ? " callout-warn" : ""}`}><Icon name={icon} size={16} style={{ marginTop: 2 }} /><span>{children}</span></div>;
+export function Callout({ icon = "info", tone = "info", children, ...rest }: { icon?: string; tone?: "info" | "warn" | "bad"; children: ReactNode } & Omit<HTMLAttributes<HTMLDivElement>, "children">) {
+  return <div className={`callout${tone === "warn" ? " callout-warn" : tone === "bad" ? " callout-bad" : ""}`} {...rest}><Icon name={icon} size={16} style={{ marginTop: 2 }} /><span>{children}</span></div>;
 }

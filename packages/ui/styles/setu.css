@@ -62,6 +62,7 @@ a.btn, a.nav-item, a.kpi, a.row-btn, a.option { text-decoration: none; }
 .row-btn:hover { background: var(--surface-hover, var(--surface-sunken)); }
 .callout { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--radius-lg); border: 1px solid var(--info-border); background: var(--info-bg); color: var(--info-fg); font: 500 13px/20px var(--font-sans); }
 .callout-warn { border-color: var(--warning-border); background: var(--warning-bg); color: var(--warning-fg); }
+.callout-bad { border-color: var(--danger-border); background: var(--danger-bg); color: var(--danger-fg); }
 .avatar { border-radius: var(--radius-pill); background: var(--surface-sunken); color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; font: 600 12px/16px var(--font-sans); flex: none; }
 .avatar-brand { background: var(--brand-primary); color: var(--text-on-primary); }
 

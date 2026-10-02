@@ -197,8 +197,13 @@ export async function openConsultation(tx: Tx, s: SessionData, encounterId: stri
     if (a.event === "start") {
       const to = transition("encounter", ENCOUNTER, from, "start");
       const n = await tx.encounter.updateMany({ where: { id: e.id, status: e.status, OR: [{ practitionerId: null }, { practitionerId: s.userId }] }, data: { status: "in_progress", statusAt: now, practitionerId: s.userId } });
-      if (n.count !== 1) throw stale();
-      changed.started = { from, to }; changed.assigned = a.assign;
+      if (n.count === 1) { changed.started = { from, to }; changed.assigned = a.assign; }
+      else {
+        // Two opens at once (a double click; React's dev mode runs the effect twice): when this doctor's own open won,
+        // this one is the ordinary re-open (a no-op). Anyone else's change is still a 409.
+        const won = await encounterHere(tx, s, e.id);
+        if (!(won.status === "in_progress" && won.practitionerId === s.userId)) throw stale();
+      }
     } else if (a.assign) {
       const n = await tx.encounter.updateMany({ where: { id: e.id, status: e.status, practitionerId: null }, data: { practitionerId: s.userId } });
       if (n.count !== 1) throw stale();

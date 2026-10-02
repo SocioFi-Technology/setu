@@ -50,29 +50,31 @@ export function enqueue(item: Omit<OutboxItem, "id" | "at" | "owner">): boolean 
   return true;
 }
 
-let flushing = false;
-/** Replays queued writes in order. Stops at the first network failure; a server refusal is kept, marked, and skipped. */
-export async function flush(): Promise<void> {
-  if (flushing || typeof navigator !== "undefined" && !navigator.onLine) return;
-  flushing = true;
-  try {
-    for (const it of mine(load())) {
-      let r: Response;
-      try {
-        r = await fetch("/api" + it.path, { method: it.method, credentials: "include", headers: { "content-type": "application/json", "idempotency-key": it.key }, body: JSON.stringify(it.body) });
-      } catch { return; }
-      const rest = load();
-      if (r.ok) save(rest.filter((x) => x.id !== it.id));
-      else if (r.status >= 500 || r.status === 401) return; // signed out meanwhile: keep it for this user
-      else {
-        let msg = r.statusText, msgBn: string | undefined;
-        try { const b = (await r.json()) as { message_en?: string; message_bn?: string }; msg = b.message_en ?? msg; msgBn = b.message_bn; } catch {}
-        // The refused write's body (patient details, values) is dropped: only what staff need to find it is kept.
-        save(rest.map((x) => (x.id === it.id ? { ...x, body: null, error: msg, errorBn: msgBn, status: r.status } : x)));
-      }
+let flushRun: Promise<void> | null = null;
+/** Replays queued writes in order, then the consultation drafts kept on this device. Stops at the first network failure;
+    a server refusal is kept, marked, and skipped. A call while a replay runs gets that same replay, so a screen can await
+    it and then read what is left. */
+export function flush(): Promise<void> {
+  if (typeof navigator !== "undefined" && !navigator.onLine) return Promise.resolve();
+  flushRun ??= (async () => { try { await flushWrites(); await flushDrafts(); } finally { flushRun = null; } })();
+  return flushRun;
+}
+async function flushWrites(): Promise<void> {
+  for (const it of mine(load())) {
+    let r: Response;
+    try {
+      r = await fetch("/api" + it.path, { method: it.method, credentials: "include", headers: { "content-type": "application/json", "idempotency-key": it.key }, body: JSON.stringify(it.body) });
+    } catch { return; }
+    const rest = load();
+    if (r.ok) save(rest.filter((x) => x.id !== it.id));
+    else if (r.status >= 500 || r.status === 401) return; // signed out meanwhile: keep it for this user
+    else {
+      let msg = r.statusText, msgBn: string | undefined;
+      try { const b = (await r.json()) as { message_en?: string; message_bn?: string }; msg = b.message_en ?? msg; msgBn = b.message_bn; } catch {}
+      // The refused write's body (patient details, values) is dropped: only what staff need to find it is kept.
+      save(rest.map((x) => (x.id === it.id ? { ...x, body: null, error: msg, errorBn: msgBn, status: r.status } : x)));
     }
-  } finally { flushing = false; }
-  await flushDrafts();
+  }
 }
 
 /* ── Consultation drafts kept on this device (Kamrul 02/10/2026) ──
@@ -82,6 +84,8 @@ export async function flush(): Promise<void> {
    into the note or discard. Nothing here can sign: signing needs the server (decision 25). */
 export interface DeviceDraft {
   owner: string; compositionId: string; encounterId: string; baseRev: number; body: Omit<SaveDraftRequest, "rev">;
+  /** the screen's copy with labels, so "Load the device copy" needs no catalogue lookup (never sent) */
+  form?: unknown;
   key: string; at: string; conflict?: boolean;
 }
 const DKEY = "setu.cons.drafts";
@@ -104,11 +108,13 @@ function drafts(): DeviceDraft[] {
 }
 function notify() { save(load()); }
 
-/** Keeps the latest unsent draft of a note on this device. False when nobody is signed in (nothing is kept). */
-export function saveDeviceDraft(d: Pick<DeviceDraft, "compositionId" | "encounterId" | "baseRev" | "body">): boolean {
+/** Keeps the latest unsent draft of a note on this device. False when nobody is signed in (nothing is kept).
+    `key`: pass the key of a save that failed on the network, so a replay of that same body is the same request (if the
+    server did commit it, the replay returns the stored answer instead of a false conflict). A changed body needs a new key. */
+export function saveDeviceDraft(d: Pick<DeviceDraft, "compositionId" | "encounterId" | "baseRev" | "body" | "form">, key: string = crypto.randomUUID()): boolean {
   if (!owner) return false;
   const o = owner;
-  storeDrafts([...drafts().filter((x) => !(x.owner === o && x.compositionId === d.compositionId)), { ...d, owner: o, key: crypto.randomUUID(), at: new Date().toISOString() }]);
+  storeDrafts([...drafts().filter((x) => !(x.owner === o && x.compositionId === d.compositionId)), { ...d, owner: o, key, at: new Date().toISOString() }]);
   notify();
   return true;
 }
@@ -117,32 +123,27 @@ export function dropDeviceDraft(compositionId: string) { if (owner) { const o = 
 /** Sign-out: this user's device drafts go with the session (a shared PC keeps no note text of theirs). */
 export function clearDraftsForOwner() { if (owner) { const o = owner; storeDrafts(rawDrafts().filter((x) => x.owner !== o)); notify(); } }
 
-let flushingDrafts = false;
 async function flushDrafts(): Promise<void> {
-  if (flushingDrafts || typeof navigator !== "undefined" && !navigator.onLine) return;
-  flushingDrafts = true;
-  try {
-    for (const d of myDrafts(drafts()).filter((x) => !x.conflict)) {
-      let r: Response;
-      try {
-        r = await fetch("/api" + `/v1/compositions/${encodeURIComponent(d.compositionId)}`, { method: "PUT", credentials: "include", headers: { "content-type": "application/json", "idempotency-key": d.key }, body: JSON.stringify({ ...d.body, rev: d.baseRev }) });
-      } catch { return; }
-      if (r.status >= 500 || r.status === 401) return;
-      let code = "";
-      let msg = r.statusText, msgBn: string | undefined;
-      if (!r.ok) try { const b = (await r.json()) as { code?: string; message_en?: string; message_bn?: string }; code = b.code ?? ""; msg = b.message_en ?? msg; msgBn = b.message_bn; } catch {}
-      const rest = rawDrafts();
-      // Only the same device copy is touched: the doctor may have typed again (new key) while this one was in flight.
-      const same = (x: DeviceDraft) => x.owner === d.owner && x.compositionId === d.compositionId && x.key === d.key;
-      if (r.ok) storeDrafts(rest.filter((x) => !same(x)));
-      else if (r.status === 409 && code === "stale") storeDrafts(rest.map((x) => (same(x) ? { ...x, conflict: true } : x)));
-      else {
-        // Refused for another reason (note signed meanwhile, access changed): listed with the reason, without the text.
-        storeDrafts(rest.filter((x) => !same(x)));
-        save([...load(), { id: crypto.randomUUID(), owner: d.owner, method: "PUT", path: `/v1/compositions/${d.compositionId}`, body: null, key: d.key, label: "note_draft", at: new Date().toISOString(), error: msg, errorBn: msgBn, status: r.status }]);
-      }
-      notify();
+  for (const d of myDrafts(drafts()).filter((x) => !x.conflict)) {
+    let r: Response;
+    try {
+      r = await fetch("/api" + `/v1/compositions/${encodeURIComponent(d.compositionId)}`, { method: "PUT", credentials: "include", headers: { "content-type": "application/json", "idempotency-key": d.key }, body: JSON.stringify({ ...d.body, rev: d.baseRev }) });
+    } catch { return; }
+    if (r.status >= 500 || r.status === 401) return;
+    let code = "";
+    let msg = r.statusText, msgBn: string | undefined;
+    if (!r.ok) try { const b = (await r.json()) as { code?: string; message_en?: string; message_bn?: string }; code = b.code ?? ""; msg = b.message_en ?? msg; msgBn = b.message_bn; } catch {}
+    const rest = rawDrafts();
+    // Only the same device copy is touched: the doctor may have typed again (new key) while this one was in flight.
+    const same = (x: DeviceDraft) => x.owner === d.owner && x.compositionId === d.compositionId && x.key === d.key;
+    if (r.ok) storeDrafts(rest.filter((x) => !same(x)));
+    else if (r.status === 409 && code === "stale") storeDrafts(rest.map((x) => (same(x) ? { ...x, conflict: true } : x)));
+    else {
+      // Refused for another reason (note signed meanwhile, access changed): listed with the reason, without the text.
+      storeDrafts(rest.filter((x) => !same(x)));
+      save([...load(), { id: crypto.randomUUID(), owner: d.owner, method: "PUT", path: `/v1/compositions/${d.compositionId}`, body: null, key: d.key, label: "note_draft", at: new Date().toISOString(), error: msg, errorBn: msgBn, status: r.status }]);
     }
-  } finally { flushingDrafts = false; }
+    notify();
+  }
 }
 if (typeof window !== "undefined") window.addEventListener("online", () => { void flush(); });

@@ -75,6 +75,14 @@ describe.runIf(db)("A5 opening a consultation (decision 28; Kamrul 02/10/2026)",
     expect(await inTenant((tx) => tx.composition.count({ where: { encounterId: enc } }))).toBe(1);
     expect(await inTenant((tx) => tx.auditEvent.count({ where: { entity: "Encounter", entityId: enc, action: "update" } }))).toBe(1);
   });
+  it("two opens at the same moment (double click) both answer 200 with one draft; the visit starts once", async () => {
+    const { enc } = await newVisit();
+    const [a, b] = await Promise.all([post(`/v1/encounters/${enc}/consultation/open`), post(`/v1/encounters/${enc}/consultation/open`)]);
+    expect([a.statusCode, b.statusCode], `${a.body} ${b.body}`).toEqual([200, 200]);
+    expect(a.json().draft.id).toBe(b.json().draft.id);
+    expect(await inTenant((tx) => tx.composition.count({ where: { encounterId: enc } }))).toBe(1);
+    expect(await inTenant((tx) => tx.auditEvent.count({ where: { entity: "Encounter", entityId: enc, action: "update" } }))).toBe(1);
+  });
   it("a receptionist or nurse cannot open or read it, and the visit does not move", async () => {
     const { enc } = await newVisit();
     for (const who of ["desk", "nurse"] as const) {
