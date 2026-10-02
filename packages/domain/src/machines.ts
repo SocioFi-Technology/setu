@@ -60,14 +60,40 @@ export const SPECIMEN: Table<SpecimenState, SpecimenEvent> = {
   rejected: {},
 };
 
-/* Result: critical values need a logged call-back before `final` — enforce in the route, not here. */
-export type ResultState = "registered" | "preliminary" | "final" | "amended";
-export type ResultEvent = "enter" | "validate" | "amend";
+/* Result (lab Observation), ADR 0006: technical verify and clinical validation are separate steps (two people unless the
+   facility allows one); a critical (HH/LL) result needs a logged call-back before `validate` — enforced in
+   @setu/domain lab.ts validateBlockers and the route, not here. A correction never edits a row: the old one is marked
+   entered-in-error and a new row starts again at preliminary. `amend` stays from the domain model, unused by the lab. */
+export type ResultState = "registered" | "preliminary" | "verified" | "final" | "amended" | "entered-in-error";
+export type ResultEvent = "enter" | "verify" | "validate" | "amend" | "markError";
 export const RESULT: Table<ResultState, ResultEvent> = {
   registered: { enter: "preliminary" },
-  preliminary: { validate: "final" },
-  final: { amend: "amended" },
-  amended: { amend: "amended" },
+  preliminary: { verify: "verified", markError: "entered-in-error" },
+  verified: { validate: "final", markError: "entered-in-error" },
+  final: { amend: "amended", markError: "entered-in-error" },
+  amended: { amend: "amended", markError: "entered-in-error" },
+  "entered-in-error": {},
+};
+
+/* Lab report version (DiagnosticReport), ADR 0006: a version exists only once released (an immutable snapshot); its
+   status is chosen at release (lab.ts releaseStatus); releasing the next version supersedes it. */
+export type LabReportState = "preliminary" | "final" | "corrected" | "superseded";
+export type LabReportEvent = "supersede";
+export const LAB_REPORT: Table<LabReportState, LabReportEvent> = {
+  preliminary: { supersede: "superseded" },
+  final: { supersede: "superseded" },
+  corrected: { supersede: "superseded" },
+  superseded: {},
+};
+
+/* Communication (SMS, patient app, doctor's inbox), ADR 0006: a retry re-queues the same row (same message id). */
+export type CommunicationState = "preparation" | "in-progress" | "completed" | "failed";
+export type CommunicationEvent = "send" | "deliver" | "fail" | "retry";
+export const COMMUNICATION: Table<CommunicationState, CommunicationEvent> = {
+  preparation: { send: "in-progress" },
+  "in-progress": { deliver: "completed", fail: "failed" },
+  completed: {},
+  failed: { retry: "preparation" },
 };
 
 /* ADR 0005: a draft or issued bill (no confirmed money) can be marked entered-in-error (void, owner/admin, reason);
