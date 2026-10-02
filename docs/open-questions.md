@@ -302,9 +302,9 @@ moved into `@setu/domain` `signDocument` (ADR 0003 updated).
     prescriptions, and the same after a reload); Bangla brand names are used only to help the search.
 72. **Record allergy / Entered in error are also on the signed-note screen** for the visit's doctor (an allergy belongs
     to the patient; the API already allows it on a finished visit for that doctor).
-73. **Signing out with a draft not yet sent** clears it without asking (your decision: cleared at sign-out). The top
-    bar's "not synced" count includes device drafts, so it is visible before signing out. Should sign-out warn "N
-    unsent drafts will be lost"? Your call.
+73. **Signing out with a draft not yet sent** (your decision: cleared at sign-out): after the clinical review,
+    sign-out first tries to send it, then asks "N consultation note draft(s) … Signing out deletes them" with "Stay
+    signed in" / "Sign out and delete them". The top bar's "not synced" count includes device drafts.
 74. **A session that expires without signing out** leaves that user's device draft on the browser, unreadable to other
     users, until it expires at 24 h (then only a "not sent within 24 hours" line without the text remains).
 75. **A consultation cannot be opened offline** (the note is read from the server); a note already open keeps working
