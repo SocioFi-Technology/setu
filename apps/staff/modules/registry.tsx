@@ -5,6 +5,7 @@ import type { ComponentType } from "react";
 import { PageState } from "@setu/ui";
 import { useSession } from "../lib/session";
 import { ConsultDraft } from "./cons/Draft";
+import { ConsultAmended, ConsultSigned } from "./cons/Signed";
 import { FrontDeskMatch } from "./fd/Match";
 import { FrontDeskQueue } from "./fd/Queue";
 import { FrontDeskRegister } from "./fd/Register";
@@ -21,6 +22,8 @@ const SCREENS: Record<string, ComponentType> = {
   "fd/vitals": FrontDeskVitals,
   // slice A5
   "cons/draft": ConsultDraft,
+  "cons/signed": ConsultSigned,
+  "cons/amended": ConsultAmended,
 };
 const SLICE: Record<string, string> = { fd: "A1–A3", cons: "A4–A5", bill: "A6–A7", lab: "A8–A11", ph: "phase 2", own: "phase 2", adm: "phase 2", er: "B1–B2", ipd: "B3–B4", nur: "B5–B6", net: "E1–E4" };
 
