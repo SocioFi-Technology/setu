@@ -31,6 +31,22 @@ r.registerPath({ method: "post", path: "/v1/reviews/{taskId}/keep", request: { p
 r.registerPath({ method: "get", path: "/v1/vitals/worklist", responses: { 200: { description: "today's waiting visits at the branch", ...json(C.VitalsWorklist) }, 403: err } });
 r.registerPath({ method: "get", path: "/v1/encounters/{id}/vitals", request: { params: z.object({ id: z.string() }) }, responses: { 200: { description: "this visit's vitals and the previous values", ...json(C.VitalsView) }, 403: err, 404: err } });
 r.registerPath({ method: "post", path: "/v1/encounters/{id}/vitals", request: { params: z.object({ id: z.string() }), headers: idem, body: json(C.VitalsBatchRequest) }, responses: { 201: { description: "stored (final)", ...json(C.VitalsBatchResponse) }, 400: err, 403: err, 404: err, 409: err } });
+/* Consultation (slice A5). Catalogues are sample lists. */
+const pid = z.object({ id: z.string() });
+r.registerPath({ method: "get", path: "/v1/catalog/icd11", request: { query: C.CatalogQuery }, responses: { 200: { description: "sample ICD-11 codes (unverified)", ...json(C.Icd11Search) }, 403: err } });
+r.registerPath({ method: "get", path: "/v1/catalog/medicines", request: { query: C.CatalogQuery }, responses: { 200: { description: "sample medicines", ...json(C.MedicineSearch) }, 403: err } });
+r.registerPath({ method: "get", path: "/v1/catalog/tests", responses: { 200: { description: "orderable tests", ...json(C.TestList) }, 403: err } });
+r.registerPath({ method: "get", path: "/v1/catalog/allergy-options", responses: { 200: { description: "allergy classes and ingredients", ...json(C.AllergyOptions) }, 403: err } });
+r.registerPath({ method: "get", path: "/v1/consultations/worklist", responses: { 200: { description: "today's visits this doctor may open", ...json(C.ConsultWorklist) }, 403: err } });
+r.registerPath({ method: "get", path: "/v1/encounters/{id}/consultation", request: { params: pid }, responses: { 200: { description: "the visit's note versions and context", ...json(C.ConsultationView) }, 403: err, 404: err } });
+r.registerPath({ method: "post", path: "/v1/encounters/{id}/consultation/open", request: { params: pid, headers: idem }, responses: { 200: { description: "opened (visit with doctor, draft ready)", ...json(C.ConsultationView) }, 403: err, 404: err, 409: err } });
+r.registerPath({ method: "put", path: "/v1/compositions/{id}", request: { params: pid, headers: idem, body: json(C.SaveDraftRequest) }, responses: { 200: { description: "draft saved", ...json(C.CompositionView) }, 400: err, 403: err, 409: err } });
+r.registerPath({ method: "post", path: "/v1/compositions/{id}/sign", request: { params: pid, headers: idem, body: json(C.SignRequest) }, responses: { 200: { description: "signed (final or amended) after the server checked the PIN", ...json(C.ConsultationView) }, 401: err, 403: err, 409: err, 422: err, 423: err } });
+r.registerPath({ method: "post", path: "/v1/compositions/{id}/amend", request: { params: pid, headers: idem, body: json(C.AmendRequest) }, responses: { 201: { description: "amendment draft (v+1)", ...json(C.ConsultationView) }, 403: err, 409: err } });
+r.registerPath({ method: "post", path: "/v1/compositions/{id}/ai-draft", request: { params: pid, headers: idem, body: json(C.AiDraftRequest) }, responses: { 200: { description: "AI draft — not a diagnosis", ...json(C.AiDraftResponse) }, 403: err } });
+r.registerPath({ method: "get", path: "/v1/patients/{id}/allergies", request: { params: pid }, responses: { 200: { description: "allergies incl. entered-in-error", ...json(C.AllergyList) }, 403: err, 404: err } });
+r.registerPath({ method: "post", path: "/v1/patients/{id}/allergies", request: { params: pid, headers: idem, body: json(C.RecordAllergyRequest) }, responses: { 201: { description: "recorded", ...json(C.AllergyView) }, 400: err, 403: err } });
+r.registerPath({ method: "post", path: "/v1/allergies/{id}/entered-in-error", request: { params: pid, headers: idem, body: json(C.MarkAllergyErrorRequest) }, responses: { 200: { description: "marked entered-in-error", ...json(C.AllergyView) }, 403: err, 409: err } });
 const doc = new OpenApiGeneratorV31(r.definitions).generateDocument({ openapi: "3.1.0", info: { title: "Setu Health API", version: "0.0.1" }, servers: [{ url: "/" }] });
 writeFileSync(new URL("../openapi.json", import.meta.url), JSON.stringify(doc, null, 2));
 console.log("wrote packages/contracts/openapi.json");

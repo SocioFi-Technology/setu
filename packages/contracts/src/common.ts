@@ -13,6 +13,11 @@ export const ApiError = z.object({
   fields: z.array(z.object({ field: z.string(), code: z.string() })).optional(),
   /** Conflict (409): the existing resource, e.g. the patient's open visit today. */
   existing: z.record(z.unknown()).optional(),
+  /** Sign refused (422 sign_blocked): every reason, as @setu/domain signBlockers returns them (the screen shows the same). */
+  blockers: z.array(z.record(z.unknown())).optional(),
+  /** Wrong signing PIN (401 pin_wrong) / locked (423 pin_locked). */
+  triesLeft: z.number().int().optional(),
+  lockedUntil: z.string().optional(),
 });
 export type ApiError = z.infer<typeof ApiError>;
 
