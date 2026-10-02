@@ -183,6 +183,9 @@ model Patient {
   sex                Sex
   birthDate          DateTime?
   approxAgeYears     Int?
+  approxAgeMonths    Int?
+  /// when the approximate age was recorded, so it can be aged forward
+  approxAgeAt        DateTime?
   phone              String?
   phoneOwner         String?            // self | guardian | shared
   division           String?
@@ -196,6 +199,7 @@ model Patient {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   relatedPersons     RelatedPerson[]
+  encounters         Encounter[]
   @@unique([tenantId, facilityNo])
   @@index([tenantId, phone])
   @@index([tenantId, nameBn])
@@ -254,4 +258,102 @@ model Sequence {
   name     String
   value    Int    @default(0)
   @@id([tenantId, name])
+}
+
+/// ENCOUNTER machine states (@setu/domain machines.ts). Changed only through transition().
+enum EncounterStatus {
+  planned
+  arrived
+  triaged
+  in_progress      @map("in-progress")
+  finished
+  cancelled
+  entered_in_error @map("entered-in-error")
+}
+enum EncounterClass {
+  opd
+  ipd
+  er
+  home
+}
+
+/// A visit. The queue token is an attribute of the Encounter: A-017 = tokenNo 17 at tokenBranchId on tokenDay
+/// (Asia/Dhaka calendar date), numbered from the Sequence "token:<branchId>:<day>".
+model Encounter {
+  id             String          @id @default(cuid())
+  tenantId       String
+  organizationId String
+  branchId       String
+  patientId      String
+  patient        Patient         @relation(fields: [patientId], references: [id])
+  class          EncounterClass  @default(opd)
+  status         EncounterStatus
+  /// new | follow-up | report
+  visitType      String          @default("new")
+  practitionerId String?
+  token          String
+  tokenNo        Int
+  tokenDay       String
+  arrivedAt      DateTime?
+  calledAt       DateTime?
+  statusAt       DateTime        @default(now())
+  cancelReason   String?
+  createdById    String
+  createdAt      DateTime        @default(now())
+  @@unique([tenantId, branchId, tokenDay, tokenNo])
+  @@index([tenantId, branchId, tokenDay])
+  @@index([tenantId, patientId])
+}
+
+/// APPROVAL machine states (@setu/domain machines.ts).
+enum ApprovalStatus {
+  requested
+  approved
+  rejected
+}
+
+/// Work items: approvals, reviews, checklist phases. kind "patient-link-review" = duplicate review from the front desk:
+/// "Send for review" creates it requested; "Link anyway" creates it and approves it in the same transaction.
+model Task {
+  id            String         @id @default(cuid())
+  tenantId      String
+  kind          String
+  status        ApprovalStatus
+  /// the record under review (the possible duplicate) and the record it may be the same person as
+  focusId       String?
+  candidateId   String?
+  reason        String?
+  /// e.g. the conflicting fields at the time of the decision
+  detail        Json?
+  requestedById String
+  requestedAt   DateTime       @default(now())
+  decidedById   String?
+  decidedAt     DateTime?
+  decisionNote  String?
+  @@index([tenantId, kind, status])
+  @@index([tenantId, focusId])
+}
+
+enum ProvenanceSource {
+  provider_verified @map("provider-verified")
+  patient_uploaded  @map("patient-uploaded")
+  patient_reported  @map("patient-reported")
+  ai_draft          @map("ai-draft")
+}
+
+/// Rule 2: who did what to which record, on behalf of which organisation, and from what source.
+model Provenance {
+  id         String           @id @default(cuid())
+  tenantId   String
+  targetType String
+  targetId   String
+  /// register | link | unlink | review-requested | checked-different | ...
+  activity   String
+  agentId    String
+  onBehalfOf String
+  recorded   DateTime         @default(now())
+  source     ProvenanceSource
+  reason     String?
+  detail     Json?
+  @@index([tenantId, targetType, targetId])
 }

@@ -48,17 +48,34 @@ async function main() {
       create: { tenantId: tenant.id, userId: u.id, organizationId: org.id, role },
     });
   }
-  const patients: [string, string, string, string, "male" | "female", string, string][] = [
-    ["p_rahima", "GLC-240117", "রহিমা খাতুন", "Rahima Khatun", "female", "1984-03-15", "01711908812"],
-    ["p_farzana", "GLC-240188", "ফারজানা আক্তার", "Farzana Akter", "female", "1995-06-02", "01711908812"],
-    ["p_shahidul", "GLC-240201", "শহিদুল ইসলাম", "Shahidul Islam", "male", "1969-01-20", "01811223344"],
-    ["p_nasrin", "GLC-240210", "নাসরিন সুলতানা", "Nasrin Sultana", "female", "1988-11-11", "01911556677"],
+  /* Branch: tokens are numbered per branch per day. */
+  await prisma.location.upsert({ where: { id: "l_branch_mirpur" }, update: {}, create: { id: "l_branch_mirpur", tenantId: tenant.id, organizationId: org.id, kind: "branch", name: "Mirpur branch", nameBn: "মিরপুর শাখা" } });
+
+  /* Walkthrough A1: five people share +880 1711-234567 (Abdul Karim owns it); Rahima Begum is a possible duplicate of
+     Rahima Khatun. Phones are stored as 10 digits after +880. Synthetic people only; no national ID numbers. */
+  type P = { id: string; no: string; bn: string; en: string; sex: "male" | "female"; dob?: string; approx?: number; phone: string; owner: string; upazila: string; conf: "verified" | "unverified" | "possible_duplicate"; guardian?: [string, string, string] };
+  const patients: P[] = [
+    { id: "p_rahima", no: "GLC-240117", bn: "রহিমা খাতুন", en: "Rahima Khatun", sex: "female", dob: "1984-03-15", phone: "1711234567", owner: "family", upazila: "Mirpur", conf: "verified", guardian: ["husband", "আব্দুল করিম", "1711234567"] },
+    { id: "p_karim", no: "GLC-220311", bn: "আব্দুল করিম", en: "Abdul Karim", sex: "male", dob: "1979-02-02", phone: "1711234567", owner: "self", upazila: "Mirpur", conf: "verified" },
+    { id: "p_sumaiya", no: "GLC-250044", bn: "সুমাইয়া আক্তার", en: "Sumaiya Akter", sex: "female", dob: "2017-05-01", phone: "1711234567", owner: "family", upazila: "Mirpur", conf: "verified", guardian: ["father", "আব্দুল করিম", "1711234567"] },
+    { id: "p_ayesha", no: "GLC-230150", bn: "আয়েশা বেগম", en: "Ayesha Begum", sex: "female", approx: 71, phone: "1711234567", owner: "family", upazila: "Mirpur", conf: "unverified", guardian: ["son", "আব্দুল করিম", "1711234567"] },
+    { id: "p_rbegum", no: "GLC-230982", bn: "রহিমা বেগম", en: "Rahima Begum", sex: "female", dob: "1968-01-10", phone: "1711234567", owner: "family", upazila: "Pallabi", conf: "possible_duplicate", guardian: ["husband", "মো. হাশেম", "1711234567"] },
+    { id: "p_farzana", no: "GLC-240188", bn: "ফারজানা আক্তার", en: "Farzana Akter", sex: "female", dob: "1995-06-02", phone: "1711908812", owner: "self", upazila: "Mirpur", conf: "verified" },
+    { id: "p_shahidul", no: "GLC-240201", bn: "শহিদুল ইসলাম", en: "Shahidul Islam", sex: "male", dob: "1969-01-20", phone: "1811223344", owner: "self", upazila: "Mirpur", conf: "verified" },
+    { id: "p_nasrin", no: "GLC-240210", bn: "নাসরিন সুলতানা", en: "Nasrin Sultana", sex: "female", dob: "1988-11-11", phone: "1911556677", owner: "self", upazila: "Mirpur", conf: "verified" },
   ];
-  for (const [id, facilityNo, nameBn, nameEn, sex, dob, phone] of patients) {
-    await prisma.patient.upsert({
-      where: { id }, update: {},
-      create: { id, tenantId: tenant.id, facilityNo, nameBn, nameEn, sex, birthDate: new Date(dob), phone, phoneOwner: "shared", district: "Dhaka", upazila: "Mirpur", identityConfidence: "verified", identityMethod: "desk" },
-    });
+  for (const x of patients) {
+    const data = {
+      facilityNo: x.no, nameBn: x.bn, nameEn: x.en, sex: x.sex, birthDate: x.dob ? new Date(x.dob + "T00:00:00Z") : null,
+      approxAgeYears: x.approx ?? null, approxAgeAt: x.approx ? new Date("2026-09-01T00:00:00Z") : null,
+      phone: x.phone, phoneOwner: x.owner, division: "Dhaka", district: "Dhaka", upazila: x.upazila,
+      identityConfidence: x.conf, identityMethod: "desk",
+    };
+    await prisma.patient.upsert({ where: { id: x.id }, update: data, create: { id: x.id, tenantId: tenant.id, ...data } });
+    if (x.guardian) {
+      const [relationship, nameBn, phone] = x.guardian;
+      await prisma.relatedPerson.upsert({ where: { id: `rp_${x.id}` }, update: { relationship, nameBn, phone }, create: { id: `rp_${x.id}`, tenantId: tenant.id, patientId: x.id, relationship, nameBn, phone } });
+    }
   }
   /* Two small tenants on the lower plans, so the plan-lock journey runs against the real database (one user each,
      on their own phone numbers: login refuses a phone+password that matches in more than one tenant). */
@@ -70,11 +87,12 @@ async function main() {
   for (const [tid, oid, plan, name, nameBn, uid, uBn, uEn, role] of planDemos) {
     await prisma.tenant.upsert({ where: { id: tid }, update: {}, create: { id: tid, name, plan } });
     await prisma.organization.upsert({ where: { id: oid }, update: {}, create: { id: oid, tenantId: tid, name, nameBn } });
+    await prisma.location.upsert({ where: { id: `l_branch_${tid}` }, update: {}, create: { id: `l_branch_${tid}`, tenantId: tid, organizationId: oid, kind: "branch", name: "Main branch", nameBn: "প্রধান শাখা" } });
     await prisma.user.upsert({ where: { id: uid }, update: {}, create: { id: uid, tenantId: tid, nameBn: uBn, nameEn: uEn, phone: planPhones[uid], passwordHash: hash("setu1234"), pinHash: hash("1234") } });
     await prisma.practitionerRole.upsert({ where: { userId_organizationId_role: { userId: uid, organizationId: oid, role } }, update: {}, create: { tenantId: tid, userId: uid, organizationId: oid, role } });
   }
   await prisma.sequence.upsert({ where: { tenantId_name: { tenantId: tenant.id, name: "patient" } }, update: {}, create: { tenantId: tenant.id, name: "patient", value: 240210 } });
-  console.log("seeded demo tenant: Green Life Clinic, Mirpur — 10 users (password setu1234, PIN 1234), 4 patients, ward 2A; plan demos: Clinic-plan nurse 01722000004, Lite-plan doctor 01733000002");
+  console.log("seeded demo tenant: Green Life Clinic, Mirpur — 10 users (password setu1234, PIN 1234), 8 patients (5 share 01711-234567), Mirpur branch, ward 2A; plan demos: Clinic-plan nurse 01722000004, Lite-plan doctor 01733000002");
 }
 
 main().finally(() => prisma.$disconnect());
