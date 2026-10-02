@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3 and A4–A5 done; next A6–A7)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3 and A4–A5 done; A6–A7 session 1 of 2 done)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -150,6 +150,40 @@ Karim); the E2E reset never deletes and never switches a safety trigger off (ope
   the full `pnpm typecheck`); Playwright **43** (16 shell + 12 `a1-a3` + 4 `a4` + 11 `a5`), green twice in a row on
   03/10/2026.
 
+## Done (slice A6–A7, session 1 of 2, 03/10/2026) — billing backend ✅
+Plan agreed with Kamrul the same day (decisions D1–D8 and the additions: open questions "Slice A6–A7 session 1").
+**Session 2** does the billing screens, the receipt PDF (Storage interface + local-folder adapter, Playwright Chromium,
+QR, Mushak-6.3, amount in words), reprint with DUPLICATE watermark, the verify endpoint, the A6–A7 journey spec, the
+reviews and the hands-on test as the cashier.
+- **Housekeeping:** `.gitattributes` (`* text=auto eol=lf`); `*.tsbuildinfo` ignored and untracked.
+- **Money rules** (`@setu/domain` `billing.ts`, `money.ts`): integer paisa everywhere; one rounding rule
+  (`divHalfUp`, half-up to the paisa, integer only); line = gross → its share of the bill discount (largest
+  remainder, sums exactly) → net → VAT on the net → total; bill totals are sums of line paisa; cashier limit, approval,
+  issue blockers, pending wallet amounts reserved, "Paid by" from confirmed money only (issue #10), provider-callback
+  decision (repeat = noop, backwards / out-of-order = refused, money on a failed link → reconciliation).
+  `format.wordsPaisa`. The walkthrough bill (৳2,300, words bn + en) was proved by a unit test before any route.
+- **Database** (migrations `billing` + `billing_guards`): ChargeItemDefinition (sample price list, read-only for
+  setu_app), Invoice, ChargeItem, Payment, ProviderEvent; Organization BIN + limits. RLS on all; CHECKs redo the paisa
+  arithmetic; triggers: lines only in a draft, an issued bill is frozen, issue refused while a discount Task is
+  requested / with unpriced lines / when totals ≠ line sums, paid = sum of confirmed payments, PAYMENT transitions
+  only and nothing out of confirmed, bills and payments never deleted; `payment_ref_lookup` (SECURITY DEFINER) for
+  callbacks. Seed: price list in all 4 facilities (consultation ৳800 per doctor, CBC 450, RBS 150, S. Electrolytes
+  900, desk card / certificate at 15%), sample BIN, **E2E cashier 01799000008**.
+- **Payments adapter** (`apps/api/src/adapters/payments`): `PaymentProvider` + `FakeProvider` (HMAC-signed callbacks,
+  verify by reference or TrxID, cancel before retry, `simulate` for the customer's side). `FAKE_PAYMENTS_SECRET` in
+  `.env.example`.
+- **API** (`modules/billing.ts`, `routes/billing.ts`, `packages/contracts/src/billing.ts`, openapi regenerated):
+  billing worklist, price-list search, bill from a finished visit, desk lines, discount / remove, approvals list /
+  approve / reject, issue (INV/yy/nnnn per facility per year), payments (cash, card, bank, bKash, Nagad), retry,
+  TrxID check, provider callback, and — dev/test only — `POST /v1/dev/fake-payments/:id/:kind`.
+- **Tests:** domain 139 (+28), api 106 (+4 adapter, +18 billing contract tests), contracts 2, i18n 3; `pnpm typecheck`
+  13/13. The API suite was green twice in a row. **Playwright was not run this session** (no screen changed) — run
+  plain `pnpm e2e` at the start of session 2; 43 specs were green at the end of A4–A5.
+- Note on history: the migration `20261002190221_billing` was applied by `prisma migrate dev --create-only` (it
+  applies pending migrations first) before its SQL could be appended; the guards are in `20261002190302_billing_guards`.
+  An empty migration created along the way was removed before any commit. **Create a migration with
+  `--create-only` only when nothing is pending**, then append, then apply.
+
 ## How to run the journeys on this PC
 - Playwright's Chromium is installed (02/10/2026): plain `pnpm e2e` runs the journeys against `pnpm dev` (staff :3000,
   api :4000). The installed-Chrome route still works: `cd e2e` then `CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" pnpm exec playwright test -c pw.local.config.ts`.
@@ -204,7 +238,9 @@ Karim); the E2E reset never deletes and never switches a safety trigger off (ope
 ## Next (in order)
 1. ~~`/slice A1-A3`~~ — done 02/10/2026.
 2. ~~`/slice A4-A5`~~ — done 02–03/10/2026 (three sessions). Kamrul to confirm open questions 68–82.
-3. `/slice A6-A7` — billing, payments (FakeProvider), receipt PDF (+ gap 2).
+3. `/slice A6-A7` — session 1 (billing backend) done 03/10/2026; **session 2 next:** billing screens, receipt PDF
+   (+ gap 2: local-folder Storage), reprint, verify, journey spec, reviews, hands-on as cashier. Then the bill
+   void / entered-in-error follow-up (never a delete). Kamrul to confirm open questions 83–93.
 4. `/slice A8-A11` — lab.
 5. `/slice A12-A13` — doctor app layout, printing; run all of Journey A.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.

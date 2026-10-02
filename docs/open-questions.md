@@ -334,3 +334,55 @@ doctor's list puts waiting patients before completed visits; repeated entered-in
     behaviour from before this slice. Suggest: sign out locally and clear the cookie when back online.
 82. **The AI context includes the patient's free text** (complaints, allergy reactions) — fine for FakeAi; before a
     real model is connected it must be passed as data, never as instructions (security review).
+
+## Slice A6–A7 session 1 (billing backend) — 03/10/2026
+
+### Decided by Kamrul (03/10/2026, before the session)
+- D1 VAT after the discount: a bill-level discount is split across lines in proportion to their gross by largest
+  remainder (line discounts sum to the discount exactly, ties to the earlier line); VAT per line on the line's net,
+  half-up to the paisa; totals are sums of line paisa. The prototype's other sample bill prints ৳3,411.59, not
+  ৳3,415.00. **Pre-pilot (accountant):** confirm this VAT-after-discount treatment and the Mushak-6.3 layout.
+- D2 A bill cannot be issued, so cannot be paid, while a discount approval Task is requested.
+- D3 One consultation fee per doctor (sample ৳800); no new / follow-up price yet.
+- D4 Cashier limit = lower of ৳500 and 5% of the subtotal; approver limit ৳10,000 per request; owner and admin
+  approve; no one approves their own request; stored per facility (`Organization`). **Pre-pilot (accountant):** the
+  real limits per facility.
+- D5 Seller BIN: the prototype's 000123456-0101 seeded as `sample` in Green Life and the E2E clinic; a facility with no
+  BIN prints no Mushak-6.3 line.
+- D6 Receptionist sees the OPD bill but cannot change it.
+- D7 QR library `qrcode-generator` (session 2). D8 Payment-link SMS: the fake provider only records the link; real SMS
+  with the Messenger (A8) or the bKash sandbox (phase 2).
+- Smaller: the bill number is given at issue; a discount above the subtotal is refused, never capped; cancelling a
+  bill is out of scope. **Next billing follow-up: bill void / entered-in-error — never a delete.**
+- For session 2: verify code ≥16 random characters (never sequential), verify endpoint rate-limited and returns only
+  facility, receipt number, date, amount; an offline cash receipt has no receipt number and no QR, says
+  "PROVISIONAL — not synced" on every page, and gets its RCPT number only when the server confirms; receipt copies
+  are immutable; RCPT/yy/nnnn per facility per year from Sequence, in the same transaction as the receipt.
+
+### Chosen conservatively by Claude — please confirm
+83. **Lines are locked while a discount is applied or requested** ("remove the discount first"), so a within-limit or
+    approved discount is never stretched over a different bill. The approval also re-checks that the bill is the one
+    the request was made on (same rev and subtotal), otherwise "request again".
+84. **A discount request cannot be withdrawn by the cashier** (APPROVAL has no cancel); the owner/admin rejects it with
+    a note. A new request needs the old discount removed first.
+85. **Only desk lines can be removed or re-counted.** The consultation fee and the doctor's orders stay on the bill; a
+    patient who declines a test needs the order revoked (ORDER `revoke`, lab slice) — until then the bill keeps it.
+86. **Billed orders** = every placed order not revoked or declined (active, in progress, complete …). Tests without a
+    prototype price (Urine C/S, SGPT, USG KUB, Echo, Fundoscopy) are unpriced: shown, and they block issuing.
+87. **Discount reason and rejection note: at least 10 characters**, like other reasons in Setu.
+88. **Callbacks answer 200 for every correctly signed event** (outcome applied / noop / refused) so the gateway stops
+    retrying; "refused" events are recorded in ProviderEvent and never applied. A callback for an unknown reference
+    is 404 and not recorded (no tenant to record it under).
+89. **Money the provider reports on a failed or superseded link, or with a different amount, is never applied** — it
+    opens a `payment-reconciliation` Task. Who works that queue (owner? accountant?) and the screen for it are not
+    built yet.
+90. **The payment link is created inside the database transaction.** If the transaction fails afterwards, the
+    provider holds an unused link that expires after 15 minutes. Acceptable for the fake; revisit with the bKash
+    sandbox (create the Payment first, then the link).
+91. **A patient without a valid mobile number cannot get a payment link** (422 "take cash or card"). Sending the link to
+    another number (guardian) is not offered yet.
+92. **The billing worklist shows today's finished visits** at the branch. Unpaid bills from earlier days need a
+    "dues" list (later).
+93. **The first billing migration was applied before its SQL could be appended**, so RLS, checks and triggers are in
+    the follow-up migration `billing_guards` (an applied migration is never edited). Both are needed together on any
+    database.
