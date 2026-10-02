@@ -1,7 +1,7 @@
 /* Demo tenant used by dev, e2e and the journeys: Green Life Clinic, Mirpur (the prototype's sample facility).
    Sample people match the walkthrough so Playwright specs read like the journey text. */
 import { createHash } from "node:crypto";
-import { prisma } from "./index.ts";
+import { owner as prisma } from "./owner.ts";
 
 const hash = (s: string) => createHash("sha256").update("dev-only:" + s).digest("hex"); // replaced by argon2 in the auth slice
 

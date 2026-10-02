@@ -1,0 +1,44 @@
+/* Known gap 1: row-level security must hold for the role the API actually connects as.
+   Runs against the real database (DATABASE_URL_APP); skipped, loudly, when the database is off. */
+import { afterAll, describe, expect, it } from "vitest";
+import { config } from "../src/config.js";
+
+const db = config.dbEnabled ? await import("@setu/db") : null;
+if (!db) console.warn("tenancy.test: DATABASE_URL_APP not set — RLS contract tests SKIPPED");
+afterAll(async () => { await db?.prisma.$disconnect(); });
+
+describe.runIf(db)("row-level security as setu_app", () => {
+  it("connects as a role that is neither superuser nor BYPASSRLS", async () => {
+    const [r] = await db!.prisma.$queryRaw<{ user: string; super: boolean; bypass: boolean }[]>`SELECT current_user AS user, rolsuper AS super, rolbypassrls AS bypass FROM pg_roles WHERE rolname = current_user`;
+    expect(r).toEqual({ user: "setu_app", super: false, bypass: false });
+  });
+
+  it("a query with app.tenant_id set to another tenant returns no rows", async () => {
+    const own = await db!.forTenant("t_greenlife", (tx) => tx.patient.count());
+    const other = await db!.forTenant("t_other", (tx) => tx.patient.findMany());
+    expect(own).toBeGreaterThan(0); // the seed has patients, so an empty result below is RLS, not an empty table
+    expect(other).toEqual([]);
+    expect(await db!.forTenant("t_other", (tx) => tx.user.findMany())).toEqual([]);
+    expect(await db!.forTenant("t_other", (tx) => tx.tenant.findMany())).toEqual([]);
+  });
+
+  it("returns no rows when app.tenant_id is not set at all", async () => {
+    expect(await db!.prisma.patient.findMany()).toEqual([]);
+    expect(await db!.prisma.user.findMany()).toEqual([]);
+  });
+
+  it("cannot write a row into another tenant", async () => {
+    await expect(db!.forTenant("t_greenlife", (tx) => tx.sequence.create({ data: { tenantId: "t_other", name: "rls-probe" } }))).rejects.toThrow();
+  });
+
+  it("cannot change or delete the audit log", async () => {
+    await expect(db!.forTenant("t_greenlife", (tx) => tx.auditEvent.updateMany({ data: { action: "x" } }))).rejects.toThrow();
+    await expect(db!.forTenant("t_greenlife", (tx) => tx.auditEvent.deleteMany({}))).rejects.toThrow();
+  });
+
+  it("login lookup returns only the login fields, never PIN hashes", async () => {
+    const rows = await db!.loginLookup(["1711000001", "01711000001"], null);
+    expect(rows).toHaveLength(1);
+    expect(Object.keys(rows[0]!).sort()).toEqual(["email", "id", "nameBn", "nameEn", "passwordHash", "phone", "plan", "roles", "tenantId"]);
+  });
+});

@@ -1,4 +1,6 @@
-/* User lookup: Prisma when DATABASE_URL is set, else the seeded demo users from memory so `pnpm dev` works before Docker. */
+/* User lookup: Prisma when the database is on, else the seeded demo users from memory so `pnpm dev` works before Docker.
+   Login is the only read before the tenant is known; it goes through the auth_login_lookup function. Everything after
+   login reads inside forTenant, so row-level security applies. */
 import { createHash } from "node:crypto";
 import type { Plan, Role } from "@setu/domain";
 import { config } from "../config.js";
@@ -21,14 +23,25 @@ const DEMO: UserRecord[] = ([
   roles: [{ organizationId: "o_greenlife_mirpur", organizationName: "Green Life Clinic, Mirpur", role }],
 }));
 
-export async function findUser(identifier: string): Promise<UserRecord | null> {
+/** Login: every active user matching the phone (either stored form) or email, across tenants. The caller picks the one whose password matches. */
+export async function findLoginCandidates(identifier: string): Promise<UserRecord[]> {
   const digits = identifier.replace(/\D/g, "").replace(/^880/, "").replace(/^0/, "");
-  if (!config.dbEnabled) return DEMO.find((u) => u.phone === digits || u.email === identifier) ?? null;
-  const { prisma } = await import("@setu/db");
-  const u = await prisma.user.findFirst({ where: { OR: [{ phone: digits }, { phone: "0" + digits }, { email: identifier }], active: true }, include: { roles: { include: { organization: true } }, tenant: true } });
-  if (!u) return null;
-  return { id: u.id, tenantId: u.tenantId, nameBn: u.nameBn, nameEn: u.nameEn, phone: u.phone ?? undefined, email: u.email ?? undefined, passwordHash: u.passwordHash, pinHash: u.pinHash ?? undefined, plan: u.tenant.plan, roles: (u.roles as { organizationId: string; role: Role; organization: { name: string } }[]).map((r) => ({ organizationId: r.organizationId, organizationName: r.organization.name, role: r.role })) };
+  const email = identifier.includes("@") ? identifier.trim() : null;
+  if (!config.dbEnabled) return DEMO.filter((u) => (digits && u.phone === digits) || (email && u.email === email));
+  const { loginLookup } = await import("@setu/db");
+  const rows = await loginLookup(digits ? [digits, "0" + digits] : [], email);
+  return rows.map((u) => ({ id: u.id, tenantId: u.tenantId, nameBn: u.nameBn, nameEn: u.nameEn, phone: u.phone ?? undefined, email: u.email ?? undefined, passwordHash: u.passwordHash, plan: u.plan, roles: u.roles as UserRecord["roles"] }));
 }
+
+/** After login: the signed-in user, read under the session's tenant. */
+export async function findUserById(tenantId: string, userId: string): Promise<UserRecord | null> {
+  if (!config.dbEnabled) return DEMO.find((u) => u.id === userId && u.tenantId === tenantId) ?? null;
+  const { forTenant } = await import("@setu/db");
+  const u = await forTenant(tenantId, (tx) => tx.user.findFirst({ where: { id: userId, active: true }, include: { roles: { include: { organization: true } }, tenant: true } }));
+  if (!u) return null;
+  return { id: u.id, tenantId: u.tenantId, nameBn: u.nameBn, nameEn: u.nameEn, phone: u.phone ?? undefined, email: u.email ?? undefined, passwordHash: u.passwordHash, pinHash: u.pinHash ?? undefined, plan: u.tenant.plan, roles: u.roles.map((r) => ({ organizationId: r.organizationId, organizationName: r.organization.name, role: r.role as Role })) };
+}
+
 /** TODO(auth slice): replace devHash with argon2id. Kept simple so the scaffold runs without native deps. */
 export const checkPassword = (u: UserRecord, password: string) => u.passwordHash === devHash(password);
 export const checkPin = (u: UserRecord, pin: string) => Boolean(u.pinHash) && u.pinHash === devHash(pin);

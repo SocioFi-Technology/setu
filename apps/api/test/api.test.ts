@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
+import { config } from "../src/config.js";
 import { PIN_MAX } from "../src/routes/auth.js";
 
 process.env.NODE_ENV = "test";
@@ -15,7 +16,7 @@ const login = async (identifier = "01711000002", password = "setu1234") => {
 describe("meta", () => {
   it("GET /health", async () => {
     const r = await app.inject({ method: "GET", url: "/health" });
-    expect(r.statusCode).toBe(200); expect(r.json()).toMatchObject({ ok: true, db: "skipped" });
+    expect(r.statusCode).toBe(200); expect(r.json()).toMatchObject({ ok: true, db: config.dbEnabled ? "up" : "skipped" });
   });
 });
 describe("auth", () => {
