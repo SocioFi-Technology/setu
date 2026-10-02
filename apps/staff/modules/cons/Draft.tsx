@@ -12,7 +12,9 @@ import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@se
 import { ApiFailure, cons, vitals as vitalsApi } from "../../lib/api";
 import { deviceDraft, dropDeviceDraft, flush, saveDeviceDraft, type DeviceDraft } from "../../lib/outbox";
 import { useSession } from "../../lib/session";
+import { AllergyStrip } from "./Allergies";
 import { bodyOf, consUrl, formOf, useBanner, useC, useFmt, type Dx, type Form } from "./common";
+import { RxBuilder } from "./Rx";
 import { ConsultWorklist } from "./Worklist";
 
 export function ConsultDraft() {
@@ -137,9 +139,18 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
   const upd = (fn: (f: Form) => Form) => { if (editable) setForm(fn); };
   const setSection = <K extends keyof Form["sections"]>(k: K, v: Form["sections"][K]) => upd((f) => ({ ...f, sections: { ...f.sections, [k]: v } }));
 
-  /* ── keyboard: Alt+1…9 jumps to a section ── */
+  /** Allergies changed on the server: re-read the view (the note being typed stays as it is). */
+  const refresh = useCallback(async () => { setView(await cons.view(encounterId)); }, [encounterId, setView]);
+
+  /* ── keyboard: Alt+1…9 jumps to a section; "/" focuses the medicine search (issue #9; the shell leaves "/" to cons) ── */
+  const rxSearch = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const inField = Boolean(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable));
+      if (e.key === "/" && !inField && !e.ctrlKey && !e.altKey && !e.metaKey && rxSearch.current) {
+        e.preventDefault(); rxSearch.current.focus(); rxSearch.current.scrollIntoView({ block: "center" }); return;
+      }
       if (e.altKey && !e.ctrlKey && /^Digit[1-9]$/.test(e.code)) {
         e.preventDefault();
         const el = document.getElementById(`sec-${e.code.slice(5)}`);
@@ -181,6 +192,8 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
         </Callout>
       )}
 
+      <AllergyStrip view={view} editable={!view.readOnly} onChanged={refresh} />
+
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
         <div style={{ flex: "1 1 560px", minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>
           <Section n={1} title={C("sec_complaints")} ai={ai("complaints")}>
@@ -207,6 +220,9 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
           </Section>
           <Section n={6} title={C("sec_orders")}>
             <Orders value={form.orders} disabled={!editable} onChange={(v) => upd((f) => ({ ...f, orders: v }))} />
+          </Section>
+          <Section n={7} title={C("sec_rx")}>
+            <RxBuilder ref={rxSearch} lines={form.lines} allergies={view.allergies} disabled={!editable} onChange={(v) => upd((f) => ({ ...f, lines: v }))} />
           </Section>
           <Section n={8} title={C("sec_advice")} ai={ai("advice")}>
             <textarea className="input" aria-label={C("sec_advice")} rows={3} disabled={!editable} value={form.sections.advice} onChange={(e) => setSection("advice", e.target.value)} />
