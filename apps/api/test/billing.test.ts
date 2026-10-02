@@ -159,7 +159,7 @@ describe.runIf(db)("A6 discounts: an APPROVAL Task above the limit, nothing appl
     expect((await post(`/v1/invoices/${id}/payments`, { method: "cash", amountPaisa: 230_000, tenderedPaisa: 230_000 })).json()).toMatchObject({ code: "not_payable" });
     expect((await post(`/v1/invoices/${id}/lines`, { code: "desk:card", rev: v.invoice.rev })).json()).toMatchObject({ code: "approval_pending" });
     // The database refuses to issue while the Task is requested, whatever the API does.
-    await expect(inTenant((tx) => tx.invoice.update({ where: { id }, data: { status: "issued", number: `X-${RUN}`, issuedAt: new Date(), issuedById: "u_e2e_cashier" } }))).rejects.toThrow(/discount approval is still requested/);
+    await expect(inTenant((tx) => tx.invoice.update({ where: { id }, data: { status: "issued", number: `X-${RUN}`, issuedAt: new Date(), issuedById: "u_e2e_cashier" } }))).rejects.toThrow(/an approval is still requested on this bill/);
 
     const list = (await get("/v1/approvals", "owner")).json();
     const item = list.items.find((i: { invoice: { id: string } }) => i.invoice.id === id);
