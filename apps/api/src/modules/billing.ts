@@ -299,6 +299,20 @@ export async function refreshOrders(tx: Tx, s: SessionData, id: string, rev: num
   return { inv: r.inv, changed: r.inv.rev !== inv.rev, sync: r.sync };
 }
 
+/** Decision 99 (lab slice): an ORDER revoke refreshes the visit's open bill in the same transaction. A draft drops the
+    revoked line at once unless a discount or an approval holds the lines (then it waits and Issue stays blocked, as on
+    open); an issued bill is left as it is and flags the change (open question 109). Runs as the person who revoked —
+    a doctor or the lab — so it does not check the cashier role; it only ever brings lines in line with placed orders. */
+export async function refreshDraftOrders(tx: Tx, s: SessionData, encounterId: string): Promise<{ invoiceId: string; removed: string[]; added: string[]; waits: boolean } | null> {
+  const inv0 = await tx.invoice.findFirst({ where: { encounterId, organizationId: s.organizationId, status: OPEN_BILL }, orderBy: { createdAt: "desc" } });
+  if (!inv0) return null;
+  if (inv0.status !== "draft") return { invoiceId: inv0.id, removed: [], added: [], waits: true };
+  await tx.$queryRaw`SELECT 1 FROM "Invoice" WHERE "id" = ${inv0.id} FOR UPDATE`;
+  const r = await syncDraft(tx, s, (await tx.invoice.findFirst({ where: { id: inv0.id } }))!);
+  const d = await ordersDiff(tx, r.inv);
+  return { invoiceId: inv0.id, removed: r.sync.removed, added: r.sync.added, waits: d.remove.length + d.add.length > 0 };
+}
+
 async function editableDraft(tx: Tx, s: SessionData, id: string, rev: number): Promise<Inv> {
   requireWriter(s);
   const inv = await invoiceHere(tx, s, id, true);

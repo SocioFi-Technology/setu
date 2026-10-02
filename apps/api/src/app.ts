@@ -13,6 +13,7 @@ import { authRoutes } from "./routes/auth.js";
 import { billingRoutes } from "./routes/billing.js";
 import { consultationRoutes } from "./routes/consultation.js";
 import { frontDeskRoutes } from "./routes/frontdesk.js";
+import { labRoutes } from "./routes/lab.js";
 import { metaRoutes } from "./routes/meta.js";
 import { vitalsRoutes } from "./routes/vitals.js";
 
@@ -48,5 +49,6 @@ export async function buildApp() {
   await app.register(vitalsRoutes);
   await app.register(consultationRoutes);
   await app.register(billingRoutes);
+  await app.register(labRoutes);
   return app;
 }
