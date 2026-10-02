@@ -70,14 +70,17 @@ export const RESULT: Table<ResultState, ResultEvent> = {
   amended: { amend: "amended" },
 };
 
-export type InvoiceState = "draft" | "issued" | "partially-paid" | "balanced" | "cancelled";
-export type InvoiceEvent = "issue" | "payPart" | "payAll" | "cancel";
+/* ADR 0005: a draft or issued bill (no confirmed money) can be marked entered-in-error (void, owner/admin, reason);
+   `cancel` stays in the table from the domain model but no route uses it yet. */
+export type InvoiceState = "draft" | "issued" | "partially-paid" | "balanced" | "cancelled" | "entered-in-error";
+export type InvoiceEvent = "issue" | "payPart" | "payAll" | "cancel" | "markError";
 export const INVOICE: Table<InvoiceState, InvoiceEvent> = {
-  draft: { issue: "issued", cancel: "cancelled" },
-  issued: { payPart: "partially-paid", payAll: "balanced", cancel: "cancelled" },
+  draft: { issue: "issued", cancel: "cancelled", markError: "entered-in-error" },
+  issued: { payPart: "partially-paid", payAll: "balanced", cancel: "cancelled", markError: "entered-in-error" },
   "partially-paid": { payPart: "partially-paid", payAll: "balanced", cancel: "cancelled" },
   balanced: {},
   cancelled: {},
+  "entered-in-error": {},
 };
 
 export type PaymentState = "initiated" | "link-sent" | "waiting-customer" | "confirmed" | "failed";

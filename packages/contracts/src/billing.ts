@@ -10,13 +10,13 @@ import { VitalsEncounter } from "./vitals.js";
 const Person = z.object({ id: z.string(), nameBn: z.string(), nameEn: z.string() });
 const Rev = z.number().int().min(1);
 
-export const InvoiceStatus = z.enum(["draft", "issued", "partially-paid", "balanced", "cancelled"]);
+export const InvoiceStatus = z.enum(["draft", "issued", "partially-paid", "balanced", "cancelled", "entered-in-error"]);
 export const PaymentStatus = z.enum(["initiated", "link-sent", "waiting-customer", "confirmed", "failed"]);
 export const PaymentMethod = z.enum(["cash", "card", "bank", "bkash", "nagad"]);
 export const ChargeSource = z.enum(["consultation", "order", "desk"]);
 export const DiscountCategory = z.enum(["poor", "staff", "doctor", "ff", "corp"]);
 export const ApprovalStatus = z.enum(["requested", "approved", "rejected"]);
-export const IssueBlocker = z.enum(["no_lines", "unpriced_lines", "approval_pending"]);
+export const IssueBlocker = z.enum(["no_lines", "unpriced_lines", "approval_pending", "orders_changed"]);
 
 /* ── price list (desk items) ── */
 export const ChargeDefinitionQuery = z.object({ q: z.string().trim().max(60).default("") });

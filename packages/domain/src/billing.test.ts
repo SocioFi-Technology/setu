@@ -218,3 +218,57 @@ describe("typed amounts → paisa (no floating point)", () => {
     expect(parseTaka(paisaToInput(123_456))).toBe(123_456);
   });
 });
+
+describe("billing follow-ups (ADR 0005)", () => {
+  it("'Not billed here' only on an unpriced order line of a draft bill, with a reason ≥10, once", async () => {
+    const { notBilledBlockers } = await import("./billing.js");
+    const line = { source: "order" as const, unitPaisa: null, notBilled: false };
+    const ok = { line, reason: "Sent to the partner lab", invoiceStatus: "draft" as const, requested: false };
+    expect(notBilledBlockers(ok)).toEqual([]);
+    expect(notBilledBlockers({ ...ok, line: { ...line, source: "consultation" } })).toEqual(["not_an_order_line"]);
+    expect(notBilledBlockers({ ...ok, line: { ...line, unitPaisa: 45_000 } })).toEqual(["line_has_price"]);
+    expect(notBilledBlockers({ ...ok, line: { ...line, notBilled: true } })).toEqual(["already_not_billed"]);
+    expect(notBilledBlockers({ ...ok, requested: true })).toEqual(["already_requested"]);
+    expect(notBilledBlockers({ ...ok, reason: "elsewhere" })).toEqual(["reason_too_short"]);
+    expect(notBilledBlockers({ ...ok, invoiceStatus: "issued" })).toEqual(["not_draft"]);
+  });
+  it("issue: an approved 'not billed here' line no longer blocks; a pending request or changed orders do", () => {
+    expect(issueBlockers({ lineCount: 4, unpricedCount: 0, pendingApproval: false, ordersChanged: false })).toEqual([]);
+    expect(issueBlockers({ lineCount: 4, unpricedCount: 0, pendingApproval: false, ordersChanged: true })).toEqual(["orders_changed"]);
+  });
+  it("void: owner/admin, reason ≥10, only draft or issued, never with confirmed money or a pending link", async () => {
+    const { voidBlockers } = await import("./billing.js");
+    const ok = { role: "owner", status: "issued" as const, confirmedPaisa: 0, pendingPayments: 0, reason: "Wrong patient selected" };
+    expect(voidBlockers(ok)).toEqual([]);
+    expect(voidBlockers({ ...ok, status: "draft" })).toEqual([]);
+    expect(voidBlockers({ ...ok, role: "admin" })).toEqual([]);
+    expect(voidBlockers({ ...ok, role: "cashier" })).toEqual(["not_an_approver"]);
+    expect(voidBlockers({ ...ok, reason: "wrong" })).toEqual(["reason_too_short"]);
+    expect(voidBlockers({ ...ok, status: "partially-paid", confirmedPaisa: 30_000 })).toEqual(["has_confirmed_money"]);
+    expect(voidBlockers({ ...ok, status: "balanced", confirmedPaisa: 230_000 })).toEqual(["has_confirmed_money"]);
+    expect(voidBlockers({ ...ok, pendingPayments: 1 })).toEqual(["link_pending"]);
+    expect(voidBlockers({ ...ok, status: "entered-in-error" })).toEqual(["not_voidable"]);
+  });
+  it("reconcile 'apply' only when the provider confirms the same amount and TrxID for a pending payment of this bill", async () => {
+    const { reconcileApplyBlockers } = await import("./billing.js");
+    const task = { providerRef: "OLD", trxId: "TRX1", amountPaisa: 100_000, invoiceId: "inv1" };
+    const payment = { status: "link-sent" as const, amountPaisa: 100_000, invoiceId: "inv1", providerRef: "NEW", supersededRefs: ["OLD"] };
+    const provider = { status: "confirmed" as const, trxId: "TRX1", amountPaisa: 100_000, providerRef: "OLD" };
+    expect(reconcileApplyBlockers({ task, payment, provider })).toEqual([]);
+    expect(reconcileApplyBlockers({ task, payment: { ...payment, status: "failed" }, provider })).toEqual(["payment_not_pending"]);
+    expect(reconcileApplyBlockers({ task, payment: { ...payment, status: "confirmed" }, provider })).toEqual(["payment_not_pending"]);
+    expect(reconcileApplyBlockers({ task, payment, provider: { ...provider, amountPaisa: 23_000 } })).toEqual(["amount_mismatch"]);
+    expect(reconcileApplyBlockers({ task: { ...task, amountPaisa: 23_000 }, payment, provider })).toEqual(["amount_mismatch"]);
+    expect(reconcileApplyBlockers({ task, payment, provider: { ...provider, trxId: "OTHER" } })).toEqual(["reference_mismatch"]);
+    expect(reconcileApplyBlockers({ task, payment, provider: { ...provider, providerRef: "ELSE" } })).toEqual(["reference_mismatch"]);
+    expect(reconcileApplyBlockers({ task, payment, provider: null })).toEqual(["not_confirmed_by_provider"]);
+    expect(reconcileApplyBlockers({ task, payment, provider: { ...provider, status: "pending" } })).toEqual(["not_confirmed_by_provider"]);
+    expect(reconcileApplyBlockers({ task: { ...task, invoiceId: "inv2" }, payment, provider })).toEqual(["other_bill"]);
+  });
+  it("order refresh: drop lines whose order is no longer active, add newly placed orders, keep the rest", async () => {
+    const { syncOrderLines } = await import("./billing.js");
+    const lines = [{ id: "l1", sourceId: "o1" }, { id: "l2", sourceId: "o2" }, { id: "l3", sourceId: "o3" }];
+    expect(syncOrderLines(lines, ["o1", "o3", "o4"])).toEqual({ remove: ["l2"], add: ["o4"] });
+    expect(syncOrderLines(lines, ["o1", "o2", "o3"])).toEqual({ remove: [], add: [] });
+  });
+});

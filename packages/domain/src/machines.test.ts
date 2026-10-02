@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALLERGY, BED, CLAIM, DISCHARGE, DOCUMENT, ENCOUNTER, ORDER, PAYMENT, TransitionError, can, transition } from "./machines.js";
+import { ALLERGY, BED, INVOICE, CLAIM, DISCHARGE, DOCUMENT, ENCOUNTER, ORDER, PAYMENT, TransitionError, can, transition } from "./machines.js";
 
 describe("document", () => {
   it("offline sign is queued, never final, until the server acks (rule 1)", () => {
@@ -69,5 +69,14 @@ describe("claim (round-2 fix #3)", () => {
     s = transition("claim", CLAIM, s, "thirdWrong");
     expect(s).toBe("locked");
     expect(can(CLAIM, s, "codeOk")).toBe(false);
+  });
+});
+
+describe("invoice (ADR 0005)", () => {
+  it("only a draft or issued bill (no confirmed money) can be marked entered-in-error; that is terminal", () => {
+    expect(transition("invoice", INVOICE, "draft", "markError")).toBe("entered-in-error");
+    expect(transition("invoice", INVOICE, "issued", "markError")).toBe("entered-in-error");
+    for (const from of ["partially-paid", "balanced", "cancelled", "entered-in-error"] as const) expect(can(INVOICE, from, "markError")).toBe(false);
+    for (const ev of ["issue", "payPart", "payAll", "cancel", "markError"] as const) expect(can(INVOICE, "entered-in-error", ev)).toBe(false);
   });
 });

@@ -26,7 +26,7 @@ export function useMoney() {
     words: (p: number) => format.wordsPaisa(p, s.lang),
   };
 }
-export const INVOICE_TONE: Record<InvoiceView["invoice"]["status"], Tone> = { draft: "draft", issued: "warn", "partially-paid": "pend", balanced: "ok", cancelled: "off" };
+export const INVOICE_TONE: Record<InvoiceView["invoice"]["status"], Tone> = { draft: "draft", issued: "warn", "partially-paid": "pend", balanced: "ok", cancelled: "off", "entered-in-error": "off" };
 export const PAY_TONE: Record<string, Tone> = { initiated: "pend", "link-sent": "pend", "waiting-customer": "pend", confirmed: "ok", failed: "bad" };
 export const WRITERS = ["cashier", "owner", "admin"];
 

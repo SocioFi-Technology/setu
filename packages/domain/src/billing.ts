@@ -9,7 +9,7 @@
    - A pending wallet amount is reserved: a new payment can take at most total − confirmed − pending.
    - Provider callbacks: a repeat is a no-op, an out-of-order or backwards one is refused; money reported on a payment
      that already failed goes to reconciliation, never applied silently. */
-import { PAYMENT, transition, type InvoiceEvent, type PaymentEvent, type PaymentState } from "./machines.js";
+import { INVOICE, PAYMENT, can, transition, type InvoiceEvent, type InvoiceState, type PaymentEvent, type PaymentState } from "./machines.js";
 import { assertPaisa, divHalfUp, MAX_PAISA, vatOn, type Paisa } from "./money.js";
 
 export { divHalfUp };
@@ -96,13 +96,67 @@ export function approvalBlockers(a: { approverId: string; approverRole: string; 
   return [];
 }
 
-export type IssueBlocker = "no_lines" | "unpriced_lines" | "approval_pending";
-export function issueBlockers(a: { lineCount: number; unpricedCount: number; pendingApproval: boolean }): IssueBlocker[] {
+export type IssueBlocker = "no_lines" | "unpriced_lines" | "approval_pending" | "orders_changed";
+/** `unpricedCount` leaves out lines approved as "Not billed here"; `pendingApproval` is any approval still requested on
+    the bill (discount or "Not billed here"); `ordersChanged`: the visit's orders differ from the bill's order lines and a
+    discount stops the refresh (ADR 0005). */
+export function issueBlockers(a: { lineCount: number; unpricedCount: number; pendingApproval: boolean; ordersChanged?: boolean }): IssueBlocker[] {
   const out: IssueBlocker[] = [];
   if (a.lineCount === 0) out.push("no_lines");
   if (a.unpricedCount > 0) out.push("unpriced_lines");
   if (a.pendingApproval) out.push("approval_pending");
+  if (a.ordersChanged) out.push("orders_changed");
   return out;
+}
+
+/* ── follow-ups (ADR 0005) ── */
+export const REASON_MIN = 10;
+
+/** "Not billed here" (decision 98): only an unpriced order line of a draft bill, with a reason, once. */
+export type NotBilledBlocker = "not_draft" | "not_an_order_line" | "line_has_price" | "already_not_billed" | "already_requested" | "reason_too_short";
+export function notBilledBlockers(a: { line: { source: "consultation" | "order" | "desk"; unitPaisa: Paisa | null; notBilled: boolean }; reason: string; invoiceStatus: InvoiceState; requested: boolean }): NotBilledBlocker[] {
+  if (a.invoiceStatus !== "draft") return ["not_draft"];
+  if (a.line.source !== "order") return ["not_an_order_line"];
+  if (a.line.unitPaisa !== null) return ["line_has_price"];
+  if (a.line.notBilled) return ["already_not_billed"];
+  if (a.requested) return ["already_requested"];
+  if (a.reason.trim().length < REASON_MIN) return ["reason_too_short"];
+  return [];
+}
+
+/** Void = INVOICE markError: owner/admin, reason, only draft or issued, never with confirmed money or a pending link. */
+export type VoidBlocker = "not_an_approver" | "not_voidable" | "has_confirmed_money" | "link_pending" | "reason_too_short";
+export function voidBlockers(a: { role: string; status: InvoiceState; confirmedPaisa: Paisa; pendingPayments: number; reason: string }): VoidBlocker[] {
+  if (!(APPROVER_ROLES as readonly string[]).includes(a.role)) return ["not_an_approver"];
+  if (a.confirmedPaisa > 0) return ["has_confirmed_money"];
+  if (!can(INVOICE, a.status, "markError")) return ["not_voidable"];
+  if (a.pendingPayments > 0) return ["link_pending"];
+  if (a.reason.trim().length < REASON_MIN) return ["reason_too_short"];
+  return [];
+}
+
+/** Reconciliation "apply" (decision 101): never a guess — the provider, asked again, must confirm the same amount and
+    TrxID for the reference the task names, and the payment must belong to this bill and still be pending. */
+export type ReconcileBlocker = "other_bill" | "payment_not_pending" | "not_confirmed_by_provider" | "amount_mismatch" | "reference_mismatch";
+export function reconcileApplyBlockers(a: {
+  task: { providerRef: string; trxId: string | null; amountPaisa: Paisa | null; invoiceId: string };
+  payment: { status: PaymentState; amountPaisa: Paisa; invoiceId: string; providerRef: string | null; supersededRefs: string[] };
+  provider: { status: "pending" | "opened" | "confirmed" | "failed"; trxId: string | null; amountPaisa: Paisa; providerRef: string } | null;
+}): ReconcileBlocker[] {
+  if (a.payment.invoiceId !== a.task.invoiceId) return ["other_bill"];
+  if (!PENDING_STATES.includes(a.payment.status)) return ["payment_not_pending"];
+  if (!a.provider || a.provider.status !== "confirmed" || !a.provider.trxId) return ["not_confirmed_by_provider"];
+  if (a.provider.amountPaisa !== a.payment.amountPaisa || (a.task.amountPaisa !== null && a.task.amountPaisa !== a.payment.amountPaisa)) return ["amount_mismatch"];
+  const ours = a.payment.providerRef === a.provider.providerRef || a.payment.supersededRefs.includes(a.provider.providerRef);
+  if (a.provider.providerRef !== a.task.providerRef || !ours || (a.task.trxId !== null && a.task.trxId !== a.provider.trxId)) return ["reference_mismatch"];
+  return [];
+}
+
+/** Order refresh on a draft bill (decision 99 prep): which order lines to drop and which placed orders to add. */
+export function syncOrderLines(lines: { id: string; sourceId: string | null }[], activeOrderIds: string[]): { remove: string[]; add: string[] } {
+  const active = new Set(activeOrderIds);
+  const billed = new Set(lines.map((l) => l.sourceId));
+  return { remove: lines.filter((l) => !l.sourceId || !active.has(l.sourceId)).map((l) => l.id), add: activeOrderIds.filter((o) => !billed.has(o)) };
 }
 
 /* ── payments ── */
