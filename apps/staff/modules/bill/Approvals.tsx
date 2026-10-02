@@ -59,17 +59,21 @@ export function BillApprovals() {
             <Card key={a.taskId} data-approval={a.taskId} tabIndex={0} onFocus={() => setFocus(a.taskId)} onClick={() => setFocus(a.taskId)}
               style={{ display: "flex", flexDirection: "column", gap: 8, padding: 16, outline: focus === a.taskId ? "2px solid var(--focus-ring, #4c8bf5)" : undefined }}>
               <span style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                <Pill tone="warn">{B("appr_discount")}</Pill>
-                <b className="num" style={{ fontSize: 18 }}>{M.tk(a.amountPaisa)}</b>
-                <span className="t-small t-muted">{B("appr_of_subtotal", { pct })}</span>
-                <span className="t-small">· {B("appr_limit")}: <span className="num">{M.tk(a.limitPaisa)}</span></span>
+                <span data-kind={a.kind}><Pill tone={a.kind === "bill-elsewhere" ? "info" : "warn"}>{B(`appr_kind_${a.kind}`)}</Pill></span>
+                {a.kind === "discount-approval" ? (
+                  <>
+                    <b className="num" style={{ fontSize: 18 }}>{M.tk(a.amountPaisa)}</b>
+                    <span className="t-small t-muted">{B("appr_of_subtotal", { pct })}</span>
+                    <span className="t-small">· {B("appr_limit")}: <span className="num">{M.tk(a.limitPaisa)}</span></span>
+                  </>
+                ) : <b data-testid="appr-line">{B("appr_line")}: {a.line ? (s.lang === "bn" ? a.line.nameBn : a.line.nameEn) : "—"}</b>}
                 <span style={{ marginLeft: "auto" }} />
                 <Button size="sm" variant="ghost" icon="external-link" onClick={() => router.push(`/m/bill/opd?inv=${encodeURIComponent(a.invoice.id)}`)}>{B("appr_bill")} {a.invoice.number ?? B("bill_draft")}</Button>
               </span>
               <span>{M.name(a.patient)} · <span className="num">{a.patient.facilityNo}</span> · {B("total")} <span className="num">{M.tk(a.invoice.totalPaisa)}</span></span>
               <span className="t-small">{B("appr_by")}: {M.name(a.requestedBy)} · {M.dateTime(a.requestedAt)}</span>
-              <span className="t-small">{B("appr_reason")}: {B(`cat_${a.category}`)} — {a.reason}</span>
-              <span className="t-small t-muted">{B("appr_today", { name: M.name(a.requestedBy), n: a.requesterToday.count, amount: M.tk(a.requesterToday.totalPaisa) })}</span>
+              <span className="t-small">{B("appr_reason")}: {a.category ? `${B(`cat_${a.category}`)} — ` : ""}{a.reason}</span>
+              {a.kind === "discount-approval" && <span className="t-small t-muted">{B("appr_today", { name: M.name(a.requestedBy), n: a.requesterToday.count, amount: M.tk(a.requesterToday.totalPaisa) })}</span>}
               {a.status === "requested" ? (
                 <>
                   <label className="field t-small">{B("appr_note")}

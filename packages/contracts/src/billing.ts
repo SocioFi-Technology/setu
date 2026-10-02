@@ -218,6 +218,8 @@ export const VoidRequest = z.object({ reason: z.string().trim().min(10).max(300)
 export const ReconcileQuery = z.object({ status: ApprovalStatus.default("requested") });
 export const ReconcileItem = z.object({
   taskId: z.string(), status: ApprovalStatus, why: z.string(), createdAt: z.string(),
+  /** why the case was opened, as a code the screen shows in Bangla / English */
+  whyCode: z.enum(["late-money", "amount-mismatch", "second-payment", "earlier-link", "other"]),
   /** what the gateway reported */
   reported: z.object({ providerRef: z.string().nullable(), trxId: z.string().nullable(), amountPaisa: Paisa.nullable() }),
   payment: z.object({ id: z.string(), method: PaymentMethod, status: PaymentStatus, amountPaisa: Paisa, trxId: z.string().nullable(), attempt: z.number().int() }),

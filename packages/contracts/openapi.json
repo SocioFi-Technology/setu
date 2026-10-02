@@ -44056,6 +44056,16 @@
                           "createdAt": {
                             "type": "string"
                           },
+                          "whyCode": {
+                            "type": "string",
+                            "enum": [
+                              "late-money",
+                              "amount-mismatch",
+                              "second-payment",
+                              "earlier-link",
+                              "other"
+                            ]
+                          },
                           "reported": {
                             "type": "object",
                             "properties": {
@@ -44319,6 +44329,7 @@
                           "status",
                           "why",
                           "createdAt",
+                          "whyCode",
                           "reported",
                           "payment",
                           "invoice",
@@ -44471,6 +44482,16 @@
                         },
                         "createdAt": {
                           "type": "string"
+                        },
+                        "whyCode": {
+                          "type": "string",
+                          "enum": [
+                            "late-money",
+                            "amount-mismatch",
+                            "second-payment",
+                            "earlier-link",
+                            "other"
+                          ]
                         },
                         "reported": {
                           "type": "object",
@@ -44735,6 +44756,7 @@
                         "status",
                         "why",
                         "createdAt",
+                        "whyCode",
                         "reported",
                         "payment",
                         "invoice",
@@ -45031,6 +45053,16 @@
                         "createdAt": {
                           "type": "string"
                         },
+                        "whyCode": {
+                          "type": "string",
+                          "enum": [
+                            "late-money",
+                            "amount-mismatch",
+                            "second-payment",
+                            "earlier-link",
+                            "other"
+                          ]
+                        },
                         "reported": {
                           "type": "object",
                           "properties": {
@@ -45294,6 +45326,7 @@
                         "status",
                         "why",
                         "createdAt",
+                        "whyCode",
                         "reported",
                         "payment",
                         "invoice",

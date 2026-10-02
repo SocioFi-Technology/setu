@@ -8,6 +8,7 @@ import { BillApprovals } from "./bill/Approvals";
 import { BillOpd } from "./bill/Opd";
 import { BillPay } from "./bill/Pay";
 import { BillReceipt } from "./bill/Receipt";
+import { BillReconcile } from "./bill/Reconcile";
 import { ConsultDraft } from "./cons/Draft";
 import { ConsultAmended, ConsultSigned } from "./cons/Signed";
 import { FrontDeskMatch } from "./fd/Match";
@@ -33,6 +34,8 @@ const SCREENS: Record<string, ComponentType> = {
   "bill/pay": BillPay,
   "bill/receipt": BillReceipt,
   "bill/approvals": BillApprovals,
+  // billing follow-ups (ADR 0005)
+  "bill/reconcile": BillReconcile,
 };
 const SLICE: Record<string, string> = { fd: "A1–A3", cons: "A4–A5", bill: "A6–A7", lab: "A8–A11", ph: "phase 2", own: "phase 2", adm: "phase 2", er: "B1–B2", ipd: "B3–B4", nur: "B5–B6", net: "E1–E4" };
 

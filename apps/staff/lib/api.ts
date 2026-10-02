@@ -1,5 +1,5 @@
 import type {
-  ApprovalDecisionResponse, ApprovalList, BillingWorklist, ChargeDefinitionList, DiscountRequest, DiscountResponse, InvoiceView, NewPaymentRequest, PaymentResponse, PrintRequest, PrintResponse, ReceiptList, ReceiptView, VerifyResponse,
+  ApprovalDecisionResponse, ApprovalList, ReconcileDecisionResponse, ReconcileList, BillingWorklist, ChargeDefinitionList, DiscountRequest, DiscountResponse, InvoiceView, NewPaymentRequest, PaymentResponse, PrintRequest, PrintResponse, ReceiptList, ReceiptView, VerifyResponse,
   AiDraftResponse, AllergyOptions, AllergyView, CompositionView, ConsultationView, ConsultWorklist, Icd11Search, MedicineSearch, RecordAllergyRequest, SaveDraftRequest, SignRequest, TestList,
   ApiError, Capabilities, VitalsBatchRequest, VitalsBatchResponse, VitalsView, VitalsWorklist, CreateVisitResponse, MatchDecisionResponse, MatchPreviewResponse, Me, PatientMatches, PatientSearchResponse, QueueItem, QueueResponse, RegisterResponse, RegistrationInput, ReviewOutcomeResponse, ReviewQueueResponse,
 } from "@setu/contracts";
@@ -97,6 +97,11 @@ export const bill = {
   verifyTrx: (paymentId: string, trxId: string) => call<PaymentResponse>("POST", `/v1/payments/${enc(paymentId)}/verify-trx`, { trxId }, crypto.randomUUID()),
   /** dev and tests only: the fake gateway plays the customer (the API refuses it with a real provider or in production) */
   fake: (paymentId: string, kind: "opened" | "confirmed" | "failed", deliver = true) => call<{ delivered: boolean; trxId?: string; outcome?: string }>("POST", `/v1/dev/fake-payments/${enc(paymentId)}/${kind}`, { deliver }),
+  notBilled: (id: string, lineId: string, reason: string, rev: number, key: string) => call<InvoiceView>("POST", `/v1/invoices/${enc(id)}/lines/${enc(lineId)}/not-billed`, { reason, rev }, key),
+  refreshOrders: (id: string, rev: number) => call<InvoiceView>("POST", `/v1/invoices/${enc(id)}/refresh-orders`, { rev }, crypto.randomUUID()),
+  void: (id: string, reason: string, key: string) => call<InvoiceView>("POST", `/v1/invoices/${enc(id)}/void`, { reason }, key),
+  reconciliation: (status: "requested" | "approved" | "rejected") => call<ReconcileList>("GET", "/v1/reconciliation?status=" + status),
+  reconcile: (taskId: string, action: "apply" | "resolve", note: string, key: string) => call<ReconcileDecisionResponse>("POST", `/v1/reconciliation/${enc(taskId)}/${action}`, note ? { note } : {}, key),
   receipts: (invoiceId: string) => call<ReceiptList>("GET", `/v1/invoices/${enc(invoiceId)}/receipts`),
   makeReceipt: (invoiceId: string, key: string) => call<ReceiptView>("POST", `/v1/invoices/${enc(invoiceId)}/receipts`, {}, key),
   receipt: (id: string) => call<ReceiptView>("GET", `/v1/receipts/${enc(id)}`),

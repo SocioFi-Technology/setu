@@ -80,6 +80,10 @@ function BillView({ id }: { id: string }) {
   const [q, setQ] = useState(""); const [found, setFound] = useState<ChargeDefinitionList["items"]>([]);
   const [d, setD] = useState<Disc>(NO_DISC); const [dKey, setDKey] = useState(() => crypto.randomUUID());
   const [issueKey] = useState(() => crypto.randomUUID());
+  // ADR 0005: "Not billed here" request on one line, and the void panel
+  const [nb, setNb] = useState<{ lineId: string; reason: string; key: string } | null>(null);
+  const [voiding, setVoiding] = useState<{ reason: string; key: string } | null>(null);
+  const refreshing = useRef(false);
   const search = useRef<HTMLInputElement>(null);
 
   // A refresh that fails (offline, server away) keeps the last bill on screen; only a first load that fails shows the error.
@@ -95,6 +99,16 @@ function BillView({ id }: { id: string }) {
   // While a discount waits for the owner or an admin, the bill refreshes itself so the decision shows here.
   const waiting = v?.approval?.status === "requested";
   useEffect(() => { if (!waiting) return; const t = setInterval(() => void load(), 5000); return () => clearInterval(t); }, [waiting, load]);
+  const lineWaiting = Boolean(v?.lineApprovals.some((x) => x.status === "requested"));
+  useEffect(() => { if (!lineWaiting) return; const t = setInterval(() => void load(), 5000); return () => clearInterval(t); }, [lineWaiting, load]);
+  /* Decision 99 prep: the doctor's orders changed since the draft was made — bring the bill in line when nothing on it
+     depends on the old lines; otherwise the banner asks to remove the discount first and Issue waits. */
+  useEffect(() => {
+    if (!v?.ordersChanged || refreshing.current || v.invoice.status !== "draft" || !WRITERS.includes(s.me?.role ?? "") || !s.online) return;
+    if (v.invoice.discountPaisa > 0 || v.approval?.status === "requested" || v.lineApprovals.some((x) => x.status === "requested")) return;
+    refreshing.current = true;
+    api.refreshOrders(id, v.invoice.rev).then((x) => { setV(x); toast(B("orders_refreshed"), "refresh-cw"); }).catch(() => undefined).finally(() => { refreshing.current = false; });
+  }, [v?.ordersChanged, v?.invoice.rev]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const t = q.trim() ? setTimeout(() => { api.definitions(q).then((r) => setFound(r.items)).catch(() => setFound([])); }, 200) : undefined;
     if (!q.trim()) setFound([]);
@@ -145,6 +159,9 @@ function BillView({ id }: { id: string }) {
     return r.view;
   });
   const a = v.approval;
+  const approver = ["owner", "admin"].includes(s.me?.role ?? "");
+  const voided = inv.status === "entered-in-error";
+  const lineReq = (lineId: string) => v.lineApprovals.find((x) => x.lineId === lineId);
 
   return (
     <div data-screen="bill/opd" data-invoice-status={inv.status} style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
@@ -158,6 +175,15 @@ function BillView({ id }: { id: string }) {
       </div>
       {!s.online && <Callout tone="warn" icon="cloud-off">{B("offline_banner")}</Callout>}
       {!writer && <Callout icon="eye">{B("view_only")}</Callout>}
+      {voided && inv.void && (
+        <Callout tone="bad" icon="ban" data-testid="void-banner">
+          <b>{B("void_banner", { reason: inv.void.reason, by: M.name(inv.void.by), at: M.dateTime(inv.void.at) })}</b>
+          {inv.replacedBy ? <> · <a href={`/m/bill/opd?inv=${encodeURIComponent(inv.replacedBy.id)}`} data-testid="replaced-by">{B("replaced_by", { number: inv.replacedBy.number ?? B("draft_word") })}</a></> : null}
+          {!inv.replacedBy && writer && <> · <Button size="sm" icon="file-plus" data-testid="new-bill" onClick={() => router.push(`/m/bill/opd?enc=${encodeURIComponent(v.encounter.id)}`)}>{B("new_bill")}</Button></>}
+        </Callout>
+      )}
+      {inv.replaces && <Callout icon="history" data-testid="replaces">{B("replaces", { number: inv.replaces.number ?? B("draft_word") })}</Callout>}
+      {v.ordersChanged && draft && (inv.discountPaisa > 0 || waiting) && <Callout tone="warn" icon="refresh-cw" data-testid="orders-changed">{B("orders_changed")}</Callout>}
       {stale && s.online && <Callout tone="warn" icon="refresh-cw" data-testid="bill-stale">{B("bill_stale", { at: M.time(updatedAt) })}</Callout>}
       <span className="t-small t-muted">{B("sample_prices")}</span>
 
@@ -171,7 +197,26 @@ function BillView({ id }: { id: string }) {
             {v.lines.map((l, n) => (
               <tr key={l.id} data-line={l.code} data-source={l.source}>
                 <td className="num">{s.n(n + 1)}</td>
-                <td><div>{s.lang === "bn" ? l.nameBn : l.nameEn}</div><span className="t-small t-muted">{B(`src_${l.source}`)}</span></td>
+                <td>
+                  <div>{s.lang === "bn" ? l.nameBn : l.nameEn}</div><span className="t-small t-muted">{B(`src_${l.source}`)}</span>
+                  {l.notBilled && <div className="t-small" data-testid="not-billed"><Pill tone="neu" icon="arrow-right-left">{B("nb_line", { reason: l.notBilled.reason })}</Pill></div>}
+                  {!l.notBilled && lineReq(l.id)?.status === "requested" && <div className="t-small" data-testid="nb-pending"><Pill tone="warn" icon="hourglass">{B("nb_pending", { by: M.name(lineReq(l.id)!.requestedBy), at: M.time(lineReq(l.id)!.requestedAt) })}</Pill></div>}
+                  {!l.notBilled && lineReq(l.id)?.status === "rejected" && <div className="t-small">{B("nb_rejected", { by: M.name(lineReq(l.id)!.decidedBy), note: lineReq(l.id)!.decisionNote ?? "" })}</div>}
+                  {draft && writer && s.online && l.source === "order" && l.unitPaisa === null && !l.notBilled && lineReq(l.id)?.status !== "requested" && !waiting && (
+                    nb?.lineId === l.id ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6, maxWidth: 420 }} data-testid="nb-panel">
+                        <span className="t-small t-muted">{B("nb_hint")}</span>
+                        <label className="field t-small">{B("nb_reason")}
+                          <input className="input" name="nb-reason" value={nb.reason} placeholder={B("nb_reason_ph")} onChange={(e) => setNb({ ...nb, reason: e.target.value, key: crypto.randomUUID() })} />
+                        </label>
+                        <span style={{ display: "flex", gap: 6 }}>
+                          <Button size="sm" variant="primary" icon="send" data-testid="nb-send" disabled={busy || nb.reason.trim().length < 10} onClick={() => run(async () => { const x = await api.notBilled(id, l.id, nb.reason.trim(), inv.rev, nb.key); setNb(null); return x; })}>{B("nb_send")}</Button>
+                          <Button size="sm" onClick={() => setNb(null)}>{B("rc_cancel")}</Button>
+                        </span>
+                      </div>
+                    ) : <Button size="sm" variant="ghost" icon="arrow-right-left" data-testid="nb-open" onClick={() => setNb({ lineId: l.id, reason: "", key: crypto.randomUUID() })}>{B("nb_request")}</Button>
+                  )}
+                </td>
                 <td className="num">
                   {l.editable && editable ? (
                     <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
@@ -181,10 +226,10 @@ function BillView({ id }: { id: string }) {
                     </span>
                   ) : s.n(l.qty)}
                 </td>
-                <td className="num" style={{ textAlign: "right" }}>{l.unitPaisa === null ? <Pill tone="bad" icon="circle-alert">{B("no_price")}</Pill> : M.tk(l.unitPaisa)}</td>
+                <td className="num" style={{ textAlign: "right" }}>{l.notBilled ? "—" : l.unitPaisa === null ? <Pill tone="bad" icon="circle-alert">{B("no_price")}</Pill> : M.tk(l.unitPaisa)}</td>
                 <td>{l.vatRateBp === 0 ? B("vat_exempt") : `${s.n(l.vatRateBp / 100)}%`}</td>
                 {inv.discountPaisa > 0 && <td className="num" style={{ textAlign: "right" }}>{l.discountPaisa ? `− ${M.tk(l.discountPaisa)}` : "—"}</td>}
-                <td className="num" style={{ textAlign: "right" }}><b>{M.tk(l.totalPaisa)}</b></td>
+                <td className="num" style={{ textAlign: "right" }}><b>{l.notBilled ? "—" : M.tk(l.totalPaisa)}</b></td>
                 <td>{l.editable && editable && <Button size="sm" variant="ghost" icon="trash-2" disabled={busy} onClick={() => run(() => api.removeLine(id, l.id, inv.rev))}>{B("remove")}</Button>}</td>
               </tr>
             ))}
@@ -279,6 +324,21 @@ function BillView({ id }: { id: string }) {
           )}
           {payable && WRITERS.includes(s.me?.role ?? "") && s.me?.role !== "receptionist" && (
             <Button variant="primary" icon="wallet" kbd="F9" data-testid="take-payment" onClick={() => router.push(`/m/bill/pay?inv=${encodeURIComponent(id)}`)}>{B("take_payment")}</Button>
+          )}
+          {approver && (inv.status === "draft" || inv.status === "issued") && inv.paidPaisa === 0 && (
+            voiding ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid var(--border-subtle)", paddingTop: 8 }} data-testid="void-panel">
+                <b>{B("void_title")}</b>
+                <span className="t-small t-muted">{B("void_hint")}</span>
+                <label className="field t-small">{B("void_reason")}
+                  <input className="input" name="void-reason" value={voiding.reason} onChange={(e) => setVoiding({ reason: e.target.value, key: crypto.randomUUID() })} />
+                </label>
+                <span style={{ display: "flex", gap: 6 }}>
+                  <Button variant="danger" icon="ban" data-testid="void-confirm" disabled={busy || !s.online || voiding.reason.trim().length < 10} onClick={() => run(async () => { const x = await api.void(id, voiding.reason.trim(), voiding.key); setVoiding(null); return x; })}>{B("void_confirm")}</Button>
+                  <Button onClick={() => setVoiding(null)}>{B("rc_cancel")}</Button>
+                </span>
+              </div>
+            ) : <Button variant="ghost" icon="ban" data-testid="void-open" disabled={!s.online} onClick={() => setVoiding({ reason: "", key: crypto.randomUUID() })}>{B("void_open")}</Button>
           )}
           {inv.paidPaisa > 0 && WRITERS.includes(s.me?.role ?? "") && <Button icon="printer" onClick={() => router.push(`/m/bill/receipt?inv=${encodeURIComponent(id)}`)}>{B("receipts")}</Button>}
         </Card>

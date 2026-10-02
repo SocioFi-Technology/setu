@@ -507,6 +507,8 @@ export async function voidInvoice(tx: Tx, s: SessionData, id: string, reason: st
 }
 
 /* ───── payment reconciliation (decisions 89, 101; owner) ───── */
+const whyCodeOf = (r: string | null): ReconcileItem["whyCode"] =>
+  !r ? "other" : r.startsWith("money reported") ? "late-money" : r.startsWith("amount reported") ? "amount-mismatch" : r.startsWith("a second payment") ? "second-payment" : r.startsWith("TrxID paid on an earlier") ? "earlier-link" : "other";
 async function reconcileItem(tx: Tx, s: SessionData, t: TaskRow): Promise<ReconcileItem | null> {
   const d = t.detail as unknown as ReconcileDetail;
   const p = t.focusId ? await tx.payment.findFirst({ where: { id: t.focusId, organizationId: s.organizationId } }) : null;
@@ -522,7 +524,7 @@ async function reconcileItem(tx: Tx, s: SessionData, t: TaskRow): Promise<Reconc
   });
   const who = await people(tx, [d.resolution?.by]);
   return {
-    taskId: t.id, status: t.status, why: t.reason ?? "", createdAt: t.requestedAt.toISOString(),
+    taskId: t.id, status: t.status, why: t.reason ?? "", createdAt: t.requestedAt.toISOString(), whyCode: whyCodeOf(t.reason),
     reported: { providerRef: d.providerRef, trxId: d.trxId, amountPaisa: d.amountPaisa },
     payment: { id: p.id, method: p.method as PaymentMethod, status: dash<PaymentState>(p.status), amountPaisa: p.amountPaisa, trxId: p.trxId, attempt: p.attempt },
     invoice: { id: inv.id, number: inv.number, status: dash<InvoiceState>(inv.status), totalPaisa: inv.totalPaisa, paidPaisa: inv.paidPaisa },
