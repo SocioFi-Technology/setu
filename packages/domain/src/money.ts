@@ -27,3 +27,21 @@ export const vatOn = (net: Paisa, rateBp: number): Paisa => {
   return divHalfUp(net * rateBp, 10_000);
 };
 export const sum = (xs: Paisa[]): Paisa => xs.reduce((a, b) => a + b, 0);
+
+/** What a cashier types ("2,300", "500.5", "৫০০.৫০") → whole paisa, without floating point; null when it is not an
+    amount (more than 2 decimals, letters, negative, above MAX_PAISA). */
+export function parseTaka(input: string): Paisa | null {
+  const s = input.replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d))).replace(/[,\s৳]/g, "");
+  const m = /^(\d{1,8})(?:\.(\d{1,2}))?$/.exec(s);
+  if (!m) return null;
+  const p = Number(m[1]) * 100 + Number((m[2] ?? "").padEnd(2, "0"));
+  return p <= MAX_PAISA ? p : null;
+}
+/** A percent as typed ("10", "2.5") → basis points (1000, 250); null when not 0–100 with at most 2 decimals. */
+export function parsePercentBp(input: string): number | null {
+  const s = input.replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d))).replace(/[\s%]/g, "");
+  const m = /^(\d{1,3})(?:\.(\d{1,2}))?$/.exec(s);
+  if (!m) return null;
+  const bp = Number(m[1]) * 100 + Number((m[2] ?? "").padEnd(2, "0"));
+  return bp <= 10_000 ? bp : null;
+}

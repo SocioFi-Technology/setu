@@ -198,3 +198,20 @@ describe("provider callbacks: a repeat is a no-op, an out-of-order one is refuse
     expect(decideProviderEvent("initiated", "opened")).toEqual({ outcome: "refused", reason: "out-of-order" });
   });
 });
+
+describe("typed amounts → paisa (no floating point)", () => {
+  it("parses taka with up to 2 decimals, Bangla digits and grouping", async () => {
+    const { parseTaka, parsePercentBp } = await import("./money.js");
+    expect(parseTaka("2,300")).toBe(230_000);
+    expect(parseTaka("৫০০.৫০")).toBe(50_050);
+    expect(parseTaka("500.5")).toBe(50_050);
+    expect(parseTaka("0.07")).toBe(7);
+    expect(parseTaka("1.005")).toBeNull();
+    expect(parseTaka("-5")).toBeNull();
+    expect(parseTaka("abc")).toBeNull();
+    expect(parseTaka("")).toBeNull();
+    expect(parsePercentBp("10")).toBe(1000);
+    expect(parsePercentBp("2.5")).toBe(250);
+    expect(parsePercentBp("100.01")).toBeNull();
+  });
+});

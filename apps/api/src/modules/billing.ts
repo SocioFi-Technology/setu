@@ -139,6 +139,9 @@ export async function billingWorklist(tx: Tx, s: SessionData, now: Date): Promis
   const pending = new Set((await tx.task.findMany({ where: { kind: DISCOUNT_TASK, status: "requested", focusId: { in: invs.map((i) => i.id) } }, select: { focusId: true } })).map((t) => t.focusId));
   const byEnc = new Map(invs.map((i) => [i.encounterId, i]));
   const who = await people(tx, rows.map((r) => r.practitionerId));
+  // Newest visit first; settled bills go to the end.
+  const settled = (id: string) => ["balanced", "cancelled"].includes(byEnc.get(id)?.status ?? "");
+  rows.sort((a, b) => Number(settled(a.id)) - Number(settled(b.id)) || b.tokenNo - a.tokenNo);
   return {
     items: rows.map((e) => {
       const i = byEnc.get(e.id);

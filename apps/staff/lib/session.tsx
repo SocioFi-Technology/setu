@@ -59,7 +59,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     catch { setMe(null); setCaps(null); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => { setLangS(read("setu.lang", "bn") as Lang); setNumS(read("setu.num", "bn") as Numerals); if (location.pathname === "/login") setLoading(false); else void refresh(); }, [refresh]);
+  useEffect(() => { setLangS(read("setu.lang", "bn") as Lang); setNumS(read("setu.num", "bn") as Numerals); if (location.pathname === "/login" || location.pathname.startsWith("/verify/")) setLoading(false); else void refresh(); }, [refresh]);
   useEffect(() => {
     const up = () => setOnline(true), down = () => setOnline(false);
     setOnline(navigator.onLine); window.addEventListener("online", up); window.addEventListener("offline", down);

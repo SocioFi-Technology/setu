@@ -1,4 +1,5 @@
 import type {
+  ApprovalDecisionResponse, ApprovalList, BillingWorklist, ChargeDefinitionList, DiscountRequest, DiscountResponse, InvoiceView, NewPaymentRequest, PaymentResponse, PrintRequest, PrintResponse, ReceiptList, ReceiptView, VerifyResponse,
   AiDraftResponse, AllergyOptions, AllergyView, CompositionView, ConsultationView, ConsultWorklist, Icd11Search, MedicineSearch, RecordAllergyRequest, SaveDraftRequest, SignRequest, TestList,
   ApiError, Capabilities, VitalsBatchRequest, VitalsBatchResponse, VitalsView, VitalsWorklist, CreateVisitResponse, MatchDecisionResponse, MatchPreviewResponse, Me, PatientMatches, PatientSearchResponse, QueueItem, QueueResponse, RegisterResponse, RegistrationInput, ReviewOutcomeResponse, ReviewQueueResponse,
 } from "@setu/contracts";
@@ -71,6 +72,35 @@ export const cons = {
   medicines: (q: string) => call<MedicineSearch>("GET", "/v1/catalog/medicines?q=" + enc(q)),
   tests: () => call<TestList>("GET", "/v1/catalog/tests"),
   allergyOptions: () => call<AllergyOptions>("GET", "/v1/catalog/allergy-options"),
+};
+
+/* Billing (slice A6–A7). Bill edits, discounts, issuing and approvals need the server (they are refused offline, like
+   signing): nothing is "applied" or "issued" on this device. Payments go through the outbox: offline, cash is
+   "recorded on this device · not synced" and a payment link "will send when online" — never Paid until the server
+   confirms. `key`: the caller's Idempotency-Key, so pressing a button twice is one request. */
+export const bill = {
+  worklist: () => call<BillingWorklist>("GET", "/v1/billing/worklist"),
+  definitions: (q: string) => call<ChargeDefinitionList>("GET", "/v1/charge-definitions?q=" + enc(q)),
+  open: (encounterId: string) => call<InvoiceView>("POST", `/v1/encounters/${enc(encounterId)}/invoice`, {}, crypto.randomUUID()),
+  view: (id: string) => call<InvoiceView>("GET", `/v1/invoices/${enc(id)}`),
+  addLine: (id: string, code: string, rev: number) => call<InvoiceView>("POST", `/v1/invoices/${enc(id)}/lines`, { code, qty: 1, rev }, crypto.randomUUID()),
+  setQty: (id: string, lineId: string, qty: number, rev: number) => call<InvoiceView>("POST", `/v1/invoices/${enc(id)}/lines/${enc(lineId)}/qty`, { qty, rev }, crypto.randomUUID()),
+  removeLine: (id: string, lineId: string, rev: number) => call<InvoiceView>("POST", `/v1/invoices/${enc(id)}/lines/${enc(lineId)}/remove`, { rev }, crypto.randomUUID()),
+  discount: (id: string, body: DiscountRequest, key: string) => call<DiscountResponse>("POST", `/v1/invoices/${enc(id)}/discount`, body, key),
+  removeDiscount: (id: string, rev: number) => call<InvoiceView>("POST", `/v1/invoices/${enc(id)}/discount/remove`, { rev }, crypto.randomUUID()),
+  issue: (id: string, rev: number, key: string) => call<InvoiceView>("POST", `/v1/invoices/${enc(id)}/issue`, { rev }, key),
+  approvals: (status: "requested" | "approved" | "rejected") => call<ApprovalList>("GET", "/v1/approvals?status=" + status),
+  decide: (taskId: string, decision: "approve" | "reject", note: string, key: string) => call<ApprovalDecisionResponse>("POST", `/v1/approvals/${enc(taskId)}/${decision}`, note ? { note } : {}, key),
+  pay: (id: string, body: NewPaymentRequest, key: string) => write<PaymentResponse>("POST", `/v1/invoices/${enc(id)}/payments`, body, "payment", key),
+  retry: (paymentId: string) => call<PaymentResponse>("POST", `/v1/payments/${enc(paymentId)}/retry`, {}, crypto.randomUUID()),
+  verifyTrx: (paymentId: string, trxId: string) => call<PaymentResponse>("POST", `/v1/payments/${enc(paymentId)}/verify-trx`, { trxId }, crypto.randomUUID()),
+  /** dev and tests only: the fake gateway plays the customer (the API refuses it with a real provider or in production) */
+  fake: (paymentId: string, kind: "opened" | "confirmed" | "failed", deliver = true) => call<{ delivered: boolean; trxId?: string; outcome?: string }>("POST", `/v1/dev/fake-payments/${enc(paymentId)}/${kind}`, { deliver }),
+  receipts: (invoiceId: string) => call<ReceiptList>("GET", `/v1/invoices/${enc(invoiceId)}/receipts`),
+  makeReceipt: (invoiceId: string, key: string) => call<ReceiptView>("POST", `/v1/invoices/${enc(invoiceId)}/receipts`, {}, key),
+  receipt: (id: string) => call<ReceiptView>("GET", `/v1/receipts/${enc(id)}`),
+  print: (id: string, body: PrintRequest, key: string) => call<PrintResponse>("POST", `/v1/receipts/${enc(id)}/print`, body, key),
+  verify: (code: string) => call<VerifyResponse>("GET", `/v1/verify/rc/${enc(code)}`),
 };
 
 export const api = {

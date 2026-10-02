@@ -291,7 +291,7 @@ describe.runIf(db)("A7 payments", () => {
     await issue(view.invoice.id, view.invoice.rev);
     const p = (await post(`/v1/invoices/${view.invoice.id}/payments`, { method: "bkash", amountPaisa: 230_000 })).json().payment;
     const lost = await fake(p.id, "confirmed", { deliver: false });
-    expect(lost.json()).toEqual({ delivered: false });
+    expect(lost.json()).toMatchObject({ delivered: false });
     expect((await refOf(p.id)).status).toBe("link_sent");
     const trx = (await fakeProvider()!.verify({ providerRef: (await refOf(p.id)).providerRef! }))!.trxId!;
     expect((await post(`/v1/payments/${p.id}/verify-trx`, { trxId: "ZZZZZZZZZZ" })).json()).toMatchObject({ code: "trx_not_matched" });

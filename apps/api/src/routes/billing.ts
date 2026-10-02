@@ -289,7 +289,8 @@ export async function billingRoutes(app: FastifyInstance) {
       });
       if (!ref) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
       const cb = fakeProvider()!.simulate(ref, kind, { deliver: o.deliver, amountPaisa: o.amountPaisa });
-      if (!cb) return { delivered: false };
+      // A "lost" callback: nothing reaches the API; the TrxID is what the patient would read on their phone.
+      if (!cb) return { delivered: false, trxId: (await fakeProvider()!.verify({ providerRef: ref }))?.trxId ?? null };
       const ev = fakeProvider()!.parseWebhook(cb.headers, cb.body);
       return { delivered: true, trxId: cb.trxId, ...(await processCallback(req, ev)) };
     });

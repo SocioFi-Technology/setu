@@ -38,7 +38,7 @@
   "remove": ["সরান", "Remove"],
   "qty_more": ["বাড়ান", "More"],
   "qty_less": ["কমান", "Less"],
-  "add_service": ["সেবা যোগ করুন (F3)", "Add a service (F3)"],
+  "add_service": ["সেবা যোগ করুন · F3", "Add a service · F3"],
   "add_placeholder": ["যেমন: কার্ড, সার্টিফিকেট, ECG", "e.g. card, certificate, ECG"],
   "add_none": ["তালিকায় পাওয়া যায়নি", "Not on the price list"],
   "items_n": ["{n}টি সেবা", "{n} items"],
@@ -54,7 +54,7 @@
   "blocker_no_lines": ["বিলে কোনো সেবা নেই", "The bill has no lines"],
   "blocker_unpriced_lines": ["কিছু সেবার মূল্য নির্ধারিত নেই — মূল্যতালিকা ঠিক করতে হবে", "Some lines have no price — the price list needs it"],
   "blocker_approval_pending": ["ছাড় অনুমোদনের অপেক্ষায় — সিদ্ধান্তের পর ইস্যু করুন", "A discount is waiting for approval — issue after the decision"],
-  "take_payment": ["পেমেন্ট নিন (F9)", "Take payment (F9)"],
+  "take_payment": ["পেমেন্ট নিন", "Take payment"],
   "receipts": ["রসিদ", "Receipts"],
   "waiting_server": ["সার্ভারের উত্তরের অপেক্ষা…", "Waiting for the server…"],
 
@@ -72,7 +72,7 @@
   "cat_corp": ["কর্পোরেট চুক্তি", "Corporate agreement"],
   "disc_reason": ["কারণ (অন্তত ১০ অক্ষর)", "Reason (at least 10 characters)"],
   "disc_reason_ph": ["যেমন: দিনমজুর, ডাক্তারের অনুরোধ", "e.g. day labourer, doctor's request"],
-  "disc_limit": ["আপনার সীমা: {limit} ({amount} অথবা {pct}%, যেটি কম)", "Your limit: {limit} (lower of {amount} and {pct}%)"],
+  "disc_limit": ["এই বিলে আপনার সীমা: {limit}", "Your limit on this bill: {limit}"],
   "disc_need_reason": ["প্রতিটি ছাড়ের জন্য কারণ ও ধরন লাগবে", "Every discount needs a category and a reason"],
   "disc_within": ["আপনার সীমার মধ্যে — এখনই প্রযোজ্য। রসিদে ধরন ও কারণসহ দেখাবে।", "Within your limit — applied now. Shows on the receipt with category and reason."],
   "disc_above": ["{amount} আপনার সীমা {limit}-এর বেশি — মালিক বা অ্যাডমিনের অনুমোদন লাগবে", "{amount} is above your limit of {limit} — needs the owner's or an admin's approval"],
@@ -84,6 +84,7 @@
   "disc_approved": ["অনুমোদিত — {by}, {at}। প্রযোজ্য হয়েছে।", "Approved by {by} at {at} — applied."],
   "disc_rejected": ["প্রত্যাখ্যাত — {by}: {note}", "Rejected by {by}: {note}"],
   "disc_applied": ["ছাড় {amount} · {category} · {reason}", "Discount {amount} · {category} · {reason}"],
+  "disc_none": ["এই বিলে কোনো ছাড় নেই", "No discount on this bill"],
   "disc_remove": ["ছাড় সরান", "Remove discount"],
   "disc_locked": ["ছাড় থাকা অবস্থায় সেবা বদলানো যায় না — আগে ছাড় সরান", "Lines cannot change while a discount is on the bill — remove the discount first"],
 
@@ -102,6 +103,7 @@
   "appr_note": ["নোট (প্রত্যাখ্যানে বাধ্যতামূলক, অন্তত ১০ অক্ষর)", "Note (required to reject, at least 10 characters)"],
   "appr_approve": ["অনুমোদন (A)", "Approve (A)"],
   "appr_reject": ["প্রত্যাখ্যান (R)", "Reject (R)"],
+  "appr_own": ["নিজের অনুরোধ নিজে অনুমোদন করা যায় না", "You cannot approve your own request"],
   "appr_decided": ["{status} — {by}, {at}", "{status} — {by}, {at}"],
 
   "pay_title": ["পেমেন্ট", "Payment"],
