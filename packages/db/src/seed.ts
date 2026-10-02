@@ -181,6 +181,7 @@ async function main() {
   const e2eUsers: [string, string, string, string, "receptionist" | "doctor" | "nurse" | "owner" | "admin"][] = [
     ["u_e2e_desk", "টেস্ট রিসেপশন", "Test Receptionist", "01799000001", "receptionist"],
     ["u_e2e_doctor", "ডা. টেস্ট", "Dr. Test", "01799000002", "doctor"],
+    ["u_e2e_doctor2", "ডা. টেস্ট দুই", "Dr. Test Two", "01799000003", "doctor"],
     ["u_e2e_nurse", "টেস্ট নার্স", "Test Nurse", "01799000004", "nurse"],
     ["u_e2e_owner", "টেস্ট মালিক", "Test Owner", "01799000009", "owner"],
     ["u_e2e_admin", "টেস্ট অ্যাডমিন", "Test Admin", "01799000010", "admin"],
