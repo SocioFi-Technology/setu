@@ -6,7 +6,7 @@ import { format } from "@setu/domain";
 import { t as tr } from "@setu/i18n";
 import type { BannerPatient } from "@setu/ui";
 import { api } from "./api";
-import { clearRefusedForOwner, onOutbox, pendingCount, refusedItems, setOutboxOwner } from "./outbox";
+import { clearDraftsForOwner, clearRefusedForOwner, onOutbox, pendingCount, refusedItems, setOutboxOwner } from "./outbox";
 
 export type Lang = "bn" | "en";
 export type Numerals = "bn" | "en";
@@ -71,7 +71,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     n: (v) => convertDigits(v, numerals === "bn"),
     t: (ns, key) => tr(lang, ns, key),
     refresh,
-    logout: async () => { clearRefusedForOwner(); setOutboxOwner(null); await api.logout(); setMe(null); setCaps(null); location.href = "/login"; },
+    logout: async () => { clearRefusedForOwner(); clearDraftsForOwner(); setOutboxOwner(null); await api.logout(); setMe(null); setCaps(null); location.href = "/login"; },
   }), [me, caps, loading, lang, numerals, online, queued, refused, patient, refresh]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

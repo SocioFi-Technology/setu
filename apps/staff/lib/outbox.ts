@@ -1,4 +1,5 @@
 "use client";
+import type { SaveDraftRequest } from "@setu/contracts";
 /* Offline outbox (CLAUDE.md rule 1: a write is pending until the server acknowledges it). A write that cannot reach the
    server is kept on this device with its Idempotency-Key and replayed, in order, when the browser is back online —
    the key makes a replay safe. Screens show "Saved on this device · not synced" for it, never "Saved". */
@@ -28,10 +29,11 @@ const mine = (items: OutboxItem[]) => items.filter((i) => owner !== null && i.ow
 /* Writes the server refused after an offline save (e.g. 409 visit already exists, 400 validation) stay listed, with the
    reason, until staff have checked them (open question 22): never a silent drop from the pending count. */
 const refused = (items: OutboxItem[]) => items.filter((i) => owner !== null && i.owner === owner && Boolean(i.error));
-function save(items: OutboxItem[]) { try { localStorage.setItem(KEY, JSON.stringify(items)); } catch {} listeners.forEach((f) => f(mine(items).length, refused(items).length)); }
+function save(items: OutboxItem[]) { try { localStorage.setItem(KEY, JSON.stringify(items)); } catch {} listeners.forEach((f) => f(mine(items).length + myDrafts(rawDrafts()).length, refused(items).length)); }
 
 export const outboxItems = () => load().filter((i) => i.owner === owner);
-export const pendingCount = () => mine(load()).length;
+/** Writes waiting on this device: queued writes plus consultation drafts not yet on the server. */
+export const pendingCount = () => mine(load()).length + myDrafts(drafts()).length;
 export const refusedItems = () => refused(load());
 /** Staff have checked a refused write: take it off the list. */
 export function dismissRefused(id: string) { save(load().filter((i) => !(i.id === id && i.error && i.owner === owner))); }
@@ -70,5 +72,77 @@ export async function flush(): Promise<void> {
       }
     }
   } finally { flushing = false; }
+  await flushDrafts();
+}
+
+/* ── Consultation drafts kept on this device (Kamrul 02/10/2026) ──
+   A note draft the server has not acknowledged is kept here per user + tenant + facility, at most 24 h, and is cleared
+   at sign-out. It is replayed with the version (`rev`) it was based on, so it can never overwrite a newer note: when the
+   note changed on the server meanwhile (409 stale) the device copy is kept, marked `conflict`, for the doctor to load
+   into the note or discard. Nothing here can sign: signing needs the server (decision 25). */
+export interface DeviceDraft {
+  owner: string; compositionId: string; encounterId: string; baseRev: number; body: Omit<SaveDraftRequest, "rev">;
+  key: string; at: string; conflict?: boolean;
+}
+const DKEY = "setu.cons.drafts";
+const rawDrafts = (): DeviceDraft[] => { try { return JSON.parse(localStorage.getItem(DKEY) ?? "[]") as DeviceDraft[]; } catch { return []; } };
+const storeDrafts = (d: DeviceDraft[]) => { try { localStorage.setItem(DKEY, JSON.stringify(d)); } catch {} };
+const myDrafts = (d: DeviceDraft[]) => d.filter((x) => owner !== null && x.owner === owner);
+/* A device draft older than 24 h is removed with its text and becomes a refused item ("not sent within 24 hours"), so
+   the doctor sees that the work did not reach the server (same rule as the outbox: never a silent drop). */
+function drafts(): DeviceDraft[] {
+  const all = rawDrafts();
+  const old = all.filter((d) => !(Date.now() - Date.parse(d.at) < MAX_AGE_MS));
+  if (!old.length) return all;
+  const keep = all.filter((d) => !old.includes(d));
+  storeDrafts(keep);
+  save([...load(), ...old.map((d): OutboxItem => ({
+    id: crypto.randomUUID(), owner: d.owner, method: "PUT", path: `/v1/compositions/${d.compositionId}`, body: null, key: d.key, label: "note_draft",
+    at: new Date().toISOString(), error: "Note draft not sent within 24 hours — redo it", errorBn: "নোটের খসড়া ২৪ ঘণ্টার মধ্যে পাঠানো যায়নি — আবার করুন", status: 0,
+  }))]);
+  return keep;
+}
+function notify() { save(load()); }
+
+/** Keeps the latest unsent draft of a note on this device. False when nobody is signed in (nothing is kept). */
+export function saveDeviceDraft(d: Pick<DeviceDraft, "compositionId" | "encounterId" | "baseRev" | "body">): boolean {
+  if (!owner) return false;
+  const o = owner;
+  storeDrafts([...drafts().filter((x) => !(x.owner === o && x.compositionId === d.compositionId)), { ...d, owner: o, key: crypto.randomUUID(), at: new Date().toISOString() }]);
+  notify();
+  return true;
+}
+export const deviceDraft = (compositionId: string): DeviceDraft | null => myDrafts(drafts()).find((x) => x.compositionId === compositionId) ?? null;
+export function dropDeviceDraft(compositionId: string) { if (owner) { const o = owner; storeDrafts(drafts().filter((x) => !(x.owner === o && x.compositionId === compositionId))); notify(); } }
+/** Sign-out: this user's device drafts go with the session (a shared PC keeps no note text of theirs). */
+export function clearDraftsForOwner() { if (owner) { const o = owner; storeDrafts(rawDrafts().filter((x) => x.owner !== o)); notify(); } }
+
+let flushingDrafts = false;
+async function flushDrafts(): Promise<void> {
+  if (flushingDrafts || typeof navigator !== "undefined" && !navigator.onLine) return;
+  flushingDrafts = true;
+  try {
+    for (const d of myDrafts(drafts()).filter((x) => !x.conflict)) {
+      let r: Response;
+      try {
+        r = await fetch("/api" + `/v1/compositions/${encodeURIComponent(d.compositionId)}`, { method: "PUT", credentials: "include", headers: { "content-type": "application/json", "idempotency-key": d.key }, body: JSON.stringify({ ...d.body, rev: d.baseRev }) });
+      } catch { return; }
+      if (r.status >= 500 || r.status === 401) return;
+      let code = "";
+      let msg = r.statusText, msgBn: string | undefined;
+      if (!r.ok) try { const b = (await r.json()) as { code?: string; message_en?: string; message_bn?: string }; code = b.code ?? ""; msg = b.message_en ?? msg; msgBn = b.message_bn; } catch {}
+      const rest = rawDrafts();
+      // Only the same device copy is touched: the doctor may have typed again (new key) while this one was in flight.
+      const same = (x: DeviceDraft) => x.owner === d.owner && x.compositionId === d.compositionId && x.key === d.key;
+      if (r.ok) storeDrafts(rest.filter((x) => !same(x)));
+      else if (r.status === 409 && code === "stale") storeDrafts(rest.map((x) => (same(x) ? { ...x, conflict: true } : x)));
+      else {
+        // Refused for another reason (note signed meanwhile, access changed): listed with the reason, without the text.
+        storeDrafts(rest.filter((x) => !same(x)));
+        save([...load(), { id: crypto.randomUUID(), owner: d.owner, method: "PUT", path: `/v1/compositions/${d.compositionId}`, body: null, key: d.key, label: "note_draft", at: new Date().toISOString(), error: msg, errorBn: msgBn, status: r.status }]);
+      }
+      notify();
+    }
+  } finally { flushingDrafts = false; }
 }
 if (typeof window !== "undefined") window.addEventListener("online", () => { void flush(); });

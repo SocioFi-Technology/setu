@@ -1,4 +1,5 @@
 import type {
+  AiDraftResponse, AllergyOptions, AllergyView, CompositionView, ConsultationView, ConsultWorklist, Icd11Search, MedicineSearch, RecordAllergyRequest, SaveDraftRequest, SignRequest, TestList,
   ApiError, Capabilities, VitalsBatchRequest, VitalsBatchResponse, VitalsView, VitalsWorklist, CreateVisitResponse, MatchDecisionResponse, MatchPreviewResponse, Me, PatientMatches, PatientSearchResponse, QueueItem, QueueResponse, RegisterResponse, RegistrationInput, ReviewOutcomeResponse, ReviewQueueResponse,
 } from "@setu/contracts";
 import { enqueue, flush } from "./outbox";
@@ -49,6 +50,27 @@ export const vitals = {
   worklist: () => call<VitalsWorklist>("GET", "/v1/vitals/worklist"),
   view: (encounterId: string) => call<VitalsView>("GET", `/v1/encounters/${encodeURIComponent(encounterId)}/vitals`),
   record: (encounterId: string, body: VitalsBatchRequest, key: string) => write<VitalsBatchResponse>("POST", `/v1/encounters/${encodeURIComponent(encounterId)}/vitals`, body, "vitals", key),
+};
+
+/* Consultation (slice A5). Every write waits for the server: a note is Signed only when `sign` answers 200 — there is no
+   client-side "signed" and no offline signing (decision 25). Draft saves that cannot reach the server are kept by the
+   screen as a device draft (outbox.ts `saveDeviceDraft`), never queued as a blind replay. `key`: the caller's
+   Idempotency-Key, so a retry (e.g. the right PIN after a wrong one) is the same request. */
+const enc = encodeURIComponent;
+export const cons = {
+  worklist: () => call<ConsultWorklist>("GET", "/v1/consultations/worklist"),
+  view: (encounterId: string) => call<ConsultationView>("GET", `/v1/encounters/${enc(encounterId)}/consultation`),
+  open: (encounterId: string) => call<ConsultationView>("POST", `/v1/encounters/${enc(encounterId)}/consultation/open`, {}, crypto.randomUUID()),
+  save: (compositionId: string, body: SaveDraftRequest, key: string) => call<CompositionView>("PUT", `/v1/compositions/${enc(compositionId)}`, body, key),
+  sign: (compositionId: string, body: SignRequest, key: string) => call<ConsultationView>("POST", `/v1/compositions/${enc(compositionId)}/sign`, body, key),
+  amend: (compositionId: string, reason: string) => call<ConsultationView>("POST", `/v1/compositions/${enc(compositionId)}/amend`, { reason }, crypto.randomUUID()),
+  aiDraft: (compositionId: string, kind: "previsit" | "note") => call<AiDraftResponse>("POST", `/v1/compositions/${enc(compositionId)}/ai-draft`, { kind }, crypto.randomUUID()),
+  recordAllergy: (patientId: string, body: RecordAllergyRequest, key: string) => call<AllergyView>("POST", `/v1/patients/${enc(patientId)}/allergies`, body, key),
+  markAllergyError: (allergyId: string, encounterId: string, reason: string, key: string) => call<AllergyView>("POST", `/v1/allergies/${enc(allergyId)}/entered-in-error`, { encounterId, reason }, key),
+  icd11: (q: string) => call<Icd11Search>("GET", "/v1/catalog/icd11?q=" + enc(q)),
+  medicines: (q: string) => call<MedicineSearch>("GET", "/v1/catalog/medicines?q=" + enc(q)),
+  tests: () => call<TestList>("GET", "/v1/catalog/tests"),
+  allergyOptions: () => call<AllergyOptions>("GET", "/v1/catalog/allergy-options"),
 };
 
 export const api = {

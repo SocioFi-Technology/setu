@@ -38,5 +38,9 @@
   "label_vitals": [
     "ভাইটাল",
     "Vitals"
+  ],
+  "label_note_draft": [
+    "পরামর্শ নোটের খসড়া",
+    "Consultation note draft"
   ]
 }
