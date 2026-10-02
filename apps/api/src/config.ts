@@ -17,6 +17,9 @@ export const config = {
   /** The fake gateway's "play the customer" route (dev and tests only). Off unless FAKE_PAYMENTS_DEV_ROUTE=1, and never
       in production (security review A6–A7: a cashier must not be able to mark a payment paid without money). */
   fakePaymentsDevRoute: process.env.FAKE_PAYMENTS_DEV_ROUTE === "1" && process.env.NODE_ENV !== "production",
+  /** The fake SMS gateway's dev helpers (make the next SMS fail, list what was "sent"). Off unless
+      FAKE_MESSAGING_DEV_ROUTE=1, and never in production. */
+  fakeMessagingDevRoute: process.env.FAKE_MESSAGING_DEV_ROUTE === "1" && process.env.NODE_ENV !== "production",
   adapters: { payments: process.env.PAYMENTS_PROVIDER ?? "fake", sms: process.env.SMS_PROVIDER ?? "fake", ai: process.env.AI_PROVIDER ?? "fake" },
 };
 
@@ -27,3 +30,4 @@ if (process.env.DATABASE_URL && !process.env.DATABASE_URL_APP)
 
 /* The fake gateway is for dev and tests: a production API refuses to start with it (or with its published secret). */
 if (process.env.NODE_ENV === "production" && config.adapters.payments === "fake") throw new Error("PAYMENTS_PROVIDER=fake is not allowed in production");
+if (process.env.NODE_ENV === "production" && config.adapters.sms === "fake") throw new Error("SMS_PROVIDER=fake is not allowed in production");
