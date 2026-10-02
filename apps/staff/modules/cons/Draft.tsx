@@ -7,14 +7,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ConsultationView, TestList, VitalsView } from "@setu/contracts";
-import { parseComplaint, type SectionKey } from "@setu/domain";
+import { parseComplaint, signBlockers, type SectionKey } from "@setu/domain";
 import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
 import { ApiFailure, cons, vitals as vitalsApi } from "../../lib/api";
 import { deviceDraft, dropDeviceDraft, flush, saveDeviceDraft, type DeviceDraft } from "../../lib/outbox";
 import { useSession } from "../../lib/session";
+import { AiPanel, type AiInsert } from "./Ai";
 import { AllergyStrip } from "./Allergies";
-import { bodyOf, consUrl, formOf, useBanner, useC, useFmt, type Dx, type Form } from "./common";
+import { bodyOf, consUrl, factsOf, formOf, rxLinesOf, useBanner, useC, useFmt, type Dx, type Form } from "./common";
 import { RxBuilder } from "./Rx";
+import { SignSheet } from "./SignSheet";
 import { ConsultWorklist } from "./Worklist";
 
 export function ConsultDraft() {
@@ -139,15 +141,34 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
   const upd = (fn: (f: Form) => Form) => { if (editable) setForm(fn); };
   const setSection = <K extends keyof Form["sections"]>(k: K, v: Form["sections"][K]) => upd((f) => ({ ...f, sections: { ...f.sections, [k]: v } }));
 
+  /** Before signing: the note must be on the server exactly as shown (sign sends the rev the server holds). */
+  const ensureSaved = useCallback(async (): Promise<boolean> => {
+    if (!navigator.onLine) return false;
+    if (timer.current !== undefined || syncRef.current.st !== "saved") await save();
+    for (let i = 0; i < 50 && (saving.current || timer.current !== undefined); i++) await new Promise((r) => setTimeout(r, 200));
+    return syncRef.current.st === "saved";
+  }, [save]);
+  const [signing, setSigning] = useState(false);
+  const openSign = useCallback(() => { if (editable && navigator.onLine) setSigning(true); }, [editable]);
+
+  /** Text the doctor takes from the AI draft is editable, and its section stays ai-draft until "I reviewed" + sign. */
+  const append = (old: string, add: string) => (old.trim() ? `${old.trim()}\n${add}` : add);
+  const insertAi = (i: AiInsert) => upd((f) => i.at === "history"
+    ? { ...f, sections: { ...f.sections, history: append(f.sections.history, i.text) }, sources: { ...f.sources, history: "ai-draft" } }
+    : { ...f, sections: { ...f.sections, exam: { ...f.sections.exam, [i.field]: append(f.sections.exam[i.field], i.text) } }, sources: { ...f.sources, exam: "ai-draft" } });
+
   /** Allergies changed on the server: re-read the view (the note being typed stays as it is). */
   const refresh = useCallback(async () => { setView(await cons.view(encounterId)); }, [encounterId, setView]);
 
-  /* ── keyboard: Alt+1…9 jumps to a section; "/" focuses the medicine search (issue #9; the shell leaves "/" to cons) ── */
+  /* ── keyboard: Alt+1…9 jumps to a section; "/" focuses the medicine search (issue #9; the shell leaves "/" to cons);
+     Ctrl+Enter opens the sign sheet (never signs by itself: the PIN is always asked); Esc closes dialogs. ── */
   const rxSearch = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       const inField = Boolean(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable));
+      if (document.querySelector("[role=dialog]")) return; // a sheet or dialog is open: its own keys apply
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); openSign(); return; }
       if (e.key === "/" && !inField && !e.ctrlKey && !e.altKey && !e.metaKey && rxSearch.current) {
         e.preventDefault(); rxSearch.current.focus(); rxSearch.current.scrollIntoView({ block: "center" }); return;
       }
@@ -160,11 +181,13 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
     };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
-  }, []);
+  }, [openSign]);
 
   const isAmendment = Boolean(draft.amendsId);
   const amended = isAmendment ? view.history.find((h) => h.id === draft.amendsId) : undefined;
   const ai = (k: SectionKey) => form.sources[k] === "ai-draft";
+  // What blocks the Sign button (the two ticks live on the sign sheet). The sheet and the server re-run the same check.
+  const hardBlockers = signBlockers({ sections: form.sections, sources: form.sources, diagnoses: form.diagnoses, lines: rxLinesOf(form.lines), allergies: factsOf(view.allergies), aiReviewed: true, uncodedAllergiesChecked: true, isAmendment, amendReason: draft.amendReason }).length;
 
   return (
     <div data-screen="cons/draft" style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0, paddingBottom: 72 }}>
@@ -232,6 +255,7 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
           </Section>
         </div>
         <aside style={{ flex: "1 1 260px", maxWidth: 420, minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+          <AiPanel compositionId={id} editable={editable} onInsert={insertAi} />
           <Context view={view} />
         </aside>
       </div>
@@ -241,7 +265,16 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
           <SyncText sync={sync} />
           <span className="t-small t-muted">{C("keys_hint")}</span>
         </span>
+        {editable && (
+          <Button variant="primary" icon="pen-tool" kbd="Ctrl Enter" data-testid="sign-open" disabled={!s.online} onClick={openSign}>
+            {!s.online ? C("sign_offline") : hardBlockers > 0 ? C("resolve_n", { n: hardBlockers }) : isAmendment ? C("sign_amend") : C("sign")}
+          </Button>
+        )}
       </div>
+      {signing && (
+        <SignSheet view={view} draft={draft} form={form} rev={() => revRef.current} ensureSaved={ensureSaved} onClose={() => setSigning(false)}
+          onSigned={(v) => { dropDeviceDraft(id); lastSaved.current = JSON.stringify(bodyOf(formRef.current)); setSync({ st: "saved", at: v.current?.signedAt ?? new Date().toISOString() }); setView(v); router.push(consUrl("signed", encounterId)); }} />
+      )}
     </div>
   );
 }
