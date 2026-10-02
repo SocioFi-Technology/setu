@@ -53,10 +53,15 @@ Status: **done**. Search, duplicate review, registration and queue work end to e
 
 8. Front desk follow-ups (not blocking A4): queue reorder with reason (+ audit), Lab/Billing queue columns, register "Save draft" and the register-screen Compare for an unsaved form (today: "Visit on this record" per candidate), payer/photo/referral fields (need Coverage/Media), records-officer role for review Tasks, branch choice for multi-branch organisations.
 9. Some screen strings still come from the shell's inline `L(bn, en)`; new screens use `packages/i18n` namespaces (`locales/app/*.json`).
+10. **Pre-pilot security pass** (decided 02/10/2026, open questions 20 and 24):
+    - composite `(tenantId, id)` foreign keys for Patient.linkedToId, Task.focusId/candidateId, Provenance.targetId and Encounter.patientId (defence in depth beside RLS);
+    - `pnpm db:migrate` must stop sending the `setu_app` password in plain text (SCRAM hash, or statement logging off);
+    - together with gap 3 (argon2id) and gap 4 (PIN tries in Redis).
+11. **Patients are per tenant** (decided 02/10/2026, open question 21): one record shared across an owner's branches; between different owners only through Connected Care with consent (Journey E), never by default.
 
 ## Next (in order)
 1. ~~`/slice A1-A3`~~ — done 02/10/2026.
-2. `/slice A4-A5` — vitals, consultation, sign/amend.
+2. `/slice A4-A5` — vitals, consultation, sign/amend. **Start with the agreed A1–A3 follow-ups** (open questions 17, 18 + ADR, 19, 22, 23 — see `docs/open-questions.md`, "Decisions of 02/10/2026").
 3. `/slice A6-A7` — billing, payments (FakeProvider), receipt PDF (+ gap 2).
 4. `/slice A8-A11` — lab.
 5. `/slice A12-A13` — doctor app layout, printing; run all of Journey A.
