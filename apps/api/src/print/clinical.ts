@@ -170,9 +170,9 @@ ${dup}
 </div>
 <table><thead><tr><th>${lab("col_test")}</th><th>${lab("col_result")}</th><th>${lab("col_flag")}</th><th>${lab("col_ref")}</th></tr></thead><tbody>${rows}</tbody></table>
 ${i.pending.length ? `<p><b>${lab("pending_tests")}</b> ${i.pending.map((p) => k.name(p.nameBn, p.nameEn)).join(", ")}</p>` : ""}
-${i.callbacks.length ? `<p class="small">${i.callbacks.map((c) => `${esc(c.analyteEn)}: ${esc(c.name)} · ${k.dateTime(c.at)}`).join(" · ")}</p>` : ""}
+${i.callbacks.length ? `<p class="small">${i.callbacks.map((c) => lab("legend_call", { test: c.analyteEn, name: c.name, at: k.dateTime(c.at) })).join("<br>")}</p>` : ""}
 <div class="foot">${qrBlock(k, i.verify, i.mode)}
-<div class="sig">${i.validatedBy ? `<b>${k.P("digitally_signed")}</b><br>${k.name(i.validatedBy.bn, i.validatedBy.en)}<br>` : ""}<span class="small">${k.P("released_by", { name: k.rawName(i.report.releasedBy.bn, i.report.releasedBy.en), at: k.dateTime(i.report.releasedAt) })}</span></div></div>
+<div class="sig">${i.validatedBy ? `<b>${k.P("digitally_signed")}</b><br>${k.name(i.validatedBy.bn, i.validatedBy.en)}<br>` : ""}<span class="small">${k.P("released_by")} ${k.name(i.report.releasedBy.bn, i.report.releasedBy.en)} · ${k.dateTime(i.report.releasedAt)}</span></div></div>
 <div class="small" style="margin-top:2mm">${lab("sample_ranges_note")}</div>`;
   return frame(i.paper, body, wm);
 }
