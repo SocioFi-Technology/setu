@@ -43,7 +43,7 @@ describe("purchase orders", () => {
 });
 
 describe("goods received (prototype Purchase › Goods received)", () => {
-  const L = { orderedQty: 100, alreadyReceivedQty: 0, invoicedQty: 100, receivedQty: 100, batchNo: "CM2611", expiry: "2027-12-31", costPaisa: 340, mrpPaisa: 400 };
+  const L = { orderedQty: 100, alreadyReceivedQty: 0, invoicedQty: 100, receivedQty: 100, batchNo: "CM2611", expiry: "2027-12-31", costPaisa: 340, mrpPaisa: 400, orderCostPaisa: 340 };
   it("a clean line has no blockers; each check names its problem", () => {
     expect(grnLineBlockers(L, today)).toEqual([]);
     expect(grnLineBlockers({ ...L, batchNo: " " }, today)).toEqual(["batch_required"]);
@@ -61,6 +61,10 @@ describe("goods received (prototype Purchase › Goods received)", () => {
     expect(grnPostBlockers({ lines: [short], role: "pharmacist", today })).toEqual(["short_expiry_needs_owner"]);
     expect(grnPostBlockers({ lines: [short], role: "owner", today })).toEqual([]);
     expect(grnPostBlockers({ lines: [], role: "owner", today })).toEqual(["no_lines"]);
+  });
+  it("a bill at another unit cost than the order is posted only by the owner / admin (it changes what is owed)", () => {
+    expect(grnPostBlockers({ lines: [{ ...L, costPaisa: 3400, mrpPaisa: 4000 }], role: "pharmacist", today })).toEqual(["price_variance_needs_owner"]);
+    expect(grnPostBlockers({ lines: [{ ...L, costPaisa: 3400, mrpPaisa: 4000 }], role: "owner", today })).toEqual([]);
   });
   it("a short delivery becomes a debit note: billed 100 × ৳3.40, received 90 → owed ৳306, debit note ৳34", () => {
     expect(grnMoney([{ invoicedQty: 100, receivedQty: 90, costPaisa: 340 }])).toEqual({ invoicedPaisa: 34_000, debitNotePaisa: 3_400, owedPaisa: 30_600 });

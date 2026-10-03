@@ -63,6 +63,8 @@ export const GrnLineView = z.object({
   id: z.string(), orderLineId: z.string(), medicine: MedicineRef, batchNo: z.string(), expiry: z.string(),
   invoicedQty: z.number().int(), receivedQty: z.number().int(), costPaisa: Paisa, mrpPaisa: Paisa, vatRateBp: z.number().int(),
   location: z.enum(["counter", "store", "fridge"]), shortExpiry: z.boolean(), blockers: z.array(GrnLineBlocker),
+  /** the order's unit cost, and whether the bill differs (then the owner / admin posts it) */
+  orderCostPaisa: Paisa, priceVariance: z.boolean(),
 });
 export const GoodsReceiptView = z.object({
   id: z.string(), number: z.string().nullable(), status: z.enum(["checking", "posted", "discarded"]), rev: z.number().int(),
@@ -71,7 +73,7 @@ export const GoodsReceiptView = z.object({
   lines: z.array(GrnLineView),
   money: z.object({ invoicedPaisa: z.number().int(), debitNotePaisa: z.number().int(), owedPaisa: z.number().int() }),
   /** short_expiry_needs_owner: a batch expiring within 6 months — the owner / admin posts it */
-  postBlockers: z.array(z.enum(["no_lines", "line_invalid", "short_expiry_needs_owner"])),
+  postBlockers: z.array(z.enum(["no_lines", "line_invalid", "short_expiry_needs_owner", "price_variance_needs_owner"])),
   createdBy: Person, createdAt: z.string(), postedBy: Person.nullable(), postedAt: z.string().nullable(),
 });
 export type GoodsReceiptView = z.infer<typeof GoodsReceiptView>;

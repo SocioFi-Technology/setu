@@ -34,13 +34,16 @@ beforeAll(async () => {
   }
   // Repeated runs use up the sample counter stock: top the usable counter batches back up to their opening quantity
   // with an `adjust` move (the ledger stays append-only), as pnpm reset-e2e does.
-  await db.forTenant(T, async (tx) => {
-    const opening = await tx.stockMove.groupBy({ by: ["batchId"], where: { refType: "seed" }, _sum: { qty: true } });
-    for (const b of await tx.stockBatch.findMany({ where: { location: "counter", expiry: { gte: TODAY }, sample: true } })) {
+  // The app role may only adjust from an approved count (ADR 0009), so the top-up runs on the owner connection like the
+  // seed and pnpm reset-e2e.
+  const owner = new db.PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+  try {
+    const opening = await owner.stockMove.groupBy({ by: ["batchId"], where: { tenantId: T, refType: "seed" }, _sum: { qty: true } });
+    for (const b of await owner.stockBatch.findMany({ where: { tenantId: T, location: "counter", expiry: { gte: TODAY }, sample: true } })) {
       const want = opening.find((o) => o.batchId === b.id)?._sum.qty ?? 0;
-      if (b.qtyOnHand < want) await tx.stockMove.create({ data: { tenantId: T, organizationId: b.organizationId, batchId: b.id, kind: "adjust", qty: want - b.qtyOnHand, refType: "test-top-up", reason: "api test: sample stock top-up", byId: "u_e2e_pharm" } });
+      if (b.qtyOnHand < want) await owner.stockMove.create({ data: { tenantId: T, organizationId: b.organizationId, batchId: b.id, kind: "adjust", qty: want - b.qtyOnHand, refType: "test-top-up", reason: "api test: sample stock top-up", byId: "u_e2e_pharm" } });
     }
-  }, { userId: "u_e2e_pharm" });
+  } finally { await owner.$disconnect(); }
 });
 afterAll(async () => { await app.close(); });
 

@@ -87,6 +87,16 @@ describe.runIf(db)("P5 purchase order → goods received", () => {
     g2 = await ok(post(`/v1/pharmacy/goods-receipts/${g2.id}/post`, { rev: g2.rev, note: "Short expiry accepted — fast mover" }, "owner"));
     expect(g2.postedBy.nameEn).toBe("Test Owner");
 
+    // the same supplier bill cannot be posted twice; a bill at another unit cost than the order needs the owner
+    let g3 = await ok(post("/v1/pharmacy/goods-receipts", { orderId: po.id, supplierInvoiceNo: `INV-${RUN}` }), 201);
+    g3 = await ok(post(`/v1/pharmacy/goods-receipts/${g3.id}/lines`, { rev: g3.rev, orderLineId: comet!.id, batchNo: `CX${RUN}`, expiry: day(700), invoicedQty: 10, receivedQty: 10, costPaisa: 3400, mrpPaisa: 4000, location: "store" }));
+    expect(g3.lines[0]).toMatchObject({ priceVariance: true, orderCostPaisa: 340 });
+    const variance = await post(`/v1/pharmacy/goods-receipts/${g3.id}/post`, { rev: g3.rev });
+    expect([variance.statusCode, variance.json().code]).toEqual([403, "price_variance_needs_owner"]);
+    const twice = await post(`/v1/pharmacy/goods-receipts/${g3.id}/post`, { rev: g3.rev }, "owner");
+    expect([twice.statusCode, twice.json().code]).toEqual([409, "conflict"]);
+    await ok(post(`/v1/pharmacy/goods-receipts/${g3.id}/discard`, { rev: g3.rev }));
+
     // the rest of Comet will not come: cancelling is refused once goods arrived; close it short with a reason
     let o = await ok(get(`/v1/pharmacy/purchase-orders/${po.id}`));
     const cancel = await post(`/v1/pharmacy/purchase-orders/${po.id}/cancel`, { rev: o.rev, reason: "Supplier cannot deliver" });
@@ -156,7 +166,11 @@ describe.runIf(db)("store → counter, and P6 count", () => {
     let c = await ok(post("/v1/pharmacy/counts", { location: "fridge" }), 201);
     expect((await post("/v1/pharmacy/counts", { location: "fridge" })).json().code).toBe("count_open");
     const target = c.lines.find((l: { batch: { id: string } }) => l.batch.id === moved.to)!;
-    const before = target.systemQty as number;
+    // the counter keeps working while the count is open: 5 go back to the store before this batch is counted
+    await ok(post("/v1/pharmacy/transfers", { batchId: moved.to, qty: 5, to: "store" }), 201);
+    c = await ok(get(`/v1/pharmacy/counts/${c.id}`));
+    const before = c.lines.find((l: { id: string }) => l.id === target.id).systemQty as number; // expected on the shelf now
+    expect(before).toBe(target.systemQty - 5);
     for (const l of c.lines) c = await ok(post(`/v1/pharmacy/counts/${c.id}/lines`, { rev: c.rev, lineId: l.id, countedQty: l.id === target.id ? before - 2 : l.systemQty }));
     const noReason = await post(`/v1/pharmacy/counts/${c.id}/submit`, { rev: c.rev });
     expect([noReason.statusCode, noReason.json().code]).toEqual([422, "reason_required"]);
@@ -171,7 +185,18 @@ describe.runIf(db)("store → counter, and P6 count", () => {
     expect(c).toMatchObject({ status: "approved", decidedBy: { nameEn: "Test Owner" } });
     expect((await inTenant((tx) => tx.stockBatch.findFirst({ where: { id: moved.to } })))!.qtyOnHand).toBe(qtyBefore - 2);
     const adj = await inTenant((tx) => tx.stockMove.findMany({ where: { refType: "count", refId: c.id } }));
-    expect(adj.map((m) => [m.kind, m.qty])).toEqual([["adjust", -2]]);
+    expect(adj.map((m) => [m.kind, m.qty])).toEqual([["adjust", -2]]); // not −7: the 5 moved during the count are not taken twice
+  });
+});
+
+describe.runIf(db)("the database backs every stock move and supplier entry (checked at commit)", () => {
+  it("refuses a receive without a posted receipt line, an adjustment without an approved count, a lone transfer leg, a payment by the pharmacist", async () => {
+    const b = (await inTenant((tx) => tx.stockBatch.findFirst({ where: { medicineKey: "ace", location: "store" } })))!;
+    const as = (fn: (tx: NonNullable<typeof db>["prisma"]) => Promise<unknown>) => db!.forTenant(T, fn as never, { userId: "u_e2e_pharm" });
+    await expect(as((tx) => tx.stockMove.create({ data: { tenantId: T, organizationId: b.organizationId, batchId: b.id, kind: "receive", qty: 100, refType: "seed", byId: "u_e2e_pharm" } }))).rejects.toThrow(/posted goods-receipt line/);
+    await expect(as((tx) => tx.stockMove.create({ data: { tenantId: T, organizationId: b.organizationId, batchId: b.id, kind: "adjust", qty: 100, refType: "x", reason: "found extra stock today", byId: "u_e2e_pharm" } }))).rejects.toThrow(/approved count/);
+    await expect(as((tx) => tx.stockMove.create({ data: { tenantId: T, organizationId: b.organizationId, batchId: b.id, kind: "transfer", qty: 100, refType: "transfer", refId: "tr_x", byId: "u_e2e_pharm" } }))).rejects.toThrow(/two legs/);
+    await expect(as((tx) => tx.supplierEntry.create({ data: { tenantId: T, organizationId: b.organizationId, supplierId, kind: "payment", amountPaisa: 1, byId: "u_e2e_pharm" } }))).rejects.toThrow(/owner or an admin/);
   });
 });
 

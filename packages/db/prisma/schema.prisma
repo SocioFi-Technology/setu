@@ -1646,6 +1646,8 @@ model StockCountLine {
   systemQty  Int
   countedQty Int?
   reason     String?
+  /// when this batch was counted — the adjustment allows for stock that moved between the start and this moment
+  countedAt  DateTime?
 
   @@unique([countId, batchId])
 }

@@ -1,6 +1,7 @@
 /* Pharmacy purchasing, goods received and stock counts (ADR 0009, pharmacy session 2; prototype Setu Pharmacy ›
    Purchase, Count & adjust). Money is paisa per tablet / capsule; the thresholds are samples pending Kamrul. */
 import type { Role } from "./access.js";
+import { MAX_PAISA } from "./money.js";
 
 const APPROVERS: Role[] = ["owner", "admin"];
 export const isStockApprover = (role: Role) => APPROVERS.includes(role);
@@ -28,7 +29,11 @@ export function poSendBlockers(x: { lines: readonly PoLine[]; role: Role; approv
 export interface GrnLine {
   orderedQty: number; alreadyReceivedQty: number; invoicedQty: number; receivedQty: number;
   batchNo: string; expiry: string; costPaisa: number; mrpPaisa: number;
+  /** the unit cost on the order — a different cost on the supplier's bill is a price variance */
+  orderCostPaisa: number;
 }
+/** Order totals and receipt money stay inside the paisa range Postgres integers hold (@setu/domain MAX_PAISA). */
+export const withinMoneyRange = (paisa: number) => Number.isSafeInteger(paisa) && paisa >= 0 && paisa <= MAX_PAISA;
 export type GrnLineBlocker = "batch_required" | "expiry_invalid" | "expired" | "over_invoice" | "over_order" | "mrp_below_cost" | "nothing_received";
 /** One line as checked at the counter: a batch number, a real expiry not already past, received ≤ what the supplier
     billed and ≤ what is still open on the order, MRP not below cost. */
@@ -43,12 +48,15 @@ export function grnLineBlockers(l: GrnLine, today: string): GrnLineBlocker[] {
   if (l.invoicedQty <= 0) out.push("nothing_received");
   return out;
 }
-export type GrnPostBlocker = "no_lines" | "line_invalid" | "short_expiry_needs_owner";
+export type GrnPostBlocker = "no_lines" | "line_invalid" | "short_expiry_needs_owner" | "price_variance_needs_owner";
+export const priceVariance = (l: Pick<GrnLine, "costPaisa" | "orderCostPaisa">) => l.costPaisa !== l.orderCostPaisa;
 export function grnPostBlockers(x: { lines: readonly GrnLine[]; role: Role; today: string }): GrnPostBlocker[] {
   if (!x.lines.length) return ["no_lines"];
   const out: GrnPostBlocker[] = [];
   if (x.lines.some((l) => grnLineBlockers(l, x.today).length)) out.push("line_invalid");
   if (x.lines.some((l) => isDay(l.expiry) && shortExpiry(l.expiry, x.today)) && !isStockApprover(x.role)) out.push("short_expiry_needs_owner");
+  // a supplier bill at another unit cost than the order changes what is owed: the owner / admin posts it (reviews)
+  if (x.lines.some(priceVariance) && !isStockApprover(x.role)) out.push("price_variance_needs_owner");
   return out;
 }
 /** What the supplier billed, what arrived short (a debit note against the supplier), and what is owed for it. */

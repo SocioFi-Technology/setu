@@ -744,7 +744,7 @@ Commit after each step, push at the end of each session.
 
 ### Decided in the session (defaults — Kamrul to confirm)
 166. **Medicine leaves the shelf when it is dispensed**, while the visit's pharmacy bill is still a draft; a bill that
-     holds given medicine cannot be voided (409 "medicine given") until returns exist (session 2: a `return` move with
+     holds given medicine cannot be voided (409 "medicine given") until returns exist (refunds slice — question 191: a `return` move with
      a reason, owner / admin). Should an unpaid pharmacy bill block the next visit, or only show on the owner's list?
 167. **An OTC sale takes no discount** for now (409 `no_discount_otc`). A visit's pharmacy bill takes one through the
      cashier's normal discount rules — and while it has one, further dispensing waits ("settle it first"). Keep?
@@ -773,3 +773,31 @@ Commit after each step, push at the end of each session.
      receipts on them, and holds a shift; discounts, voids and reconciliation stay with billing / the owner.
 178. **Low stock** on the stock list = fewer than 100 usable at the counter (sample); per-item reorder levels come with
      purchasing (session 2).
+
+## Phase 2 slice 2 — pharmacy, session 2 — 03/10/2026
+
+### Decided in the session (defaults — Kamrul to confirm)
+179. **Purchase-order approval above ৳50,000 (sample)**, VAT not included; the pharmacist asks, the owner / admin
+     approves (and so sends). Splitting one need into several orders under the threshold needs no approval — add a
+     per-supplier daily total, or an owner digest of orders sent?
+180. **A supplier bill at another unit cost than the order** is posted only by the owner / admin (any difference; no
+     tolerance). What tolerance, if any, may the pharmacist accept?
+181. **VAT / AIT on purchases are not handled**: what is owed = received qty × the bill's unit cost; the line's VAT
+     rate is the sale VAT of the batch. Do suppliers bill VAT on top, and must input VAT be tracked?
+182. **A short delivery** is a debit note (billed − received) × cost; what was not delivered stays open on the order
+     until it arrives or the order is closed short with a reason.
+183. **Short expiry = fewer than 180 days** (not calendar months) → posted only by the owner / admin.
+184. **The same batch number again at another expiry or price** is refused (409 `batch_conflict`) — should it become a
+     separate batch instead (e.g. the batch number + a suffix)?
+185. **Counting does not stop the counter**: the adjustment is counted − (system at the start + what moved before that
+     batch was counted). Alternatively freeze sales at a location while it is counted?
+186. **A count is decided by the owner / admin, never the person who counted** — a clinic whose only approver counts
+     cannot approve it. Is a second admin always available, or may the owner approve their own count with a note?
+187. **Counts list batches with stock above zero**; quarantine is not a count location; expired batches at a location
+     are counted. Stock found in an empty batch cannot be recorded yet.
+188. **Expired stock moves to the store** (never to the counter / fridge); should expired stock go to quarantine
+     instead, and can fridge stock move to the counter (cold chain)?
+189. **Supplier payments**: owner / admin only, never more than is owed; how it was paid is a note (cheque no. / TrxID).
+190. **Sample batches count in the stock-value tile** (demo stock) — keep, or show them separately?
+191. **Patient returns of dispensed medicine** (and voiding a pharmacy bill with given medicine) move to the refunds
+     slice, since money goes back; until then the void stays refused (open question 166).

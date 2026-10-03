@@ -17,7 +17,7 @@ import type {
 import type { Tx } from "@setu/db";
 import {
   APPROVAL, GOODS_RECEIPT, PO_APPROVAL_PAISA_SAMPLE, PURCHASE_ORDER, STOCK_COUNT, MEDICINES_SAMPLE, batchState, countDecisionBlockers, countSubmitBlockers, dhakaDay,
-  grnLineBlockers, grnMoney, grnPostBlockers, isStockApprover, poEventAfterReceipt, poSendBlockers, poTotalPaisa, shortExpiry, supplierOwedPaisa, transition,
+  grnLineBlockers, grnMoney, grnPostBlockers, isStockApprover, poEventAfterReceipt, poSendBlockers, poTotalPaisa, priceVariance, shortExpiry, supplierOwedPaisa, transition, withinMoneyRange,
   type GrnLine, type PurchaseOrderState, type Role, type SupplierEntryKind,
 } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
@@ -32,6 +32,7 @@ const undash = <T extends string>(s: string) => s.replace(/-/g, "_") as T;
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 const MED = new Set(MEDICINES_SAMPLE.map((m) => m.id));
 const stale = () => err(409, "stale", "অন্য কোথাও আগেই বদলানো হয়েছে — আবার খুলুন", "This was changed somewhere else first — reopen it");
+const tooLarge = () => err(422, "too_large", "পরিমাণ খুব বড়", "The amount is too large", { field: "qty" });
 const notApprover = () => err(403, "forbidden", "শুধু মালিক বা অ্যাডমিন", "Only the owner or an admin can do this", { reason: "role", canRequest: false });
 
 type Po = NonNullable<Awaited<ReturnType<Tx["purchaseOrder"]["findFirst"]>>>;
@@ -159,6 +160,7 @@ export async function addPoLine(tx: Tx, s: SessionData, id: string, req: PoLineR
   if (!MED.has(req.medicineKey)) throw err(404, "unknown_medicine", "এই ওষুধ তালিকায় নেই", "This medicine is not on the list", { field: "medicineKey" });
   const lines = await tx.purchaseOrderLine.findMany({ where: { orderId: po.id } });
   if (lines.some((l) => l.medicineKey === req.medicineKey)) throw err(409, "already_on_order", "এই ওষুধ অর্ডারে আছে — পরিমাণ বদলাতে লাইনটি সরিয়ে আবার দিন", "This medicine is already on the order", { field: "medicineKey" });
+  if (!withinMoneyRange(poTotalPaisa([...lines, req]))) throw tooLarge();
   await tx.purchaseOrderLine.create({ data: { tenantId: s.tenantId, orderId: po.id, position: lines.reduce((a, l) => Math.max(a, l.position), 0) + 1, medicineKey: req.medicineKey, qty: req.qty, costPaisa: req.costPaisa } });
   return retotal(tx, po);
 }
@@ -218,7 +220,7 @@ export async function endPo(tx: Tx, s: SessionData, id: string, how: "cancel" | 
   const to = undash<"cancelled" | "received">(transition("PURCHASE_ORDER", PURCHASE_ORDER, dash<PurchaseOrderState>(po.status), how));
   const n = await tx.purchaseOrder.updateMany({ where: { id: po.id, rev: po.rev, status: po.status }, data: { status: to, cancelReason: reason.trim(), rev: po.rev + 1, statusAt: now } });
   if (n.count !== 1) throw stale();
-  // a cancelled order's open approval request is closed with it
+  // a cancelled order's open approval request is closed with it (audited by the route with the cancel)
   await tx.task.updateMany({ where: { kind: PO_APPROVAL_TASK, focusId: po.id, status: "requested" }, data: { status: "rejected", decidedById: s.userId, decidedAt: now, decisionNote: "order cancelled" } });
   return (await tx.purchaseOrder.findFirst({ where: { id: po.id } }))!;
 }
@@ -244,7 +246,7 @@ async function grnLines(tx: Tx, g: Grn) {
     const ol = orderLines.get(l.orderLineId)!;
     const before = g.status === "posted" ? ol.receivedQty - l.receivedQty : ol.receivedQty;
     const sameHere = lines.filter((x) => x.orderLineId === l.orderLineId && x.id < l.id).reduce((a, x) => a + x.receivedQty, 0);
-    const d: GrnLine = { orderedQty: ol.qty, alreadyReceivedQty: before + sameHere, invoicedQty: l.invoicedQty, receivedQty: l.receivedQty, batchNo: l.batchNo, expiry: l.expiry, costPaisa: l.costPaisa, mrpPaisa: l.mrpPaisa };
+    const d: GrnLine = { orderedQty: ol.qty, alreadyReceivedQty: before + sameHere, invoicedQty: l.invoicedQty, receivedQty: l.receivedQty, batchNo: l.batchNo, expiry: l.expiry, costPaisa: l.costPaisa, mrpPaisa: l.mrpPaisa, orderCostPaisa: ol.costPaisa };
     return { row: l, d };
   });
 }
@@ -260,6 +262,7 @@ export async function grnView(tx: Tx, s: SessionData, g: Grn, now: Date): Promis
       id: l.id, orderLineId: l.orderLineId, medicine: medRef(l.medicineKey), batchNo: l.batchNo, expiry: l.expiry, invoicedQty: l.invoicedQty, receivedQty: l.receivedQty,
       costPaisa: l.costPaisa, mrpPaisa: l.mrpPaisa, vatRateBp: l.vatRateBp, location: l.location as "counter" | "store" | "fridge",
       shortExpiry: shortExpiry(l.expiry, today), blockers: g.status === "checking" ? grnLineBlockers(d, today) : [],
+      orderCostPaisa: d.orderCostPaisa, priceVariance: priceVariance(d),
     })),
     money: g.status === "posted" ? { invoicedPaisa: g.invoicedPaisa, debitNotePaisa: g.debitNotePaisa, owedPaisa: g.invoicedPaisa - g.debitNotePaisa } : grnMoney(lines.map((x) => x.d)),
     postBlockers: g.status === "checking" ? grnPostBlockers({ lines: lines.map((x) => x.d), role: s.role as Role, today }) : [],
@@ -282,8 +285,10 @@ export async function addGrnLine(tx: Tx, s: SessionData, id: string, req: GrnLin
   const ol = await tx.purchaseOrderLine.findFirst({ where: { id: req.orderLineId, orderId: g.orderId } });
   if (!ol) throw err(404, "line_not_found", "এই লাইন অর্ডারে নেই", "This line is not on the order", { field: "orderLineId" });
   const here = (await tx.goodsReceiptLine.findMany({ where: { receiptId: g.id, orderLineId: ol.id } })).reduce((a, l) => a + l.receivedQty, 0);
-  const b = grnLineBlockers({ orderedQty: ol.qty, alreadyReceivedQty: ol.receivedQty + here, invoicedQty: req.invoicedQty, receivedQty: req.receivedQty, batchNo: req.batchNo, expiry: req.expiry, costPaisa: req.costPaisa, mrpPaisa: req.mrpPaisa }, dhakaDay(now));
+  const b = grnLineBlockers({ orderedQty: ol.qty, alreadyReceivedQty: ol.receivedQty + here, invoicedQty: req.invoicedQty, receivedQty: req.receivedQty, batchNo: req.batchNo, expiry: req.expiry, costPaisa: req.costPaisa, mrpPaisa: req.mrpPaisa, orderCostPaisa: ol.costPaisa }, dhakaDay(now));
   if (b.length) { const [bn, en] = GRN_MSG[b[0]!]!; throw err(422, b[0]!, bn, en, { blockers: b.map((code) => ({ code })) }); }
+  const all = [...(await tx.goodsReceiptLine.findMany({ where: { receiptId: g.id } })), req];
+  if (!withinMoneyRange(grnMoney(all).invoicedPaisa)) throw tooLarge();
   await tx.goodsReceiptLine.create({ data: {
     tenantId: s.tenantId, receiptId: g.id, orderLineId: ol.id, medicineKey: ol.medicineKey, batchNo: req.batchNo.trim().toUpperCase(), expiry: req.expiry,
     invoicedQty: req.invoicedQty, receivedQty: req.receivedQty, costPaisa: req.costPaisa, mrpPaisa: req.mrpPaisa, vatRateBp: req.vatRateBp, location: req.location,
@@ -324,8 +329,11 @@ export async function postGrn(tx: Tx, s: SessionData, id: string, rev: number, n
   const lines = await grnLines(tx, g);
   const b = grnPostBlockers({ lines: lines.map((x) => x.d), role: s.role as Role, today });
   if (b.length) {
-    const [bn, en] = b.includes("short_expiry_needs_owner") ? ["৬ মাসের মধ্যে মেয়াদ শেষ — মালিক বা অ্যাডমিন পোস্ট করবেন", "A batch expires within 6 months — the owner or an admin posts it"] : ["মাল গ্রহণ পোস্ট করা যাচ্ছে না", "The goods receipt cannot be posted yet"];
-    throw err(b.includes("short_expiry_needs_owner") ? 403 : 422, b.includes("short_expiry_needs_owner") ? "short_expiry_needs_owner" : "post_blocked", bn, en, { blockers: b.map((code) => ({ code })) });
+    const owner = b.find((x) => x === "short_expiry_needs_owner" || x === "price_variance_needs_owner");
+    const [bn, en] = owner === "short_expiry_needs_owner" ? ["৬ মাসের মধ্যে মেয়াদ শেষ — মালিক বা অ্যাডমিন পোস্ট করবেন", "A batch expires within 6 months — the owner or an admin posts it"]
+      : owner ? ["চালানের দাম অর্ডারের দাম থেকে আলাদা — মালিক বা অ্যাডমিন পোস্ট করবেন", "The bill's unit cost differs from the order — the owner or an admin posts it"]
+      : ["মাল গ্রহণ পোস্ট করা যাচ্ছে না", "The goods receipt cannot be posted yet"];
+    throw err(owner && !b.includes("line_invalid") && !b.includes("no_lines") ? 403 : 422, owner && !b.includes("line_invalid") && !b.includes("no_lines") ? owner : "post_blocked", bn, en, { blockers: b.map((code) => ({ code })) });
   }
   for (const { row: l } of lines) {
     if (l.receivedQty === 0) continue;
@@ -343,7 +351,7 @@ export async function postGrn(tx: Tx, s: SessionData, id: string, rev: number, n
   const to = undash<"received">(transition("PURCHASE_ORDER", PURCHASE_ORDER, dash<PurchaseOrderState>(po.status), poEventAfterReceipt(olines)));
   await tx.purchaseOrder.update({ where: { id: po.id }, data: { status: to, statusAt: now, rev: { increment: 1 } } });
   return { g: posted, audit: [{ action: "update", entity: "GoodsReceipt", entityId: g.id, detail: {
-    event: "post", number: posted.number, orderId: po.id, ...money, lines: lines.map(({ row: l }) => ({ medicineKey: l.medicineKey, batchNo: l.batchNo, expiry: l.expiry, receivedQty: l.receivedQty, shortExpiry: shortExpiry(l.expiry, today) })),
+    event: "post", number: posted.number, orderId: po.id, ...money, lines: lines.map(({ row: l, d }) => ({ medicineKey: l.medicineKey, batchNo: l.batchNo, expiry: l.expiry, receivedQty: l.receivedQty, shortExpiry: shortExpiry(l.expiry, today), costPaisa: l.costPaisa, orderCostPaisa: d.orderCostPaisa })),
   } }] };
 }
 
@@ -354,21 +362,36 @@ async function countHere(tx: Tx, s: SessionData, id: string, locked = false): Pr
   if (!c) throw notFound();
   return c;
 }
+type CountLineRow = Awaited<ReturnType<Tx["stockCountLine"]["findMany"]>>[number];
+/** What should have been on the shelf when each batch was counted (or now, if not yet): the system quantity at the start
+    plus the stock that moved since (sales, dispensing, transfers). The variance and the adjustment are against this. */
+async function expectedQty(tx: Tx, c: Count, lines: CountLineRow[], now: Date) {
+  const out = new Map<string, number>();
+  for (const l of lines) {
+    const until = l.countedAt ?? now;
+    const moved = (await tx.stockMove.aggregate({ where: { batchId: l.batchId, at: { gt: c.createdAt, lte: until } }, _sum: { qty: true } }))._sum.qty ?? 0;
+    out.set(l.id, l.systemQty + moved);
+  }
+  return out;
+}
+const asCountLines = (lines: CountLineRow[], exp: Map<string, number>) => lines.map((l) => ({ systemQty: exp.get(l.id) ?? l.systemQty, countedQty: l.countedQty, reason: l.reason }));
+
 export async function countView(tx: Tx, s: SessionData, c: Count, now: Date): Promise<StockCountView> {
   const today = dhakaDay(now);
   const lines = await tx.stockCountLine.findMany({ where: { countId: c.id } });
   const batches = new Map((await tx.stockBatch.findMany({ where: { id: { in: lines.map((l) => l.batchId) } } })).map((b) => [b.id, b]));
   const who = await people(tx, [c.createdById, c.decidedById]);
+  const exp = await expectedQty(tx, c, lines, c.decidedAt ?? now);
   const rows = lines.map((l) => ({ l, b: batches.get(l.batchId)! })).sort((a, b) => a.b.medicineKey.localeCompare(b.b.medicineKey) || a.b.expiry.localeCompare(b.b.expiry));
   return {
     id: c.id, location: c.location as "counter" | "store" | "fridge", status: c.status, rev: c.rev,
     lines: rows.map(({ l, b }) => ({
-      id: l.id, medicine: medRef(b.medicineKey), systemQty: l.systemQty, countedQty: l.countedQty, variance: l.countedQty === null ? null : l.countedQty - l.systemQty, reason: l.reason,
+      id: l.id, medicine: medRef(b.medicineKey), systemQty: exp.get(l.id)!, countedQty: l.countedQty, variance: l.countedQty === null ? null : l.countedQty - exp.get(l.id)!, reason: l.reason,
       batch: { id: b.id, batchNo: b.batchNo, expiry: b.expiry, location: b.location, qtyOnHand: b.qtyOnHand, mrpPaisa: b.mrpPaisa, vatRateBp: b.vatRateBp,
         state: batchState({ id: b.id, expiry: b.expiry, qty: b.qtyOnHand, location: b.location }, today), nearExpiry: false, sample: b.sample },
     })),
-    submitBlockers: c.status === "counting" ? countSubmitBlockers(lines) : [],
-    varianceValuePaisa: rows.reduce((a, { l, b }) => a + Math.abs((l.countedQty ?? l.systemQty) - l.systemQty) * b.costPaisa, 0),
+    submitBlockers: c.status === "counting" ? countSubmitBlockers(asCountLines(lines, exp)) : [],
+    varianceValuePaisa: rows.reduce((a, { l, b }) => a + Math.abs(l.countedQty === null ? 0 : l.countedQty - exp.get(l.id)!) * b.costPaisa, 0),
     createdBy: who(c.createdById), createdAt: c.createdAt.toISOString(), submittedAt: iso(c.submittedAt),
     decidedBy: c.decidedById ? who(c.decidedById) : null, decidedAt: iso(c.decidedAt), decisionNote: c.decisionNote,
     canDecide: c.status === "submitted" && isStockApprover(s.role as Role) && c.createdById !== s.userId,
@@ -404,13 +427,14 @@ async function bumpCount(tx: Tx, c: Count, data: Record<string, unknown> = {}): 
 }
 export async function setCountLine(tx: Tx, s: SessionData, id: string, req: CountLineRequest): Promise<Count> {
   const c = await countingCount(tx, s, id, req.rev);
-  const n = await tx.stockCountLine.updateMany({ where: { id: req.lineId, countId: c.id }, data: { countedQty: req.countedQty, reason: req.reason?.trim() || null } });
+  const n = await tx.stockCountLine.updateMany({ where: { id: req.lineId, countId: c.id }, data: { countedQty: req.countedQty, reason: req.reason?.trim() || null, countedAt: new Date() } });
   if (n.count !== 1) throw notFound();
   return bumpCount(tx, c);
 }
 export async function submitCount(tx: Tx, s: SessionData, id: string, rev: number, now: Date): Promise<Count> {
   const c = await countingCount(tx, s, id, rev);
-  const b = countSubmitBlockers(await tx.stockCountLine.findMany({ where: { countId: c.id } }));
+  const lines = await tx.stockCountLine.findMany({ where: { countId: c.id } });
+  const b = countSubmitBlockers(asCountLines(lines, await expectedQty(tx, c, lines, now)));
   if (b.length) throw err(422, b[0]!, b.includes("not_counted") ? "সব ব্যাচ গণনা করুন" : "পার্থক্যের কারণ লিখুন (অন্তত ১০ অক্ষর)", b.includes("not_counted") ? "Count every batch" : "Write why each difference happened (at least 10 characters)", { blockers: b.map((code) => ({ code })) });
   return bumpCount(tx, c, { status: transition("STOCK_COUNT", STOCK_COUNT, "counting", "submit"), submittedAt: now, statusAt: now });
 }
@@ -426,8 +450,11 @@ export async function decideCount(tx: Tx, s: SessionData, id: string, req: Appro
   const moves: { batchId: string; qty: number }[] = [];
   if (req.decision === "approve") {
     const lines = await tx.stockCountLine.findMany({ where: { countId: c.id } });
+    const exp = await expectedQty(tx, c, lines, now);
     for (const l of lines) {
-      const delta = (l.countedQty ?? l.systemQty) - l.systemQty;
+      // Stock keeps moving while a count is open (the counter keeps selling): the adjustment is counted − what should
+      // have been there when this batch was counted (reviews: a sale during the count must not be taken off twice).
+      const delta = l.countedQty === null ? 0 : l.countedQty - exp.get(l.id)!;
       if (delta === 0) continue;
       const batch = (await tx.stockBatch.findFirst({ where: { id: l.batchId } }))!;
       if (batch.qtyOnHand + delta < 0) throw err(409, "stock_changed", "গণনার পর স্টক বদলেছে — আবার গণনা করুন", "Stock changed since the count — count again", { field: l.id });
