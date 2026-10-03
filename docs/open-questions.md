@@ -647,3 +647,22 @@ Commit after each step, push at the end of each session.
      not the receipt's corporate / insurance reasons.
 143. **The doctor's menu shows "Doctor app"** from now on; its screens show the slice placeholder until session 2.
 
+## Slice A12–A13 session 2 (doctor app, printing, reviews, Journey A) — 03/10/2026
+
+### From the reviews and the hands-on test — please confirm
+144. **Patient SMS wording** (clinical review M6): changed to "{facility}: Your doctor has reviewed your lab report.
+     Please contact {facility}." (no "if you need to"). Should "Seen + tell patient" be refused for a critical report
+     (the doctor must phone instead)? Today it is allowed, as the prototype shows the button on critical cards.
+145. **Allergies on a reprint** (clinical review L3): a print shows the allergies as they are when printed, not when the
+     note was signed — safer clinically, but a reprint can differ from the original. Keep?
+146. **A printed original can still be printed again from the browser tab it was opened in** (clinical review M5): the
+     server no longer hands out a replaced or withdrawn version's stored copy and the QR says "replaced", but an open
+     PDF tab cannot be recalled. Accept (QR is the check), or add "COPY" to every stored PDF view?
+147. **PDF rendering inside the database transaction** (security review S5): a print holds a connection for the render
+     (≤30 s, rate-limited to 30/min per user). A file written just before a failed commit stays in storage without a
+     print row. Move rendering before the transaction and add a cleanup job before the pilot?
+148. **A correction notice about a critical value ranks with critical results** (clinical review M1); a report with a
+     value under correction cannot be acknowledged until the corrected version is released. Confirm the rule.
+149. **Who opens a lab report as a doctor:** the doctor it was sent to, a doctor who ordered a test of the visit, or the
+     visit's doctor (security review S2). Covering doctors (leave, nights) need a rule later (break-glass, Journey E).
+

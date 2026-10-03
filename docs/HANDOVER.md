@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 session 1 of 2 done; next A12–A13 session 2)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A (phase 1) complete; next phase 2: /slice C1-C4)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -374,6 +374,36 @@ then the whole of Journey A end to end.
   `NODE_OPTIONS=--max-old-space-size=1536`; the patient app is not started until Journey D; the package watchers
   (`pnpm dev` in packages/domain, contracts, i18n) keep `dist` current — without them the API runs on stale packages.
 
+## Done (slice A12–A13, session 2 of 2, 03/10/2026) — doctor app, printing, Journey A end to end ✅
+Slice A12–A13 is **done** and with it **all of Journey A (phase 1)**: every step's spec plus `journey-a.spec.ts` (one
+patient from the front desk to the doctor's printed prescription) are green.
+- **Doctor app** (`apps/staff/modules/doc/`, module `doc`, strings `locales/app/doctorApp.json`): one phone column with a
+  bottom tab bar (home, queue, reports + unread badge) inside the staff shell. `doc/home` live counts (waiting, seen,
+  not signed, results to review + critical); `doc/queue` (with you now / waiting, critical vitals first / completed);
+  `doc/consult` = the desk note editor in a phone variant (`ConsNavContext` in `cons/common.tsx`): sticky name + token +
+  red allergy strip (issue #8), "Sign & send" → the same PIN sheet, signed view with the prescription and Print;
+  `doc/inbox` cards (critical / abnormal / normal / notice, worst result first with the labelled range, "under
+  correction" / "replaced by a newer version" states, "Seen" and "Seen + tell patient", offline outbox "Acknowledged —
+  not yet synced").
+- **Printing on screen:** `components/PrintPanel.tsx` (A5/A4, language, server preview without QR, Print / Reprint with
+  a reason → DUPLICATE #n, print log, verify link; on a phone it opens PDFs instead of framing them) on `cons/signed`,
+  `lab/report` and the doctor app; "Print preview" on the draft shows the DRAFT preview with Print disabled ("Drafts
+  cannot be printed — sign first", issue #19). Public pages `/verify/rx/[code]` and `/verify/lr/[code]`.
+- **Reviews:** clinical safety (1 high — medicine instructions not printed; 6 medium; 3 low) and security (0 high, 2
+  medium — no care-relationship check on printing / lab report access; 3 low) — all fixed in commit `1009307` except the
+  items in open questions 144–149. Migration `doctor_inbox_printing_review_fixes` (verify lookups).
+- **Hands-on (03/10/2026)** as doctor 01799000002 at 390 px with screenshots (`e2e/walk-doc.mjs`, untracked): inbox
+  critical first → Seen + tell patient → SMS delivered; queue → quick consult with the penicillin strip; amoxicillin
+  flagged and blocked; Napa; Sign & send → PIN → server-confirmed; printed A5; QR page (initials, medicine, sample-list
+  note). Found and fixed: numerals toggle hidden on phones (English with Bangla digits), PIN sheet title, PDFs not shown
+  inside a phone page. The journey spec also caught an outbox-listener race (a synced acknowledgement could show as
+  not acknowledged) — fixed.
+- **Tests:** domain 216, api 189, contracts 2, i18n 3; `pnpm typecheck` 13/13; Playwright **69** (61 + 7 `a12-a13` + 1
+  `journey-a`), green twice in a row on 03/10/2026 (API :4100, staff :3300, `--workers=2`). One earlier full run had a single
+  failure whose name was not captured (the next three runs were all green) — if a spec flakes, note which one.
+- **Staff dev server memory:** at `--max-old-space-size=1536` it ran out of heap during the full run; it now runs with
+  3072 (the machine had ~11 GB free with the other projects stopped).
+
 ## How to run the journeys on this PC
 - Playwright's Chromium is installed (02/10/2026): plain `pnpm e2e` runs the journeys against `pnpm dev` (staff :3000,
   api :4000). The installed-Chrome route still works: `cd e2e` then `CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" pnpm exec playwright test -c pw.local.config.ts`.
@@ -444,8 +474,10 @@ then the whole of Journey A end to end.
 3. ~~`/slice A6-A7`~~ — done 03/10/2026 (two sessions) + ~~billing follow-ups~~ done 03/10/2026 (ADR 0005). Kamrul to
    confirm open questions 107–113. Refunds (and voiding a bill that holds money) are a later slice.
 4. ~~`/slice A8-A11`~~ — done 03/10/2026 (two sessions). Kamrul to confirm open question 134.
-5. `/slice A12-A13` — session 1 (backend) done 03/10/2026; **session 2 next** (doctor app screens, print preview,
-   verify pages, journey spec, reviews, hands-on), then all of Journey A. Kamrul to confirm open questions 135–143.
+5. ~~`/slice A12-A13`~~ — done 03/10/2026 (two sessions); **Journey A complete**. Kamrul to confirm open questions
+   135–149.
+6. **Next — phase 2 pilot clinic: `/slice C1-C4`** (pharmacy, shift close, owner dashboard, admin onboarding, real SMS
+   gateway + bKash sandbox) — prompt 10 in `docs/CLAUDE-CODE-GUIDE.md`.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating
