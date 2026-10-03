@@ -91,6 +91,8 @@ async function openReconciliation(tx: Tx, invoiceId: string): Promise<boolean> {
 }
 /** The visit's placed orders that belong on the bill, against the bill's order lines (ADR 0005, decision 99 prep). */
 async function ordersDiff(tx: Tx, inv: Inv) {
+  // Only the visit's OPD bill carries order lines (ADR 0009); a pharmacy or OTC bill never changes with the orders.
+  if (inv.kind !== "opd" || !inv.encounterId) return { orders: [], remove: [] as string[], add: [] as string[] };
   const [orders, lines] = await Promise.all([
     tx.serviceRequest.findMany({ where: { encounterId: inv.encounterId, status: { in: [...BILLED_ORDER_STATES] } }, orderBy: { createdAt: "asc" } }),
     tx.chargeItem.findMany({ where: { invoiceId: inv.id, source: "order" } }),
@@ -103,14 +105,16 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
   const [lines, pays, e, org, tasks, lineTasks, chain] = await Promise.all([
     tx.chargeItem.findMany({ where: { invoiceId: inv.id }, orderBy: { position: "asc" } }),
     tx.payment.findMany({ where: { invoiceId: inv.id }, orderBy: { createdAt: "asc" } }),
-    encounterHere(tx, s, inv.encounterId),
+    inv.encounterId ? encounterHere(tx, s, inv.encounterId) : Promise.resolve(null),
     orgOf(tx, s),
     tx.task.findMany({ where: { kind: DISCOUNT_TASK, focusId: inv.id }, orderBy: { requestedAt: "desc" }, take: 1 }),
     tx.task.findMany({ where: { kind: BILL_ELSEWHERE_TASK, focusId: inv.id }, orderBy: { requestedAt: "desc" } }),
     tx.invoice.findMany({ where: { id: { in: [inv.replacesId, inv.replacedById].filter((x): x is string => Boolean(x)) } }, select: { id: true, number: true } }),
   ]);
   const task = tasks[0] ?? null;
-  const who = await people(tx, [inv.discountAppliedById, inv.issuedById, inv.voidedById, e.practitionerId, task?.requestedById, task?.decidedById, ...pays.map((p) => p.createdById), ...lineTasks.flatMap((t) => [t.requestedById, t.decidedById])]);
+  const batches = await tx.stockBatch.findMany({ where: { id: { in: lines.flatMap((l) => (l.batchId ? [l.batchId] : [])) } }, select: { id: true, batchNo: true, expiry: true } });
+  const batchById = new Map(batches.map((b) => [b.id, b]));
+  const who = await people(tx, [inv.discountAppliedById, inv.issuedById, inv.voidedById, e?.practitionerId, task?.requestedById, task?.decidedById, ...pays.map((p) => p.createdById), ...lineTasks.flatMap((t) => [t.requestedById, t.decidedById])]);
   const lineTaskById = new Map(lineTasks.map((t) => [t.id, t]));
   // Changed orders are worked out for issued bills too (money review: a test added after issue must not go unseen).
   const od = inv.status !== "entered_in_error" && inv.status !== "cancelled" ? await ordersDiff(tx, inv) : null;
@@ -122,6 +126,7 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
   return {
     invoice: {
       id: inv.id, status: dash<InvoiceState>(inv.status), number: inv.number, rev: inv.rev,
+      kind: inv.kind, buyer: inv.kind === "otc" ? { name: inv.buyerName, phone: inv.buyerPhone } : null,
       subtotalPaisa: inv.subtotalPaisa, discountPaisa: inv.discountPaisa, netPaisa: inv.netPaisa, vatPaisa: inv.vatPaisa, totalPaisa: inv.totalPaisa, paidPaisa: inv.paidPaisa,
       discount: inv.discountPaisa > 0 && inv.discountCategory && inv.discountReason && inv.discountAppliedById && inv.discountAppliedAt
         ? { category: inv.discountCategory as DiscountCategory, reason: inv.discountReason, appliedBy: who(inv.discountAppliedById), appliedAt: inv.discountAppliedAt.toISOString(),
@@ -131,7 +136,7 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
       void: inv.status === "entered_in_error" && inv.voidReason && inv.voidedAt && inv.voidedById ? { reason: inv.voidReason, at: inv.voidedAt.toISOString(), by: who(inv.voidedById) } : null,
       replaces: ref(inv.replacesId), replacedBy: ref(inv.replacedById),
     },
-    encounter: { ...toVitalsEncounter(e), practitioner: e.practitionerId ? who(e.practitionerId) : null },
+    encounter: e ? { ...toVitalsEncounter(e), practitioner: e.practitionerId ? who(e.practitionerId) : null } : null,
     lines: lines.map((l) => ({
       id: l.id, position: l.position, source: l.source, sourceId: l.sourceId, code: l.code, nameEn: l.nameEn, nameBn: l.nameBn, unitPaisa: l.unitPaisa,
       qty: l.qty, vatRateBp: l.vatRateBp, grossPaisa: l.grossPaisa, discountPaisa: l.discountPaisa, netPaisa: l.netPaisa, vatPaisa: l.vatPaisa, totalPaisa: l.totalPaisa,
@@ -139,6 +144,7 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
       notBilled: l.notBilledTaskId && l.notBilledReason && l.notBilledAt
         ? { reason: l.notBilledReason, at: l.notBilledAt.toISOString(), approvedBy: (() => { const t = lineTaskById.get(l.notBilledTaskId!); return t?.decidedById ? who(t.decidedById) : null; })() }
         : null,
+      batch: l.batchId ? batchById.get(l.batchId) ?? null : null,
     })),
     approval: task ? toApprovalView(task, who) : null,
     discountLimitPaisa: discountLimit(inv.subtotalPaisa, settingsOf(org)),
@@ -181,7 +187,7 @@ function toPaymentView(p: Pay, who: (id: string) => { id: string; nameBn: string
 export async function billingWorklist(tx: Tx, s: SessionData, now: Date): Promise<BillingWorklist> {
   const branch = await branchOf(tx, s);
   const rows = await tx.encounter.findMany({ where: { organizationId: s.organizationId, branchId: branch.id, tokenDay: dhakaDay(now), status: "finished" }, include: { patient: true }, orderBy: { tokenNo: "asc" } });
-  const invs = await tx.invoice.findMany({ where: { encounterId: { in: rows.map((r) => r.id) }, status: OPEN_BILL } });
+  const invs = await tx.invoice.findMany({ where: { encounterId: { in: rows.map((r) => r.id) }, kind: "opd", status: OPEN_BILL } });
   const pending = new Set((await tx.task.findMany({ where: { kind: { in: APPROVAL_KINDS }, status: "requested", focusId: { in: invs.map((i) => i.id) } }, select: { focusId: true } })).map((t) => t.focusId));
   const byEnc = new Map(invs.map((i) => [i.encounterId, i]));
   const who = await people(tx, rows.map((r) => r.practitionerId));
@@ -229,7 +235,7 @@ async function recompute(tx: Tx, inv: Inv, discountPaisa: number, patch: Partial
 export async function createInvoice(tx: Tx, s: SessionData, encounterId: string, now: Date): Promise<{ inv: Inv; created: boolean; patientId: string; sync?: OrderSync }> {
   requireWriter(s);
   const e = await encounterHere(tx, s, encounterId);
-  const existing = await tx.invoice.findFirst({ where: { encounterId: e.id, status: OPEN_BILL } });
+  const existing = await tx.invoice.findFirst({ where: { encounterId: e.id, kind: "opd", status: OPEN_BILL } });
   if (existing) { const r = await refreshIfPossible(tx, s, existing); return { inv: r.inv, created: false, patientId: e.patientId, sync: r.sync }; }
   if (e.status !== "finished") throw err(409, "visit_not_finished", "ডাক্তার নোটে স্বাক্ষর করার পর বিল হবে", "The bill is made after the doctor signs the note", { field: "encounter" });
   const defs = await tx.chargeItemDefinition.findMany({ where: { organizationId: s.organizationId, active: true } });
@@ -248,7 +254,7 @@ export async function createInvoice(tx: Tx, s: SessionData, encounterId: string,
   ];
   const t = billTotals(lines.map((l, i) => ({ key: String(i), unitPaisa: l.unitPaisa ?? 0, qty: 1, vatRateBp: l.vatRateBp })), 0);
   // ADR 0005: a bill made after a void records which bill it replaces.
-  const replaced = await tx.invoice.findFirst({ where: { encounterId: e.id, status: "entered_in_error", replacedById: null }, orderBy: { voidedAt: "desc" } });
+  const replaced = await tx.invoice.findFirst({ where: { encounterId: e.id, kind: "opd", status: "entered_in_error", replacedById: null }, orderBy: { voidedAt: "desc" } });
   const inv = await tx.invoice.create({ data: {
     tenantId: s.tenantId, organizationId: s.organizationId, branchId: e.branchId, patientId: e.patientId, encounterId: e.id, createdById: s.userId, statusAt: now, replacesId: replaced?.id ?? null,
     subtotalPaisa: t.subtotalPaisa, discountPaisa: 0, netPaisa: t.netPaisa, vatPaisa: t.vatPaisa, totalPaisa: t.totalPaisa,
@@ -304,7 +310,7 @@ export async function refreshOrders(tx: Tx, s: SessionData, id: string, rev: num
     open); an issued bill is left as it is and flags the change (open question 109). Runs as the person who revoked —
     a doctor or the lab — so it does not check the cashier role; it only ever brings lines in line with placed orders. */
 export async function refreshDraftOrders(tx: Tx, s: SessionData, encounterId: string): Promise<{ invoiceId: string; removed: string[]; added: string[]; waits: boolean } | null> {
-  const inv0 = await tx.invoice.findFirst({ where: { encounterId, organizationId: s.organizationId, status: OPEN_BILL }, orderBy: { createdAt: "desc" } });
+  const inv0 = await tx.invoice.findFirst({ where: { encounterId, kind: "opd", organizationId: s.organizationId, status: OPEN_BILL }, orderBy: { createdAt: "desc" } });
   if (!inv0) return null;
   if (inv0.status !== "draft") return { invoiceId: inv0.id, removed: [], added: [], waits: true };
   await tx.$queryRaw`SELECT 1 FROM "Invoice" WHERE "id" = ${inv0.id} FOR UPDATE`;
@@ -369,6 +375,8 @@ export async function removeLine(tx: Tx, s: SessionData, id: string, lineId: str
 /* ───── discount and approval ───── */
 export async function requestDiscount(tx: Tx, s: SessionData, id: string, req: DiscountRequest, now: Date): Promise<{ inv: Inv; outcome: "applied" | "approval-requested"; taskId: string | null; amountPaisa: number }> {
   const inv = await editableDraft(tx, s, id, req.rev);
+  // Over-the-counter sales take no discount for now (open question — pharmacy session 1).
+  if (inv.kind === "otc") throw err(409, "no_discount_otc", "কাউন্টার বিক্রিতে ছাড় দেওয়া যায় না", "An over-the-counter sale takes no discount");
   if (inv.discountPaisa > 0) throw discountFirst();
   let amountPaisa: number;
   try { amountPaisa = discountToPaisa(req.mode === "amount" ? { mode: "amount", paisa: req.amountPaisa! } : { mode: "percent", bp: req.percentBp! }, inv.subtotalPaisa); }
@@ -400,7 +408,7 @@ export async function requestNotBilled(tx: Tx, s: SessionData, id: string, lineI
   const inv = await editableDraft(tx, s, id, rev);
   const line = await tx.chargeItem.findFirst({ where: { id: lineId, invoiceId: inv.id } });
   if (!line) throw notFound();
-  const b = notBilledBlockers({ line: { source: line.source, unitPaisa: line.unitPaisa, notBilled: Boolean(line.notBilledTaskId) }, reason, invoiceStatus: "draft", requested: false });
+  const b = notBilledBlockers({ line: { source: line.source === "order" || line.source === "consultation" ? line.source : "desk", unitPaisa: line.unitPaisa, notBilled: Boolean(line.notBilledTaskId) }, reason, invoiceStatus: "draft", requested: false });
   if (b.length) {
     const msg: Record<string, [string, string]> = {
       not_an_order_line: ["শুধু ডাক্তারের অর্ডারের লাইনে চাওয়া যায়", "Only a line from the doctor's order can be left out"],
@@ -424,7 +432,7 @@ export async function removeDiscount(tx: Tx, s: SessionData, id: string, rev: nu
 
 async function approvalItem(tx: Tx, s: SessionData, t: TaskRow, now: Date): Promise<ApprovalItem | null> {
   const inv = t.focusId ? await tx.invoice.findFirst({ where: { id: t.focusId, organizationId: s.organizationId } }) : null;
-  if (!inv) return null;
+  if (!inv?.patientId) return null;
   const p = await tx.patient.findFirst({ where: { id: inv.patientId } });
   if (!p) return null;
   const day = dhakaDay(now);
@@ -509,7 +517,7 @@ export async function issueInvoice(tx: Tx, s: SessionData, id: string, rev: numb
   // ADR 0005: the voided bill this one replaces now shows "Replaced by INV/…".
   // Every voided bill of this visit still without a replacement now shows this one (money review: A voided, its
   // replacement B voided too, then C — A must not lose its "Replaced by").
-  await tx.invoice.updateMany({ where: { encounterId: inv.encounterId, status: "entered_in_error", replacedById: null }, data: { replacedById: inv.id } });
+  if (inv.encounterId) await tx.invoice.updateMany({ where: { encounterId: inv.encounterId, kind: inv.kind, status: "entered_in_error", replacedById: null, id: { not: inv.id } }, data: { replacedById: inv.id } });
   return (await tx.invoice.findFirst({ where: { id: inv.id } }))!;
 }
 
@@ -547,8 +555,8 @@ async function reconcileItem(tx: Tx, s: SessionData, t: TaskRow): Promise<Reconc
   const p = t.focusId ? await tx.payment.findFirst({ where: { id: t.focusId, organizationId: s.organizationId } }) : null;
   if (!p) return null;
   const inv = await tx.invoice.findFirst({ where: { id: p.invoiceId } });
-  const pt = inv ? await tx.patient.findFirst({ where: { id: inv.patientId } }) : null;
-  if (!inv || !pt) return null;
+  const pt = inv?.patientId ? await tx.patient.findFirst({ where: { id: inv.patientId } }) : null;
+  if (!inv) return null;
   /* The list checks what it can without the gateway (same bill, still pending, same amount); the gateway itself is asked
      only when the owner presses Apply (security review: no gateway call per row inside the read). */
   const applyBlockers = t.status !== "requested" ? [] : reconcileApplyBlockers({
@@ -562,7 +570,8 @@ async function reconcileItem(tx: Tx, s: SessionData, t: TaskRow): Promise<Reconc
     reported: { providerRef: d.providerRef, trxId: d.trxId, amountPaisa: d.amountPaisa },
     payment: { id: p.id, method: p.method as PaymentMethod, status: dash<PaymentState>(p.status), amountPaisa: p.amountPaisa, trxId: p.trxId, attempt: p.attempt },
     invoice: { id: inv.id, number: inv.number, status: dash<InvoiceState>(inv.status), totalPaisa: inv.totalPaisa, paidPaisa: inv.paidPaisa },
-    patient: toVitalsEncounter({ id: "", token: "", tokenDay: "", status: "finished", patient: pt } as unknown as Parameters<typeof toVitalsEncounter>[0]).patient,
+    patient: pt ? toVitalsEncounter({ id: "", token: "", tokenDay: "", status: "finished", patient: pt } as unknown as Parameters<typeof toVitalsEncounter>[0]).patient : null,
+    buyer: inv.kind === "otc" ? { name: inv.buyerName, phone: inv.buyerPhone } : null,
     applyBlockers,
     resolution: d.resolution ? { action: d.resolution.action, note: d.resolution.note, by: who(d.resolution.by), at: d.resolution.at } : null,
   };
@@ -579,7 +588,7 @@ export async function reconcileList(tx: Tx, s: SessionData, status: "requested" 
 /** Apply = the provider, asked again now, confirms the same amount and TrxID for a pending payment of this bill; the
     payment is confirmed with that TrxID and any newer link is cancelled. Resolve = a note, nothing applied. Owner only
     (decision 89; the route checks bill/reconcile). Never a silent apply. */
-export async function decideReconcile(tx: Tx, s: SessionData, taskId: string, action: "apply" | "resolve", note: string | undefined, now: Date): Promise<{ item: ReconcileItem; patientId: string; invoiceId: string }> {
+export async function decideReconcile(tx: Tx, s: SessionData, taskId: string, action: "apply" | "resolve", note: string | undefined, now: Date): Promise<{ item: ReconcileItem; patientId: string | null; invoiceId: string }> {
   const t0 = await tx.task.findFirst({ where: { id: taskId, kind: RECONCILE_TASK } });
   const p0 = t0?.focusId ? await tx.payment.findFirst({ where: { id: t0.focusId, organizationId: s.organizationId } }) : null;
   if (!t0 || !p0) throw notFound();
@@ -646,7 +655,8 @@ export async function addPayment(tx: Tx, s: SessionData, invoiceId: string, req:
   const wallet = isWallet(req.method);
   let phone: string | null = null;
   if (wallet) {
-    phone = (await tx.patient.findFirst({ where: { id: inv.patientId }, select: { phone: true } }))?.phone ?? null;
+    // A walk-in OTC buyer has no patient record — the phone they gave at the counter.
+    phone = inv.patientId ? (await tx.patient.findFirst({ where: { id: inv.patientId }, select: { phone: true } }))?.phone ?? null : inv.buyerPhone;
     if (!phone || !/^1[3-9]\d{8}$/.test(phone)) throw err(422, "no_phone", "রোগীর মোবাইল নম্বর নেই — নগদ বা কার্ডে নিন", "The patient has no mobile number — take cash or card", { field: "method" });
   }
   const created = await tx.payment.create({ data: {

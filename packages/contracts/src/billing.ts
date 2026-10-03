@@ -13,7 +13,10 @@ const Rev = z.number().int().min(1);
 export const InvoiceStatus = z.enum(["draft", "issued", "partially-paid", "balanced", "cancelled", "entered-in-error"]);
 export const PaymentStatus = z.enum(["initiated", "link-sent", "waiting-customer", "confirmed", "failed"]);
 export const PaymentMethod = z.enum(["cash", "card", "bank", "bkash", "nagad"]);
-export const ChargeSource = z.enum(["consultation", "order", "desk"]);
+/** + dispense (a prescription line given at the pharmacy) and sale (over the counter), ADR 0009 */
+export const ChargeSource = z.enum(["consultation", "order", "desk", "dispense", "sale"]);
+/** ADR 0009: opd = consultation and tests; pharmacy = the visit's dispensed medicines; otc = an over-the-counter sale */
+export const InvoiceKind = z.enum(["opd", "pharmacy", "otc"]);
 export const DiscountCategory = z.enum(["poor", "staff", "doctor", "ff", "corp"]);
 export const ApprovalStatus = z.enum(["requested", "approved", "rejected"]);
 export const IssueBlocker = z.enum(["no_lines", "unpriced_lines", "approval_pending", "orders_changed"]);
@@ -21,7 +24,7 @@ export const IssueBlocker = z.enum(["no_lines", "unpriced_lines", "approval_pend
 /* ── price list (desk items) ── */
 export const ChargeDefinitionQuery = z.object({ q: z.string().trim().max(60).default("") });
 export const ChargeDefinitionItem = z.object({
-  code: z.string(), kind: z.enum(["consultation", "test", "service"]), nameEn: z.string(), nameBn: z.string(),
+  code: z.string(), kind: z.enum(["consultation", "test", "service", "medicine"]), nameEn: z.string(), nameBn: z.string(),
   unitPaisa: Paisa, vatRateBp: z.number().int(),
   /** the prototype's sample price list, not a real tariff */
   sample: z.boolean(),
@@ -41,6 +44,8 @@ export const ChargeLine = z.object({
   editable: z.boolean(),
   /** decision 98: approved "Not billed here" — outside totals and VAT, shown with its reason */
   notBilled: z.object({ reason: z.string(), at: z.string(), approvedBy: Person.nullable() }).nullable(),
+  /** ADR 0009: a medicine line — the batch it came from */
+  batch: z.object({ id: z.string(), batchNo: z.string(), expiry: z.string() }).nullable(),
 });
 export const ApprovalView = z.object({
   taskId: z.string(), status: ApprovalStatus, amountPaisa: Paisa, category: DiscountCategory.nullable(), reason: z.string(),
@@ -64,6 +69,9 @@ export const PaidByView = z.object({
 export const InvoiceView = z.object({
   invoice: z.object({
     id: z.string(), status: InvoiceStatus, number: z.string().nullable(), rev: z.number().int(),
+    kind: InvoiceKind,
+    /** otc: a walk-in buyer (no patient record) */
+    buyer: z.object({ name: z.string().nullable(), phone: z.string().nullable() }).nullable(),
     subtotalPaisa: Paisa, discountPaisa: Paisa, netPaisa: Paisa, vatPaisa: Paisa, totalPaisa: Paisa, paidPaisa: Paisa,
     discount: z.object({ category: DiscountCategory, reason: z.string(), appliedBy: Person, appliedAt: z.string(), approvedBy: Person.nullable() }).nullable(),
     createdAt: z.string(), issuedAt: z.string().nullable(), issuedBy: Person.nullable(),
@@ -72,7 +80,8 @@ export const InvoiceView = z.object({
     replaces: z.object({ id: z.string(), number: z.string().nullable() }).nullable(),
     replacedBy: z.object({ id: z.string(), number: z.string().nullable() }).nullable(),
   }),
-  encounter: VitalsEncounter.extend({ practitioner: Person.nullable() }),
+  /** null for an over-the-counter bill (no visit) */
+  encounter: VitalsEncounter.extend({ practitioner: Person.nullable() }).nullable(),
   lines: z.array(ChargeLine),
   /** the latest discount request on this bill (requested, approved or rejected) */
   approval: ApprovalView.nullable(),
@@ -226,7 +235,9 @@ export const ReconcileItem = z.object({
   reported: z.object({ providerRef: z.string().nullable(), trxId: z.string().nullable(), amountPaisa: Paisa.nullable() }),
   payment: z.object({ id: z.string(), method: PaymentMethod, status: PaymentStatus, amountPaisa: Paisa, trxId: z.string().nullable(), attempt: z.number().int() }),
   invoice: z.object({ id: z.string(), number: z.string().nullable(), status: InvoiceStatus, totalPaisa: Paisa, paidPaisa: Paisa }),
-  patient: VitalsEncounter.shape.patient,
+  /** null for a walk-in over-the-counter buyer (see buyer) */
+  patient: VitalsEncounter.shape.patient.nullable(),
+  buyer: z.object({ name: z.string().nullable(), phone: z.string().nullable() }).nullable(),
   /** live check: "apply" is offered only when this is empty */
   applyBlockers: z.array(z.enum(["other_bill", "payment_not_pending", "not_confirmed_by_provider", "amount_mismatch", "reference_mismatch"])),
   resolution: z.object({ action: z.enum(["applied", "resolved"]), note: z.string().nullable(), by: Person, at: z.string() }).nullable(),

@@ -259,6 +259,7 @@
   "r_sample": ["নমুনা", "sample"],
   "r_receipt_no": ["রসিদ নং", "Receipt"],
   "r_bill_no": ["বিল নং", "Bill"],
+  "walk_in": ["কাউন্টার ক্রেতা", "Walk-in customer"],
   "r_date": ["তারিখ", "Date"],
   "r_patient": ["রোগী", "Patient"],
   "r_id": ["আইডি", "ID"],

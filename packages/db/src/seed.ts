@@ -1,7 +1,7 @@
 /* Demo tenant used by dev, e2e and the journeys: Green Life Clinic, Mirpur (the prototype's sample facility).
    Sample people match the walkthrough so Playwright specs read like the journey text. */
 import { createHash } from "node:crypto";
-import { ANALYTES_SAMPLE, ICD11_SAMPLE, MEDICINES_SAMPLE, RANGES_SAMPLE, TESTS_SAMPLE, emptySections, labFlag, patientAgeYears, priceListSample, rangeFor, rxQuantity } from "@setu/domain";
+import { ANALYTES_SAMPLE, ICD11_SAMPLE, MEDICINES_SAMPLE, MRP_SAMPLE, RANGES_SAMPLE, TESTS_SAMPLE, emptySections, labFlag, patientAgeYears, priceListSample, rangeFor, rxQuantity } from "@setu/domain";
 import { owner as prisma } from "./owner.ts";
 
 const hash = (s: string) => createHash("sha256").update("dev-only:" + s).digest("hex"); // replaced by argon2 in the auth slice
@@ -19,6 +19,26 @@ async function seedCatalogues(tenantId: string) {
   for (const t of TESTS_SAMPLE) {
     const data = { nameEn: t.nameEn, nameBn: t.nameBn, group: t.group };
     await prisma.orderableTest.upsert({ where: { tenantId_code: { tenantId, code: t.code } }, update: data, create: { tenantId, code: t.code, ...data } });
+  }
+}
+
+/* Pharmacy (ADR 0009): sample batches per facility, marked sample, filled through receive moves (the only way stock
+   arrives). Every medicine has a counter batch and a store batch; Comet also an expired batch (blocked) and one near
+   expiry (FEFO takes it first); Napa only an expired batch, so it is out of stock (journey P2 substitutes Ace). */
+export async function seedStock(tenantId: string, organizationId: string, byId: string, now = new Date()) {
+  const day = (n: number) => new Date(now.getTime() + 6 * 3600_000 + n * 864e5).toISOString().slice(0, 10);
+  const plan: [string, string, number, number, string][] = [];
+  for (const m of MEDICINES_SAMPLE) {
+    if (m.id === "napa") { plan.push([m.id, "NP2504", -20, 100, "counter"]); continue; }
+    plan.push([m.id, `${m.id.slice(0, 2).toUpperCase()}2601`, 200, 300, "counter"], [m.id, `${m.id.slice(0, 2).toUpperCase()}2604`, 500, 500, "store"]);
+    if (m.id === "comet") plan.push([m.id, "CM2511", 60, 60, "counter"], [m.id, "CM2508", -5, 40, "counter"]);
+  }
+  for (const [key, batchNo, expiresIn, qty, location] of plan) {
+    const mrp = MRP_SAMPLE[key] ?? 500;
+    const where = { tenantId_organizationId_medicineKey_batchNo_location: { tenantId, organizationId, medicineKey: key, batchNo, location } };
+    if (await prisma.stockBatch.findUnique({ where })) continue;
+    const b = await prisma.stockBatch.create({ data: { tenantId, organizationId, medicineKey: key, batchNo, expiry: day(expiresIn), location, costPaisa: Math.round(mrp * 0.85), mrpPaisa: mrp, vatRateBp: 0, sample: true } });
+    await prisma.stockMove.create({ data: { tenantId, organizationId, batchId: b.id, kind: "receive", qty, refType: "seed", reason: "sample opening stock", byId } });
   }
 }
 
@@ -232,7 +252,7 @@ async function main() {
   await prisma.tenant.upsert({ where: { id: E2E.tenant }, update: { patientNoPrefix: "E2E" }, create: { id: E2E.tenant, name: "E2E Test Clinic", plan: "pro", patientNoPrefix: "E2E" } });
   await prisma.organization.upsert({ where: { id: E2E.org }, update: {}, create: { id: E2E.org, tenantId: E2E.tenant, name: "E2E Test Clinic", nameBn: "ই২ই টেস্ট ক্লিনিক" } });
   await prisma.location.upsert({ where: { id: E2E.branch }, update: {}, create: { id: E2E.branch, tenantId: E2E.tenant, organizationId: E2E.org, kind: "branch", name: "Test branch", nameBn: "টেস্ট শাখা" } });
-  const e2eUsers: [string, string, string, string, "receptionist" | "doctor" | "nurse" | "labTech" | "pathologist" | "cashier" | "owner" | "admin"][] = [
+  const e2eUsers: [string, string, string, string, "receptionist" | "doctor" | "nurse" | "labTech" | "pathologist" | "pharmacist" | "cashier" | "owner" | "admin"][] = [
     ["u_e2e_desk", "টেস্ট রিসেপশন", "Test Receptionist", "01799000001", "receptionist"],
     ["u_e2e_doctor", "ডা. টেস্ট", "Dr. Test", "01799000002", "doctor"],
     ["u_e2e_doctor2", "ডা. টেস্ট দুই", "Dr. Test Two", "01799000003", "doctor"],
@@ -240,6 +260,8 @@ async function main() {
     // Slice A8–A11: the plan is Hospital Pro, so technical verify and clinical validation need two different people.
     ["u_e2e_labtech", "টেস্ট টেকনোলজিস্ট", "Test Lab Technologist", "01799000005", "labTech"],
     ["u_e2e_path", "ডা. টেস্ট প্যাথলজিস্ট", "Dr. Test Pathologist", "01799000006", "pathologist"],
+    // Pharmacy slice (ADR 0009): the E2E pharmacist (journey P1–P6)
+    ["u_e2e_pharm", "টেস্ট ফার্মাসিস্ট", "Test Pharmacist", "01799000007", "pharmacist"],
     ["u_e2e_cashier", "টেস্ট ক্যাশিয়ার", "Test Cashier", "01799000008", "cashier"],
     ["u_e2e_owner", "টেস্ট মালিক", "Test Owner", "01799000009", "owner"],
     ["u_e2e_admin", "টেস্ট অ্যাডমিন", "Test Admin", "01799000010", "admin"],
@@ -254,6 +276,7 @@ async function main() {
   await seedLabHistory(E2E.tenant, E2E.org, E2E.branch, "e2e_", "u_e2e_labtech", "u_e2e_path");
   for (const t of [tenant.id, "t_clinicdemo", "t_litedemo", E2E.tenant]) { await seedCatalogues(t); await seedLabCatalogues(t); }
   for (const [t, o] of [[tenant.id, org.id], ["t_clinicdemo", "o_clinicdemo"], ["t_litedemo", "o_litedemo"], [E2E.tenant, E2E.org]] as const) await seedPriceList(t, o);
+  for (const [t, o, by] of [[tenant.id, org.id, "u_jewel"], [E2E.tenant, E2E.org, "u_e2e_pharm"]] as const) await seedStock(t, o, by);
   /* The prototype's sample seller BIN (receipt header), marked sample; the plan demos have none, so no Mushak-6.3 line. */
   for (const id of [org.id, E2E.org]) await prisma.organization.update({ where: { id }, data: { vatBin: "000123456-0101", vatBinSample: true } });
   await prisma.sequence.upsert({ where: { tenantId_name: { tenantId: E2E.tenant, name: "patient" } }, update: {}, create: { tenantId: E2E.tenant, name: "patient", value: 240210 } });

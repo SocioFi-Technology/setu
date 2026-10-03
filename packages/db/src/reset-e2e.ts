@@ -97,6 +97,18 @@ for (const sh of unfinished) {
   await db.shift.update({ where: { id: sh.id }, data: { status: transition("shift", SHIFT, "closed", "approve"), statusAt: now } });
   await db.auditEvent.create({ data: { tenantId: T, userId: RECONCILE_BY, role: "owner", at: now, action: "approve", entity: "Shift", entityId: sh.id, detail: { route: "pnpm db:reset-e2e", note: "e2e reset: test run", e2eReset: true } } });
 }
+/* ADR 0009: stock used up by earlier automated runs is topped back up to each sample batch's opening quantity with an
+   `adjust` move ("e2e reset: test run") — the ledger stays append-only and the batch still equals the sum of its moves. */
+const opening = await db.stockMove.groupBy({ by: ["batchId"], where: { tenantId: T, refType: "seed" }, _sum: { qty: true } });
+const batches = new Map((await db.stockBatch.findMany({ where: { tenantId: T, sample: true } })).map((b) => [b.id, b]));
+let toppedUp = 0;
+for (const o of opening) {
+  const b = batches.get(o.batchId);
+  const want = o._sum.qty ?? 0;
+  if (!b || b.qtyOnHand === want) continue;
+  await db.stockMove.create({ data: { tenantId: T, organizationId: b.organizationId, batchId: b.id, kind: "adjust", qty: want - b.qtyOnHand, refType: "e2e-reset", reason: "e2e reset: test run", byId: RESET_BY } });
+  toppedUp++;
+}
 if (audit.length) await db.auditEvent.createMany({ data: audit.map((a) => ({ tenantId: T, userId: RESET_BY, role: "admin" as const, at: now, ...a, detail: { route: "pnpm db:reset-e2e", ...a.detail } })) });
 await db.$disconnect();
-console.log(`E2E Test Clinic reset: walkthrough family restored, ${n.count} open review(s) closed, ${undone.length} undone override(s) marked reviewed, ${extra.length} test allerg(ies) marked entered-in-error, ${restored} seeded allerg(ies) recorded again, ${open.length} leftover visit(s) closed, ${cases.length} reconciliation case(s) resolved "test run", ${unfinished.length} unfinished shift(s) approved "test run"`);
+console.log(`E2E Test Clinic reset: walkthrough family restored, ${n.count} open review(s) closed, ${undone.length} undone override(s) marked reviewed, ${extra.length} test allerg(ies) marked entered-in-error, ${restored} seeded allerg(ies) recorded again, ${open.length} leftover visit(s) closed, ${cases.length} reconciliation case(s) resolved "test run", ${unfinished.length} unfinished shift(s) approved "test run", ${toppedUp} stock batch(es) topped up`);

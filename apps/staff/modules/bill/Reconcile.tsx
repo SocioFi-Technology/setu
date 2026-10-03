@@ -54,7 +54,7 @@ export function BillReconcile() {
                 <span style={{ marginLeft: "auto" }} />
                 <Button size="sm" variant="ghost" icon="external-link" onClick={() => router.push(`/m/bill/pay?inv=${encodeURIComponent(i.invoice.id)}`)}>{B("rec_bill")} {i.invoice.number ?? B("bill_draft")}</Button>
               </span>
-              <span>{M.name(i.patient)} · <span className="num">{i.patient.facilityNo}</span></span>
+              <span>{i.patient ? <>{M.name(i.patient)} · <span className="num">{i.patient.facilityNo}</span></> : i.buyer?.name ?? B("walk_in")}</span>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
                 <Card style={{ padding: 10 }} data-testid="rec-reported">
                   <span className="t-small t-muted">{B("rec_reported")}</span><br />

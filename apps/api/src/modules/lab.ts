@@ -87,7 +87,7 @@ async function loadBundle(tx: Tx, s: SessionData, encounterIds: string[], withPr
     tx.criticalCallback.findMany({ where: { encounterId: { in: ids } }, orderBy: { recordedAt: "asc" } }),
     tx.diagnosticReport.findMany({ where: { encounterId: { in: ids } }, include: { results: { select: { observationId: true, serviceRequestId: true } } }, orderBy: { version: "asc" } }) as Promise<Report[]>,
     tx.communication.findMany({ where: { encounterId: { in: ids } }, orderBy: { createdAt: "asc" } }),
-    tx.invoice.findMany({ where: { encounterId: { in: ids }, status: { notIn: ["cancelled", "entered_in_error"] } }, orderBy: { createdAt: "desc" }, select: { encounterId: true, number: true, status: true } }),
+    tx.invoice.findMany({ where: { encounterId: { in: ids }, kind: "opd", status: { notIn: ["cancelled", "entered_in_error"] } }, orderBy: { createdAt: "desc" }, select: { encounterId: true, number: true, status: true } }).then((r) => r.flatMap((i) => (i.encounterId ? [{ ...i, encounterId: i.encounterId }] : []))),
     tx.labAnalyte.findMany({ where: { active: true } }),
     tx.labReferenceRange.findMany(),
   ]);

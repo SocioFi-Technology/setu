@@ -76,3 +76,9 @@ export function doseLabel(dose: string, meal: "before" | "after" | "with" | "any
   const times = parts.map((n, i) => (n > 0 ? (bn ? `${TIMES.bn[i]} ${format.toBn(n)}টি` : `${TIMES.en[i]} ${n}`) : null)).filter(Boolean).join(", ");
   return `${times} · ${MEAL[lang][meal]} · ${bn ? `${format.toBn(daysN)} দিন` : `${daysN} days`}`;
 }
+
+/** Sample selling prices per tablet / capsule (paisa) for the demo batches — plausible, not a real tariff (sample). */
+export const MRP_SAMPLE: Record<string, number> = {
+  comet: 400, comet850: 600, ciprocin: 1500, seclo: 600, pantonix: 700, sergel: 800, napa: 120, ace: 120, moxacil: 800, fimoxyl: 800,
+  cotrim: 400, azith: 3500, clopi: 1000, amdocal: 500, osartil: 800, sedil: 300,
+};

@@ -763,6 +763,8 @@ enum ChargeKind {
   consultation
   test
   service
+  /// ADR 0009: a medicine from a pharmacy batch
+  medicine
 }
 
 /// The facility's price list. Seeded from the prototype's sample prices (`sample` = not a real tariff); read-only for
@@ -805,9 +807,15 @@ model Invoice {
   tenantId            String
   organizationId      String
   branchId            String
-  patientId           String
-  encounterId         String
+  patientId           String?
+  encounterId         String?
   status              InvoiceStatus @default(draft)
+  kind                InvoiceKind   @default(opd)
+  /// otc: a walk-in buyer (optional)
+  buyerName           String?
+  buyerPhone          String?
+  /// otc: the prescription photo for an Rx-only item (Storage key)
+  rxPhotoKey          String?
   number              String?
   subtotalPaisa       Int           @default(0)
   discountPaisa       Int           @default(0)
@@ -848,6 +856,17 @@ enum ChargeSource {
   consultation
   order
   desk
+  /// ADR 0009: a dispense of a prescription line (sourceId = MedicationDispense) / an over-the-counter sale line
+  dispense
+  sale
+}
+
+/// ADR 0009: opd = the visit's consultation and tests bill; pharmacy = the visit's dispensed medicines; otc = an
+/// over-the-counter sale (no visit; the patient is optional — a walk-in buyer)
+enum InvoiceKind {
+  opd
+  pharmacy
+  otc
 }
 
 /// A bill line (FHIR ChargeItem). Name, price and VAT rate are copied from the price list when the line is added, so a
@@ -861,6 +880,9 @@ model ChargeItem {
   source          ChargeSource
   /// consultation → the Encounter id; order → the ServiceRequest id; desk → null
   sourceId        String?
+  /// ADR 0009: medicine lines — the batch the units came from and the medicine
+  batchId         String?
+  medicineKey     String?
   definitionId    String?
   code            String
   nameEn          String
@@ -909,7 +931,7 @@ model Payment {
   organizationId String
   invoiceId      String
   invoice        Invoice       @relation(fields: [invoiceId], references: [id])
-  patientId      String
+  patientId      String?
   method         PaymentMethod
   status         PaymentStatus
   amountPaisa    Int
@@ -973,7 +995,7 @@ model Receipt {
   tenantId       String
   organizationId String
   invoiceId      String
-  patientId      String
+  patientId      String?
   number         String
   verifyCode     String         @unique
   /// paid to date (confirmed money only) and still due, in paisa, as printed
@@ -1377,4 +1399,72 @@ model DailyRollup {
   computedAt     DateTime @default(now())
 
   @@unique([tenantId, organizationId, day])
+}
+
+/// ADR 0009: one batch of one medicine at one place in the facility. The quantity on hand changes only through
+/// StockMove rows (the database keeps it equal to their sum and never below zero). Prices per tablet / capsule.
+model StockBatch {
+  id             String      @id @default(cuid())
+  tenantId       String
+  organizationId String
+  medicineKey    String
+  batchNo        String
+  /// the last day it may be used (yyyy-mm-dd)
+  expiry         String
+  /// counter | store | fridge | quarantine
+  location       String      @default("counter")
+  costPaisa      Int
+  mrpPaisa       Int
+  vatRateBp      Int         @default(0)
+  qtyOnHand      Int         @default(0)
+  sample         Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  moves          StockMove[]
+
+  @@unique([tenantId, organizationId, medicineKey, batchNo, location])
+  @@index([tenantId, organizationId, medicineKey])
+}
+
+/// ADR 0009: the stock ledger (append-only). kind receive | dispense | sale | adjust | return | transfer.
+model StockMove {
+  id             String     @id @default(cuid())
+  tenantId       String
+  organizationId String
+  batchId        String
+  batch          StockBatch @relation(fields: [batchId], references: [id])
+  kind           String
+  qty            Int
+  refType        String?
+  refId          String?
+  reason         String?
+  byId           String
+  at             DateTime   @default(now())
+
+  @@index([tenantId, batchId])
+  @@index([tenantId, organizationId, at])
+}
+
+/// ADR 0009: one dispense action on one prescription line of a signed note (append-only): units given (the prescribed
+/// medicine or a same-generic substitute with a reason) or a decline with a reason.
+model MedicationDispense {
+  id             String   @id @default(cuid())
+  tenantId       String
+  organizationId String
+  encounterId    String
+  patientId      String
+  compositionId  String
+  requestId      String
+  prescribedKey  String
+  medicineKey    String
+  /// dispense | decline
+  action         String
+  qty            Int
+  reason         String?
+  invoiceId      String?
+  chargeItemId   String?
+  byId           String
+  at             DateTime @default(now())
+
+  @@index([tenantId, encounterId])
+  @@index([tenantId, requestId])
 }

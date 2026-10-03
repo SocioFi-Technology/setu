@@ -94,7 +94,7 @@ function BillView({ id }: { id: string }) {
     catch { if (!have.current) setFailed(true); else setStale(true); }
   }, [id]);
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => { banner(v); }, [v?.encounter.patient.id, s.lang, s.numerals]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { banner(v); }, [v?.encounter?.patient.id, s.lang, s.numerals]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => s.setPatient(null), []); // eslint-disable-line react-hooks/exhaustive-deps
   // While a discount waits for the owner or an admin, the bill refreshes itself so the decision shows here.
   const waiting = v?.approval?.status === "requested";
@@ -169,7 +169,7 @@ function BillView({ id }: { id: string }) {
         <h1 className="t-h2" style={{ margin: 0 }}>{B("bill_title")}</h1>
         {inv.number && <b className="num" data-testid="invoice-number">{inv.number}</b>}
         <Pill tone={INVOICE_TONE[inv.status]}>{B(`st_${inv.status}`)}</Pill>
-        <span className="t-small t-muted">{B("visit_line", { doctor: M.name(v.encounter.practitioner), token: v.encounter.token })}</span>
+        <span className="t-small t-muted">{v.encounter && B("visit_line", { doctor: M.name(v.encounter.practitioner), token: v.encounter.token })}</span>
         <span style={{ marginLeft: "auto" }} />
         <Button size="sm" icon="arrow-left" onClick={() => router.push("/m/bill/opd")}>{B("back_to_list")}</Button>
       </div>
@@ -179,7 +179,7 @@ function BillView({ id }: { id: string }) {
         <Callout tone="bad" icon="ban" data-testid="void-banner">
           <b>{B("void_banner", { reason: inv.void.reason, by: M.name(inv.void.by), at: M.dateTime(inv.void.at) })}</b>
           {inv.replacedBy ? <> · <a href={`/m/bill/opd?inv=${encodeURIComponent(inv.replacedBy.id)}`} data-testid="replaced-by">{B("replaced_by", { number: inv.replacedBy.number ?? B("draft_word") })}</a></> : null}
-          {!inv.replacedBy && writer && <> · <Button size="sm" icon="file-plus" data-testid="new-bill" onClick={() => router.push(`/m/bill/opd?enc=${encodeURIComponent(v.encounter.id)}`)}>{B("new_bill")}</Button></>}
+          {!inv.replacedBy && writer && v.encounter && <> · <Button size="sm" icon="file-plus" data-testid="new-bill" onClick={() => router.push(`/m/bill/opd?enc=${encodeURIComponent(v.encounter!.id)}`)}>{B("new_bill")}</Button></>}
         </Callout>
       )}
       {inv.replaces && <Callout icon="history" data-testid="replaces">{B("replaces", { number: inv.replaces.number ?? B("draft_word") })}</Callout>}

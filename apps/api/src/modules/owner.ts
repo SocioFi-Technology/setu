@@ -214,11 +214,13 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
     const mp = new Map(rows.map((r) => [r.id, r]));
     return (id: string | null | undefined) => (id ? mp.get(id) ?? { id, nameBn: "—", nameEn: "—" } : null);
   };
-  const patients = async (list: string[]) => {
+  // an over-the-counter sale may have no patient (ADR 0009) — its row shows none
+  const patients = async (all: (string | null)[]) => {
+    const list = all.filter((x): x is string => Boolean(x));
     const rows = list.length ? await tx.patient.findMany({ where: { id: { in: [...new Set(list)] } }, select: { id: true, nameBn: true, nameEn: true, facilityNo: true } }) : [];
     for (const r of rows) ids.add(r.id);
     const mp = new Map(rows.map((r) => [r.id, r]));
-    return (id: string) => mp.get(id) ?? null;
+    return (id: string | null) => (id ? mp.get(id) ?? null : null);
   };
   let rows: Row[] = [];
   let count = 0;

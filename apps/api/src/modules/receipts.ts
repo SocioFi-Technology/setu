@@ -54,7 +54,7 @@ export async function receiptView(tx: Tx, r: Rc): Promise<ReceiptView> {
   };
 }
 
-export async function receiptList(tx: Tx, s: SessionData, invoiceId: string): Promise<{ list: ReceiptList; patientId: string }> {
+export async function receiptList(tx: Tx, s: SessionData, invoiceId: string): Promise<{ list: ReceiptList; patientId: string | null }> {
   const inv = await invoiceHere(tx, s, invoiceId);
   const rows = await tx.receipt.findMany({ where: { invoiceId: inv.id }, orderBy: { createdAt: "desc" }, include: { _count: { select: { prints: true } } } });
   return { list: { items: rows.map((r) => ({ id: r.id, number: r.number, createdAt: r.createdAt.toISOString(), paidPaisa: r.paidPaisa, duePaisa: r.duePaisa, prints: r._count.prints })) }, patientId: inv.patientId };
@@ -75,7 +75,9 @@ export async function createReceipt(tx: Tx, s: SessionData, invoiceId: string, n
   if (last && sameAsLast) return { r: last, created: false };
 
   const org = await tx.organization.findFirst({ where: { id: s.organizationId } });
-  const p = await tx.patient.findFirst({ where: { id: inv.patientId }, select: { nameBn: true, nameEn: true, facilityNo: true } });
+  // A walk-in OTC buyer has no patient record: the receipt names the buyer (or "walk-in customer") and no facility number.
+  const p = inv.patientId ? await tx.patient.findFirst({ where: { id: inv.patientId }, select: { nameBn: true, nameEn: true, facilityNo: true } })
+    : { nameBn: inv.buyerName ?? "কাউন্টার ক্রেতা", nameEn: inv.buyerName ?? "Walk-in customer", facilityNo: "" };
   const me = await tx.user.findFirst({ where: { id: s.userId }, select: { nameBn: true, nameEn: true } });
   const lines = await tx.chargeItem.findMany({ where: { invoiceId: inv.id }, orderBy: { position: "asc" } });
   const rates = new Map<number, { netPaisa: number; vatPaisa: number }>();

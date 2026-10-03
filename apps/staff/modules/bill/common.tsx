@@ -32,7 +32,7 @@ export const WRITERS = ["cashier", "owner", "admin"];
 
 export function useBanner() {
   const s = useSession(); const L = useLabels();
-  return (v: InvoiceView | null) => s.setPatient(v ? bannerOf(v.encounter.patient, L) : null);
+  return (v: InvoiceView | null) => s.setPatient(v?.encounter ? bannerOf(v.encounter.patient, L) : null);
 }
 /** The server's message in the chosen language. */
 export function useErr() {

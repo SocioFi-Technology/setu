@@ -190,7 +190,7 @@ export async function billingRoutes(app: FastifyInstance) {
     const { status } = ReconcileQuery.parse(req.query);
     return query(req, async (tx, s) => {
       const list = await reconcileList(tx, s, status);
-      return { body: list, audit: [{ action: "view", entity: "Task", detail: { purpose: "payment-reconciliation", status, count: list.items.length, patientIds: list.items.map((i) => i.patient.id) } }] };
+      return { body: list, audit: [{ action: "view", entity: "Task", detail: { purpose: "payment-reconciliation", status, count: list.items.length, patientIds: list.items.flatMap((i) => (i.patient ? [i.patient.id] : [])) } }] };
     });
   });
   for (const action of ["apply", "resolve"] as const) {

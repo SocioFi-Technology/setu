@@ -48,7 +48,7 @@ function PayView({ id }: { id: string }) {
   useEffect(() => { if (!stale || !s.online) return; const t = setInterval(() => void load(), 5000); return () => clearInterval(t); }, [stale, s.online, load]);
   const [notice, setNotice] = useState<string | null>(null);
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => { banner(v); }, [v?.encounter.patient.id, s.lang, s.numerals]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { banner(v); }, [v?.encounter?.patient.id, s.lang, s.numerals]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => s.setPatient(null), []); // eslint-disable-line react-hooks/exhaustive-deps
   // Writes for this bill still waiting on this device (offline cash or links): listed, never counted as paid.
   const [refused, setRefused] = useState(() => [] as ReturnType<typeof outboxItems>);
@@ -264,7 +264,7 @@ function ProvisionalReceipt({ v, cash }: { v: InvoiceView; cash: number[] }) {
         .prov-actions { display: none !important; } }`}</style>
       <div className="prov-banner" data-testid="provisional-banner">{B("rc_provisional_banner")}</div>
       <b style={{ marginTop: 18 }}>{s.lang === "bn" ? v.seller.nameBn ?? v.seller.nameEn : v.seller.nameEn}</b>
-      <span className="t-small">{B("r_bill_no")}: <span className="num">{v.invoice.number}</span> · {M.name(v.encounter.patient)} · <span className="num">{v.encounter.patient.facilityNo}</span></span>
+      <span className="t-small">{B("r_bill_no")}: <span className="num">{v.invoice.number}</span> · {v.encounter ? <>{M.name(v.encounter.patient)} · <span className="num">{v.encounter.patient.facilityNo}</span></> : v.invoice.buyer?.name ?? B("walk_in")}</span>
       {v.lines.map((l) => <span key={l.id} style={{ display: "flex", justifyContent: "space-between" }}><span>{s.lang === "bn" ? l.nameBn : l.nameEn}</span><span className="num">{M.tk(l.totalPaisa)}</span></span>)}
       <span style={{ display: "flex", justifyContent: "space-between" }}><b>{B("total")}</b><b className="num">{M.tk(v.invoice.totalPaisa)}</b></span>
       {cash.map((c, n) => <span key={n}>{B("m_cash")} {M.tk(c)} — {B("pay_queued_cash")}</span>)}

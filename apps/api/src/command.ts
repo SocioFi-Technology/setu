@@ -8,7 +8,8 @@ import { config } from "./config.js";
 import { err } from "./errors.js";
 import { requireSession, type SessionData } from "./plugins/session.js";
 
-export interface AuditEntry { action: string; entity: string; entityId?: string; patientId?: string; basis?: string; detail?: Record<string, unknown> }
+/** patientId null: a record without a patient (an over-the-counter sale to a walk-in buyer, ADR 0009). */
+export interface AuditEntry { action: string; entity: string; entityId?: string; patientId?: string | null; basis?: string; detail?: Record<string, unknown> }
 export interface CommandResult<T> { status?: number; body: T; audit: AuditEntry[] }
 
 declare module "fastify" { interface FastifyRequest { txManaged?: boolean } }
@@ -16,7 +17,7 @@ declare module "fastify" { interface FastifyRequest { txManaged?: boolean } }
 async function writeAudit(tx: Tx, req: FastifyRequest, s: SessionData, entries: AuditEntry[]) {
   for (const a of entries) {
     await tx.auditEvent.create({ data: {
-      tenantId: s.tenantId, userId: s.userId, role: s.role, action: a.action, entity: a.entity, entityId: a.entityId, patientId: a.patientId,
+      tenantId: s.tenantId, userId: s.userId, role: s.role, action: a.action, entity: a.entity, entityId: a.entityId, patientId: a.patientId ?? null,
       basis: a.basis, ip: req.ip, detail: { route: req.routeOptions.url, method: req.method, ...(a.detail ?? {}) } as object,
     } });
   }
