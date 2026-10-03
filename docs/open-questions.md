@@ -627,3 +627,23 @@ Commit after each step, push at the end of each session.
 - Inbox order: critical (HH/LL) → high/low → normal → notices, newest first within a group (the prototype only
   hard-codes its sample order).
 - **Critical vital signs** reach the inbox of the visit's doctor (decision 47 of A4–A5).
+
+### Chosen conservatively by Claude in session 1 — please confirm
+135. **The printed verify code is 20 characters (in groups of four), not the print spec's 6.** The prescription page
+     shows medicines (D2), and a 6-character code could be guessed; the QR carries it, so nobody types it.
+136. **Who prints:** a prescription — doctors only (from the signed note or the doctor app), not the receptionist; a lab
+     report — the lab technologist, the pathologist and doctors. Ask if the front desk should print prescriptions.
+137. **"Tell patient" only at acknowledgement:** an item acknowledged with "Seen" cannot send the SMS later (one
+     acknowledgement per item). A later "send to patient" button can come with Journey D.
+138. **Critical vital signs:** one inbox item per critical value, only when the visit has a doctor (the doctor who
+     opened the consultation); before that the queue card's "Critical vital sign" flag is the only signal.
+139. **Inbox scope:** this facility only (the doctor switches facility to see another chamber's results), the last 14
+     days by default (up to 90), at most 200 items.
+140. **The lab report verify page shows the values** (with flags, ranges and "under correction" marks) next to the
+     patient's initials, age and sex — the page's purpose; D2 covered the prescription page only.
+141. **Digits on prints:** Bangla digits only on a Bangla-only print; the bilingual print uses Latin digits throughout,
+     the dose included (the prototype's bilingual pad showed the dose in Bangla digits).
+142. **Reprint reasons for clinical documents:** lost, printer jam / unclear, extra copy (pharmacy, another doctor) —
+     not the receipt's corporate / insurance reasons.
+143. **The doctor's menu shows "Doctor app"** from now on; its screens show the slice placeholder until session 2.
+

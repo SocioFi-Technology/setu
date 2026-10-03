@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; next A12–A13)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 session 1 of 2 done; next A12–A13 session 2)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -337,6 +337,43 @@ session 2".
 - **Tests:** domain 189, api 165, contracts 2, i18n 3; `pnpm typecheck` 13/13; Playwright **61** (51 + 10 `a8-a11`),
   green on 03/10/2026 on the Linux machine (`--workers=2`, see below).
 
+## Done (slice A12–A13, session 1 of 2, 03/10/2026) — doctor's inbox, acknowledgement, printed documents (backend) ✅
+Plan agreed with Kamrul the same day (decisions D1–D4: open questions "Slice A12–A13 session 1"). **Session 2** does the
+doctor app module at phone width (bottom tabs: home with live counts, queue, quick consult with the allergy strip and
+the PIN sign sheet, results inbox with "Seen" / "Seen + tell patient" and the offline outbox), print preview + print /
+reprint on `cons/signed` and the lab report screen, the public pages `/verify/rx/[code]` and `/verify/lr/[code]`, the
+A12–A13 journey spec at 390 and 412 px, the security and clinical-safety reviews, the hands-on test as the doctor, and
+then the whole of Journey A end to end.
+- **ADR 0007:** INBOX_ITEM (unread → acknowledged) stored as an append-only `InboxAck`; "Seen + tell patient" only for a
+  released report (SMS `report-reviewed`, facility name only, sent after the commit); `critical-vital` inbox items;
+  printed prescriptions and lab report versions (drafts never, superseded not, DUPLICATE #n with a reason), 20-character
+  verify codes, what the public pages show.
+- **Rules** (`@setu/domain`): `inbox.ts` (inboxSeverity, sortInbox — unread first, critical → abnormal → normal →
+  notice, newest first; ackBlockers), `printing.ts` (rxPrintBlockers, labReportPrintBlockers, REPRINT_REASONS
+  lost/jam/copy, copyCheck, rxVerifyStatus, initials); access matrix module **`doc`** (home, queue, consult, inbox;
+  doctors, every plan).
+- **Database** (migration `doctor_inbox_printing`): InboxAck, DocumentCode, DocumentPrint; append-only for every role;
+  inbox_ack_guard (signed-in user = recipient, not a superseded report, the SMS must be report-reviewed to the same
+  patient); document_printable checked on code and print; copies in order; SECURITY DEFINER `rx_verify_lookup` /
+  `lr_verify_lookup` (initials via `person_initials`).
+- **API:** `GET /v1/doctor/inbox`, `POST /v1/doctor/inbox/:id/ack`; vitals write a critical-vital item for the visit's
+  doctor; `GET|POST /v1/documents/:kind/:id/print`, `GET …/preview` (DRAFT / PREVIEW watermark, no QR),
+  `GET /v1/documents/prints/:id/pdf`, public `GET /v1/verify/rx/:code` and `/v1/verify/lr/:code` (20/min, no-store).
+  PDFs: `apps/api/src/print/clinical.ts` (A5 / A4, bn+en / bn / en), strings in the new i18n namespace `printApp`.
+- **Found and fixed during the session:** the acknowledgement route lacked `config.ownTx` (a replay was answered by
+  the generic idempotency hook before the route's checks — test added); `SELECT … FOR UPDATE` on DocumentCode needs
+  UPDATE, which setu_app does not have — an advisory transaction lock instead; print digits now follow one rule (Bangla
+  digits only on a Bangla print), the long preview watermark fits the page, the bilingual signature / released lines
+  no longer repeat the date.
+- **Tests:** domain 211, api 186 (+9 `doctor.test.ts`, +12 `documents.test.ts`), contracts 2, i18n 3; `pnpm typecheck`
+  13/13. **Playwright was not run at the end of this session** (the machine was out of memory — see below); 61 specs
+  were green at the start of the day; the only spec change is the shell's doctor nav list (+ `doc`). Run plain
+  `STAFF_URL=http://localhost:3300 pnpm e2e --workers=2` at the start of session 2.
+- **Memory on the Linux machine (03/10/2026):** 15 GB shared with other projects; the kernel killed the staff dev
+  server (2.5 GB) and Kamrul's Cursor / Edge windows. The staff server now runs with
+  `NODE_OPTIONS=--max-old-space-size=1536`; the patient app is not started until Journey D; the package watchers
+  (`pnpm dev` in packages/domain, contracts, i18n) keep `dist` current — without them the API runs on stale packages.
+
 ## How to run the journeys on this PC
 - Playwright's Chromium is installed (02/10/2026): plain `pnpm e2e` runs the journeys against `pnpm dev` (staff :3000,
   api :4000). The installed-Chrome route still works: `cd e2e` then `CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" pnpm exec playwright test -c pw.local.config.ts`.
@@ -407,7 +444,8 @@ session 2".
 3. ~~`/slice A6-A7`~~ — done 03/10/2026 (two sessions) + ~~billing follow-ups~~ done 03/10/2026 (ADR 0005). Kamrul to
    confirm open questions 107–113. Refunds (and voiding a bill that holds money) are a later slice.
 4. ~~`/slice A8-A11`~~ — done 03/10/2026 (two sessions). Kamrul to confirm open question 134.
-5. **Next:** `/slice A12-A13` — doctor app layout, printing; run all of Journey A.
+5. `/slice A12-A13` — session 1 (backend) done 03/10/2026; **session 2 next** (doctor app screens, print preview,
+   verify pages, journey spec, reviews, hands-on), then all of Journey A. Kamrul to confirm open questions 135–143.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating
