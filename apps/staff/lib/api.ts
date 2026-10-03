@@ -1,4 +1,5 @@
 import type {
+  CountShiftRequest, DashboardView, DrillView, MyShiftResponse, ShiftList, ShiftView,
   AckResponse, DocPrintRequest, DocPrintResponse, DocPrintView, InboxView, LrVerifyResponse, RxVerifyResponse,
   CallbackRequest, LabReportView, LabVisitView, LabWorklist, ResultEntryRequest, RevokeResponse, SpecimenRejectRequest,
   ApprovalDecisionResponse, ApprovalList, ReconcileDecisionResponse, ReconcileList, BillingWorklist, ChargeDefinitionList, DiscountRequest, DiscountResponse, InvoiceView, NewPaymentRequest, PaymentResponse, PrintRequest, PrintResponse, ReceiptList, ReceiptView, VerifyResponse,
@@ -154,6 +155,21 @@ export const docs = {
   pdfSrc: (pdfUrl: string) => `/api${pdfUrl}`,
   verifyRx: (code: string) => call<RxVerifyResponse>("GET", `/v1/verify/rx/${enc(code)}`),
   verifyLr: (code: string) => call<LrVerifyResponse>("GET", `/v1/verify/lr/${enc(code)}`),
+};
+
+/* Shift close and the owner dashboard (slice C1–C4, ADR 0008). Opening, counting and reviewing need the server (the
+   drawer's expected cash is the server's figure); nothing is "handed over" or "approved" until it answers. */
+export const shifts = {
+  mine: () => call<MyShiftResponse>("GET", "/v1/shifts/mine"),
+  open: (openingFloatPaisa: number, key: string) => call<ShiftView>("POST", "/v1/shifts", { openingFloatPaisa }, key),
+  count: (id: string, body: CountShiftRequest, key: string) => call<ShiftView>("POST", `/v1/shifts/${enc(id)}/count`, body, key),
+  list: (status: "closed" | "open" | "approved" | "all" = "closed") => call<ShiftList>("GET", `/v1/shifts?status=${status}`),
+  view: (id: string) => call<ShiftView>("GET", `/v1/shifts/${enc(id)}`),
+  review: (id: string, decision: "approve" | "recount", note: string, key: string) => call<ShiftView>("POST", `/v1/shifts/${enc(id)}/review`, { decision, ...(note ? { note } : {}) }, key),
+};
+export const owner = {
+  dashboard: (period: "today" | "7d" | "30d") => call<DashboardView>("GET", `/v1/owner/dashboard?period=${period}`),
+  drill: (period: "today" | "7d" | "30d", what: DrillView["what"]) => call<DrillView>("GET", `/v1/owner/drill?period=${period}&what=${what}`),
 };
 
 export const api = {

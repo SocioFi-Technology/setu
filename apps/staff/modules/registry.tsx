@@ -9,6 +9,8 @@ import { BillOpd } from "./bill/Opd";
 import { BillPay } from "./bill/Pay";
 import { BillReceipt } from "./bill/Receipt";
 import { BillReconcile } from "./bill/Reconcile";
+import { BillShift } from "./bill/Shift";
+import { OwnerDash } from "./own/Dash";
 import { ConsultDraft } from "./cons/Draft";
 import { ConsultAmended, ConsultSigned } from "./cons/Signed";
 import { DocConsult } from "./doc/Consult";
@@ -58,8 +60,11 @@ const SCREENS: Record<string, ComponentType> = {
   "doc/queue": DocQueue,
   "doc/consult": DocConsult,
   "doc/inbox": DocInbox,
+  // slice C1–C4: shift close and the owner dashboard
+  "bill/shift": BillShift,
+  "own/dash": OwnerDash,
 };
-const SLICE: Record<string, string> = { fd: "A1–A3", cons: "A4–A5", bill: "A6–A7", lab: "A8–A11", doc: "A12–A13", ph: "phase 2", own: "phase 2", adm: "phase 2", er: "B1–B2", ipd: "B3–B4", nur: "B5–B6", net: "E1–E4" };
+const SLICE: Record<string, string> = { fd: "A1–A3", cons: "A4–A5", bill: "A6–A7", lab: "A8–A11", doc: "A12–A13", ph: "phase 2", own: "C1–C4", adm: "phase 2", er: "B1–B2", ipd: "B3–B4", nur: "B5–B6", net: "E1–E4" };
 
 export function ModuleScreen({ mod, screen }: { mod: string; screen: string }) {
   const s = useSession();

@@ -6,6 +6,7 @@ import { Card, CardHead, Callout, Icon, Pill, type Tone } from "@setu/ui";
 import { format, ROLE_NAME } from "@setu/domain";
 import { useSession } from "../../lib/session";
 import sample from "../../lib/home-sample.json";
+import { OwnerDash } from "../../modules/own/Dash";
 
 type Bi = { bn: string; en: string };
 type PillT = { tone: string; label: Bi; icon: string };
@@ -15,6 +16,8 @@ const toneFg: Record<string, string> = { bad: "var(--danger-fg)", warn: "var(--w
 
 export default function HomePage() {
   const s = useSession(); const me = s.me!; const h = H[me.role]; const bn = s.lang === "bn";
+  // slice C1–C4: the owner's home is the live dashboard (no sample figures — known gap 5 closed for the owner)
+  if (me.role === "owner") return <div className="module-page"><OwnerDash home /></div>;
   const B = (x: Bi) => s.n(bn ? x.bn : x.en);
   const first = (bn ? me.nameBn : me.nameEn).split(" ").slice(-1)[0];
   const today = format.date(new Date(), bn);
