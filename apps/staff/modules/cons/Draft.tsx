@@ -8,15 +8,16 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ConsultationView, TestList, VitalsView } from "@setu/contracts";
 import { parseComplaint, signBlockers, type SectionKey } from "@setu/domain";
-import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, useToast } from "@setu/ui";
+import { Button, Callout, Card, Dialog, Icon, PageState, Pill, Segmented, useToast } from "@setu/ui";
 import { ApiFailure, cons, vitals as vitalsApi } from "../../lib/api";
 import { deviceDraft, dropDeviceDraft, flush, saveDeviceDraft, type DeviceDraft } from "../../lib/outbox";
 import { useSession } from "../../lib/session";
 import { AiPanel, type AiInsert } from "./Ai";
 import { AllergyStrip } from "./Allergies";
-import { bodyOf, changedParts, consUrl, factsOf, formOf, isForm, rxLinesOf, useBanner, useC, useFmt, type Dx, type Form } from "./common";
+import { activeAllergies, bodyOf, changedParts, factsOf, formOf, isForm, rxLinesOf, useBanner, useC, useConsNav, useFmt, type Dx, type Form } from "./common";
 import { RxBuilder } from "./Rx";
 import { SignSheet } from "./SignSheet";
+import { PrintPanel } from "../../components/PrintPanel";
 import { ConsultWorklist } from "./Worklist";
 
 export function ConsultDraft() {
@@ -24,8 +25,13 @@ export function ConsultDraft() {
   return enc ? <DraftLoader key={enc} encounterId={enc} /> : <ConsultWorklist />;
 }
 
+/** The note editor for one visit (also the doctor app's quick consult, inside a ConsNavContext). */
+export function ConsultEditor({ encounterId }: { encounterId: string }) {
+  return <DraftLoader key={encounterId} encounterId={encounterId} />;
+}
+
 function DraftLoader({ encounterId }: { encounterId: string }) {
-  const s = useSession(); const C = useC(); const router = useRouter(); const banner = useBanner();
+  const s = useSession(); const C = useC(); const router = useRouter(); const banner = useBanner(); const nav = useConsNav();
   const [view, setView] = useState<ConsultationView | null>(null);
   const [failure, setFailure] = useState<ApiFailure | "offline" | "error" | null>(null);
   useEffect(() => {
@@ -39,7 +45,7 @@ function DraftLoader({ encounterId }: { encounterId: string }) {
   }, [encounterId]);
   useEffect(() => { if (view) s.setPatient(banner(view)); }, [view, s.lang, s.numerals]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => s.setPatient(null), []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (view && !view.draft && view.current) router.replace(consUrl("signed", encounterId)); }, [view, encounterId, router]);
+  useEffect(() => { if (view && !view.draft && view.current) router.replace(nav.signed(encounterId)); }, [view, encounterId, router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (failure instanceof ApiFailure) return <Callout tone={failure.status === 403 ? "bad" : "warn"} icon={failure.status === 403 ? "lock" : "triangle-alert"} data-testid="cons-denied">{s.L(failure.body.message_bn, failure.body.message_en)}</Callout>;
   if (failure) return <Callout tone="warn" icon={failure === "offline" ? "cloud-off" : "triangle-alert"}>{failure === "offline" ? C("offline_banner") : C("error_generic")}</Callout>;
@@ -51,6 +57,7 @@ function DraftLoader({ encounterId }: { encounterId: string }) {
 type Sync = { st: "saved"; at: string } | { st: "dirty" } | { st: "saving" } | { st: "device" } | { st: "failed"; msg: string };
 
 function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: ConsultationView) => void }) {
+  const nav = useConsNav();
   const s = useSession(); const C = useC(); const F = useFmt(); const router = useRouter(); const toast = useToast();
   const [view, setViewS] = useState(initial);
   const setView = useCallback((v: ConsultationView) => { setViewS(v); onView(v); }, [onView]);
@@ -80,7 +87,7 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
   /** The server's version replaces the screen's (after a 409 stale, or a device copy that lost a conflict). */
   const adoptServer = useCallback(async () => {
     const v = await cons.view(encounterId);
-    if (!v.draft) { router.replace(consUrl(v.current ? "signed" : "draft", encounterId)); return; }
+    if (!v.draft) { router.replace(v.current ? nav.signed(encounterId) : nav.draft(encounterId)); return; }
     const f = formOf(v.draft); lastSaved.current = JSON.stringify(bodyOf(f)); // taking the server's copy is not an edit
     revRef.current = v.draft.rev; setForm(f); setView(v); setSync({ st: "saved", at: v.draft.updatedAt });
   }, [encounterId, router, setView]);
@@ -96,7 +103,7 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
     deviceKept.current = false;
     if (sending && after?.conflict) { setConflict(after); await adoptServer(); return; }
     const v = await cons.view(encounterId);
-    if (!v.draft) { router.replace(consUrl("signed", encounterId)); return; }
+    if (!v.draft) { router.replace(nav.signed(encounterId)); return; }
     revRef.current = v.draft.rev; setView(v); lastSaved.current = JSON.stringify(bodyOf(formOf(v.draft)));
     if (JSON.stringify(bodyOf(formRef.current)) === lastSaved.current) setSync({ st: "saved", at: v.draft.updatedAt });
     else void save(); // typed more since the device copy
@@ -129,7 +136,7 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
           if (d && JSON.stringify(d.body) !== lastSaved.current) setConflict(d);
           else { dropDeviceDraft(id); setConflict(null); toast(C("stale_reloaded"), "refresh-cw"); }
         }
-        else if (e.status === 409 && e.body.code === "not_draft") { router.replace(consUrl("signed", encounterId)); }
+        else if (e.status === 409 && e.body.code === "not_draft") { router.replace(nav.signed(encounterId)); }
         else setSync({ st: "failed", msg: s.L(e.body.message_bn, e.body.message_en) });
         return false;
       }
@@ -181,6 +188,7 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
     return syncRef.current.st === "saved";
   }, [save]);
   const [signing, setSigning] = useState(false);
+  const [preview, setPreview] = useState(false);
   const openSign = useCallback(() => { if (editable && navigator.onLine) setSigning(true); }, [editable]);
 
   /** Text the doctor takes from the AI draft is editable, and its section stays ai-draft until "I reviewed" + sign. */
@@ -222,14 +230,16 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
   const hardBlockers = signBlockers({ sections: form.sections, sources: form.sources, diagnoses: form.diagnoses, lines: rxLinesOf(form.lines), allergies: factsOf(view.allergies), aiReviewed: true, uncodedAllergiesChecked: true, isAmendment, amendReason: draft.amendReason }).length;
 
   return (
-    <div data-screen="cons/draft" style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0, paddingBottom: 72 }}>
+    <div data-screen={nav.phone ? "doc/consult" : "cons/draft"} style={{ display: "flex", flexDirection: "column", gap: nav.phone ? 12 : 16, minWidth: 0, paddingBottom: nav.phone ? 140 : 72 }}>
+      {nav.phone && <PhoneHead view={view} />}
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{isAmendment ? C("title_amend_draft") : C("title_draft")}</h1>
+        <h1 className={nav.phone ? "t-h3" : "t-h2"} style={{ margin: 0 }}>{isAmendment ? C("title_amend_draft") : C("title_draft")}</h1>
         <Pill tone="neu" icon="ticket">{C("token", { t: view.encounter.token })}</Pill>
         <Pill tone="draft" icon="pen-line">{C("draft_v", { v: draft.version })}</Pill>
         <SyncPill sync={sync} onRetry={() => void save()} />
         <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="arrow-left" onClick={() => router.push(consUrl("draft"))}>{C("back_to_list")}</Button>
+        <Button size="sm" icon="printer" data-testid="draft-print-preview" onClick={() => setPreview(true)}>{C("print_preview")}</Button>
+        <Button size="sm" icon="arrow-left" onClick={() => router.push(nav.list())}>{C("back_to_list")}</Button>
       </div>
       {!s.online && <Callout tone="warn" icon="cloud-off" data-testid="cons-offline">{C("offline_banner")}</Callout>}
       {view.criticalVitals && <Callout tone="bad" icon="siren" role="alert" data-testid="critical-vitals">{C("critical_banner")}</Callout>}
@@ -306,26 +316,49 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
         </aside>
       </div>
 
-      <div className="card" style={{ position: "sticky", bottom: 0, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", padding: "10px 16px", zIndex: 2 }}>
-        <span style={{ flex: "1 1 260px", display: "flex", flexDirection: "column", gap: 2 }}>
+      <div className="card" style={{ position: "sticky", bottom: nav.phone ? "var(--doc-tabbar-h, 0px)" : 0, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", padding: "10px 16px", zIndex: 2 }}>
+        <span style={{ flex: "1 1 160px", display: "flex", flexDirection: "column", gap: 2 }}>
           <SyncText sync={sync} />
-          <span className="t-small t-muted">{C("keys_hint")}</span>
+          {!nav.phone && <span className="t-small t-muted">{C("keys_hint")}</span>}
         </span>
         {editable && (
-          <Button variant="primary" icon="pen-tool" kbd="Ctrl Enter" data-testid="sign-open" disabled={!s.online} onClick={openSign}>
-            {!s.online ? C("sign_offline") : hardBlockers > 0 ? C("resolve_n", { n: hardBlockers }) : isAmendment ? C("sign_amend") : C("sign")}
+          <Button variant="primary" icon="pen-tool" kbd={nav.phone ? undefined : "Ctrl Enter"} data-testid="sign-open" disabled={!s.online} onClick={openSign}>
+            {!s.online ? C("sign_offline") : hardBlockers > 0 ? C("resolve_n", { n: hardBlockers }) : isAmendment ? C("sign_amend") : nav.phone ? C("sign_send") : C("sign")}
           </Button>
         )}
       </div>
+      {preview && (
+        <Dialog open onClose={() => setPreview(false)} label={C("print_preview")} width={760}>
+          <div style={{ padding: 16, maxHeight: "80vh", overflow: "auto" }}><PrintPanel kind="rx" id={id} compact /></div>
+        </Dialog>
+      )}
       {signing && (
         <SignSheet view={view} draft={draft} form={form} rev={() => revRef.current} ensureSaved={ensureSaved} onClose={() => { setSigning(false); void refresh().catch(() => {}); }}
-          onSigned={(v) => { dropDeviceDraft(id); lastSaved.current = JSON.stringify(bodyOf(formRef.current)); setSync({ st: "saved", at: v.current?.signedAt ?? new Date().toISOString() }); setView(v); router.push(consUrl("signed", encounterId)); }} />
+          onSigned={(v) => { dropDeviceDraft(id); lastSaved.current = JSON.stringify(bodyOf(formRef.current)); setSync({ st: "saved", at: v.current?.signedAt ?? new Date().toISOString() }); setView(v); router.push(nav.signed(encounterId)); }} />
       )}
     </div>
   );
 }
 
 /* ── pieces ── */
+/** Doctor app (issue #8): the patient's name, token and allergies stay on screen while the doctor scrolls to the Rx. */
+function PhoneHead({ view }: { view: ConsultationView }) {
+  const C = useC(); const F = useFmt();
+  const active = activeAllergies(view.allergies);
+  return (
+    <div data-testid="phone-head" style={{ position: "sticky", top: 0, zIndex: 3, display: "flex", flexDirection: "column", gap: 6, padding: "8px 0", background: "var(--surface-page)" }}>
+      <b className="t-body">{F.name(view.encounter.patient)} · <span className="num">{view.encounter.token}</span></b>
+      {active.length
+        ? <div role="note" className="allergy-strip" data-testid="allergy-strip" style={{ display: "flex", gap: 8, alignItems: "center", padding: "8px 12px", borderRadius: 8, background: "var(--allergy-bg)", color: "var(--allergy-fg)", fontWeight: 700 }}>
+            <Icon name="triangle-alert" size={16} />{C("al_strip", { list: active.map((a) => F.name({ nameBn: a.labelBn, nameEn: a.labelEn })).join(", ") })}
+          </div>
+        : <div role="note" data-testid="allergy-strip" className="t-small" style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 12px", borderRadius: 8, border: "1px solid var(--warning-border)", background: "var(--warning-bg)", color: "var(--warning-fg)" }}>
+            <Icon name="circle-help" size={14} />{C("al_none")}
+          </div>}
+    </div>
+  );
+}
+
 export function SyncPill({ sync, onRetry }: { sync: Sync; onRetry?: () => void }) {
   const C = useC(); const F = useFmt();
   const p = sync.st === "saved" ? { tone: "ok" as const, icon: "cloud", t: C("sync_saved", { at: F.time(sync.at) }) }

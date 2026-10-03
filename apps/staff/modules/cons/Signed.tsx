@@ -1,4 +1,5 @@
 "use client";
+import { PrintPanel } from "../../components/PrintPanel";
 /* cons/signed and cons/amended — walkthrough A5 (ADR 0003). Both read the note from the server: "Signed" appears only
    for a version the server holds as final/amended, with the server's time. Amend opens v+1 as a draft (reason ≥ 5);
    the signed version is never edited, and signing the amendment marks it superseded. The history lists every version.
@@ -74,6 +75,8 @@ export function ConsultSigned() {
             {orderNotice && <Callout tone="info" icon="ban" data-testid="order-notice">{orderNotice}</Callout>}
             <NoteView c={c} onChanged={(msg) => { setOrderNotice(msg); void load(); }} canCancel={!view.readOnly && s.me?.role === "doctor"} />
           </>
+          {/* A13: the prescription of this signed version (a superseded version shows why it cannot print) */}
+          <PrintPanel kind="rx" id={c.id} />
           {!view.readOnly && (
             <span style={{ display: "flex", gap: 8 }}>
               {draftOpen

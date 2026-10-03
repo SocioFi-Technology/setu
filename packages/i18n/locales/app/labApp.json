@@ -16,7 +16,6 @@
   "reason_min": ["অন্তত {n} অক্ষর", "At least {n} characters"],
   "sample_list": ["নমুনা তালিকা (প্রোটোটাইপ) — ক্লিনিশিয়ানের অনুমোদন বাকি", "Sample list (prototype) — pending clinician sign-off"],
   "sample_ranges_note": ["রেফারেন্স রেঞ্জ ও জরুরি সীমা নমুনা — ক্লিনিশিয়ানের অনুমোদন বাকি", "Reference ranges and critical limits are a sample — pending clinician sign-off"],
-  "print_later": ["রিপোর্ট প্রিন্ট (A4, QR) আসবে A12–A13-এ", "Printing the report (A4, QR) comes with A12–A13"],
   "wl_collect": ["নমুনা সংগ্রহ", "Sample collection"],
   "wl_collect_hint": ["যেসব ভিজিটে টিউব লাগবে — আজ ও গত ৩০ দিন", "Visits that still need a tube — today and the last 30 days"],
   "wl_accession": ["গ্রহণ ও বিভাগ", "Accession"],

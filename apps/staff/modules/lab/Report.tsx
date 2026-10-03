@@ -1,4 +1,5 @@
 "use client";
+import { PrintPanel } from "../../components/PrintPanel";
 /* lab/report — one released version of the visit's report, exactly as released (decision D3), on screen (the A4 PDF with
    QR comes with A12–A13, decision D10). Ported from docs/prototype/Setu Lab.dc.html (screen "Report"): the version's
    status across the top ("PRELIMINARY — n of m tests pending", "CORRECTED", "FINAL", "Replaced by vN"), each test's
@@ -94,8 +95,10 @@ export function ReportVersion({ id }: { id: string }) {
           {T("legend")}
           {criticalCalls.map(({ x, c }) => ` · ${T("legend_call", { test: x.nameEn, name: c.recipientName, at: F.time(c.calledAt) })}`).join("")}
         </span>
-        <span className="t-small t-muted">{T("sample_ranges_note")} · {T("print_later")}</span>
+        <span className="t-small t-muted">{T("sample_ranges_note")}</span>
       </Card>
+      {/* decision D10 of A8–A11: the printed report with its QR (a superseded version shows why it cannot print) */}
+      <PrintPanel kind="lr" id={rep.id} />
     </div>
   );
 }

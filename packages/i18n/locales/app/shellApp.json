@@ -51,6 +51,10 @@
     "নমুনা বাতিল",
     "Sample rejected"
   ],
+  "label_inbox_ack": [
+    "রিপোর্ট দেখা (ইনবক্স)",
+    "Report acknowledged (inbox)"
+  ],
   "label_vitals": [
     "ভাইটাল",
     "Vitals"

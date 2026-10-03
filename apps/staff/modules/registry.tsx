@@ -11,6 +11,10 @@ import { BillReceipt } from "./bill/Receipt";
 import { BillReconcile } from "./bill/Reconcile";
 import { ConsultDraft } from "./cons/Draft";
 import { ConsultAmended, ConsultSigned } from "./cons/Signed";
+import { DocConsult } from "./doc/Consult";
+import { DocHome } from "./doc/Home";
+import { DocInbox } from "./doc/Inbox";
+import { DocQueue } from "./doc/Queue";
 import { FrontDeskMatch } from "./fd/Match";
 import { FrontDeskQueue } from "./fd/Queue";
 import { FrontDeskRegister } from "./fd/Register";
@@ -49,8 +53,13 @@ const SCREENS: Record<string, ComponentType> = {
   "lab/verify": LabVerify,
   "lab/report": LabReport,
   "lab/delivery": LabDelivery,
+  // slice A12–A13: the doctor app at phone width
+  "doc/home": DocHome,
+  "doc/queue": DocQueue,
+  "doc/consult": DocConsult,
+  "doc/inbox": DocInbox,
 };
-const SLICE: Record<string, string> = { fd: "A1–A3", cons: "A4–A5", bill: "A6–A7", lab: "A8–A11", ph: "phase 2", own: "phase 2", adm: "phase 2", er: "B1–B2", ipd: "B3–B4", nur: "B5–B6", net: "E1–E4" };
+const SLICE: Record<string, string> = { fd: "A1–A3", cons: "A4–A5", bill: "A6–A7", lab: "A8–A11", doc: "A12–A13", ph: "phase 2", own: "phase 2", adm: "phase 2", er: "B1–B2", ipd: "B3–B4", nur: "B5–B6", net: "E1–E4" };
 
 export function ModuleScreen({ mod, screen }: { mod: string; screen: string }) {
   const s = useSession();

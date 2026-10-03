@@ -1,5 +1,6 @@
 "use client";
 /* Shared by the consultation screens (slice A5): strings, the editable form and its mapping to the API, the banner. */
+import { createContext, useContext } from "react";
 import { SaveDraftRequest, type AllergyView, type CompositionView, type ConsultationView, type MedicineSearch } from "@setu/contracts";
 import type { AllergyFact, NoteSections, RxLine, SectionSources } from "@setu/domain";
 import { format } from "@setu/domain";
@@ -91,3 +92,10 @@ export function useBanner() {
 }
 
 export const consUrl = (screen: "draft" | "signed" | "amended", encounterId?: string) => `/m/cons/${screen}${encounterId ? `?enc=${encodeURIComponent(encounterId)}` : ""}`;
+
+/** Where the note editor sends the doctor: the desk screens (cons/*) or the doctor app (doc/*, slice A12–A13), which
+    also lays the editor out for a phone (sticky name + allergy strip, "Sign & send", room for the tab bar). */
+export interface ConsNav { phone: boolean; list: () => string; draft: (encounterId: string) => string; signed: (encounterId: string) => string }
+export const DESK_NAV: ConsNav = { phone: false, list: () => consUrl("draft"), draft: (e) => consUrl("draft", e), signed: (e) => consUrl("signed", e) };
+export const ConsNavContext = createContext<ConsNav>(DESK_NAV);
+export const useConsNav = () => useContext(ConsNavContext);

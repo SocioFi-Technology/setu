@@ -161,3 +161,20 @@ textarea.input { height: auto; padding: 10px 12px; resize: vertical; }
   .search { flex: 1 1 100%; max-width: none; order: 10; }
   .shell-top .seg[aria-label="Numerals"] { display: none; }
 }
+
+/* Doctor app (slice A12–A13, prototype Setu Doctor App · 412): one phone column with a bottom tab bar. On a wide screen
+   the column sits centred beside the staff nav and the tab bar starts after the nav. */
+.doc-frame { --doc-tabbar-h: 64px; max-width: 560px; margin: 0 auto; padding-bottom: calc(var(--doc-tabbar-h) + 12px); display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.doc-tabs { position: fixed; left: var(--shell-nav); right: 0; bottom: 0; z-index: 20; height: 64px; display: flex; justify-content: center; background: var(--surface-raised); border-top: 1px solid var(--border-subtle); }
+.doc-tabs nav { display: flex; width: 100%; max-width: 560px; padding: 6px 8px; gap: 4px; }
+.doc-tab { flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 44px; border-radius: var(--radius-md); font: 600 11px/14px var(--font-sans); color: var(--text-secondary); text-decoration: none; }
+.doc-tab[aria-current="page"] { background: var(--surface-selected); color: var(--brand-primary-text); }
+.doc-tab .badge-count { position: absolute; top: 0; left: calc(50% + 6px); }
+.doc-card { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.doc-card.critical { border-left: 4px solid var(--danger-border, var(--danger-bg)); }
+.doc-card.abnormal { border-left: 4px solid var(--warning-border); }
+.doc-card.normal { border-left: 4px solid var(--success-border, var(--border-subtle)); }
+.doc-card.notice { border-left: 4px solid var(--border-default); }
+.doc-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.doc-actions .btn { flex: 1 1 140px; justify-content: center; }
+@media (max-width: 900px) { .doc-tabs { left: 0; } }

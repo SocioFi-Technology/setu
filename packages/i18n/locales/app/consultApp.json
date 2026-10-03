@@ -117,6 +117,7 @@
   "ai_section": ["AI থেকে যোগ — পর্যালোচনা করুন", "From AI draft — review"],
 
   "al_title": ["অ্যালার্জি", "Allergies"],
+  "al_strip": ["অ্যালার্জি: {list}", "Allergy: {list}"],
   "al_none": ["অ্যালার্জি লেখা হয়নি — রোগীকে জিজ্ঞেস করুন", "Allergies not recorded — ask the patient"],
   "al_record": ["অ্যালার্জি লিখুন", "Record allergy"],
   "al_mark_error": ["ভুলে লেখা", "Entered in error"],
@@ -167,6 +168,8 @@
   "keys_hint": ["Alt ১–৯ অংশ · / ওষুধ · Ctrl Enter স্বাক্ষর", "Alt 1–9 sections · / medicine · Ctrl Enter sign"],
   "sign": ["স্বাক্ষর করে চূড়ান্ত করুন", "Sign & complete"],
   "sign_amend": ["সংশোধন স্বাক্ষর", "Sign amendment"],
+  "sign_send": ["স্বাক্ষর ও পাঠান", "Sign & send"],
+  "print_preview": ["প্রিন্ট প্রিভিউ", "Print preview"],
   "sign_offline": ["সংযোগ ফিরলে স্বাক্ষর", "Sign when back online"],
   "resolve_n": ["{n}টি সতর্কতা ঠিক করুন", "Resolve {n} warning(s)"],
 

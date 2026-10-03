@@ -1,4 +1,5 @@
 import type {
+  AckResponse, DocPrintRequest, DocPrintResponse, DocPrintView, InboxView, LrVerifyResponse, RxVerifyResponse,
   CallbackRequest, LabReportView, LabVisitView, LabWorklist, ResultEntryRequest, RevokeResponse, SpecimenRejectRequest,
   ApprovalDecisionResponse, ApprovalList, ReconcileDecisionResponse, ReconcileList, BillingWorklist, ChargeDefinitionList, DiscountRequest, DiscountResponse, InvoiceView, NewPaymentRequest, PaymentResponse, PrintRequest, PrintResponse, ReceiptList, ReceiptView, VerifyResponse,
   AiDraftResponse, AllergyOptions, AllergyView, CompositionView, ConsultationView, ConsultWorklist, Icd11Search, MedicineSearch, RecordAllergyRequest, SaveDraftRequest, SignRequest, TestList,
@@ -135,6 +136,24 @@ export const lab = {
   revoke: (orderId: string, reason: string, key: string) => call<RevokeResponse>("POST", `/v1/orders/${enc(orderId)}/revoke`, { reason }, key),
   /** dev and tests only: the fake SMS gateway fails the next send (the API refuses it with a real gateway or in production) */
   failNextSms: () => call<{ failing: number }>("POST", "/v1/dev/fake-messenger/fail-next", { n: 1 }),
+};
+
+/* Doctor's inbox and printed documents (slice A12–A13, ADR 0007). An acknowledgement made offline waits in the outbox
+   with its Idempotency-Key and the screen says "Acknowledged — not yet synced"; nothing is sent to the patient until
+   the server has stored it. Printing needs the server (the PDF is rendered and logged there). */
+export type DocKindT = "rx" | "lr";
+export const doctor = {
+  inbox: (days = 14) => call<InboxView>("GET", `/v1/doctor/inbox?days=${days}`),
+  ack: (id: string, notifyPatient: boolean, key: string) => write<AckResponse>("POST", `/v1/doctor/inbox/${enc(id)}/ack`, { notifyPatient }, "inbox_ack", key),
+};
+export const docs = {
+  view: (kind: DocKindT, id: string) => call<DocPrintView>("GET", `/v1/documents/${kind}/${enc(id)}/print`),
+  print: (kind: DocKindT, id: string, body: DocPrintRequest, key: string) => call<DocPrintResponse>("POST", `/v1/documents/${kind}/${enc(id)}/print`, body, key),
+  /** a browser URL (same origin, through the /api proxy) */
+  previewSrc: (kind: DocKindT, id: string, format: "a5" | "a4", lang: "both" | "bn" | "en") => `/api/v1/documents/${kind}/${enc(id)}/preview?format=${format}&lang=${lang}`,
+  pdfSrc: (pdfUrl: string) => `/api${pdfUrl}`,
+  verifyRx: (code: string) => call<RxVerifyResponse>("GET", `/v1/verify/rx/${enc(code)}`),
+  verifyLr: (code: string) => call<LrVerifyResponse>("GET", `/v1/verify/lr/${enc(code)}`),
 };
 
 export const api = {
