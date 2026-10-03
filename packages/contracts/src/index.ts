@@ -7,3 +7,4 @@ export * from "./consultation.js";
 export * from "./billing.js";
 export * from "./lab.js";
 export * from "./doctor.js";
+export * from "./owner.js";
