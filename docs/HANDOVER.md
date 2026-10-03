@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 C1–C4 session 1 of 2 done; next C1–C4 session 2)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; next phase 2 slice 2: pharmacy)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -422,6 +422,35 @@ journey spec @phone, the reviews, the hands-on test as the owner.
 - **Tests:** domain 231, api 199 (+10 `owner.test.ts`, green twice), contracts 2, i18n 3; `pnpm typecheck` 13/13.
   Playwright not re-run this session (no screen changed; 69 green at the end of A12–A13).
 
+## Done (slice C1–C4, session 2 of 2, 03/10/2026) — shift close and owner dashboard screens, Journey C ✅
+Slice C1–C4 is **done**: Journey C (the owner's morning check on the phone) is green.
+- **`bill/shift`** (`apps/staff/modules/bill/Shift.tsx`): the cashier opens a shift with a float and counts **blind**
+  (what the drawer should hold is not shown); the server reveals the variance on hand-over and asks for the reason;
+  digital settlements are the cashier's figures ("matches the cashier's figure", "check against the terminal / bank
+  statement"). The owner / admin sees handed-over shifts (float marked as the cashier's figure, every count and
+  decision): accept with a note (issue #24), approve a matching count, or ask for a recount; never their own shift.
+- **`own/dash`** (`apps/staff/modules/own/Dash.tsx`, strings `ownerApp`): today / 7 / 30 days; KPI tiles with real
+  changes judged per KPI (issue #23), tiles of later modules say so; waiting for you (approvals, shifts handed over,
+  reconciliation, shifts open > 12 h); revenue vs collected (one taka axis with labelled ticks, labelled time axis,
+  legend, hover tooltip, table view; colours validated light + dark with the dataviz check, collected dashed); by method;
+  leakage (cash outside a shift, shift variance with short / over apart, discounts above policy, reprints, not billed
+  here); operations; every number opens its list (totals over every row, "viewing is logged"). The owner's home is this
+  dashboard (sample figures gone for the owner).
+- **Reviews:** money controls (3 high — the float is the cashier's figure, digital settlements are the cashier's
+  figures, short and over cancelled out; 5 medium; 4 low) and security (0 high, 4 medium — the Shift row could be
+  approved without a decision row, the latest count could be repointed, the dev rollup route was on by default, a 30-day
+  first load could time out; 7 low) — fixed in commit `f313522` except open questions 159–165. Migration
+  `shift_review_fixes`; rollup v2 (short / over apart); `command()` answers 409 for a unique-slot clash that is not a
+  key replay (every route).
+- **Hands-on (03/10/2026)** as the cashier at the desk and the owner on a 412 px phone (`e2e/walk-owner.mjs`,
+  untracked): see commit `C1-C4 session 2 step 5`.
+- **Tests:** domain 232, api 199, contracts 2, i18n 3; `pnpm typecheck` 13/13; Playwright **74** (69 + 5 `c1-c4`), green
+  twice in a row on 03/10/2026 (runs 3 and 4). **Flaky under full parallel load (not changed by this slice):** in one
+  run `a1-a3` "A2 / issue #4" did not find the candidate column within 5 s and `a12-a13` "A13 / D10" hung on opening
+  the lab report's QR page until the 150 s timeout; both files passed twice on their own and the next two full runs
+  were all green. Watch them; if they recur, look at the dev server under load first.
+  `ROLLUP_DEV_ROUTE=1` in the local `.env` and the API tests (dev route opt-in).
+
 ## How to run the journeys on this PC
 - Playwright's Chromium is installed (02/10/2026): plain `pnpm e2e` runs the journeys against `pnpm dev` (staff :3000,
   api :4000). The installed-Chrome route still works: `cd e2e` then `CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" pnpm exec playwright test -c pw.local.config.ts`.
@@ -494,8 +523,8 @@ journey spec @phone, the reviews, the hands-on test as the owner.
 4. ~~`/slice A8-A11`~~ — done 03/10/2026 (two sessions). Kamrul to confirm open question 134.
 5. ~~`/slice A12-A13`~~ — done 03/10/2026 (two sessions); **Journey A complete**. Kamrul to confirm open questions
    135–149.
-6. **Phase 2 pilot clinic, split in four slices (Kamrul, 03/10/2026):** `/slice C1-C4` owner dashboard + shift close
-   (**session 1 done; session 2 next** — Kamrul to confirm open questions 150–158) → pharmacy → admin → real SMS + bKash sandbox. See open questions "Phase 2 plan".
+6. **Phase 2 pilot clinic, split in four slices (Kamrul, 03/10/2026):** ~~`/slice C1-C4`~~ owner dashboard + shift close
+   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **next: pharmacy** → pharmacy → admin → real SMS + bKash sandbox. See open questions "Phase 2 plan".
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

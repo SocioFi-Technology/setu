@@ -703,3 +703,21 @@ Commit after each step, push at the end of each session.
 158. **The nightly job runs inside the API process** (00:30 Dhaka; a second instance would recompute the same rows); a
      separate worker before scaling out.
 
+### From the reviews and the hands-on test of C1–C4 session 2 — please confirm
+159. **Opening float** (money-controls review H1): the cashier types it and the owner's review card marks it as the
+     cashier's figure. A fixed float per counter set by the owner (admin slice) and a check against it — or the owner
+     confirming each float — would close the gap. Which?
+160. **Card / bank / bKash / Nagad settlements are the cashier's figures** (H2): shown as such. Should the owner (or a
+     second person) enter or confirm the terminal batch / bank statement before a shift is approved?
+161. **Blind count** (M1): the cashier no longer sees the expected cash while counting; the variance appears only after
+     the count is sent. Keep (recommended practice), or show it?
+162. **A payment confirmed while the cashier is counting** (money-controls review L2) can fall between the expected cash
+     and "cash outside a shift"; a check that compares each approved count's cash with the payments in its window
+     comes with the pilot hardening.
+163. **Drill-down audit rows keep the patients in `detail.patientIds`, not in `AuditEvent.patientId`** (security
+     review #6) — the patient-facing "who saw my record" list (Journey D) must read both.
+164. **A rollup older than 35 days is not recomputed** when a bill or payment from that day changes later; the 30-day
+     view is always within it. Recompute on change, or accept?
+165. **Rendering of the dashboard happens inside one read transaction** (≤30 s; at most 8 missing days computed per
+     request, the rest "still being prepared"). A separate worker for the nightly job before scaling out (see 158).
+
