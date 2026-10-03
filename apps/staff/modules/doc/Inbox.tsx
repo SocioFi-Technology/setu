@@ -4,7 +4,7 @@
    marked "do not act on it", a version replaced by a newer one says so and cannot be acknowledged. "Seen" and "Seen +
    tell patient" (decision D1): online the card says Acknowledged only after the server answers; offline the
    acknowledgement waits in the outbox — "Acknowledged — not yet synced" — and the patient is told only after it syncs. */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { InboxItem, InboxView } from "@setu/contracts";
 import { Button, Callout, Card, Icon, PageState, Pill, useToast } from "@setu/ui";
 import { ApiFailure, doctor, docs } from "../../lib/api";
@@ -35,8 +35,16 @@ export function DocInbox() {
     try { const x = await doctor.inbox(); setV(x); rememberUnread(x.counts.unread); setFailed(false); setQueued(queuedAcks()); } catch { setFailed(true); }
   }, []);
   useEffect(() => { s.setPatient(null); void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  // when the outbox drains (back online), reload: the server's record replaces "not yet synced"
-  useEffect(() => onOutbox(() => { const q = queuedAcks(); setQueued(q); if (q.size === 0 && s.online) void load(); }), [load, s.online]);
+  // when a queued acknowledgement leaves the outbox (sent, or refused), reload: the server's record replaces "not yet
+  // synced". The browser's own online flag, not a captured one: the outbox can drain before this screen re-renders.
+  const queuedRef = useRef(queued);
+  useEffect(() => { queuedRef.current = queued; }, [queued]);
+  useEffect(() => onOutbox(() => {
+    const now = queuedAcks();
+    const left = [...queuedRef.current.keys()].some((id) => !now.has(id));
+    setQueued(now);
+    if (left && navigator.onLine) void load();
+  }), [load]);
 
   const ack = async (item: InboxItem, notify: boolean) => {
     setBusy(item.id);
@@ -53,7 +61,7 @@ export function DocInbox() {
     } finally { setBusy(null); }
   };
 
-  const unread = v ? v.items.filter((x) => !x.acknowledged && !queued.has(x.id)).length : 0;
+  const unread = v ? v.items.filter((x) => !x.acknowledged && !x.resolved && !queued.has(x.id)).length : 0;
   return (
     <DocFrame tab="inbox">
       <span style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
@@ -102,6 +110,7 @@ function InboxCard({ item: x, queued, busy, onAck }: { item: InboxItem; queued: 
           ))}
           {results.length > shown.length && <span className="t-small t-muted">{D("more_results", { n: results.length - shown.length })}</span>}
           {x.report.superseded && <Callout tone="warn" icon="history" data-testid="superseded">{D("v_superseded")}</Callout>}
+          {x.correctionPending && <Callout tone="warn" icon="hourglass" data-testid="correction-pending">{D("v_correction_pending")}</Callout>}
         </>
       )}
       {x.kind === "correction-notice" && <span>{D("k_correction", { test: testName })}</span>}
@@ -118,7 +127,7 @@ function InboxCard({ item: x, queued, busy, onAck }: { item: InboxItem; queued: 
         </span>
       ) : queued !== undefined ? (
         <span data-testid="acked-pending"><Pill tone="off" icon="cloud-off" wrap>{queued ? D("seen_pending_tell") : D("seen_pending")}</Pill></span>
-      ) : !x.report?.superseded && (
+      ) : !x.report?.superseded && !x.correctionPending && (
         <>
           <span className="doc-actions">
             <Button icon="check" data-testid="ack-seen" disabled={busy} onClick={() => onAck(false)}>{D("b_seen")}</Button>

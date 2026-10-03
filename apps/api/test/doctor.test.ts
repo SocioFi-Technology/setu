@@ -170,7 +170,12 @@ describe.runIf(db)("A12 results inbox: critical first, acknowledge, tell the pat
     expect(notice.severity).toBe("notice");
     expect(notice.canNotify).toBe(false);
     expect((await post(`/v1/doctor/inbox/${notice.id}/ack`, { notifyPatient: true })).json().code).toBe("notify_not_for_kind");
-    expect(itemFor(b, abnormal.enc)!.report!.results[0]!.underCorrection).toBe(true);
+    const v1Pending = itemFor(b, abnormal.enc)!;
+    expect(v1Pending.report!.results[0]!.underCorrection).toBe(true);
+    // clinical review M1: the report keeps its grade (H stays abnormal) and waits for the corrected version
+    expect(v1Pending).toMatchObject({ severity: "abnormal", correctionPending: true, canNotify: false });
+    expect((await post(`/v1/doctor/inbox/${v1Pending.id}/ack`, {})).json().code).toBe("correction_pending");
+    expect((await post(`/v1/doctor/inbox/${v1Pending.id}/ack`, { notifyPatient: true })).json().code).toBe("correction_pending");
     // the corrected value goes through verify / validate / release again → v2; v1's item is superseded
     let lv = await labView(abnormal.enc);
     const pre = lv.orders.flatMap((o) => o.results.filter((r) => r.status === "preliminary").map((r) => r.id));
@@ -186,7 +191,14 @@ describe.runIf(db)("A12 results inbox: critical first, acknowledge, tell the pat
     expect(v1.canNotify).toBe(false);
     expect((await post(`/v1/doctor/inbox/${v1.id}/ack`, {})).json().code).toBe("superseded");
     expect(v2.report!.superseded).toBe(false);
+    // M3: v1 is resolved by v2 — sorted with the done items, not counted as unread
+    expect(v1).toMatchObject({ resolved: true, correctionPending: false });
+    const openIds = b.items.filter((x) => !x.acknowledged && !(x as { resolved?: boolean }).resolved).map((x) => x.id);
+    expect(b.items.indexOf(v1)).toBeGreaterThan(Math.max(...openIds.map((id) => b.items.findIndex((x) => x.id === id))));
     ok(await post(`/v1/doctor/inbox/${v2.id}/ack`, {}));
+    // M2: the correction notice about v1 is still acknowledged after v2 was released
+    const notice2 = itemFor(await inbox(), abnormal.enc, "correction-notice")!;
+    ok(await post(`/v1/doctor/inbox/${notice2.id}/ack`, {}));
   });
 
   it("'tell patient' needs the patient's mobile (a record without one: older data, an unknown ER patient later)", async () => {

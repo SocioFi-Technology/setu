@@ -41,6 +41,7 @@
   "k_cancelled": ["ল্যাব একটি পরীক্ষা বাতিল করেছে — {test}", "The lab cancelled a test — {test}"],
   "k_vital": ["জরুরি ভাইটাল: {vital}", "Critical vital sign: {vital}"],
   "v_superseded": ["এর নতুন সংস্করণ এসেছে — নতুনটি দেখুন", "A newer version has arrived — review that one"],
+  "v_correction_pending": ["একটি মান সংশোধন হচ্ছে — সংশোধিত সংস্করণ এলে সেটি দেখুন; আগের মানের উপর ভিত্তি করে সিদ্ধান্ত নেবেন না", "A value is being corrected — review the corrected version when it arrives; do not act on the earlier value"],
   "more_results": ["আরও {n}টি ফলাফল", "{n} more result(s)"],
   "b_seen": ["দেখেছি", "Seen"],
   "b_seen_tell": ["দেখেছি + রোগীকে জানান", "Seen + tell patient"],

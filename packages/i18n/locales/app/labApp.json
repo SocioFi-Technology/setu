@@ -1,7 +1,7 @@
 {
   "_about": ["ল্যাবের লেখা (স্লাইস A8–A11), প্রোটোটাইপ Setu Lab থেকে", "Lab strings (slice A8–A11), from the prototype Setu Lab"],
   "sms_report_ready": ["{facility}: আপনার ল্যাব রিপোর্ট তৈরি। অনুগ্রহ করে ল্যাব কাউন্টার থেকে সংগ্রহ করুন।", "{facility}: Your lab report is ready. Please collect it at the lab counter."],
-  "sms_report_reviewed": ["{facility}: আপনার ডাক্তার আপনার ল্যাব রিপোর্ট দেখেছেন। প্রয়োজনে অনুগ্রহ করে {facility}-এ যোগাযোগ করুন।", "{facility}: Your doctor has reviewed your lab report. Please contact {facility} if you need to."],
+  "sms_report_reviewed": ["{facility}: আপনার ডাক্তার আপনার ল্যাব রিপোর্ট দেখেছেন। অনুগ্রহ করে {facility}-এ যোগাযোগ করুন।", "{facility}: Your doctor has reviewed your lab report. Please contact {facility}."],
   "sms_recollect": ["{facility}: আপনার নমুনা আবার নিতে হবে। অনুগ্রহ করে ল্যাব কাউন্টারে আসুন।", "{facility}: We need to take your sample again. Please come to the lab counter."],
   "loading": ["লোড হচ্ছে…", "Loading…"],
   "error_generic": ["কিছু একটা ভুল হয়েছে — আবার চেষ্টা করুন", "Something went wrong — try again"],

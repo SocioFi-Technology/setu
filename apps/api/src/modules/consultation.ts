@@ -43,7 +43,7 @@ function access(e: Enc, s: SessionData) {
   return a;
 }
 /** A composition of a visit at this facility/branch that this doctor may work on. */
-async function compositionHere(tx: Tx, s: SessionData, id: string): Promise<{ c: Comp; e: Enc }> {
+export async function compositionHere(tx: Tx, s: SessionData, id: string): Promise<{ c: Comp; e: Enc }> {
   const c = await tx.composition.findFirst({ where: { id, kind: KIND, organizationId: s.organizationId } });
   if (!c) throw notFound();
   const e = await encounterHere(tx, s, c.encounterId);

@@ -26,7 +26,9 @@ export interface RxInput {
   exam: { general: string; cvs: string; chest: string; abdomen: string };
   diagnoses: { code: string; labelEn: string; labelBn: string; provisional: boolean; sample: boolean }[];
   orders: { nameEn: string; nameBn: string }[];
-  medicines: { brand: string; generic: string; strength: string; form: string; dose: string; meal: string; days: number; sample: boolean }[];
+  medicines: { brand: string; generic: string; strength: string; form: string; dose: string; meal: string; days: number; note?: string | null; sample: boolean }[];
+  /** a version a newer one replaced, or one withdrawn: a banner says so on the preview (clinical review M4) */
+  replaced?: "superseded" | "withdrawn" | null;
   advice: string; followUp: string;
   verify: { url: string; code: string } | null;
   print: PrintLine | null;
@@ -113,11 +115,14 @@ export function rxHtml(i: RxInput): string {
   const exam = (["general", "cvs", "chest", "abdomen"] as const).filter((x) => i.exam[x].trim()).map((x) => `<li>${esc(k.L("consultApp", `exam_${x}`))}: ${esc(i.exam[x])}</li>`).join("");
   const reg = i.doctor?.regNo ? esc(k.L("consultApp", i.doctor.regVerified ? "reg_verified" : "reg_unverified", { body: i.doctor.regBody ?? "BMDC", no: i.doctor.regNo })) : "";
   const meds = i.medicines.map((m, n) => `<div class="med">${k.num(n + 1)}. <b>${esc(m.form)} ${esc(m.brand)} ${esc(m.strength)}</b> <i>(${esc(m.generic)})</i><br>`
-    + `&nbsp;&nbsp;&nbsp;${esc(k.num(m.dose))} · ${esc(k.L("consultApp", `meal_${m.meal}`))} · ${esc(k.L("printApp", "days_n", { n: k.num(m.days) }))}</div>`).join("");
+    + `&nbsp;&nbsp;&nbsp;${esc(k.num(m.dose))} · ${esc(k.L("consultApp", `meal_${m.meal}`))} · ${esc(k.L("printApp", "days_n", { n: k.num(m.days) }))}`
+    // clinical review H1: the doctor's instruction under the medicine is part of the prescription
+    + `${m.note?.trim() ? `<br>&nbsp;&nbsp;&nbsp;<b>${esc(m.note.trim())}</b>` : ""}</div>`).join("");
   const body = `
 <div class="head"><div><div class="title">${k.name(i.facility.bn, i.facility.en)}</div>${i.facility.address ? `<div class="small">${esc(i.facility.address)}</div>` : ""}</div>
 <div style="text-align:right">${i.doctor ? `<b>${k.name(i.doctor.bn, i.doctor.en)}</b><br><span class="small">${reg}</span>` : ""}</div></div>
 ${dup}
+${i.replaced ? `<div class="banner">${k.P(i.replaced === "superseded" ? "rx_replaced" : "rx_withdrawn")}</div>` : ""}
 <div class="cols">
 <div><span class="lbl">${k.P("patient")}</span><br><b>${k.name(i.patient.nameBn, i.patient.nameEn)}</b></div>
 <div><span class="lbl">${k.P("age_sex")}</span><br>${k.age(i.patient.ageYears)} · ${k.sex(i.patient.sex)}</div>
@@ -148,14 +153,16 @@ export function lrHtml(i: LrInput): string {
   const k = kit(i.lang);
   const { wm, dup } = marks(k, i.mode, i.print);
   const lab = (key: string, v: Record<string, string> = {}) => esc(k.L("labApp", key, v));
-  const banner = i.report.status === "preliminary" ? lab("wm_preliminary", { n: k.num(i.report.pendingCount), m: k.num(i.report.testCount) })
+  // clinical review M4: a version a newer one replaced says so first, whatever it was when released
+  const banner = i.report.status === "superseded" ? k.P("lr_replaced")
+    : i.report.status === "preliminary" ? lab("wm_preliminary", { n: k.num(i.report.pendingCount), m: k.num(i.report.testCount) })
     : i.report.status === "corrected" ? lab("wm_corrected") : lab("wm_final");
   const val = (v: number, d: number) => k.num(v.toFixed(d));
   const rows = i.tests.map((tst) => `<tr><td colspan="4"><b>${k.name(tst.nameBn, tst.nameEn)}</b></td></tr>` + tst.results.map((r) => {
     const off = r.underCorrection || r.withdrawn;
     const range = r.refLow != null && r.refHigh != null ? `${val(r.refLow, r.decimals)}–${val(r.refHigh, r.decimals)}${r.refLabel ? ` · ${lab(`range_${r.refLabel}`)}` : ""}` : lab("range_none");
     return `<tr><td>${k.name(r.nameBn, r.nameEn)}</td><td${off ? ' class="strike"' : ""}><b>${val(r.value, r.decimals)}</b> ${esc(r.unit)}</td>`
-      + `<td>${r.flag ? lab(`flag_${r.flag}`) : "—"}${off ? `<br><span class="dna">${lab(r.withdrawn ? "withdrawn_dna" : "under_correction_dna")}</span>` : ""}</td><td class="small">${range}</td></tr>`;
+      + `<td>${r.flag ? (off ? `<span class="strike">${lab(`flag_${r.flag}`)}</span>` : lab(`flag_${r.flag}`)) : "—"}${off ? `<br><span class="dna">${lab(r.withdrawn ? "withdrawn_dna" : "under_correction_dna")}</span>` : ""}</td><td class="small">${range}</td></tr>`;
   }).join("")).join("");
   const body = `
 <div class="head"><div><div class="title">${k.name(i.facility.bn, i.facility.en)}</div>${i.facility.address ? `<div class="small">${esc(i.facility.address)}</div>` : ""}</div>

@@ -15,6 +15,7 @@ import { lrHtml, rxHtml, type Lang, type Mode, type Paper, type PrintLine } from
 import { htmlToPdf } from "../receipts/pdf.js";
 import { notFound } from "./frontdesk.js";
 import { labReportView } from "./lab.js";
+import { compositionHere, noCareRelationship } from "./consultation.js";
 import { newVerifyCode } from "./receipts.js";
 
 export type DocKind = "rx" | "lr";
@@ -38,6 +39,9 @@ async function facility(tx: Tx, s: SessionData) {
 /* ───── the documents ───── */
 type Rx = NonNullable<Awaited<ReturnType<typeof rxHere>>>;
 async function rxHere(tx: Tx, s: SessionData, id: string) {
+  // the visit's branch and the care relationship, as the consultation screens (security review S1: another doctor's
+  // note is neither previewed nor printed — a print by someone else would also take its "original")
+  await compositionHere(tx, s, id);
   const c = await tx.composition.findFirst({ where: { id, organizationId: s.organizationId, kind: "consultation-note" },
     include: { conditions: { orderBy: { position: "asc" } }, medications: { orderBy: { position: "asc" } }, orders: { orderBy: { createdAt: "asc" } }, patient: true, encounter: { select: { token: true, createdAt: true } } } });
   if (!c) throw notFound();
@@ -60,7 +64,8 @@ async function rxInput(tx: Tx, s: SessionData, c: Rx, mode: Mode, paper: Paper, 
     complaints: sec.complaints ?? [], exam: { general: sec.exam?.general ?? "", cvs: sec.exam?.cvs ?? "", chest: sec.exam?.chest ?? "", abdomen: sec.exam?.abdomen ?? "" },
     diagnoses: c.conditions.map((d) => ({ code: d.code, labelEn: d.labelEn, labelBn: d.labelBn, provisional: d.verificationStatus === "provisional", sample: d.codeVerification !== "verified" })),
     orders: c.orders.filter((o) => o.status !== "revoked").map((o) => ({ nameEn: o.nameEn, nameBn: o.nameBn })),
-    medicines: c.medications.map((m) => ({ brand: m.brand, generic: m.generic, strength: m.strength, form: m.form, dose: m.dose, meal: m.meal, days: m.days, sample: m.sample })),
+    medicines: c.medications.map((m) => ({ brand: m.brand, generic: m.generic, strength: m.strength, form: m.form, dose: m.dose, meal: m.meal, days: m.days, note: m.note, sample: m.sample })),
+    replaced: c.status === "superseded" ? "superseded" : c.status === "entered_in_error" ? "withdrawn" : null,
     advice: sec.advice ?? "", followUp: sec.followUp ?? "", verify, print,
   });
 }
@@ -68,6 +73,14 @@ async function rxInput(tx: Tx, s: SessionData, c: Rx, mode: Mode, paper: Paper, 
 async function lrHere(tx: Tx, s: SessionData, id: string) {
   const r = await tx.diagnosticReport.findFirst({ where: { id, organizationId: s.organizationId } });
   if (!r) throw notFound();
+  // security review S2: a doctor opens a report sent to their inbox, of a test they ordered, or of a visit they hold;
+  // the lab (technologist, pathologist) keeps its access through the lab screens
+  if (s.role === "doctor") {
+    const mine = (await tx.communication.count({ where: { reportId: id, channel: "doctor_inbox", recipientUserId: s.userId } })) > 0
+      || (await tx.serviceRequest.count({ where: { encounterId: r.encounterId, orderedById: s.userId } })) > 0
+      || (await tx.encounter.findFirst({ where: { id: r.encounterId }, select: { practitionerId: true } }))?.practitionerId === s.userId;
+    if (!mine) throw noCareRelationship();
+  }
   return r;
 }
 async function lrInput(tx: Tx, s: SessionData, id: string, mode: Mode, paper: Paper, lang: Lang, verify: { url: string; code: string } | null, print: PrintLine | null) {
@@ -135,12 +148,11 @@ const BLOCKED: Record<PrintBlocker, [string, string]> = {
 export async function printDocument(tx: Tx, s: SessionData, kind: DocKind, id: string, req: DocPrintRequest, now: Date) {
   const b = await blockersOf(tx, s, kind, id);
   if (b.blockers.length) { const k = b.blockers[0]!; throw err(422, k, BLOCKED[k][0], BLOCKED[k][1]); }
-  // the version's code: made at its first print (a simultaneous first print fails on the unique index; print again)
+  // two prints of the same version wait for each other (setu_app has no UPDATE on DocumentCode, so no row lock: an
+  // advisory lock for this transaction, taken before the first print makes the code — security review S4)
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(7007, hashtext(${`${kind}:${id}`}))`;
   let code = await tx.documentCode.findFirst({ where: { kind, documentId: id } });
   if (!code) code = await tx.documentCode.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, kind, documentId: id, verifyCode: newVerifyCode(), createdById: s.userId } });
-  // serialise two prints of the same version (setu_app has no UPDATE on DocumentCode, so no row lock: an advisory
-  // lock for this transaction; the unique (codeId, copy) is the backstop)
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${code.id}))`;
   const printed = await tx.documentPrint.count({ where: { codeId: code.id } });
   const c = copyCheck(printed, req.reason);
   if ("error" in c) throw c.error === "reprint_needs_reason"
@@ -160,8 +172,10 @@ export async function printDocument(tx: Tx, s: SessionData, kind: DocKind, id: s
 export async function storedPdf(tx: Tx, s: SessionData, printId: string) {
   const p = await tx.documentPrint.findFirst({ where: { id: printId }, include: { code: true } });
   if (!p || p.code.organizationId !== s.organizationId) throw notFound();
-  const b = await blockersOf(tx, s, p.code.kind as DocKind, p.code.documentId).catch(() => null);
-  if (!b) throw notFound();
+  const b = await blockersOf(tx, s, p.code.kind as DocKind, p.code.documentId);
+  // clinical review M5: a stored copy of a replaced or withdrawn version is not handed out again (it would print as a
+  // clean original); the record stays, the QR page says what happened
+  if (b.blockers.length) { const k = b.blockers[0]!; throw err(409, k, BLOCKED[k][0], BLOCKED[k][1]); }
   const bytes = await storage.get(p.storageKey);
   if (!bytes) throw err(410, "file_missing", "ফাইলটি পাওয়া যায়নি", "The stored file is missing");
   return { bytes, print: p, kind: p.code.kind as DocKind, documentId: p.code.documentId, patientId: b.patientId };
@@ -172,29 +186,46 @@ type Raw = { birthDate: string | null; approxAgeYears: number | null; approxAgeA
 const utc = (x: string) => (/[zZ]|[+-]\d\d:?\d\d$/.test(x) ? x : `${x}Z`);
 const patientOf = (r: Raw, at: Date) => ({ initials: r.initials, sex: r.sex, ageYears: patientAgeYears({ birthDate: r.birthDate, approxAgeYears: r.approxAgeYears, approxAgeAt: r.approxAgeAt ? utc(r.approxAgeAt) : null }, at) });
 
-export async function rxVerify(code: string): Promise<RxVerifyResponse | null> {
+/** Writes the audit row of a public QR view (no user): the patient can list it among the events about them. */
+export async function auditPublicView(kind: DocKind, code: string, t: VerifyTarget, ip: string) {
+  const { forTenant } = await import("@setu/db");
+  await forTenant(t.tenantId, (tx) => tx.auditEvent.create({ data: {
+    tenantId: t.tenantId, userId: null, role: null, action: "view", entity: kind === "rx" ? "Composition" : "DiagnosticReport", entityId: t.documentId, patientId: t.patientId, ip,
+    basis: "public-verify", detail: { purpose: "public-verify", kind, code: code.slice(0, 4) } as object,
+  } }));
+}
+/** Who to audit a public view against (security review S3): kept on the server, never in the answer. */
+export interface VerifyTarget { tenantId: string; patientId: string; documentId: string }
+export async function rxVerify(code: string): Promise<{ body: RxVerifyResponse; target: VerifyTarget } | null> {
   const { prisma } = await import("@setu/db");
   const rows = await prisma.$queryRaw<{ hit: (Raw & Record<string, unknown>) | null }[]>`SELECT rx_verify_lookup(${code}::text) AS hit`;
-  const h = rows[0]?.hit as (Raw & { facilityEn: string; facilityBn: string | null; doctorEn: string | null; doctorBn: string | null; regBody: string | null; regNo: string | null; regVerified: boolean; signedAt: string | null; version: number; status: string; medicines: RxVerifyResponse["medicines"] }) | null;
+  const h = rows[0]?.hit as (Raw & VerifyTarget & { facilityEn: string; facilityBn: string | null; doctorEn: string | null; doctorBn: string | null; regBody: string | null; regNo: string | null; regVerified: boolean; signedAt: string | null; version: number; status: string; medicines: RxVerifyResponse["medicines"] }) | null;
   if (!h) return null;
   const status = rxVerifyStatus(h.status as DocState);
   if (!status) return null;
   const signedAt = h.signedAt ? new Date(utc(h.signedAt)) : null;
   return {
-    facilityEn: h.facilityEn, facilityBn: h.facilityBn, doctorEn: h.doctorEn, doctorBn: h.doctorBn, regBody: h.regBody, regNo: h.regNo, regVerified: h.regVerified,
-    signedAt: signedAt?.toISOString() ?? null, version: h.version, status, patient: patientOf(h, signedAt ?? new Date()), medicines: h.medicines,
+    target: { tenantId: h.tenantId, patientId: h.patientId, documentId: h.documentId },
+    body: {
+      facilityEn: h.facilityEn, facilityBn: h.facilityBn, doctorEn: h.doctorEn, doctorBn: h.doctorBn, regBody: h.regBody, regNo: h.regNo, regVerified: h.regVerified,
+      signedAt: signedAt?.toISOString() ?? null, version: h.version, status, patient: patientOf(h, signedAt ?? new Date()),
+      medicines: h.medicines.map((m) => ({ ...m, note: m.note ?? null, sample: !!m.sample })),
+    },
   };
 }
 
-export async function lrVerify(code: string): Promise<LrVerifyResponse | null> {
+export async function lrVerify(code: string): Promise<{ body: LrVerifyResponse; target: VerifyTarget } | null> {
   const { prisma } = await import("@setu/db");
   const rows = await prisma.$queryRaw<{ hit: (Raw & Record<string, unknown>) | null }[]>`SELECT lr_verify_lookup(${code}::text) AS hit`;
-  const h = rows[0]?.hit as (Raw & { facilityEn: string; facilityBn: string | null; number: string; version: number; status: LrVerifyResponse["reportStatus"]; superseded: boolean; releasedAt: string; testCount: number; pendingCount: number; results: LrVerifyResponse["results"] }) | null;
+  const h = rows[0]?.hit as (Raw & VerifyTarget & { facilityEn: string; facilityBn: string | null; number: string; version: number; status: LrVerifyResponse["reportStatus"]; superseded: boolean; releasedAt: string; testCount: number; pendingCount: number; results: LrVerifyResponse["results"] }) | null;
   if (!h) return null;
   const releasedAt = new Date(utc(h.releasedAt));
   return {
-    facilityEn: h.facilityEn, facilityBn: h.facilityBn, number: h.number, version: h.version, reportStatus: h.status, status: h.superseded ? "superseded" : "current",
-    releasedAt: releasedAt.toISOString(), testCount: h.testCount, pendingCount: h.pendingCount, patient: patientOf(h, releasedAt),
-    results: h.results.map((x) => ({ ...x, decimals: x.decimals ?? 1, nameEn: x.nameEn ?? x.code, nameBn: x.nameBn ?? x.code })),
+    target: { tenantId: h.tenantId, patientId: h.patientId, documentId: h.documentId },
+    body: {
+      facilityEn: h.facilityEn, facilityBn: h.facilityBn, number: h.number, version: h.version, reportStatus: h.status, status: h.superseded ? "superseded" : "current",
+      releasedAt: releasedAt.toISOString(), testCount: h.testCount, pendingCount: h.pendingCount, patient: patientOf(h, releasedAt),
+      results: h.results.map((x) => ({ ...x, decimals: x.decimals ?? 1, nameEn: x.nameEn ?? x.code, nameBn: x.nameBn ?? x.code, withdrawn: !!x.withdrawn })),
+    },
   };
 }

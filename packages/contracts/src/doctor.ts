@@ -39,8 +39,12 @@ export const InboxItem = z.object({
     /** the "report reviewed" SMS: its delivery status ("Not yet synced" never appears here — this is the server's record) */
     sms: z.object({ id: z.string(), status: CommunicationStatus, lastError: z.string().nullable() }).nullable(),
   }).nullable(),
-  /** "Seen + tell patient" is offered (a released, current report and a mobile on record) */
+  /** "Seen + tell patient" is offered (a released, current report, nothing under correction, a mobile on record) */
   canNotify: z.boolean(),
+  /** a report with a value under correction: wait for the corrected version (no acknowledgement yet — clinical review M1) */
+  correctionPending: z.boolean(),
+  /** a report version replaced by a newer one: the newer item is the one to review (not counted as unread — M3) */
+  resolved: z.boolean(),
 });
 export type InboxItem = z.infer<typeof InboxItem>;
 export const InboxView = z.object({
@@ -88,7 +92,11 @@ export const RxVerifyResponse = z.object({
   doctorEn: z.string().nullable(), doctorBn: z.string().nullable(), regBody: z.string().nullable(), regNo: z.string().nullable(), regVerified: z.boolean(),
   signedAt: z.string().nullable(), version: z.number().int(), status: DocVerifyStatus,
   patient: VerifyPatient,
-  medicines: z.array(z.object({ brand: z.string(), generic: z.string(), strength: z.string(), form: z.string(), dose: z.string(), meal: z.string(), days: z.number().int(), quantity: z.number().int() })),
+  medicines: z.array(z.object({ brand: z.string(), generic: z.string(), strength: z.string(), form: z.string(), dose: z.string(), meal: z.string(), days: z.number().int(), quantity: z.number().int(),
+    /** the doctor's instruction under the medicine (clinical review H1) */
+    note: z.string().nullable(),
+    /** from the prototype's sample list — not for real prescribing (L2) */
+    sample: z.boolean() })),
 });
 export type RxVerifyResponse = z.infer<typeof RxVerifyResponse>;
 export const LrVerifyResponse = z.object({
@@ -96,6 +104,7 @@ export const LrVerifyResponse = z.object({
   number: z.string(), version: z.number().int(), reportStatus: LabReportStatus, status: DocVerifyStatus, releasedAt: z.string(),
   testCount: z.number().int(), pendingCount: z.number().int(),
   patient: VerifyPatient,
-  results: z.array(InboxResult.extend({ test: z.string() })),
+  /** `withdrawn`: entered-in-error with no replacement value (decision 133); `underCorrection`: a corrected value exists */
+  results: z.array(InboxResult.extend({ test: z.string(), withdrawn: z.boolean() })),
 });
 export type LrVerifyResponse = z.infer<typeof LrVerifyResponse>;

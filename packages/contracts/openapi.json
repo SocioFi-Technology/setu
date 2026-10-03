@@ -73491,6 +73491,12 @@
                           },
                           "canNotify": {
                             "type": "boolean"
+                          },
+                          "correctionPending": {
+                            "type": "boolean"
+                          },
+                          "resolved": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -73504,7 +73510,9 @@
                           "test",
                           "vital",
                           "acknowledged",
-                          "canNotify"
+                          "canNotify",
+                          "correctionPending",
+                          "resolved"
                         ]
                       }
                     },
@@ -73973,6 +73981,12 @@
                         },
                         "canNotify": {
                           "type": "boolean"
+                        },
+                        "correctionPending": {
+                          "type": "boolean"
+                        },
+                        "resolved": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -73986,7 +74000,9 @@
                         "test",
                         "vital",
                         "acknowledged",
-                        "canNotify"
+                        "canNotify",
+                        "correctionPending",
+                        "resolved"
                       ]
                     }
                   },
@@ -75635,6 +75651,15 @@
                           },
                           "quantity": {
                             "type": "integer"
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "sample": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -75645,7 +75670,9 @@
                           "dose",
                           "meal",
                           "days",
-                          "quantity"
+                          "quantity",
+                          "note",
+                          "sample"
                         ]
                       }
                     }
@@ -75964,6 +75991,9 @@
                           },
                           "test": {
                             "type": "string"
+                          },
+                          "withdrawn": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -75978,7 +76008,8 @@
                           "refHigh",
                           "refLabel",
                           "underCorrection",
-                          "test"
+                          "test",
+                          "withdrawn"
                         ]
                       }
                     }

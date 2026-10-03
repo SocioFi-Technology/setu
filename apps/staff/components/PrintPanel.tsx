@@ -90,7 +90,8 @@ export function PrintPanel({ kind, id, compact = false }: { kind: DocKindT; id: 
         {v.prints.map((p) => (
           <span key={p.id} className="t-small" data-copy={p.copy}>
             {p.copy === 0 ? P("ui_copy0") : `${P("ui_copyN", { n: p.copy })} — ${P(`rr_${p.reason}`)}`} · {who(p.printedBy)} · <span className="num">{when(p.printedAt)}</span> · {p.format.toUpperCase()}
-            {" · "}<a href={docs.pdfSrc(p.pdfUrl)} target="_blank" rel="noreferrer">PDF</a>
+            {/* clinical review M5: no stored copy of a replaced or withdrawn version (it would print as a clean original) */}
+            {!blocked && <>{" · "}<a href={docs.pdfSrc(p.pdfUrl)} target="_blank" rel="noreferrer">PDF</a></>}
           </span>
         ))}
       </span>

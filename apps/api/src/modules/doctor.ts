@@ -6,7 +6,7 @@
 import { randomUUID } from "node:crypto";
 import type { AckRequest, InboxItem, InboxView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
-import { INBOX_ITEM, ackBlockers, inboxSeverity, patientAgeYears, sortInbox, transition, type InboxKind, type Interpretation } from "@setu/domain";
+import { INBOX_ITEM, ackBlockers, inboxSeverity, isOpenItem, patientAgeYears, sortInbox, transition, type InboxKind, type Interpretation } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
@@ -64,11 +64,17 @@ async function toItems(tx: Tx, s: SessionData, rows: Row[], now: Date): Promise<
     const order = c.serviceRequestId ? O.get(c.serviceRequestId) ?? null : null;
     const hasMobile = smsPhone(p.phone) !== null;
     const superseded = !!r?.supersededById;
+    // the flags a notice is about: its own result, else that test's results in the version it names (clinical review M1)
+    const noticeFlags = (kind === "correction-notice" || kind === "results-withdrawn")
+      ? (c.observationId && V.get(c.observationId) ? [V.get(c.observationId)!.interpretation ?? null] : r ? r.results.filter((x) => x.serviceRequestId === c.serviceRequestId).map((x) => V.get(x.observationId)?.interpretation ?? null) : [])
+      : [];
+    const correctionPending = kind === "report-inbox" && !superseded && results.some((x) => x.underCorrection);
     const sms = c.ack?.notifyCommunicationId ? S.get(c.ack.notifyCommunicationId) ?? null : null;
     return {
       id: c.id, kind, at: c.createdAt.toISOString(),
       // a report is graded by the results it released that still stand (a value under correction does not count)
-      severity: inboxSeverity(kind, results.filter((x) => !x.underCorrection).map((x) => x.flag)),
+      // a report keeps its worst grade while a value is under correction (clinical review M1)
+      severity: inboxSeverity(kind, kind === "report-inbox" ? results.map((x) => x.flag) : (noticeFlags as (Interpretation | null)[])),
       patient: { id: p.id, facilityNo: p.facilityNo, nameBn: p.nameBn, nameEn: p.nameEn, sex: p.sex,
         ageYears: patientAgeYears({ birthDate: p.birthDate ? p.birthDate.toISOString().slice(0, 10) : null, approxAgeYears: p.approxAgeYears, approxAgeAt: p.approxAgeAt?.toISOString() ?? null }, now), hasMobile },
       encounter: { id: c.encounterId ?? "", token: c.encounterId ? E.get(c.encounterId)?.token ?? null : null, facilityEn: org?.name ?? "" },
@@ -76,7 +82,9 @@ async function toItems(tx: Tx, s: SessionData, rows: Row[], now: Date): Promise<
       test: order ? { nameEn: order.nameEn, nameBn: order.nameBn } : null,
       vital: vObs ? { code: vObs.code, value: vObs.value, unit: vObs.unit, flag: (vObs.interpretation ?? null) as Interpretation | null } : null,
       acknowledged: c.ack ? { at: c.ack.ackedAt.toISOString(), notifyPatient: c.ack.notifyPatient, sms: sms ? { id: sms.id, status: dash(sms.status), lastError: sms.lastError } : null } : null,
-      canNotify: kind === "report-inbox" && !superseded && hasMobile && !c.ack,
+      canNotify: kind === "report-inbox" && !superseded && !correctionPending && hasMobile && !c.ack,
+      correctionPending,
+      resolved: kind === "report-inbox" && superseded && !c.ack,
     };
   });
 }
@@ -85,8 +93,9 @@ export async function inboxView(tx: Tx, s: SessionData, days: number, now: Date)
   requireDoctor(s);
   const rows = await loadRows(tx, s, { since: new Date(now.getTime() - days * 864e5) });
   const built = await toItems(tx, s, rows, now);
-  const items = sortInbox(built.map((x) => ({ x, severity: x.severity, at: x.at, acknowledged: !!x.acknowledged }))).map((w) => w.x);
-  const unread = items.filter((x) => !x.acknowledged);
+  const items = sortInbox(built.map((x) => ({ x, severity: x.severity, at: x.at, acknowledged: !!x.acknowledged, resolved: x.resolved }))).map((w) => w.x);
+  // counted: still needs the doctor — not acknowledged and not replaced by a newer version (clinical review M3)
+  const unread = items.filter((x) => isOpenItem({ acknowledged: !!x.acknowledged, resolved: x.resolved }));
   return {
     view: { items, counts: { unread: unread.length, critical: unread.filter((x) => x.severity === "critical").length } },
     audit: [{ action: "view", entity: "Communication", detail: { purpose: "doctor-inbox", count: items.length, patientIds: [...new Set(items.map((x) => x.patient.id))] } }],
@@ -103,9 +112,10 @@ export async function acknowledge(tx: Tx, s: SessionData, id: string, req: AckRe
     throw notFound();
   }
   const [before] = await toItems(tx, s, [c], now);
-  const blockers = ackBlockers({ isRecipient: c.recipientUserId === s.userId, acknowledged: !!c.ack, superseded: !!before!.report?.superseded, kind: c.kind as InboxKind, notifyPatient: req.notifyPatient, patientHasMobile: before!.patient.hasMobile });
+  const blockers = ackBlockers({ isRecipient: c.recipientUserId === s.userId, acknowledged: !!c.ack, superseded: !!before!.report?.superseded, correctionPending: before!.correctionPending, kind: c.kind as InboxKind, notifyPatient: req.notifyPatient, patientHasMobile: before!.patient.hasMobile });
   if (blockers.includes("already_acknowledged")) throw err(409, "already_acknowledged", "আগেই দেখা হয়েছে", "Already acknowledged");
   if (blockers.includes("superseded")) throw err(409, "superseded", "এই রিপোর্টের নতুন সংস্করণ আছে — সেটি দেখুন", "A newer version of this report exists — open that one");
+  if (blockers.includes("correction_pending")) throw err(409, "correction_pending", "একটি মান সংশোধন হচ্ছে — সংশোধিত সংস্করণ এলে দেখুন", "A value is being corrected — review the corrected version when it arrives");
   if (blockers.includes("notify_not_for_kind")) throw err(422, "notify_not_for_kind", "শুধু প্রকাশিত রিপোর্টের জন্য রোগীকে জানানো যায়", "Only a released report can be sent to the patient", { field: "notifyPatient" });
   if (blockers.includes("no_mobile")) throw err(422, "no_mobile", "রোগীর মোবাইল নম্বর নেই", "The patient has no mobile number on record", { field: "notifyPatient" });
   transition("INBOX_ITEM", INBOX_ITEM, "unread", "acknowledge");

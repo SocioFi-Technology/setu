@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ackBlockers, inboxSeverity, sortInbox, PATIENT_NOTIFY_KINDS, type InboxSortable } from "./inbox.js";
+import { ackBlockers, inboxSeverity, isOpenItem, sortInbox, PATIENT_NOTIFY_KINDS, type InboxSortable } from "./inbox.js";
 import { INBOX_ITEM, TransitionError, can, transition } from "./machines.js";
 
 describe("INBOX_ITEM machine (ADR 0007)", () => {
@@ -19,9 +19,9 @@ describe("inbox severity", () => {
     expect(inboxSeverity("report-inbox", ["N", null])).toBe("normal");
     expect(inboxSeverity("report-inbox", [])).toBe("normal");
   });
-  it("a critical vital sign is critical; lab notices (correction, withdrawn, cancelled) are notices", () => {
+  it("a critical vital sign is critical; lab notices (correction, withdrawn, cancelled) are notices unless about a critical value (M1)", () => {
     expect(inboxSeverity("critical-vital", [])).toBe("critical");
-    for (const k of ["correction-notice", "results-withdrawn", "order-cancelled"] as const) expect(inboxSeverity(k, ["HH"])).toBe("notice");
+    for (const k of ["correction-notice", "results-withdrawn", "order-cancelled"] as const) expect(inboxSeverity(k, ["N"])).toBe("notice");
   });
 });
 
@@ -64,3 +64,37 @@ describe("acknowledge blockers (decision D1)", () => {
     }
   });
 });
+
+describe("clinical review A12–A13 (M1–M3)", () => {
+  it("M1: a report keeps its worst grade while a value is under correction (the values passed include it)", () => {
+    expect(inboxSeverity("report-inbox", ["N", "HH"])).toBe("critical");
+  });
+  it("M1: a correction or withdrawal notice about a critical value is critical; otherwise a notice", () => {
+    expect(inboxSeverity("correction-notice", ["HH"])).toBe("critical");
+    expect(inboxSeverity("results-withdrawn", ["LL"])).toBe("critical");
+    expect(inboxSeverity("correction-notice", ["H"])).toBe("notice");
+    expect(inboxSeverity("order-cancelled", ["HH"])).toBe("notice");
+  });
+  it("M1: no acknowledgement of a report while one of its values is under correction (wait for the corrected version)", () => {
+    const base = { isRecipient: true, acknowledged: false, superseded: false, kind: "report-inbox" as const, notifyPatient: false, patientHasMobile: true };
+    expect(ackBlockers({ ...base, correctionPending: true })).toContain("correction_pending");
+    expect(ackBlockers({ ...base, notifyPatient: true, correctionPending: true })).toContain("correction_pending");
+    expect(ackBlockers({ ...base, kind: "correction-notice", correctionPending: true })).toEqual([]);
+  });
+  it("M2: 'superseded' blocks a report version only — a correction notice about v1 is still acknowledged after v2", () => {
+    const base = { isRecipient: true, acknowledged: false, superseded: true, kind: "correction-notice" as const, notifyPatient: false, patientHasMobile: true };
+    expect(ackBlockers(base)).toEqual([]);
+    expect(ackBlockers({ ...base, kind: "results-withdrawn" })).toEqual([]);
+    expect(ackBlockers({ ...base, kind: "report-inbox" })).toContain("superseded");
+  });
+  it("M3: a superseded report version is resolved by its newer version — it sorts with the done items", () => {
+    const sorted = sortInbox([
+      { id: "v1", severity: "critical" as const, at: "2026-10-03T07:00:00Z", acknowledged: false, resolved: true },
+      { id: "n", severity: "normal" as const, at: "2026-10-03T01:00:00Z", acknowledged: false },
+    ]).map((x) => x.id);
+    expect(sorted).toEqual(["n", "v1"]);
+    expect(isOpenItem({ acknowledged: false, resolved: true })).toBe(false);
+    expect(isOpenItem({ acknowledged: false })).toBe(true);
+  });
+});
+

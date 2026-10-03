@@ -46,8 +46,10 @@ export default function VerifyLabReport({ params }: { params: Promise<{ code: st
               {r.results.map((x, i) => (
                 <tr key={i} data-result={x.code}>
                   <td>{x.nameEn}<br /><span className="t-small t-muted">{x.test}</span></td>
-                  <td className="num"><b style={x.underCorrection ? { textDecoration: "line-through" } : undefined}>{val(x.value, x.decimals)}</b> {x.unit}</td>
-                  <td>{x.flag ? LB(`flag_${x.flag}`) : "—"}{x.underCorrection && <><br /><b className="t-small" data-testid="verify-under-correction">{LB("under_correction_dna")}</b></>}</td>
+                  <td className="num"><b style={x.underCorrection || x.withdrawn ? { textDecoration: "line-through" } : undefined}>{val(x.value, x.decimals)}</b> {x.unit}</td>
+                  <td><span style={x.underCorrection || x.withdrawn ? { textDecoration: "line-through" } : undefined}>{x.flag ? LB(`flag_${x.flag}`) : "—"}</span>
+                    {x.underCorrection && <><br /><b className="t-small" data-testid="verify-under-correction">{LB("under_correction_dna")}</b></>}
+                    {x.withdrawn && <><br /><b className="t-small" data-testid="verify-withdrawn">{P("v_withdrawn_value")}</b></>}</td>
                   <td className="t-small num">{x.refLow != null && x.refHigh != null ? `${val(x.refLow, x.decimals)}–${val(x.refHigh, x.decimals)}` : "—"}</td>
                 </tr>
               ))}

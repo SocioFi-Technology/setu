@@ -41,8 +41,9 @@ export default function VerifyPrescription({ params }: { params: Promise<{ code:
           <span><span className="t-small t-muted">{P("v_patient")}</span><br /><b data-testid="verify-patient">{r.patient.initials} · {r.patient.ageYears ?? "—"} · {P(`sex_${r.patient.sex}`)}</b></span>
           <span className="t-small t-muted">{P("v_medicines")}</span>
           <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4 }} data-testid="verify-medicines">
-            {r.medicines.map((m, i) => <li key={i}><b>{m.form} {m.brand} {m.strength}</b> <i>({m.generic})</i> — <span className="num">{m.dose}</span> · {both("consultApp", `meal_${m.meal}`)} · {P("days_n", { n: String(m.days) })}</li>)}
+            {r.medicines.map((m, i) => <li key={i}><b>{m.form} {m.brand} {m.strength}</b> <i>({m.generic})</i> — <span className="num">{m.dose}</span> · {both("consultApp", `meal_${m.meal}`)} · {P("days_n", { n: String(m.days) })}{m.note ? <><br /><b>{m.note}</b></> : null}</li>)}
           </ol>
+          {r.medicines.some((m) => m.sample) && <Callout tone="warn" icon="flask-conical" data-testid="verify-sample">{P("v_sample")}</Callout>}
           <span className="t-small t-muted">{P("v_privacy_rx")}</span>
         </Card>
       )}

@@ -19,7 +19,7 @@ let app: Awaited<ReturnType<typeof buildApp>>;
 const RUN = randomUUID().slice(0, 6);
 const cookies: Record<string, string> = {};
 const T = "t_e2e";
-const USERS = { desk: "01799000001", doctor: "01799000002", tech: "01799000005", path: "01799000006", liteDoctor: "01733000002" } as const;
+const USERS = { desk: "01799000001", doctor: "01799000002", doctor2: "01799000003", tech: "01799000005", path: "01799000006", liteDoctor: "01733000002" } as const;
 type Who = keyof typeof USERS;
 
 beforeAll(async () => {
@@ -154,6 +154,9 @@ describe.runIf(db)("lab report print (decision D10 of A8–A11)", () => {
     const p = ok<PrintView>(await post(`/v1/documents/lr/${rep}/print`, { format: "a4" }, "tech"), 201);
     expect(ok<PrintView>(await post(`/v1/documents/lr/${rep}/print`, { reason: "copy" }, "doctor"), 201).prints.map((x) => x.copy)).toEqual([0, 1]);
     expect((await post(`/v1/documents/lr/${rep}/print`, { reason: "copy" }, "desk")).statusCode).toBe(403);
+    // security review S2: a doctor who did not order it and was not sent it cannot open the report
+    expect((await get(`/v1/documents/lr/${rep}/print`, "doctor2")).statusCode).toBe(403);
+    expect((await get(`/v1/documents/prints/${p.prints[0]!.id}/pdf`, "doctor2")).statusCode).toBe(403);
     const pub = ok<{ status: string; reportStatus: string; patient: { initials: string }; results: { code: string; value: number; flag: string; underCorrection: boolean }[] }>(await get(`/v1/verify/lr/${p.verifyCode}`, null));
     expect(pub).toMatchObject({ status: "current", reportStatus: "final", patient: { initials: `P. P. ${RUN[0]!.toUpperCase()}.` }, results: [{ code: "rbs", value: 11.2, flag: "H", underCorrection: false }] });
     // a correction released as v2 supersedes v1: v1 no longer prints; its page says superseded and marks the value
@@ -239,3 +242,41 @@ describe("print templates (no database)", () => {
     expect(h).toContain("3.5–5.1 · adult range");
   });
 });
+
+describe.runIf(db)("review fixes A12–A13 (security S1–S3, clinical H1, M5)", () => {
+  it("S1: another doctor at the same facility neither previews nor prints this doctor's note (no care relationship)", async () => {
+    const d = await signed();
+    expect((await get(`/v1/documents/rx/${d.id}/print`, "doctor2")).statusCode).toBe(403);
+    expect((await get(`/v1/documents/rx/${d.id}/preview`, "doctor2")).statusCode).toBe(403);
+    expect((await post(`/v1/documents/rx/${d.id}/print`, {}, "doctor2")).json().code).toBe("no_care_relationship");
+    const dr = await draft();
+    expect((await get(`/v1/documents/rx/${dr.id}/preview`, "doctor2")).statusCode).toBe(403);
+    // the original is still the treating doctor's to print
+    expect(ok<PrintView & { print: { copy: number } }>(await post(`/v1/documents/rx/${d.id}/print`, {}), 201).print.copy).toBe(0);
+  });
+
+  it("H1 + S3: the medicine's instruction is on the QR page; each public view is audited against the patient, without a user", async () => {
+    const d = await draft();
+    const c = ok<{ id: string; rev: number }>(await put(`/v1/compositions/${d.id}`, { rev: d.rev, ...NOTE(), medications: [{ medicineKey: "napa", dose: "1+0+1", meal: "after", days: 3, note: "stop if rash appears" }] }));
+    ok(await post(`/v1/compositions/${c.id}/sign`, { rev: c.rev, pin: "1234", aiReviewed: false, uncodedAllergiesChecked: false }));
+    const code = ok<PrintView>(await post(`/v1/documents/rx/${d.id}/print`, {}), 201).verifyCode!;
+    const v = ok<{ medicines: { note: string | null; sample: boolean }[] }>(await get(`/v1/verify/rx/${code}`, null));
+    expect(v.medicines[0]).toMatchObject({ note: "stop if rash appears", sample: true });
+    expect(JSON.stringify(v)).not.toMatch(/tenantId|patientId|documentId/);
+    const a = await db!.forTenant(T, (tx) => tx.auditEvent.findFirst({ where: { entityId: d.id, basis: "public-verify" }, orderBy: { at: "desc" } }));
+    expect(a).toMatchObject({ userId: null, action: "view", entity: "Composition", patientId: d.patient });
+  });
+
+  it("M5: the stored copy of a superseded version is not handed out again", async () => {
+    const d = await signed();
+    const p = ok<PrintView & { print: { pdfUrl: string } }>(await post(`/v1/documents/rx/${d.id}/print`, {}), 201);
+    expect((await get(p.print.pdfUrl)).statusCode).toBe(200);
+    const am = ok<{ draft: { id: string; rev: number } }>(await post(`/v1/compositions/${d.id}/amend`, { reason: "dose change after review" }), 201);
+    const c2 = ok<{ id: string; rev: number }>(await put(`/v1/compositions/${am.draft.id}`, { rev: am.draft.rev, ...NOTE([]) }));
+    ok(await post(`/v1/compositions/${c2.id}/sign`, { rev: c2.rev, pin: "1234", aiReviewed: false, uncodedAllergiesChecked: false }));
+    const r = await get(p.print.pdfUrl);
+    expect(r.statusCode).toBe(409);
+    expect(r.json().code).toBe("superseded_not_printable");
+  });
+});
+
