@@ -98,6 +98,12 @@ export const COMMUNICATION: Table<CommunicationState, CommunicationEvent> = {
   failed: { retry: "preparation" },
 };
 
+/* Doctor's inbox item (a doctor-inbox Communication row), ADR 0007: the recipient acknowledges it once ("Seen", or "Seen
+   + tell patient"). Stored as an append-only InboxAck row — the Communication itself is never edited. */
+export type InboxItemState = "unread" | "acknowledged";
+export type InboxItemEvent = "acknowledge";
+export const INBOX_ITEM: Table<InboxItemState, InboxItemEvent> = { unread: { acknowledge: "acknowledged" }, acknowledged: {} };
+
 /* ADR 0005: a draft or issued bill (no confirmed money) can be marked entered-in-error (void, owner/admin, reason);
    `cancel` stays in the table from the domain model but no route uses it yet. */
 export type InvoiceState = "draft" | "issued" | "partially-paid" | "balanced" | "cancelled" | "entered-in-error";

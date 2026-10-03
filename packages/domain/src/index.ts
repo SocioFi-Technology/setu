@@ -11,3 +11,5 @@ export * from "./prescription.js";
 export * from "./consultation.js";
 export * from "./billing.js";
 export * from "./lab.js";
+export * from "./inbox.js";
+export * from "./printing.js";
