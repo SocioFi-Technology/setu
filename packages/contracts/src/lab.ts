@@ -17,7 +17,8 @@ export const ResultStatus = z.enum(["preliminary", "verified", "final", "amended
 export const LabReportStatus = z.enum(["preliminary", "final", "corrected", "superseded"]);
 export const CommunicationStatus = z.enum(["preparation", "in-progress", "completed", "failed"]);
 export const CommunicationChannel = z.enum(["sms", "patient-app", "doctor-inbox"]);
-export const CommunicationKind = z.enum(["recollect", "report-ready", "report-app", "report-inbox", "correction-notice", "results-withdrawn", "order-cancelled"]);
+/** + report-reviewed (SMS, "Seen + tell patient") and critical-vital (doctor-inbox), ADR 0007 */
+export const CommunicationKind = z.enum(["recollect", "report-ready", "report-app", "report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "report-reviewed", "critical-vital"]);
 export const CallbackRecipient = z.enum(["ordering-doctor", "duty-doctor", "patient"]);
 export const CallbackVia = z.enum(["phone", "app", "in-person"]);
 export const CallbackOutcome = z.enum(["reached", "no-answer"]);

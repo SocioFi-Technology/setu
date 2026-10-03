@@ -47279,7 +47279,9 @@
                               "report-inbox",
                               "correction-notice",
                               "results-withdrawn",
-                              "order-cancelled"
+                              "order-cancelled",
+                              "report-reviewed",
+                              "critical-vital"
                             ]
                           },
                           "channel": {
@@ -48820,7 +48822,9 @@
                               "report-inbox",
                               "correction-notice",
                               "results-withdrawn",
-                              "order-cancelled"
+                              "order-cancelled",
+                              "report-reviewed",
+                              "critical-vital"
                             ]
                           },
                           "channel": {
@@ -50354,7 +50358,9 @@
                               "report-inbox",
                               "correction-notice",
                               "results-withdrawn",
-                              "order-cancelled"
+                              "order-cancelled",
+                              "report-reviewed",
+                              "critical-vital"
                             ]
                           },
                           "channel": {
@@ -51888,7 +51894,9 @@
                               "report-inbox",
                               "correction-notice",
                               "results-withdrawn",
-                              "order-cancelled"
+                              "order-cancelled",
+                              "report-reviewed",
+                              "critical-vital"
                             ]
                           },
                           "channel": {
@@ -53422,7 +53430,9 @@
                               "report-inbox",
                               "correction-notice",
                               "results-withdrawn",
-                              "order-cancelled"
+                              "order-cancelled",
+                              "report-reviewed",
+                              "critical-vital"
                             ]
                           },
                           "channel": {
@@ -54972,7 +54982,9 @@
                               "report-inbox",
                               "correction-notice",
                               "results-withdrawn",
-                              "order-cancelled"
+                              "order-cancelled",
+                              "report-reviewed",
+                              "critical-vital"
                             ]
                           },
                           "channel": {
@@ -56599,7 +56611,9 @@
                               "report-inbox",
                               "correction-notice",
                               "results-withdrawn",
-                              "order-cancelled"
+                              "order-cancelled",
+                              "report-reviewed",
+                              "critical-vital"
                             ]
                           },
                           "channel": {
@@ -58212,7 +58226,9 @@
                               "report-inbox",
                               "correction-notice",
                               "results-withdrawn",
-                              "order-cancelled"
+                              "order-cancelled",
+                              "report-reviewed",
+                              "critical-vital"
                             ]
                           },
                           "channel": {
@@ -59831,7 +59847,9 @@
                               "report-inbox",
                               "correction-notice",
                               "results-withdrawn",
-                              "order-cancelled"
+                              "order-cancelled",
+                              "report-reviewed",
+                              "critical-vital"
                             ]
                           },
                           "channel": {
@@ -61610,7 +61628,9 @@
                               "report-inbox",
                               "correction-notice",
                               "results-withdrawn",
-                              "order-cancelled"
+                              "order-cancelled",
+                              "report-reviewed",
+                              "critical-vital"
                             ]
                           },
                           "channel": {
@@ -63225,7 +63245,9 @@
                               "report-inbox",
                               "correction-notice",
                               "results-withdrawn",
-                              "order-cancelled"
+                              "order-cancelled",
+                              "report-reviewed",
+                              "critical-vital"
                             ]
                           },
                           "channel": {
@@ -64969,7 +64991,9 @@
                               "report-inbox",
                               "correction-notice",
                               "results-withdrawn",
-                              "order-cancelled"
+                              "order-cancelled",
+                              "report-reviewed",
+                              "critical-vital"
                             ]
                           },
                           "channel": {
@@ -66643,7 +66667,9 @@
                               "report-inbox",
                               "correction-notice",
                               "results-withdrawn",
-                              "order-cancelled"
+                              "order-cancelled",
+                              "report-reviewed",
+                              "critical-vital"
                             ]
                           },
                           "channel": {
@@ -68323,7 +68349,9 @@
                               "report-inbox",
                               "correction-notice",
                               "results-withdrawn",
-                              "order-cancelled"
+                              "order-cancelled",
+                              "report-reviewed",
+                              "critical-vital"
                             ]
                           },
                           "channel": {
@@ -69352,7 +69380,9 @@
                               "report-inbox",
                               "correction-notice",
                               "results-withdrawn",
-                              "order-cancelled"
+                              "order-cancelled",
+                              "report-reviewed",
+                              "critical-vital"
                             ]
                           },
                           "channel": {
@@ -70863,7 +70893,9 @@
                               "report-inbox",
                               "correction-notice",
                               "results-withdrawn",
-                              "order-cancelled"
+                              "order-cancelled",
+                              "report-reviewed",
+                              "critical-vital"
                             ]
                           },
                           "channel": {
@@ -72460,7 +72492,9 @@
                               "report-inbox",
                               "correction-notice",
                               "results-withdrawn",
-                              "order-cancelled"
+                              "order-cancelled",
+                              "report-reviewed",
+                              "critical-vital"
                             ]
                           },
                           "channel": {
@@ -73035,6 +73069,3008 @@
             }
           },
           "422": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/doctor/inbox": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 90,
+              "default": 14
+            },
+            "required": false,
+            "name": "days",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "the signed-in doctor's inbox, critical first (audited)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "report-inbox",
+                              "correction-notice",
+                              "results-withdrawn",
+                              "order-cancelled",
+                              "critical-vital"
+                            ]
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": [
+                              "critical",
+                              "abnormal",
+                              "normal",
+                              "notice"
+                            ]
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "patient": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "facilityNo": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "sex": {
+                                "type": "string",
+                                "enum": [
+                                  "female",
+                                  "male",
+                                  "other"
+                                ]
+                              },
+                              "ageYears": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "hasMobile": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "facilityNo",
+                              "nameBn",
+                              "nameEn",
+                              "sex",
+                              "ageYears",
+                              "hasMobile"
+                            ]
+                          },
+                          "encounter": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "token": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "facilityEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "token",
+                              "facilityEn"
+                            ]
+                          },
+                          "report": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "number": {
+                                "type": "string"
+                              },
+                              "version": {
+                                "type": "integer"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "preliminary",
+                                  "final",
+                                  "corrected",
+                                  "superseded"
+                                ]
+                              },
+                              "superseded": {
+                                "type": "boolean"
+                              },
+                              "testCount": {
+                                "type": "integer"
+                              },
+                              "pendingCount": {
+                                "type": "integer"
+                              },
+                              "results": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "code": {
+                                      "type": "string"
+                                    },
+                                    "nameEn": {
+                                      "type": "string"
+                                    },
+                                    "nameBn": {
+                                      "type": "string"
+                                    },
+                                    "value": {
+                                      "type": "number"
+                                    },
+                                    "unit": {
+                                      "type": "string"
+                                    },
+                                    "decimals": {
+                                      "type": "integer"
+                                    },
+                                    "flag": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "enum": [
+                                        "N",
+                                        "H",
+                                        "L",
+                                        "HH",
+                                        "LL"
+                                      ]
+                                    },
+                                    "refLow": {
+                                      "type": [
+                                        "number",
+                                        "null"
+                                      ]
+                                    },
+                                    "refHigh": {
+                                      "type": [
+                                        "number",
+                                        "null"
+                                      ]
+                                    },
+                                    "refLabel": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "enum": [
+                                        "adult",
+                                        "adult-female",
+                                        "adult-male"
+                                      ]
+                                    },
+                                    "underCorrection": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "code",
+                                    "nameEn",
+                                    "nameBn",
+                                    "value",
+                                    "unit",
+                                    "decimals",
+                                    "flag",
+                                    "refLow",
+                                    "refHigh",
+                                    "refLabel",
+                                    "underCorrection"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "number",
+                              "version",
+                              "status",
+                              "superseded",
+                              "testCount",
+                              "pendingCount",
+                              "results"
+                            ]
+                          },
+                          "test": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "nameEn": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "nameEn",
+                              "nameBn"
+                            ]
+                          },
+                          "vital": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "code": {
+                                "type": "string"
+                              },
+                              "value": {
+                                "type": "number"
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "flag": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "enum": [
+                                  "N",
+                                  "H",
+                                  "L",
+                                  "HH",
+                                  "LL"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "code",
+                              "value",
+                              "unit",
+                              "flag"
+                            ]
+                          },
+                          "acknowledged": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "at": {
+                                "type": "string"
+                              },
+                              "notifyPatient": {
+                                "type": "boolean"
+                              },
+                              "sms": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "preparation",
+                                      "in-progress",
+                                      "completed",
+                                      "failed"
+                                    ]
+                                  },
+                                  "lastError": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "status",
+                                  "lastError"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "at",
+                              "notifyPatient",
+                              "sms"
+                            ]
+                          },
+                          "canNotify": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind",
+                          "severity",
+                          "at",
+                          "patient",
+                          "encounter",
+                          "report",
+                          "test",
+                          "vital",
+                          "acknowledged",
+                          "canNotify"
+                        ]
+                      }
+                    },
+                    "counts": {
+                      "type": "object",
+                      "properties": {
+                        "unread": {
+                          "type": "integer"
+                        },
+                        "critical": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "unread",
+                        "critical"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "counts"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/doctor/inbox/{id}/ack": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "notifyPatient": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "INBOX_ITEM acknowledge (only the recipient, once); 'tell patient' queues the report-reviewed SMS, sent after commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "item": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "report-inbox",
+                            "correction-notice",
+                            "results-withdrawn",
+                            "order-cancelled",
+                            "critical-vital"
+                          ]
+                        },
+                        "severity": {
+                          "type": "string",
+                          "enum": [
+                            "critical",
+                            "abnormal",
+                            "normal",
+                            "notice"
+                          ]
+                        },
+                        "at": {
+                          "type": "string"
+                        },
+                        "patient": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "facilityNo": {
+                              "type": "string"
+                            },
+                            "nameBn": {
+                              "type": "string"
+                            },
+                            "nameEn": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "sex": {
+                              "type": "string",
+                              "enum": [
+                                "female",
+                                "male",
+                                "other"
+                              ]
+                            },
+                            "ageYears": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "hasMobile": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "facilityNo",
+                            "nameBn",
+                            "nameEn",
+                            "sex",
+                            "ageYears",
+                            "hasMobile"
+                          ]
+                        },
+                        "encounter": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "token": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "facilityEn": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "token",
+                            "facilityEn"
+                          ]
+                        },
+                        "report": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "number": {
+                              "type": "string"
+                            },
+                            "version": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "preliminary",
+                                "final",
+                                "corrected",
+                                "superseded"
+                              ]
+                            },
+                            "superseded": {
+                              "type": "boolean"
+                            },
+                            "testCount": {
+                              "type": "integer"
+                            },
+                            "pendingCount": {
+                              "type": "integer"
+                            },
+                            "results": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "code": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "value": {
+                                    "type": "number"
+                                  },
+                                  "unit": {
+                                    "type": "string"
+                                  },
+                                  "decimals": {
+                                    "type": "integer"
+                                  },
+                                  "flag": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "enum": [
+                                      "N",
+                                      "H",
+                                      "L",
+                                      "HH",
+                                      "LL"
+                                    ]
+                                  },
+                                  "refLow": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  },
+                                  "refHigh": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  },
+                                  "refLabel": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "enum": [
+                                      "adult",
+                                      "adult-female",
+                                      "adult-male"
+                                    ]
+                                  },
+                                  "underCorrection": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "code",
+                                  "nameEn",
+                                  "nameBn",
+                                  "value",
+                                  "unit",
+                                  "decimals",
+                                  "flag",
+                                  "refLow",
+                                  "refHigh",
+                                  "refLabel",
+                                  "underCorrection"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "number",
+                            "version",
+                            "status",
+                            "superseded",
+                            "testCount",
+                            "pendingCount",
+                            "results"
+                          ]
+                        },
+                        "test": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "nameEn": {
+                              "type": "string"
+                            },
+                            "nameBn": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "nameEn",
+                            "nameBn"
+                          ]
+                        },
+                        "vital": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "unit": {
+                              "type": "string"
+                            },
+                            "flag": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "enum": [
+                                "N",
+                                "H",
+                                "L",
+                                "HH",
+                                "LL"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "value",
+                            "unit",
+                            "flag"
+                          ]
+                        },
+                        "acknowledged": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "at": {
+                              "type": "string"
+                            },
+                            "notifyPatient": {
+                              "type": "boolean"
+                            },
+                            "sms": {
+                              "type": [
+                                "object",
+                                "null"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "preparation",
+                                    "in-progress",
+                                    "completed",
+                                    "failed"
+                                  ]
+                                },
+                                "lastError": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "status",
+                                "lastError"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "at",
+                            "notifyPatient",
+                            "sms"
+                          ]
+                        },
+                        "canNotify": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "severity",
+                        "at",
+                        "patient",
+                        "encounter",
+                        "report",
+                        "test",
+                        "vital",
+                        "acknowledged",
+                        "canNotify"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "item"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/documents/{kind}/{id}/print": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "rx",
+                "lr"
+              ]
+            },
+            "required": true,
+            "name": "kind",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "print state of a prescription (rx: consultation note version) or lab report version (lr): blockers, verify code, prints",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "rx",
+                        "lr"
+                      ]
+                    },
+                    "documentId": {
+                      "type": "string"
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "draft_not_printable",
+                          "superseded_not_printable",
+                          "withdrawn_not_printable"
+                        ]
+                      }
+                    },
+                    "verifyCode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "verifyUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "prints": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "copy": {
+                            "type": "integer"
+                          },
+                          "reason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "lost",
+                              "jam",
+                              "copy"
+                            ]
+                          },
+                          "format": {
+                            "type": "string",
+                            "enum": [
+                              "a5",
+                              "a4"
+                            ]
+                          },
+                          "lang": {
+                            "type": "string",
+                            "enum": [
+                              "both",
+                              "bn",
+                              "en"
+                            ]
+                          },
+                          "printedAt": {
+                            "type": "string"
+                          },
+                          "printedBy": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "pdfUrl": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "copy",
+                          "reason",
+                          "format",
+                          "lang",
+                          "printedAt",
+                          "printedBy",
+                          "pdfUrl"
+                        ]
+                      }
+                    },
+                    "previewUrl": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "documentId",
+                    "blockers",
+                    "verifyCode",
+                    "verifyUrl",
+                    "prints",
+                    "previewUrl"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "rx",
+                "lr"
+              ]
+            },
+            "required": true,
+            "name": "kind",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "a5",
+                      "a4"
+                    ],
+                    "default": "a5"
+                  },
+                  "lang": {
+                    "type": "string",
+                    "enum": [
+                      "both",
+                      "bn",
+                      "en"
+                    ],
+                    "default": "both"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "lost",
+                      "jam",
+                      "copy"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "print (copy 0) or reprint with a reason (DUPLICATE #n); drafts refused 422 draft_not_printable; audited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "rx",
+                        "lr"
+                      ]
+                    },
+                    "documentId": {
+                      "type": "string"
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "draft_not_printable",
+                          "superseded_not_printable",
+                          "withdrawn_not_printable"
+                        ]
+                      }
+                    },
+                    "verifyCode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "verifyUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "prints": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "copy": {
+                            "type": "integer"
+                          },
+                          "reason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "lost",
+                              "jam",
+                              "copy"
+                            ]
+                          },
+                          "format": {
+                            "type": "string",
+                            "enum": [
+                              "a5",
+                              "a4"
+                            ]
+                          },
+                          "lang": {
+                            "type": "string",
+                            "enum": [
+                              "both",
+                              "bn",
+                              "en"
+                            ]
+                          },
+                          "printedAt": {
+                            "type": "string"
+                          },
+                          "printedBy": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "pdfUrl": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "copy",
+                          "reason",
+                          "format",
+                          "lang",
+                          "printedAt",
+                          "printedBy",
+                          "pdfUrl"
+                        ]
+                      }
+                    },
+                    "previewUrl": {
+                      "type": "string"
+                    },
+                    "print": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "copy": {
+                          "type": "integer"
+                        },
+                        "reason": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "lost",
+                            "jam",
+                            "copy"
+                          ]
+                        },
+                        "format": {
+                          "type": "string",
+                          "enum": [
+                            "a5",
+                            "a4"
+                          ]
+                        },
+                        "lang": {
+                          "type": "string",
+                          "enum": [
+                            "both",
+                            "bn",
+                            "en"
+                          ]
+                        },
+                        "printedAt": {
+                          "type": "string"
+                        },
+                        "printedBy": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "nameBn": {
+                              "type": "string"
+                            },
+                            "nameEn": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "nameBn",
+                            "nameEn"
+                          ]
+                        },
+                        "pdfUrl": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "copy",
+                        "reason",
+                        "format",
+                        "lang",
+                        "printedAt",
+                        "printedBy",
+                        "pdfUrl"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "documentId",
+                    "blockers",
+                    "verifyCode",
+                    "verifyUrl",
+                    "prints",
+                    "previewUrl",
+                    "print"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/documents/{kind}/{id}/preview": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "rx",
+                "lr"
+              ]
+            },
+            "required": true,
+            "name": "kind",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "a5",
+                "a4"
+              ],
+              "default": "a5"
+            },
+            "required": false,
+            "name": "format",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "both",
+                "bn",
+                "en"
+              ],
+              "default": "both"
+            },
+            "required": false,
+            "name": "lang",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF preview: no QR and no print logged; a draft shows the DRAFT watermark (audited view)",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/documents/prints/{id}/pdf": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "the stored PDF of one print (audited)",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/verify/rx/{code}": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9A-HJKMNP-TV-Z]{16,40}$"
+            },
+            "required": true,
+            "name": "code",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "public prescription check (no session; decision D2)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "facilityEn": {
+                      "type": "string"
+                    },
+                    "facilityBn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "doctorEn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "doctorBn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "regBody": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "regNo": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "regVerified": {
+                      "type": "boolean"
+                    },
+                    "signedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "current",
+                        "superseded",
+                        "withdrawn"
+                      ]
+                    },
+                    "patient": {
+                      "type": "object",
+                      "properties": {
+                        "initials": {
+                          "type": "string"
+                        },
+                        "sex": {
+                          "type": "string",
+                          "enum": [
+                            "female",
+                            "male",
+                            "other"
+                          ]
+                        },
+                        "ageYears": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "initials",
+                        "sex",
+                        "ageYears"
+                      ]
+                    },
+                    "medicines": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "brand": {
+                            "type": "string"
+                          },
+                          "generic": {
+                            "type": "string"
+                          },
+                          "strength": {
+                            "type": "string"
+                          },
+                          "form": {
+                            "type": "string"
+                          },
+                          "dose": {
+                            "type": "string"
+                          },
+                          "meal": {
+                            "type": "string"
+                          },
+                          "days": {
+                            "type": "integer"
+                          },
+                          "quantity": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "brand",
+                          "generic",
+                          "strength",
+                          "form",
+                          "dose",
+                          "meal",
+                          "days",
+                          "quantity"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "facilityEn",
+                    "facilityBn",
+                    "doctorEn",
+                    "doctorBn",
+                    "regBody",
+                    "regNo",
+                    "regVerified",
+                    "signedAt",
+                    "version",
+                    "status",
+                    "patient",
+                    "medicines"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/verify/lr/{code}": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9A-HJKMNP-TV-Z]{16,40}$"
+            },
+            "required": true,
+            "name": "code",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "public lab report check (no session)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "facilityEn": {
+                      "type": "string"
+                    },
+                    "facilityBn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "number": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "reportStatus": {
+                      "type": "string",
+                      "enum": [
+                        "preliminary",
+                        "final",
+                        "corrected",
+                        "superseded"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "current",
+                        "superseded",
+                        "withdrawn"
+                      ]
+                    },
+                    "releasedAt": {
+                      "type": "string"
+                    },
+                    "testCount": {
+                      "type": "integer"
+                    },
+                    "pendingCount": {
+                      "type": "integer"
+                    },
+                    "patient": {
+                      "type": "object",
+                      "properties": {
+                        "initials": {
+                          "type": "string"
+                        },
+                        "sex": {
+                          "type": "string",
+                          "enum": [
+                            "female",
+                            "male",
+                            "other"
+                          ]
+                        },
+                        "ageYears": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "initials",
+                        "sex",
+                        "ageYears"
+                      ]
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "nameEn": {
+                            "type": "string"
+                          },
+                          "nameBn": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "number"
+                          },
+                          "unit": {
+                            "type": "string"
+                          },
+                          "decimals": {
+                            "type": "integer"
+                          },
+                          "flag": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "N",
+                              "H",
+                              "L",
+                              "HH",
+                              "LL"
+                            ]
+                          },
+                          "refLow": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "refHigh": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "refLabel": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "adult",
+                              "adult-female",
+                              "adult-male"
+                            ]
+                          },
+                          "underCorrection": {
+                            "type": "boolean"
+                          },
+                          "test": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "nameEn",
+                          "nameBn",
+                          "value",
+                          "unit",
+                          "decimals",
+                          "flag",
+                          "refLow",
+                          "refHigh",
+                          "refLabel",
+                          "underCorrection",
+                          "test"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "facilityEn",
+                    "facilityBn",
+                    "number",
+                    "version",
+                    "reportStatus",
+                    "status",
+                    "releasedAt",
+                    "testCount",
+                    "pendingCount",
+                    "patient",
+                    "results"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
             "description": "error",
             "content": {
               "application/json": {
