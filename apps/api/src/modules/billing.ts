@@ -115,6 +115,9 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
   const task = tasks[0] ?? null;
   const batches = await tx.stockBatch.findMany({ where: { id: { in: lines.flatMap((l) => (l.batchId ? [l.batchId] : [])) } }, select: { id: true, batchNo: true, expiry: true } });
   const batchById = new Map(batches.map((b) => [b.id, b]));
+  // ADR 0010: a draft keeps its prices; a line whose price-list item changed since says so (and what it costs now)
+  const defs = inv.status === "draft" ? await tx.chargeItemDefinition.findMany({ where: { id: { in: lines.flatMap((l) => (l.definitionId ? [l.definitionId] : [])) } }, select: { id: true, unitPaisa: true } }) : [];
+  const defNow = new Map(defs.map((d) => [d.id, d.unitPaisa]));
   const who = await people(tx, [inv.discountAppliedById, inv.issuedById, inv.voidedById, e?.practitionerId, task?.requestedById, task?.decidedById, ...pays.map((p) => p.createdById), ...lineTasks.flatMap((t) => [t.requestedById, t.decidedById])]);
   const lineTaskById = new Map(lineTasks.map((t) => [t.id, t]));
   // Changed orders are worked out for issued bills too (money review: a test added after issue must not go unseen).
@@ -146,6 +149,7 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
         ? { reason: l.notBilledReason, at: l.notBilledAt.toISOString(), approvedBy: (() => { const t = lineTaskById.get(l.notBilledTaskId!); return t?.decidedById ? who(t.decidedById) : null; })() }
         : null,
       batch: l.batchId ? batchById.get(l.batchId) ?? null : null,
+      currentUnitPaisa: l.definitionId && defNow.has(l.definitionId) && l.unitPaisa !== null && defNow.get(l.definitionId) !== l.unitPaisa ? defNow.get(l.definitionId)! : null,
     })),
     approval: task ? toApprovalView(task, who) : null,
     discountLimitPaisa: discountLimit(inv.subtotalPaisa, settingsOf(org)),
@@ -647,6 +651,9 @@ export async function addPayment(tx: Tx, s: SessionData, invoiceId: string, req:
   const inv = await invoiceHere(tx, s, invoiceId, true);
   if (inv.status !== "issued" && inv.status !== "partially_paid")
     throw err(409, "not_payable", inv.status === "draft" ? "আগে বিল ইস্যু করুন" : "এই বিলে আর টাকা নেওয়া যায় না", inv.status === "draft" ? "Issue the bill first" : "This bill takes no more payments");
+  // ADR 0010: only the payment methods this facility takes
+  const methods = (await tx.organization.findFirst({ where: { id: s.organizationId }, select: { paymentMethods: true } }))?.paymentMethods ?? [];
+  if (!methods.includes(req.method)) throw err(422, "method_off", "এই প্রতিষ্ঠানে এই পেমেন্ট মাধ্যম চালু নেই", "This facility does not take this payment method", { field: "method" });
   const rows = (await tx.payment.findMany({ where: { invoiceId: inv.id } })).map(toRow);
   const check = checkNewPayment(paymentSummary(inv.totalPaisa, rows), { method: req.method, amountPaisa: req.amountPaisa, tenderedPaisa: req.tenderedPaisa, reference: req.reference });
   if (!check.ok) {

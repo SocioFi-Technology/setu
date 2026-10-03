@@ -29,6 +29,12 @@ enum Role {
   admin
 }
 
+/// ADR 0010
+enum OrgStatus {
+  setup
+  live
+}
+
 enum LocationKind {
   branch
   department
@@ -96,6 +102,16 @@ model Organization {
   /// Lab (ADR 0006): may one person both technically verify and clinically validate a result? null = by plan
   /// (Clinic: yes; Hospital Lite / Pro: no) — @setu/domain lab.ts samePersonAllowed; the database checks it too.
   labSamePersonAllowed      Boolean?
+  /// ADR 0010: setup until the go-live checklist is complete; facilities that existed before are live
+  status                    OrgStatus          @default(live)
+  liveAt                    DateTime?
+  /// receipt (a5 | thermal) and prescription (a5 | a4) formats chosen at onboarding
+  receiptFormat             String?
+  rxFormat                  String?
+  /// payment methods this facility takes (cash | card | bank | bkash | nagad)
+  paymentMethods            String[]           @default([])
+  smsTestedAt               DateTime?
+  smsTestPhone              String?
   locations                 Location[]
   practitionerRoles         PractitionerRole[]
 
@@ -134,6 +150,14 @@ model User {
   passwordHash String
   pinHash      String?
   active       Boolean            @default(true)
+  /// ADR 0010: signed in with a one-time password — sets their own password and PIN before anything else
+  mustChangePassword    Boolean   @default(false)
+  tempPasswordExpiresAt DateTime?
+  /// every session carries it; deactivation, a role change and a password reset bump it (signed out everywhere)
+  sessionGeneration     Int       @default(0)
+  lastLoginAt           DateTime?
+  deactivatedAt         DateTime?
+  deactivatedReason     String?
   roles        PractitionerRole[]
   sessions     Session[]
   practitioner Practitioner?
@@ -789,6 +813,25 @@ model ChargeItemDefinition {
   createdAt      DateTime   @default(now())
 
   @@unique([tenantId, organizationId, code])
+}
+
+/// ADR 0010: every change to a price-list item (append-only): the old and new price and VAT, why, who, when.
+model ChargePriceChange {
+  id             String   @id @default(cuid())
+  tenantId       String
+  organizationId String
+  definitionId   String
+  code           String
+  oldUnitPaisa   Int?
+  newUnitPaisa   Int
+  oldVatRateBp   Int?
+  newVatRateBp   Int
+  reason         String?
+  byId           String
+  at             DateTime @default(now())
+
+  @@index([tenantId, organizationId, at])
+  @@index([definitionId])
 }
 
 /// INVOICE machine states (@setu/domain machines.ts).

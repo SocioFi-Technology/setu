@@ -10,3 +10,4 @@ export * from "./doctor.js";
 export * from "./owner.js";
 export * from "./pharmacy.js";
 export * from "./purchasing.js";
+export * from "./admin.js";

@@ -1,6 +1,7 @@
 /* `pnpm db:reset-e2e`: puts the E2E Test Clinic's walkthrough family back to its seeded state (no links, seeded
    identity confidence, no open reviews) before a journey run. Touches only tenant t_e2e; never the demo clinic.
    Patients and visits the tests create stay in t_e2e, out of the demo clinic's queue. */
+import { createHash } from "node:crypto";
 import { ALLERGY, APPROVAL, ENCOUNTER, transition, type EncounterState, SHIFT } from "@setu/domain";
 import { owner as db } from "./owner.ts";
 
@@ -121,6 +122,17 @@ for (const c of openCounts) {
   await db.stockCount.update({ where: { id: c.id }, data: { status: "rejected", decidedById: RECONCILE_BY, decidedAt: now, decisionNote: "e2e reset: test run", statusAt: now, rev: { increment: 1 } } });
 }
 const openGrns = await db.goodsReceipt.updateMany({ where: { tenantId: T, status: "checking" }, data: { status: "discarded", statusAt: now } });
+/* ADR 0010: the E2E setup facility goes back into setup so the onboarding journey runs again — details, branches,
+   wards and the price list cleared; users the tests created there are switched off and lose their role (their audit
+   and price history stay). */
+const NEW = "o_e2e_new", NEW_ADMIN = "u_e2e_newadmin";
+await db.organization.update({ where: { id: NEW }, data: { status: "setup", liveAt: null, address: null, licenceNo: null, receiptFormat: null, rxFormat: null, paymentMethods: [], smsTestedAt: null, smsTestPhone: null } });
+for (const kind of ["bed", "room", "ward", "department", "branch"] as const) await db.location.deleteMany({ where: { organizationId: NEW, kind } });
+await db.chargeItemDefinition.deleteMany({ where: { organizationId: NEW } });
+const testUsers = (await db.practitionerRole.findMany({ where: { organizationId: NEW, userId: { not: NEW_ADMIN } }, select: { userId: true } })).map((r) => r.userId);
+await db.practitionerRole.deleteMany({ where: { organizationId: NEW, userId: { not: NEW_ADMIN } } });
+await db.user.updateMany({ where: { id: { in: testUsers }, roles: { none: {} } }, data: { active: false, deactivatedAt: now, deactivatedReason: "e2e reset: test run", sessionGeneration: { increment: 1 } } });
+await db.user.update({ where: { id: NEW_ADMIN }, data: { active: true, mustChangePassword: false, tempPasswordExpiresAt: null, passwordHash: createHash("sha256").update("dev-only:setu1234").digest("hex"), pinHash: createHash("sha256").update("dev-only:2580").digest("hex") } });
 if (audit.length) await db.auditEvent.createMany({ data: audit.map((a) => ({ tenantId: T, userId: RESET_BY, role: "admin" as const, at: now, ...a, detail: { route: "pnpm db:reset-e2e", ...a.detail } })) });
 await db.$disconnect();
-console.log(`E2E Test Clinic reset: walkthrough family restored, ${n.count} open review(s) closed, ${undone.length} undone override(s) marked reviewed, ${extra.length} test allerg(ies) marked entered-in-error, ${restored} seeded allerg(ies) recorded again, ${open.length} leftover visit(s) closed, ${cases.length} reconciliation case(s) resolved "test run", ${unfinished.length} unfinished shift(s) approved "test run", ${toppedUp} stock batch(es) topped up, ${openCounts.length} open count(s) rejected, ${openGrns.count} goods receipt(s) discarded`);
+console.log(`E2E Test Clinic reset: walkthrough family restored, ${n.count} open review(s) closed, ${undone.length} undone override(s) marked reviewed, ${extra.length} test allerg(ies) marked entered-in-error, ${restored} seeded allerg(ies) recorded again, ${open.length} leftover visit(s) closed, ${cases.length} reconciliation case(s) resolved "test run", ${unfinished.length} unfinished shift(s) approved "test run", ${toppedUp} stock batch(es) topped up, ${openCounts.length} open count(s) rejected, ${openGrns.count} goods receipt(s) discarded, E2E New Clinic back in setup (${testUsers.length} test user(s) switched off)`);

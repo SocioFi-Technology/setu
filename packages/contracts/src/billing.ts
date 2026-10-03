@@ -46,6 +46,8 @@ export const ChargeLine = z.object({
   notBilled: z.object({ reason: z.string(), at: z.string(), approvedBy: Person.nullable() }).nullable(),
   /** ADR 0009: a medicine line — the batch it came from */
   batch: z.object({ id: z.string(), batchNo: z.string(), expiry: z.string() }).nullable(),
+  /** ADR 0010: a draft line whose price-list item changed since it was added — the price now (the line keeps its own) */
+  currentUnitPaisa: Paisa.nullable(),
 });
 export const ApprovalView = z.object({
   taskId: z.string(), status: ApprovalStatus, amountPaisa: Paisa, category: DiscountCategory.nullable(), reason: z.string(),

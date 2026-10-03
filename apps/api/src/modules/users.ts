@@ -5,7 +5,11 @@ import { createHash } from "node:crypto";
 import type { Plan, Role } from "@setu/domain";
 import { config } from "../config.js";
 
-export interface UserRecord { id: string; tenantId: string; nameBn: string; nameEn: string; phone?: string; email?: string; passwordHash: string; pinHash?: string; roles: { organizationId: string; organizationName: string; role: Role }[]; plan: Plan }
+export interface UserRecord {
+  id: string; tenantId: string; nameBn: string; nameEn: string; phone?: string; email?: string; passwordHash: string; pinHash?: string; roles: { organizationId: string; organizationName: string; role: Role }[]; plan: Plan;
+  /** ADR 0010 */
+  mustChangePassword?: boolean; tempPasswordExpiresAt?: string | null; sessionGeneration?: number;
+}
 export const devHash = (s: string) => createHash("sha256").update("dev-only:" + s).digest("hex");
 
 const DEMO: UserRecord[] = ([
@@ -34,7 +38,8 @@ export async function findLoginCandidates(identifier: string): Promise<UserRecor
   if (!config.dbEnabled) return DEMO.filter((u) => (digits && u.phone === digits) || (email && u.email === email));
   const { loginLookup } = await import("@setu/db");
   const rows = await loginLookup(digits ? [digits, "0" + digits] : [], email);
-  return rows.map((u) => ({ id: u.id, tenantId: u.tenantId, nameBn: u.nameBn, nameEn: u.nameEn, phone: u.phone ?? undefined, email: u.email ?? undefined, passwordHash: u.passwordHash, plan: u.plan, roles: u.roles as UserRecord["roles"] }));
+  return rows.map((u) => ({ id: u.id, tenantId: u.tenantId, nameBn: u.nameBn, nameEn: u.nameEn, phone: u.phone ?? undefined, email: u.email ?? undefined, passwordHash: u.passwordHash, plan: u.plan, roles: u.roles as UserRecord["roles"],
+    mustChangePassword: u.mustChangePassword ?? false, tempPasswordExpiresAt: u.tempPasswordExpiresAt ?? null, sessionGeneration: u.sessionGeneration ?? 0 }));
 }
 
 /** After login: the signed-in user, read under the session's tenant. */
@@ -43,7 +48,8 @@ export async function findUserById(tenantId: string, userId: string): Promise<Us
   const { forTenant } = await import("@setu/db");
   const u = await forTenant(tenantId, (tx) => tx.user.findFirst({ where: { id: userId, active: true }, include: { roles: { include: { organization: true } }, tenant: true } }));
   if (!u) return null;
-  return { id: u.id, tenantId: u.tenantId, nameBn: u.nameBn, nameEn: u.nameEn, phone: u.phone ?? undefined, email: u.email ?? undefined, passwordHash: u.passwordHash, pinHash: u.pinHash ?? undefined, plan: u.tenant.plan, roles: u.roles.map((r) => ({ organizationId: r.organizationId, organizationName: r.organization.name, role: r.role as Role })) };
+  return { id: u.id, tenantId: u.tenantId, nameBn: u.nameBn, nameEn: u.nameEn, phone: u.phone ?? undefined, email: u.email ?? undefined, passwordHash: u.passwordHash, pinHash: u.pinHash ?? undefined, plan: u.tenant.plan, roles: u.roles.map((r) => ({ organizationId: r.organizationId, organizationName: r.organization.name, role: r.role as Role })),
+    mustChangePassword: u.mustChangePassword, tempPasswordExpiresAt: u.tempPasswordExpiresAt?.toISOString() ?? null, sessionGeneration: u.sessionGeneration };
 }
 
 /** TODO(auth slice): replace devHash with argon2id. Kept simple so the scaffold runs without native deps. */

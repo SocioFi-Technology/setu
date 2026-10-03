@@ -18,6 +18,8 @@ export const Me = z.object({
   role: Role,
   plan: Plan,
   roles: z.array(z.object({ organizationId: z.string(), role: Role })),
+  /** ADR 0010: signed in with a one-time password — set your own password and PIN before anything else */
+  mustSetCredentials: z.boolean().default(false),
 });
 export type Me = z.infer<typeof Me>;
 

@@ -29,7 +29,16 @@ const isUniqueViolation = (e: unknown) => typeof e === "object" && e !== null &&
 /** A write. Requires an Idempotency-Key: a replay returns the stored response without running `fn` again. */
 /** `hashOmit`: request-body fields left out of the stored body hash (a signing PIN is never stored, not even hashed). */
 /** `txTimeoutMs`: a longer transaction for work that waits on something slow inside it (rendering a receipt PDF). */
-export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (tx: Tx, s: SessionData) => Promise<CommandResult<T>>, opts: { hashOmit?: string[]; txTimeoutMs?: number } = {}): Promise<T> {
+/** ADR 0010: the session is still live — the user is active, still holds this role at this facility, and the session's
+    generation is the user's (deactivation, a role change and a password reset bump it: signed out everywhere). */
+export async function assertLiveSession(tx: Tx, s: SessionData) {
+  const u = await tx.user.findFirst({ where: { id: s.userId, active: true }, select: { sessionGeneration: true, roles: { where: { organizationId: s.organizationId, role: s.role }, select: { id: true } } } });
+  if (!u || !u.roles.length || u.sessionGeneration !== (s.generation ?? 0))
+    throw err(401, "session_ended", "আপনার সেশন শেষ — আবার লগইন করুন", "Your session has ended — sign in again");
+}
+
+/** `redact`: what the idempotency record keeps of the answer (a one-time password is never stored — a replay leaves it out). */
+export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (tx: Tx, s: SessionData) => Promise<CommandResult<T>>, opts: { hashOmit?: string[]; txTimeoutMs?: number; redact?: (body: T) => T } = {}): Promise<T> {
   const s = requireSession(req);
   req.txManaged = true;
   const key = req.headers["idempotency-key"];
@@ -56,12 +65,13 @@ export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (
   const send = (out: { replayed: boolean; status: number; body: T }) => { if (out.replayed) reply.header("Idempotent-Replay", "true"); reply.code(out.status); return out.body; };
   try {
     return send(await forTenant(s.tenantId, async (tx) => {
+      await assertLiveSession(tx, s); // before a replay too: a signed-out user replays nothing
       const hit = await find(tx);
       if (hit) return answer(tx, hit);
       const r = await fn(tx, s);
       const status = r.status ?? 200;
       await writeAudit(tx, req, s, r.audit);
-      await tx.idempotencyKey.create({ data: { tenantId: s.tenantId, key, route, statusCode: status, response: { hash, body: r.body } as object } });
+      await tx.idempotencyKey.create({ data: { tenantId: s.tenantId, key, route, statusCode: status, response: { hash, body: opts.redact ? opts.redact(r.body) : r.body } as object } });
       return { replayed: false as const, status, body: r.body };
     }, { timeoutMs: opts.txTimeoutMs, userId: s.userId }));
   } catch (e) {
@@ -84,6 +94,7 @@ export async function query<T>(req: FastifyRequest, fn: (tx: Tx, s: SessionData)
   if (!config.dbEnabled) throw dbOff();
   const { forTenant } = await import("@setu/db");
   return forTenant(s.tenantId, async (tx) => {
+    await assertLiveSession(tx, s);
     const r = await fn(tx, s);
     await writeAudit(tx, req, s, r.audit);
     return r.body;

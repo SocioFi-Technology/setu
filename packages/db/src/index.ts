@@ -31,6 +31,8 @@ export async function forTenant<T>(tenantId: string, fn: (tx: Tx) => Promise<T>,
 export interface LoginCandidate {
   id: string; tenantId: string; nameBn: string; nameEn: string; phone: string | null; email: string | null; passwordHash: string;
   plan: "clinic" | "lite" | "pro"; roles: { organizationId: string; organizationName: string; role: string }[];
+  /** ADR 0010 */
+  mustChangePassword?: boolean; tempPasswordExpiresAt?: string | null; sessionGeneration?: number;
 }
 /** The one pre-tenant read (login): a SECURITY DEFINER function returning only what the password check needs. */
 export async function loginLookup(phones: string[], email: string | null): Promise<LoginCandidate[]> {

@@ -5,6 +5,8 @@ import { ANALYTES_SAMPLE, ICD11_SAMPLE, MEDICINES_SAMPLE, MRP_SAMPLE, RANGES_SAM
 import { owner as prisma } from "./owner.ts";
 
 const hash = (s: string) => createHash("sha256").update("dev-only:" + s).digest("hex"); // replaced by argon2 in the auth slice
+/** ADR 0010: the demo facilities were set up before go-live existed — live, A5 formats, every payment method. */
+const LIVE = { status: "live" as const, liveAt: new Date("2026-10-01T00:00:00Z"), receiptFormat: "a5", rxFormat: "a5", paymentMethods: ["cash", "card", "bank", "bkash", "nagad"] };
 
 /* Slice A5: the sample catalogues from @setu/domain catalog.ts (labelled sample / unverified — never invented). */
 async function seedCatalogues(tenantId: string) {
@@ -133,7 +135,7 @@ async function main() {
   const org = await prisma.organization.upsert({
     where: { id: "o_greenlife_mirpur" },
     update: {},
-    create: { id: "o_greenlife_mirpur", tenantId: tenant.id, name: "Green Life Clinic, Mirpur", nameBn: "গ্রিন লাইফ ক্লিনিক, মিরপুর", address: "Mirpur, Dhaka" },
+    create: { id: "o_greenlife_mirpur", tenantId: tenant.id, name: "Green Life Clinic, Mirpur", nameBn: "গ্রিন লাইফ ক্লিনিক, মিরপুর", address: "Mirpur, Dhaka", ...LIVE },
   });
   const ward = await prisma.location.upsert({
     where: { id: "l_ward2a" }, update: {},
@@ -239,7 +241,7 @@ async function main() {
   for (const [tid, oid, plan, name, nameBn, uid, uBn, uEn, role] of planDemos) {
     const patientNoPrefix = tid === "t_clinicdemo" ? "SHC" : "MGH";
     await prisma.tenant.upsert({ where: { id: tid }, update: { patientNoPrefix }, create: { id: tid, name, plan, patientNoPrefix } });
-    await prisma.organization.upsert({ where: { id: oid }, update: {}, create: { id: oid, tenantId: tid, name, nameBn } });
+    await prisma.organization.upsert({ where: { id: oid }, update: {}, create: { id: oid, tenantId: tid, name, nameBn, ...LIVE } });
     await prisma.location.upsert({ where: { id: `l_branch_${tid}` }, update: {}, create: { id: `l_branch_${tid}`, tenantId: tid, organizationId: oid, kind: "branch", name: "Main branch", nameBn: "প্রধান শাখা" } });
     await prisma.user.upsert({ where: { id: uid }, update: {}, create: { id: uid, tenantId: tid, nameBn: uBn, nameEn: uEn, phone: planPhones[uid], passwordHash: hash("setu1234"), pinHash: hash("1234") } });
     await prisma.practitionerRole.upsert({ where: { userId_organizationId_role: { userId: uid, organizationId: oid, role } }, update: {}, create: { tenantId: tid, userId: uid, organizationId: oid, role } });
@@ -250,7 +252,7 @@ async function main() {
      never appear in the demo clinic's queue. Same family, own users (phones 017990000xx), own branch and numbers. */
   const E2E = { tenant: "t_e2e", org: "o_e2e", branch: "l_branch_e2e" };
   await prisma.tenant.upsert({ where: { id: E2E.tenant }, update: { patientNoPrefix: "E2E" }, create: { id: E2E.tenant, name: "E2E Test Clinic", plan: "pro", patientNoPrefix: "E2E" } });
-  await prisma.organization.upsert({ where: { id: E2E.org }, update: {}, create: { id: E2E.org, tenantId: E2E.tenant, name: "E2E Test Clinic", nameBn: "ই২ই টেস্ট ক্লিনিক" } });
+  await prisma.organization.upsert({ where: { id: E2E.org }, update: {}, create: { id: E2E.org, tenantId: E2E.tenant, name: "E2E Test Clinic", nameBn: "ই২ই টেস্ট ক্লিনিক", ...LIVE } });
   await prisma.location.upsert({ where: { id: E2E.branch }, update: {}, create: { id: E2E.branch, tenantId: E2E.tenant, organizationId: E2E.org, kind: "branch", name: "Test branch", nameBn: "টেস্ট শাখা" } });
   const e2eUsers: [string, string, string, string, "receptionist" | "doctor" | "nurse" | "labTech" | "pathologist" | "pharmacist" | "cashier" | "owner" | "admin"][] = [
     ["u_e2e_desk", "টেস্ট রিসেপশন", "Test Receptionist", "01799000001", "receptionist"],
@@ -269,6 +271,16 @@ async function main() {
   for (const [id, nameBn, nameEn, phone, role] of e2eUsers) {
     await prisma.user.upsert({ where: { id }, update: {}, create: { id, tenantId: E2E.tenant, nameBn, nameEn, phone, passwordHash: hash("setu1234"), pinHash: hash("1234") } });
     await prisma.practitionerRole.upsert({ where: { userId_organizationId_role: { userId: id, organizationId: E2E.org, role } }, update: {}, create: { tenantId: E2E.tenant, userId: id, organizationId: E2E.org, role } });
+  }
+  /* Admin slice (ADR 0010): facilities still in setup, each with its own admin — the onboarding journey takes them live
+     (pnpm reset-e2e puts the E2E one back into setup). Green Life's Uttara branch is for the hands-on walkthrough. */
+  for (const [tid, oid, name, nameBn, uid, uBn, uEn, phone] of [
+    [E2E.tenant, "o_e2e_new", "E2E New Clinic", "ই২ই নতুন ক্লিনিক", "u_e2e_newadmin", "নতুন অ্যাডমিন", "New Clinic Admin", "01799000011"],
+    [tenant.id, "o_greenlife_uttara", "Green Life Clinic, Uttara", "গ্রীন লাইফ ক্লিনিক, উত্তরা", "u_gl_uttara_admin", "উত্তরা অ্যাডমিন", "Uttara Admin", "1711000011"],
+  ] as const) {
+    await prisma.organization.upsert({ where: { id: oid }, update: {}, create: { id: oid, tenantId: tid, name, nameBn, status: "setup" } });
+    await prisma.user.upsert({ where: { id: uid }, update: {}, create: { id: uid, tenantId: tid, nameBn: uBn, nameEn: uEn, phone, passwordHash: hash("setu1234"), pinHash: hash("2580") } });
+    await prisma.practitionerRole.upsert({ where: { userId_organizationId_role: { userId: uid, organizationId: oid, role: "admin" } }, update: {}, create: { tenantId: tid, userId: uid, organizationId: oid, role: "admin" } });
   }
   await seedFamily(E2E.tenant, "e2e_", "E2E");
   await seedLastVisit(E2E.tenant, E2E.org, E2E.branch, "e2e_", "u_e2e_nurse");
