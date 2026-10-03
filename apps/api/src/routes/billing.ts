@@ -32,7 +32,7 @@ type SessionRole = ReturnType<typeof requireSession>["role"];
 /* Rate-limit key for the public verify page: behind the staff app's proxy (a loopback or private address) the first
    X-Forwarded-For entry is the visitor; anything else is keyed on its own address, so a direct caller cannot pick its key
    (security review A6–A7: one shared limit for every patient). */
-function clientKey(req: FastifyRequest): string {
+export function clientKey(req: FastifyRequest): string {
   const fromProxy = /^(::1|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::ffff:127\.)/.test(req.ip);
   const xff = req.headers["x-forwarded-for"];
   const first = (Array.isArray(xff) ? xff[0] : xff)?.split(",")[0]?.trim();

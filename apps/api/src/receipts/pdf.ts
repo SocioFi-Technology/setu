@@ -7,7 +7,7 @@ import { chromium, type Browser } from "playwright-core";
 let browser: Promise<Browser> | null = null;
 const launch = () => (browser ??= chromium.launch({ headless: true, ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}) }).catch((e) => { browser = null; throw e; }));
 
-export async function htmlToPdf(html: string, paper: "a5" | "thermal"): Promise<Uint8Array> {
+export async function htmlToPdf(html: string, paper: "a5" | "a4" | "thermal"): Promise<Uint8Array> {
   const b = await launch();
   const ctx = await b.newContext({ javaScriptEnabled: false });
   await ctx.route("**/*", (r) => r.abort());
@@ -15,7 +15,7 @@ export async function htmlToPdf(html: string, paper: "a5" | "thermal"): Promise<
     const page = await ctx.newPage();
     await page.setContent(html, { waitUntil: "load" });
     await page.evaluate(() => document.fonts.ready.then(() => true));
-    if (paper === "a5") return await page.pdf({ preferCSSPageSize: true, printBackground: true });
+    if (paper === "a5" || paper === "a4") return await page.pdf({ preferCSSPageSize: true, printBackground: true });
     // 80 mm roll: as long as the content (72 mm printable; 3 mm top and 6 mm bottom margins).
     const px = await page.evaluate(() => Math.ceil(document.body.scrollHeight));
     const mm = Math.ceil((px * 25.4) / 96) + 12;

@@ -14,13 +14,13 @@ export type ReceiptLangMode = "both" | "bn" | "en";
 export interface PrintInfo { copy: number; reason: string | null; printedAt: Date; printedBy: { nameBn: string; nameEn: string } }
 export interface TemplateInput { /** ADR 0005: the bill was voided — every copy says VOID */ voided?: boolean; snapshot: ReceiptSnapshot; number: string; createdAt: Date; verifyUrl: string; format: "a5" | "thermal"; lang: ReceiptLangMode; print: PrintInfo }
 
-const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+export const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 /* Fonts: the self-hosted Noto Sans Bengali (Bangla subset) and IBM Plex Sans (Latin subset) from packages/ui, inlined
    so the renderer never fetches anything. */
 const FONT_DIR = resolve(process.cwd().replace(/[\\/]apps[\\/]api$/, ""), "packages", "ui", "fonts");
 let fontCss: string | null = null;
-function fonts(): string {
+export function fonts(): string {
   if (fontCss !== null) return fontCss;
   const face = (family: string, file: string, range: string) =>
     `@font-face{font-family:'${family}';font-weight:100 900;src:url(data:font/woff2;base64,${readFileSync(resolve(FONT_DIR, file)).toString("base64")}) format('woff2');unicode-range:${range};}`;
