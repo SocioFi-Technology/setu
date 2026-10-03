@@ -721,3 +721,23 @@ Commit after each step, push at the end of each session.
 165. **Rendering of the dashboard happens inside one read transaction** (≤30 s; at most 8 missing days computed per
      request, the rest "still being prepared"). A separate worker for the nightly job before scaling out (see 158).
 
+
+## Phase 2 slice 2 — pharmacy, session 1 — 03/10/2026
+
+### Decided by Kamrul (03/10/2026, before the session)
+- **Journey P (pharmacy acceptance, no walkthrough steps existed):** P1 dispense Rahima's signed prescription — FEFO
+  batch, expired blocked; P2 out-of-stock line → same-generic substitute with a reason, the doctor's inbox told; P3
+  partial dispense (the rest stays open) → Bangla dose label → the charge on a bill; P4 OTC sale — an Rx-only item needs
+  a prescription photo, a controlled drug is refused; P5 goods received against a purchase order with a short-expiry
+  line and a short delivery → stock up, debit note; P6 physical count with a variance → owner approves → adjustment
+  posted; stock tiles on the owner dashboard. Becomes `e2e/journeys/p1-p6.spec.ts`.
+- **Three sessions:** 1) ADR 0009, stock core (medicine, batch, ledger), dispense and OTC — backend; 2) suppliers,
+  purchase orders, goods received, counts and adjustments, dashboard stock tiles — backend; 3) the six pharmacy screens,
+  the journey spec, reviews, hands-on as the pharmacist.
+- **A dispensed prescription is charged on a separate pharmacy bill for the visit** (the OPD bill stays as it is; same
+  billing rules, VAT per line); the cashier collects it like any bill.
+- **The pharmacist takes the money for an OTC sale at the counter** (a pharmacy bill without a visit; cash / bKash) and
+  has a shift like a cashier — counted blind, reviewed by the owner.
+- **Prices per batch, set at goods received** (cost and MRP); FEFO picks the batch and its price; demo clinics get
+  sample batches labelled sample.
+- Stock adjustments and purchase orders above a sample threshold go to the owner / admin (no manager role).
