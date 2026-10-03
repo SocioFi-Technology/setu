@@ -1291,3 +1291,90 @@ model DocumentPrint {
   @@unique([codeId, copy])
   @@index([tenantId, codeId])
 }
+
+/// SHIFT machine states (@setu/domain machines.ts), ADR 0008.
+enum ShiftStatus {
+  open
+  counted
+  closed
+  approved
+}
+
+/// A cashier's shift at one facility (journey C4, ADR 0008): at most one not yet approved per cashier and facility.
+/// Expected cash is computed from the cashier's confirmed payments when counting; every count and every decision is an
+/// append-only row (ShiftCount, ShiftReview).
+model Shift {
+  id                String        @id @default(cuid())
+  tenantId          String
+  organizationId    String
+  cashierId         String
+  status            ShiftStatus   @default(open)
+  openingFloatPaisa Int
+  openedAt          DateTime      @default(now())
+  latestCountId     String?
+  statusAt          DateTime      @default(now())
+  counts            ShiftCount[]
+  reviews           ShiftReview[]
+
+  @@index([tenantId, organizationId, status])
+  @@index([tenantId, cashierId])
+}
+
+/// One count of the drawer (append-only): notes by denomination, what the system expected, digital money against the
+/// settlement the cashier read, the variance and the hand-over reason.
+model ShiftCount {
+  id                String   @id @default(cuid())
+  tenantId          String
+  shiftId           String
+  shift             Shift    @relation(fields: [shiftId], references: [id])
+  countNo           Int
+  counts            Json
+  countedPaisa      Int
+  openingFloatPaisa Int
+  cashInPaisa       Int
+  cashRefundPaisa   Int      @default(0)
+  expectedCashPaisa Int
+  variancePaisa     Int
+  /// { bkash, nagad, card, bank } paisa the system confirmed in the window
+  digitalSystem     Json
+  /// what the cashier read from each settlement (missing = not entered)
+  digitalSettlement Json
+  reason            String?
+  windowFrom        DateTime
+  windowTo          DateTime
+  countedById       String
+  countedAt         DateTime @default(now())
+
+  @@unique([shiftId, countNo])
+  @@index([tenantId, shiftId])
+}
+
+/// The owner's / admin's decision on a closed shift (append-only): approve (with a note when there is a variance) or
+/// recount (the shift goes back to open).
+model ShiftReview {
+  id       String   @id @default(cuid())
+  tenantId String
+  shiftId  String
+  shift    Shift    @relation(fields: [shiftId], references: [id])
+  countId  String
+  decision String
+  note     String?
+  byId     String
+  at       DateTime @default(now())
+
+  @@index([tenantId, shiftId])
+}
+
+/// The owner dashboard's store (ADR 0008): one row per facility and Dhaka day, recomputed by the nightly job; today is
+/// never stored (always live).
+model DailyRollup {
+  id             String   @id @default(cuid())
+  tenantId       String
+  organizationId String
+  day            String
+  metrics        Json
+  version        Int      @default(1)
+  computedAt     DateTime @default(now())
+
+  @@unique([tenantId, organizationId, day])
+}
