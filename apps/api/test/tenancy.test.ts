@@ -40,7 +40,7 @@ describe.runIf(db)("row-level security as setu_app", () => {
     const rows = await db!.loginLookup(["1711000001", "01711000001"], null);
     expect(rows).toHaveLength(1);
     // ADR 0010 adds what the first sign-in and the session generation need — still never the PIN hash
-    expect(Object.keys(rows[0]!).sort()).toEqual(["email", "id", "mustChangePassword", "nameBn", "nameEn", "passwordHash", "phone", "plan", "roles", "sessionGeneration", "tempPasswordExpiresAt", "tenantId"].sort());
+    expect(Object.keys(rows[0]!).sort()).toEqual(["email", "id", "mustChangePassword", "nameBn", "nameEn", "passwordHash", "phone", "plan", "roles", "sessionGeneration", "tempPasswordExpiresAt", "tempPasswordUsedAt", "tenantId"].sort());
     expect(rows[0]).not.toHaveProperty("pinHash");
   });
 });

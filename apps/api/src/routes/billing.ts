@@ -54,8 +54,9 @@ async function processCallback(req: FastifyRequest, ev: ProviderWebhook, actor: 
   try {
     return await forTenant(hit.tenantId, async (tx) => {
       const r = await handleProviderEvent(tx, hit.tenantId, hit.paymentId, hit.superseded, ev, new Date());
+      const paidAt = (await tx.payment.findFirst({ where: { id: hit.paymentId }, select: { organizationId: true } }))?.organizationId ?? null;
       for (const a of r.audit) await tx.auditEvent.create({ data: {
-        tenantId: hit.tenantId, userId: actor?.userId ?? null, role: actor?.role ?? null, action: a.action, entity: a.entity, entityId: a.entityId, patientId: a.patientId, ip: req.ip,
+        tenantId: hit.tenantId, organizationId: paidAt, userId: actor?.userId ?? null, role: actor?.role ?? null, action: a.action, entity: a.entity, entityId: a.entityId, patientId: a.patientId, ip: req.ip,
         detail: { route: req.routeOptions.url, method: req.method, ...(a.detail ?? {}), ...(actor ? { simulatedBy: actor.userId, fakeGateway: true } : {}) } as object,
       } });
       return r.body;

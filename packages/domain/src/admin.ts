@@ -78,13 +78,15 @@ export function pinProblems(pin: string): PinProblem[] {
 export const REG_BODY: Partial<Record<Role, "BMDC" | "BNMC">> = { doctor: "BMDC", pathologist: "BMDC", nurse: "BNMC" };
 
 /* ───── settings and the price list ───── */
-export type LimitProblem = "cashier_above_approver" | "percent_range" | "money_range";
+export type LimitProblem = "cashier_above_approver" | "percent_range" | "money_range" | "approver_zero";
 export function limitProblems(x: { cashierLimitPaisa: number; cashierLimitBp: number; approverLimitPaisa: number }): LimitProblem[] {
   const out: LimitProblem[] = [];
   const ok = (p: number) => Number.isSafeInteger(p) && p >= 0 && p <= MAX_PAISA;
   if (!ok(x.cashierLimitPaisa) || !ok(x.approverLimitPaisa)) out.push("money_range");
   if (!Number.isInteger(x.cashierLimitBp) || x.cashierLimitBp < 0 || x.cashierLimitBp > 5000) out.push("percent_range");
   if (x.cashierLimitPaisa > x.approverLimitPaisa) out.push("cashier_above_approver");
+  // with 0 nobody — the owner included — could approve any discount (controls review)
+  if (x.approverLimitPaisa === 0) out.push("approver_zero");
   return out;
 }
 export const labelPageOk = (w: number, h: number) => Number.isInteger(w) && Number.isInteger(h) && w >= 20 && w <= 150 && h >= 15 && h <= 150;

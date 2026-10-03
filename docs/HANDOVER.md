@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done (3 sessions) — next: phase 2 slice 3, admin)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin session 1 of 2 done — next: admin session 2, the screens)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -539,6 +539,40 @@ hands-on as the pharmacist.
   last intermittent P5 failure was a real bug: the goods-receipt form's defaults, set after the order loaded, replaced a
   batch number already typed when the order loaded a second time (React runs effects twice in development) — fixed.
 
+## Done (admin, session 1 of 2, 04/10/2026) — onboarding, users, masters, audit log (backend) ✅
+Kamrul's decisions (open questions "Phase 2 slice 3"): one-time password for new users, no Manager role yet, a price
+change applies to bills made after it, two sessions. **Session 2:** `adm/wizard`, `adm/users`, `adm/masters`,
+`adm/audit` screens, the first-sign-in screen, journey spec, reviews, hands-on.
+- **ADR 0010.** `@setu/domain` `admin.ts`: go-live checklist, who may change whose role / switch whom off, password and
+  PIN rules, approval limits (an approver limit of 0 refused), price changes, flagged audit actions.
+- **Database:** Organization `status` setup | live (+ formats, payment methods, test SMS); User one-time password
+  (works once, 24 h), `sessionGeneration` (only goes up), deactivation; `ChargePriceChange` (append-only; a price set or
+  changed by the app without its history row is refused at commit); a signed note keeps its signer's registration
+  (`Composition.signerReg*`, filled by the database at signing; the public prescription check reads it); `AuditEvent.
+  organizationId` (backfilled for single-facility users). Migrations `20261004100000_admin` … `20261004100400_otp_single_use`.
+- **Sessions can end:** every command / query and `/v1/me` check the user is active, holds the role and has the same
+  generation — deactivation, a role change, a password reset and the first sign-in end the user's other sessions; a
+  one-time-password sign-in is a setup session that can only `POST /v1/auth/first-sign-in`.
+- **API `/v1/admin`:** facility (details, branches, wards with beds, settings, test SMS, go-live), users (create with a
+  one-time password — never in the stored replay —, role, deactivate / reactivate, reset, verify BMDC / BNMC through
+  the `RegistrationVerifier` adapter, Fake in dev), price list (add, change with a reason, switch off — never an active
+  doctor's fee —, history), audit log (this facility's events — the owner also sees tenant-level ones —, filters,
+  flags incl. bill voids, CSV export audited as `export`). An account that is an owner anywhere, or that works at
+  another facility, is changed only by an owner.
+- **Billing:** payments (and link retries) only by methods the facility takes; a draft line shows "price changed since"
+  (price or VAT); more of the same service after a change goes on a new line; a draft made before the doctor had a fee
+  takes the fee once it exists.
+- **Seed / reset:** demo facilities live; E2E New Clinic (`01799000011`) and Green Life Uttara (`01711000011`, PIN 2580)
+  in setup; `pnpm reset-e2e` puts the E2E one back into setup.
+- **Reviews:** security (fixed: an admin could reset an owner's account held at another facility; the audit log was
+  tenant-wide; an admin could bring back an owner; the one-time password worked many times and past its 24 h; a
+  first-sign-in race; the PIN check skipped ended sessions) and controls (fixed: re-verifying changed signed
+  prescriptions — now a copy on the note; voids missing from Flags; a role change kept a nurse's registration as a
+  doctor's; unpriced consultation lines; the same service merged at the old price; VAT-only changes unseen; a link
+  retry by a switched-off method; filters overwriting each other; approver limit 0; pending users counted as approvers;
+  stale plan; colliding service codes). Open: questions 195–200.
+- **Tests:** domain 266, api 226 (+15 `admin.test.ts`), `pnpm typecheck` 13/13. Playwright: see the commit.
+
 ## How to run the journeys on this PC
 - Playwright's Chromium is installed (02/10/2026): plain `pnpm e2e` runs the journeys against `pnpm dev` (staff :3000,
   api :4000). The installed-Chrome route still works: `cd e2e` then `CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" pnpm exec playwright test -c pw.local.config.ts`.
@@ -617,7 +651,7 @@ hands-on as the pharmacist.
 5. ~~`/slice A12-A13`~~ — done 03/10/2026 (two sessions); **Journey A complete**. Kamrul to confirm open questions
    135–149.
 6. **Phase 2 pilot clinic, split in four slices (Kamrul, 03/10/2026):** ~~`/slice C1-C4`~~ owner dashboard + shift close
-   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → **next: admin** → real SMS + bKash sandbox. See open questions "Phase 2 plan".
+   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → **admin** (session 1 done 04/10/2026, questions 195–200; **next: session 2** — the screens) → real SMS + bKash sandbox. See open questions "Phase 2 plan".
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

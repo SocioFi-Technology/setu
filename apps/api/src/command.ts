@@ -17,7 +17,7 @@ declare module "fastify" { interface FastifyRequest { txManaged?: boolean } }
 async function writeAudit(tx: Tx, req: FastifyRequest, s: SessionData, entries: AuditEntry[]) {
   for (const a of entries) {
     await tx.auditEvent.create({ data: {
-      tenantId: s.tenantId, userId: s.userId, role: s.role, action: a.action, entity: a.entity, entityId: a.entityId, patientId: a.patientId ?? null,
+      tenantId: s.tenantId, organizationId: s.organizationId, userId: s.userId, role: s.role, action: a.action, entity: a.entity, entityId: a.entityId, patientId: a.patientId ?? null,
       basis: a.basis, ip: req.ip, detail: { route: req.routeOptions.url, method: req.method, ...(a.detail ?? {}) } as object,
     } });
   }

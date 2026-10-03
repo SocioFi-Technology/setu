@@ -8,7 +8,7 @@ import { config } from "../config.js";
 export interface UserRecord {
   id: string; tenantId: string; nameBn: string; nameEn: string; phone?: string; email?: string; passwordHash: string; pinHash?: string; roles: { organizationId: string; organizationName: string; role: Role }[]; plan: Plan;
   /** ADR 0010 */
-  mustChangePassword?: boolean; tempPasswordExpiresAt?: string | null; sessionGeneration?: number;
+  mustChangePassword?: boolean; tempPasswordExpiresAt?: string | null; tempPasswordUsedAt?: string | null; sessionGeneration?: number;
 }
 export const devHash = (s: string) => createHash("sha256").update("dev-only:" + s).digest("hex");
 
@@ -39,7 +39,7 @@ export async function findLoginCandidates(identifier: string): Promise<UserRecor
   const { loginLookup } = await import("@setu/db");
   const rows = await loginLookup(digits ? [digits, "0" + digits] : [], email);
   return rows.map((u) => ({ id: u.id, tenantId: u.tenantId, nameBn: u.nameBn, nameEn: u.nameEn, phone: u.phone ?? undefined, email: u.email ?? undefined, passwordHash: u.passwordHash, plan: u.plan, roles: u.roles as UserRecord["roles"],
-    mustChangePassword: u.mustChangePassword ?? false, tempPasswordExpiresAt: u.tempPasswordExpiresAt ?? null, sessionGeneration: u.sessionGeneration ?? 0 }));
+    mustChangePassword: u.mustChangePassword ?? false, tempPasswordExpiresAt: u.tempPasswordExpiresAt ?? null, tempPasswordUsedAt: u.tempPasswordUsedAt ?? null, sessionGeneration: u.sessionGeneration ?? 0 }));
 }
 
 /** After login: the signed-in user, read under the session's tenant. */

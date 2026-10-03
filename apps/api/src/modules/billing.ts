@@ -116,8 +116,12 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
   const batches = await tx.stockBatch.findMany({ where: { id: { in: lines.flatMap((l) => (l.batchId ? [l.batchId] : [])) } }, select: { id: true, batchNo: true, expiry: true } });
   const batchById = new Map(batches.map((b) => [b.id, b]));
   // ADR 0010: a draft keeps its prices; a line whose price-list item changed since says so (and what it costs now)
-  const defs = inv.status === "draft" ? await tx.chargeItemDefinition.findMany({ where: { id: { in: lines.flatMap((l) => (l.definitionId ? [l.definitionId] : [])) } }, select: { id: true, unitPaisa: true } }) : [];
-  const defNow = new Map(defs.map((d) => [d.id, d.unitPaisa]));
+  const defs = inv.status === "draft" ? await tx.chargeItemDefinition.findMany({ where: { id: { in: lines.flatMap((l) => (l.definitionId ? [l.definitionId] : [])) } }, select: { id: true, unitPaisa: true, vatRateBp: true } }) : [];
+  const defNow = new Map(defs.map((d) => [d.id, d]));
+  const changed = (l: { definitionId: string | null; unitPaisa: number | null; vatRateBp: number }) => {
+    const d = l.definitionId ? defNow.get(l.definitionId) : undefined;
+    return d && l.unitPaisa !== null && (d.unitPaisa !== l.unitPaisa || d.vatRateBp !== l.vatRateBp) ? d : null;
+  };
   const who = await people(tx, [inv.discountAppliedById, inv.issuedById, inv.voidedById, e?.practitionerId, task?.requestedById, task?.decidedById, ...pays.map((p) => p.createdById), ...lineTasks.flatMap((t) => [t.requestedById, t.decidedById])]);
   const lineTaskById = new Map(lineTasks.map((t) => [t.id, t]));
   // Changed orders are worked out for issued bills too (money review: a test added after issue must not go unseen).
@@ -149,7 +153,7 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
         ? { reason: l.notBilledReason, at: l.notBilledAt.toISOString(), approvedBy: (() => { const t = lineTaskById.get(l.notBilledTaskId!); return t?.decidedById ? who(t.decidedById) : null; })() }
         : null,
       batch: l.batchId ? batchById.get(l.batchId) ?? null : null,
-      currentUnitPaisa: l.definitionId && defNow.has(l.definitionId) && l.unitPaisa !== null && defNow.get(l.definitionId) !== l.unitPaisa ? defNow.get(l.definitionId)! : null,
+      currentUnitPaisa: changed(l)?.unitPaisa ?? null, currentVatRateBp: changed(l)?.vatRateBp ?? null,
     })),
     approval: task ? toApprovalView(task, who) : null,
     discountLimitPaisa: discountLimit(inv.subtotalPaisa, settingsOf(org)),
@@ -276,7 +280,20 @@ export async function createInvoice(tx: Tx, s: SessionData, encounterId: string,
     current lines (no discount applied, no approval requested); otherwise the view says ordersChanged and Issue waits. */
 export interface OrderSync { removed: string[]; added: string[] }
 const NO_SYNC: OrderSync = { removed: [], added: [] };
-async function syncDraft(tx: Tx, s: SessionData, inv: Inv): Promise<{ inv: Inv; sync: OrderSync }> {
+/** ADR 0010: a draft made before the doctor had a fee on the price list takes the fee once it exists (the line had no
+    price — so "drafts keep their price" is not touched); nothing changes while a discount or an approval holds the lines. */
+async function priceUnpricedConsultation(tx: Tx, s: SessionData, inv: Inv): Promise<boolean> {
+  if (inv.kind !== "opd" || !inv.encounterId || inv.discountPaisa > 0 || (await requestedTask(tx, inv.id))) return false;
+  const line = await tx.chargeItem.findFirst({ where: { invoiceId: inv.id, source: "consultation", unitPaisa: null, notBilledTaskId: null } });
+  if (!line) return false;
+  const e = await tx.encounter.findFirst({ where: { id: inv.encounterId }, select: { practitionerId: true } });
+  const def = e?.practitionerId ? await tx.chargeItemDefinition.findFirst({ where: { organizationId: s.organizationId, kind: "consultation", refCode: e.practitionerId, active: true } }) : null;
+  if (!def) return false;
+  await tx.chargeItem.update({ where: { id: line.id }, data: { definitionId: def.id, code: def.code, nameEn: def.nameEn, nameBn: def.nameBn, unitPaisa: def.unitPaisa, vatRateBp: def.vatRateBp, ...lineAmounts(def.unitPaisa, line.qty, def.vatRateBp) } });
+  return true;
+}
+async function syncDraft(tx: Tx, s: SessionData, inv0: Inv): Promise<{ inv: Inv; sync: OrderSync }> {
+  const inv = (await priceUnpricedConsultation(tx, s, inv0)) ? await recompute(tx, inv0, 0) : inv0;
   const d = await ordersDiff(tx, inv);
   if (!d.remove.length && !d.add.length) return { inv, sync: NO_SYNC };
   if (inv.discountPaisa > 0 || (await requestedTask(tx, inv.id))) return { inv, sync: NO_SYNC };
@@ -344,7 +361,8 @@ export async function addDeskLine(tx: Tx, s: SessionData, id: string, code: stri
   if (inv.discountPaisa > 0) throw discountFirst();
   const d = await tx.chargeItemDefinition.findFirst({ where: { organizationId: s.organizationId, code, active: true, kind: "service" } });
   if (!d) throw err(404, "no_such_item", "তালিকায় এই সেবা নেই", "This item is not on the price list", { field: "code" });
-  const same = await tx.chargeItem.findFirst({ where: { invoiceId: inv.id, source: "desk", code } });
+  // more of the same item joins its line only at the same price; after a price change it is a new line at the new price
+  const same = await tx.chargeItem.findFirst({ where: { invoiceId: inv.id, source: "desk", code, unitPaisa: d.unitPaisa, vatRateBp: d.vatRateBp } });
   if (same) {
     if (same.qty + qty > 999) throw err(400, "qty_too_large", "পরিমাণ অনেক বেশি", "Quantity is too large", { field: "qty" });
     await tx.chargeItem.update({ where: { id: same.id }, data: lineAmounts(same.unitPaisa!, same.qty + qty, same.vatRateBp) });
@@ -697,6 +715,9 @@ async function walletPaymentHere(tx: Tx, s: SessionData, paymentId: string) {
 export async function retryPayment(tx: Tx, s: SessionData, paymentId: string, now: Date): Promise<{ inv: Inv; payment: Pay }> {
   const { p, inv } = await walletPaymentHere(tx, s, paymentId);
   if (inv.status !== "issued" && inv.status !== "partially_paid") throw err(409, "not_payable", "এই বিলে আর টাকা নেওয়া যায় না", "This bill takes no more payments");
+  // a new link only for a method the facility still takes (controls review); checking or cancelling a pending one still works
+  const methods = (await tx.organization.findFirst({ where: { id: s.organizationId }, select: { paymentMethods: true } }))?.paymentMethods ?? [];
+  if (!methods.includes(p.method)) throw err(422, "method_off", "এই প্রতিষ্ঠানে এই পেমেন্ট মাধ্যম চালু নেই", "This facility does not take this payment method", { field: "method" });
   const status = undash<"initiated">(transition("PAYMENT", PAYMENT, dash<PaymentState>(p.status), "retry"));
   const others = (await tx.payment.findMany({ where: { invoiceId: inv.id, id: { not: p.id } } })).map(toRow);
   if (p.amountPaisa > paymentSummary(inv.totalPaisa, others).openPaisa) throw err(409, "amount_over_open", "বকেয়ার চেয়ে বেশি (অপেক্ষমাণ পেমেন্টসহ)", "More than is still due (counting pending payments)", { field: "amountPaisa" });

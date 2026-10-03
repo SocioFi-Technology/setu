@@ -405,7 +405,7 @@ export async function dispatchSms(s: SessionData, ids: string[], meta: { ip: str
       const next = undash<"completed" | "failed">(transition("COMMUNICATION", COMMUNICATION, "in-progress", r.status === "delivered" ? "deliver" : "fail"));
       await forTenant(s.tenantId, async (tx) => {
         await tx.communication.updateMany({ where: { id, status: "in_progress" }, data: { status: next, providerRef: r.providerRef ?? claimed.providerRef, lastError: r.status === "failed" ? r.error : null, completedAt: r.status === "delivered" ? done : null, statusAt: done } });
-        await tx.auditEvent.create({ data: { tenantId: s.tenantId, userId: s.userId, role: s.role, action: "send", entity: "Communication", entityId: id, patientId: claimed.patientId, ip: meta.ip,
+        await tx.auditEvent.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, userId: s.userId, role: s.role, action: "send", entity: "Communication", entityId: id, patientId: claimed.patientId, ip: meta.ip,
           detail: { route: meta.route, channel: "sms", kind: claimed.kind, outcome: r.status, attempt: claimed.attempts + 1, provider: messenger.name } } });
       });
       out.set(id, { status: dash(next), attempts: claimed.attempts + 1, lastError: r.status === "failed" ? r.error : null, sentAt: now.toISOString(), completedAt: r.status === "delivered" ? done.toISOString() : null });

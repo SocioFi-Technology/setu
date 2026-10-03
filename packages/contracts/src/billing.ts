@@ -48,6 +48,8 @@ export const ChargeLine = z.object({
   batch: z.object({ id: z.string(), batchNo: z.string(), expiry: z.string() }).nullable(),
   /** ADR 0010: a draft line whose price-list item changed since it was added — the price now (the line keeps its own) */
   currentUnitPaisa: Paisa.nullable(),
+  /** …and its VAT rate now, when the price or the VAT changed */
+  currentVatRateBp: z.number().int().nullable(),
 });
 export const ApprovalView = z.object({
   taskId: z.string(), status: ApprovalStatus, amountPaisa: Paisa, category: DiscountCategory.nullable(), reason: z.string(),

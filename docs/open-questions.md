@@ -831,3 +831,17 @@ Commit after each step, push at the end of each session.
 - **A price change applies to bills created after it takes effect**; drafts and issued bills keep the price they were
   made with (a draft shows "price changed since").
 - **Two sessions:** 1) backend; 2) the four screens, journey spec, reviews, hands-on.
+
+### Decided in the session (defaults — Kamrul to confirm)
+195. **A signed prescription keeps the signer's registration as it was at signing** (a later re-check or a new number
+     does not change it). Notes signed before 04/10/2026 got the registration as it stood then.
+196. **A doctor who is switched off:** their open visits, inbox items and drafts are not reassigned. Who takes them over?
+197. **The Flags filter** shows reprints, voids, exports, deactivation / reactivation, role changes, password resets,
+     price and settings changes, go-live. Emergency access (break-glass) is not recorded until Connected Care. Should
+     marked-in-error records, cancelled payment links or approved discounts be flagged too?
+198. **The admin's audit log is per facility;** the owner also sees tenant-level events (sign-ins, public QR checks).
+     Events from before 04/10/2026 by someone working at several facilities stay tenant-level.
+199. **An account is one person across the owner's facilities** (one password, PIN, registration): a facility admin
+     cannot reset, re-register, change or switch off someone who also works elsewhere — the owner does it. Keep?
+200. **A facility in setup is not blocked** from clinical work or payments in this slice (the screens will say "in
+     setup"); a setup facility takes no payment until it chooses its methods. Should setup block registration?

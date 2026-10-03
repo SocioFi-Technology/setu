@@ -153,6 +153,8 @@ model User {
   /// ADR 0010: signed in with a one-time password — sets their own password and PIN before anything else
   mustChangePassword    Boolean   @default(false)
   tempPasswordExpiresAt DateTime?
+  /// a one-time password works for one sign-in (ADR 0010 review)
+  tempPasswordUsedAt    DateTime?
   /// every session carries it; deactivation, a role change and a password reset bump it (signed out everywhere)
   sessionGeneration     Int       @default(0)
   lastLoginAt           DateTime?
@@ -292,10 +294,13 @@ model AuditEvent {
   deviceId  String?
   ip        String?
   basis     String? // patient | referral | policy | emergency
+  /// ADR 0010 review: the facility the event happened at (the admin's audit log is per facility); null = tenant-level
+  organizationId String?
   detail    Json?
 
   @@index([tenantId, patientId, at])
   @@index([tenantId, at])
+  @@index([tenantId, organizationId, at])
 }
 
 /// Stored response for a replayed mutation (offline retries never double-post).
@@ -660,6 +665,10 @@ model Composition {
   signedById              String?
   aiReviewed              Boolean             @default(false)
   uncodedAllergiesChecked Boolean             @default(false)
+  /// ADR 0010 review: the signer's registration as it was at signing (filled by the database; never changes after)
+  signerRegBody           String?
+  signerRegNo             String?
+  signerRegVerified       Boolean?
   conditions              Condition[]
   medications             MedicationRequest[]
   orders                  ServiceRequest[]

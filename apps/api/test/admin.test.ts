@@ -21,7 +21,7 @@ let app: Awaited<ReturnType<typeof buildApp>>;
 const RUN = randomUUID().slice(0, 6);
 const T = "t_e2e";
 const cookies: Record<string, string> = {};
-const USERS = { newadmin: "01799000011", owner: "01799000009", cashier: "01799000008", desk: "01799000001", doctor: "01799000002", otherAdmin: "01711000010" } as const;
+const USERS = { newadmin: "01799000011", owner: "01799000009", admin: "01799000010", cashier: "01799000008", desk: "01799000001", doctor: "01799000002", otherAdmin: "01711000010" } as const;
 const phone = () => `019${String(randomInt(0, 1e8)).padStart(8, "0")}`;
 
 async function login(identifier: string, password = "setu1234") {
@@ -106,6 +106,9 @@ describe.runIf(db)("G2 users: one-time password, first sign-in, sessions end", (
     const first = await login(p, c.oneTimePassword);
     expect(first.r.statusCode, first.r.body).toBe(200);
     expect(first.r.json().mustSetCredentials).toBe(true);
+    // a one-time password works for one sign-in only
+    const twice = await login(p, c.oneTimePassword);
+    expect([twice.r.statusCode, twice.r.json().code]).toEqual([401, "otp_used"]);
     const blocked = await get("/v1/billing/worklist", first.cookie);
     expect([blocked.statusCode, blocked.json().code]).toEqual([403, "setup_required"]);
     const weak = await post("/v1/auth/first-sign-in", { password: "short", pin: "1111" }, first.cookie);
@@ -134,9 +137,15 @@ describe.runIf(db)("G2 users: one-time password, first sign-in, sessions end", (
     expect((await get("/v1/me", again.cookie)).statusCode).toBe(401);
     expect((await login(p, reset.oneTimePassword)).r.statusCode).toBe(401);
     await ok(post(`/v1/admin/users/${c.user.id}/reactivate`, {}, "newadmin"));
-    expect((await login(p, reset.oneTimePassword)).r.statusCode).toBe(200);
+    const fresh = await ok(post(`/v1/admin/users/${c.user.id}/reset-password`, {}, "newadmin"));
+    expect((await login(p, fresh.oneTimePassword)).r.statusCode).toBe(200);
   });
 
+  it("an admin never resets, switches off or brings back an owner (the account is the owner's everywhere)", async () => {
+    const owner = (await ok(get("/v1/admin/users", "admin"))).items.find((u: { phone: string }) => u.phone === USERS.owner);
+    expect((await post(`/v1/admin/users/${owner.id}/reset-password`, {}, "admin")).json().code).toBe("owner_only");
+    expect((await post(`/v1/admin/users/${owner.id}/deactivate`, { reason: "testing the owner rule" }, "admin")).json().code).toBe("owner_only");
+  });
   it("never yourself; only an owner makes an owner; a role change ends the user's sessions", async () => {
     const me = (await ok(get("/v1/admin/users", "newadmin"))).items.find((u: { phone: string }) => u.phone === USERS.newadmin);
     expect((await post(`/v1/admin/users/${me.id}/deactivate`, { reason: "testing myself out" }, "newadmin")).json().code).toBe("self");
@@ -175,6 +184,18 @@ describe.runIf(db)("G3 masters and settings", () => {
     const hist = await ok(get(`/v1/admin/prices/${item.id}/history`, "owner"));
     expect(hist.items.map((h: { oldUnitPaisa: number | null; newUnitPaisa: number }) => [h.oldUnitPaisa, h.newUnitPaisa])).toEqual([[20_000, 25_000], [null, 20_000]]);
     await expect(db!.forTenant(T, (tx) => tx.chargeItemDefinition.update({ where: { id: item.id }, data: { unitPaisa: 1 } }), { userId: "u_e2e_owner" })).rejects.toThrow(/history row/);
+    // more of the same service after the change: a new line at the new price (the old one keeps its own)
+    const more = await ok(post(`/v1/invoices/${bill.invoice.id}/lines`, { code: item.code, qty: 1, rev: after.invoice.rev }, "cashier"));
+    expect(more.lines.filter((l: { code: string }) => l.code === item.code).map((l: { unitPaisa: number }) => l.unitPaisa).sort()).toEqual([20_000, 25_000]);
+
+    // a payment method switched off is refused (and the facility's methods restored after)
+    const f = await ok(get("/v1/admin/facility", "owner"));
+    await ok(post("/v1/admin/settings", { ...f.settings, paymentMethods: f.settings.paymentMethods.filter((m: string) => m !== "card") }, "owner"));
+    try {
+      const issued = await ok(post(`/v1/invoices/${bill.invoice.id}/issue`, { rev: more.invoice.rev }, "cashier"));
+      const card = await post(`/v1/invoices/${bill.invoice.id}/payments`, { method: "card", amountPaisa: issued.invoice.totalPaisa, reference: "VISA-1234" }, "cashier");
+      expect([card.statusCode, card.json().code]).toEqual([422, "method_off"]);
+    } finally { await ok(post("/v1/admin/settings", { ...f.settings }, "owner")); }
   });
 
   it("approval limits need a reason and are flagged; a payment method switched off is refused", async () => {
@@ -207,6 +228,16 @@ describe.runIf(db)("G4 the audit log, and who may", () => {
     expect(csv.body.split("\r\n")[0]).toContain("at,user,role,action,entity");
     const exp = await ok(get("/v1/admin/audit?action=export", "owner"));
     expect(exp.items[0]).toMatchObject({ action: "export", flagged: true });
+    // a bill void is written as an update with event "void" — it is flagged too, and the filters combine
+    const voids = await ok(get("/v1/admin/audit?flagged=1&action=update", "owner"));
+    expect(voids.items.length).toBeGreaterThan(0);
+    expect(voids.items.every((x: { action: string; flagged: boolean; summary: string }) => x.action === "update" && x.flagged && x.summary.includes("void"))).toBe(true);
+  });
+  it("one facility's admin sees only that facility's events", async () => {
+    const theirs = await ok(get("/v1/admin/audit?action=settings-change", "newadmin"));
+    const ours = await ok(get("/v1/admin/audit?action=settings-change", "owner"));
+    const ids = new Set(theirs.items.map((x: { id: string }) => x.id));
+    expect(ours.items.some((x: { id: string }) => ids.has(x.id))).toBe(false);
   });
   it("the cashier is refused; another tenant's admin finds nothing", async () => {
     expect((await get("/v1/admin/users", "cashier")).statusCode).toBe(403);

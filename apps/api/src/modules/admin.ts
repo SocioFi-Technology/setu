@@ -46,13 +46,15 @@ async function goLiveFacts(tx: Tx, s: SessionData): Promise<{ facts: GoLiveFacts
   const [branches, wards, doctors, defs] = await Promise.all([
     tx.location.count({ where: { organizationId: s.organizationId, kind: "branch" } }),
     tx.location.findMany({ where: { organizationId: s.organizationId, kind: "ward" }, select: { id: true, _count: { select: { children: { where: { kind: "bed" } } } } } }),
-    tx.user.findMany({ where: { active: true, roles: { some: { organizationId: s.organizationId, role: "doctor" } } }, select: { id: true, practitioner: { select: { regVerified: true } } } }),
+    tx.user.findMany({ where: { active: true, roles: { some: { organizationId: s.organizationId, role: "doctor" } } }, select: { id: true, practitioner: { select: { regVerified: true, regBody: true } } } }),
     tx.chargeItemDefinition.findMany({ where: { organizationId: s.organizationId, active: true }, select: { kind: true, refCode: true } }),
   ]);
   const feeFor = new Set(defs.filter((d) => d.kind === "consultation").map((d) => d.refCode));
+  // the plan as the tenant holds it now (a session's copy can be stale)
+  const plan = (await tx.tenant.findFirst({ where: { id: s.tenantId }, select: { plan: true } }))?.plan ?? s.plan;
   return { o, facts: {
-    plan: s.plan, org: { name: o.name, address: o.address, licenceNo: o.licenceNo }, branches, wardsWithBeds: wards.filter((w) => w._count.children > 0).length,
-    verifiedDoctors: doctors.filter((d) => d.practitioner?.regVerified).length, doctorsWithoutFee: doctors.filter((d) => !feeFor.has(d.id)).length,
+    plan, org: { name: o.name, address: o.address, licenceNo: o.licenceNo }, branches, wardsWithBeds: wards.filter((w) => w._count.children > 0).length,
+    verifiedDoctors: doctors.filter((d) => d.practitioner?.regVerified && d.practitioner.regBody === "BMDC").length, doctorsWithoutFee: doctors.filter((d) => !feeFor.has(d.id)).length,
     pricedItems: defs.length, receiptFormat: o.receiptFormat, rxFormat: o.rxFormat, paymentMethods: o.paymentMethods, smsTestedAt: iso(o.smsTestedAt),
   } };
 }
@@ -63,7 +65,7 @@ export async function facilityView(tx: Tx, s: SessionData): Promise<FacilityView
     tx.location.findMany({ where: { organizationId: s.organizationId, kind: "ward" }, orderBy: { name: "asc" }, include: { _count: { select: { children: { where: { kind: "bed" } } } } } }),
   ]);
   return {
-    id: o.id, name: o.name, nameBn: o.nameBn, address: o.address, licenceNo: o.licenceNo, plan: s.plan, status: o.status, liveAt: iso(o.liveAt),
+    id: o.id, name: o.name, nameBn: o.nameBn, address: o.address, licenceNo: o.licenceNo, plan: facts.plan, status: o.status, liveAt: iso(o.liveAt),
     checklist: goLiveChecklist(facts),
     branches: branches.map((b) => ({ id: b.id, name: b.name, nameBn: b.nameBn })),
     wards: wards.map((w) => ({ id: w.id, name: w.name, nameBn: w.nameBn, beds: w._count.children })),
@@ -133,7 +135,7 @@ const oneTimePassword = () => Array.from({ length: 10 }, () => OTP_ALPHABET[rand
 type UserRow = Awaited<ReturnType<typeof usersHere>>[number];
 const usersHere = (tx: Tx, s: SessionData, ids?: string[]) => tx.user.findMany({
   where: { roles: { some: { organizationId: s.organizationId } }, ...(ids ? { id: { in: ids } } : {}) },
-  include: { roles: { where: { organizationId: s.organizationId } }, practitioner: true }, orderBy: { nameEn: "asc" },
+  include: { roles: { where: { organizationId: s.organizationId }, orderBy: { id: "asc" } }, practitioner: true }, orderBy: { nameEn: "asc" },
 });
 const toView = (u: UserRow): UserView => {
   const role = u.roles[0]!.role as Role;
@@ -146,7 +148,8 @@ const toView = (u: UserRow): UserView => {
     deactivated: !u.active && u.deactivatedAt ? { at: u.deactivatedAt.toISOString(), reason: u.deactivatedReason ?? "" } : null,
   };
 };
-const activeApprovers = (tx: Tx, s: SessionData) => tx.user.count({ where: { active: true, roles: { some: { organizationId: s.organizationId, role: { in: APPROVERS } } } } });
+/** active owners / admins who have set their own password (a pending one-time password does not keep the facility open) */
+const activeApprovers = (tx: Tx, s: SessionData) => tx.user.count({ where: { active: true, mustChangePassword: false, roles: { some: { organizationId: s.organizationId, role: { in: APPROVERS } } } } });
 export async function userList(tx: Tx, s: SessionData): Promise<UserList> {
   return { items: (await usersHere(tx, s)).map(toView), activeApprovers: await activeApprovers(tx, s) };
 }
@@ -156,6 +159,15 @@ async function userHere(tx: Tx, s: SessionData, id: string): Promise<UserRow> {
   const u = (await usersHere(tx, s, [id]))[0];
   if (!u) throw notFound();
   return u;
+}
+/** The account is the person's across the owner's facilities (one password, one PIN, one registration): an admin here
+    changes it only when the person works here alone, and only an owner touches an account that is an owner anywhere
+    (security review: a reset at one facility must not hand over an owner's account at another). */
+async function guardAccount(tx: Tx, s: SessionData, u: UserRow) {
+  const all = await tx.practitionerRole.findMany({ where: { userId: u.id }, select: { organizationId: true, role: true } });
+  if (all.some((r) => r.role === "owner") && s.role !== "owner") throw blocked(["owner_only"]);
+  if (all.some((r) => r.organizationId !== s.organizationId))
+    throw err(409, "works_elsewhere", "এই ব্যবহারকারী অন্য প্রতিষ্ঠানেও কাজ করেন — মালিকের সাথে কথা বলুন", "This user also works at another facility — ask the owner");
 }
 const actor = (s: SessionData) => ({ id: s.userId, role: s.role as Role });
 const credential = (u: UserRow, otp: string, expiresAt: Date): UserCredentialResponse => ({ user: toView(u), oneTimePassword: otp, expiresAt: expiresAt.toISOString() });
@@ -179,11 +191,15 @@ export async function changeRole(tx: Tx, s: SessionData, id: string, role: Role,
   const u = await userHere(tx, s, id);
   const current = u.roles[0]!.role as Role;
   if (current === role) throw err(409, "unchanged", "একই ভূমিকা", "That is already their role", { field: "role" });
+  if (u.id !== s.userId) await guardAccount(tx, s, u);
   const b = roleChangeBlockers({ actor: actor(s), target: { id: u.id, role: current, active: u.active }, newRole: role, activeApprovers: await activeApprovers(tx, s) });
   if (b.length) throw blocked(b);
   await tx.practitionerRole.update({ where: { id: u.roles[0]!.id }, data: { role } });
+  // the registration follows the role: another licensing body starts unverified (a nurse's BNMC never counts as a
+  // doctor's BMDC — controls review); signed notes keep the registration they were signed with
   const body = REG_BODY[role];
   if (body && !u.practitioner) await tx.practitioner.create({ data: { tenantId: s.tenantId, userId: u.id, regBody: body, regVerified: false } });
+  else if (body && u.practitioner && u.practitioner.regBody !== body) await tx.practitioner.update({ where: { id: u.practitioner.id }, data: { regBody: body, regNo: null, regVerified: false } });
   await tx.user.update({ where: { id: u.id }, data: { sessionGeneration: { increment: 1 } } });
   return { user: toView((await usersHere(tx, s, [u.id]))[0]!), audit: [{ action: "role-change", entity: "User", entityId: u.id, detail: { from: current, to: role, reason: reason?.trim() || null } }] };
 }
@@ -194,10 +210,12 @@ export async function setActive(tx: Tx, s: SessionData, id: string, active: bool
     const b = deactivateBlockers({ actor: actor(s), target: { id: u.id, role: u.roles[0]!.role as Role, active: u.active }, activeApprovers: await activeApprovers(tx, s) });
     if (b.length) throw blocked(b);
     if (reason.trim().length < 10) throw err(400, "reason_required", "কারণ লিখুন (অন্তত ১০ অক্ষর)", "Write a reason (at least 10 characters)", { field: "reason" });
-    // a user who also works at another facility of this owner is switched off there by that facility's admin
-    if (await tx.practitionerRole.findFirst({ where: { userId: u.id, organizationId: { not: s.organizationId } }, select: { id: true } }))
-      throw err(409, "works_elsewhere", "এই ব্যবহারকারী অন্য প্রতিষ্ঠানেও কাজ করেন", "This user also works at another facility");
-  } else if (u.id === s.userId) throw blocked(["self"]);
+    await guardAccount(tx, s, u);
+  } else {
+    if (u.id === s.userId) throw blocked(["self"]);
+    // only an owner brings back an owner (security review)
+    await guardAccount(tx, s, u);
+  }
   await tx.user.update({ where: { id: u.id }, data: active
     ? { active: true, deactivatedAt: null, deactivatedReason: null }
     : { active: false, deactivatedAt: now, deactivatedReason: reason.trim(), sessionGeneration: { increment: 1 } } });
@@ -206,16 +224,17 @@ export async function setActive(tx: Tx, s: SessionData, id: string, active: bool
 export async function resetPassword(tx: Tx, s: SessionData, id: string, now: Date): Promise<{ res: UserCredentialResponse; audit: AuditEntry[] }> {
   const u = await userHere(tx, s, id);
   if (u.id === s.userId) throw blocked(["self"]);
-  if ((u.roles[0]!.role as Role) === "owner" && s.role !== "owner") throw blocked(["owner_only"]);
+  await guardAccount(tx, s, u);
   if (!u.active) throw err(409, "inactive", "বন্ধ ব্যবহারকারী — আগে চালু করুন", "This user is switched off — reactivate first");
   const otp = oneTimePassword(), expiresAt = new Date(now.getTime() + ONE_TIME_PASSWORD_HOURS * 3600_000);
-  await tx.user.update({ where: { id: u.id }, data: { passwordHash: devHash(otp), pinHash: null, mustChangePassword: true, tempPasswordExpiresAt: expiresAt, sessionGeneration: { increment: 1 } } });
+  await tx.user.update({ where: { id: u.id }, data: { passwordHash: devHash(otp), pinHash: null, mustChangePassword: true, tempPasswordExpiresAt: expiresAt, tempPasswordUsedAt: null, sessionGeneration: { increment: 1 } } });
   return { res: credential((await usersHere(tx, s, [u.id]))[0]!, otp, expiresAt), audit: [{ action: "reset-password", entity: "User", entityId: u.id }] };
 }
 export async function verifyRegistration(tx: Tx, s: SessionData, id: string, regNo: string | undefined): Promise<{ user: UserView; audit: AuditEntry[] }> {
   const u = await userHere(tx, s, id);
   const body = REG_BODY[u.roles[0]!.role as Role];
   if (!body || !u.practitioner) throw err(409, "no_registration", "এই ভূমিকায় নিবন্ধন লাগে না", "This role has no registration");
+  await guardAccount(tx, s, u);
   const number = (regNo?.trim().toUpperCase() || u.practitioner.regNo) ?? "";
   if (!number) throw err(400, "reg_required", `${body} নিবন্ধন নম্বর লিখুন`, `Enter the ${body} registration number`, { field: "regNo" });
   const r = await registration.verify(body, number);
@@ -261,7 +280,8 @@ export async function createPrice(tx: Tx, s: SessionData, req: PriceCreate, now:
   } else {
     if (!req.nameEn || !req.nameBn) throw err(400, "name_required", "সেবার নাম বাংলা ও ইংরেজিতে লিখুন", "Enter the service name in Bangla and English", { field: "nameEn" });
     nameEn = req.nameEn; nameBn = req.nameBn;
-    code = `svc:${req.nameEn.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40)}`;
+    // a readable slug plus a short random part: two similar names (or a Bangla-only one) never collide
+    code = `svc:${req.nameEn.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 32) || "item"}-${randomInt(36 ** 4).toString(36).padStart(4, "0")}`;
   }
   const p = priceChangeProblems({ oldUnitPaisa: null, oldVatBp: null, unitPaisa: req.unitPaisa, vatRateBp: req.vatRateBp, reason: "" });
   if (p.length) throw err(400, p[0]!, "মূল্য ঠিক নেই", "The price is not valid", { field: "unitPaisa" });
@@ -288,6 +308,8 @@ export async function setPriceActive(tx: Tx, s: SessionData, id: string, active:
   const d = await tx.chargeItemDefinition.findFirst({ where: { id, organizationId: s.organizationId } });
   if (!d) throw notFound();
   if (reason.trim().length < 10) throw err(400, "reason_required", "কারণ লিখুন (অন্তত ১০ অক্ষর)", "Write a reason (at least 10 characters)", { field: "reason" });
+  if (!active && d.kind === "consultation" && d.refCode && (await tx.user.findFirst({ where: { id: d.refCode, active: true }, select: { id: true } })))
+    throw err(409, "doctor_active", "ডাক্তার সক্রিয় — তাঁর ফি বন্ধ করলে নতুন বিলে মূল্য থাকবে না; ফি বদলান বা আগে ডাক্তারকে বন্ধ করুন", "The doctor is active — their new bills would have no price; change the fee, or switch the doctor off first");
   await tx.chargeItemDefinition.update({ where: { id: d.id }, data: { active } });
   return [{ action: "price-change", entity: "ChargeItemDefinition", entityId: d.id, detail: { code: d.code, active, reason: reason.trim() } }];
 }
@@ -301,13 +323,22 @@ export async function priceHistory(tx: Tx, s: SessionData, id: string): Promise<
 
 /* ───── the audit log ───── */
 const PAGE = 100, EXPORT_MAX = 5000;
+/** events written as an update with this kind, flagged like the flagged actions (a bill void: update + event void) */
+const FLAGGED_EVENTS = ["void"];
 const dayStart = (d: string) => new Date(`${d}T00:00:00+06:00`);
-function auditWhere(q: AuditQuery) {
-  return {
-    ...(q.from || q.to ? { at: { ...(q.from ? { gte: dayStart(q.from) } : {}), ...(q.to ? { lt: new Date(dayStart(q.to).getTime() + 864e5) } : {}) } } : {}),
-    ...(q.userId ? { userId: q.userId } : {}), ...(q.action ? { action: q.action } : {}), ...(q.entity ? { entity: q.entity } : {}), ...(q.patientId ? { patientId: q.patientId } : {}),
-    ...(q.flagged === "1" ? { action: { in: [...FLAGGED_ACTIONS] as string[] } } : {}),
-  };
+/** This facility's events; the owner also sees the tenant-level ones (no facility: sign-ins, public QR checks). The
+    "Flags" filter matches the flagged actions and the events written as an update of that kind (a bill void). */
+function auditWhere(s: SessionData, q: AuditQuery) {
+  const and: object[] = [
+    s.role === "owner" ? { OR: [{ organizationId: s.organizationId }, { organizationId: null }] } : { organizationId: s.organizationId },
+  ];
+  if (q.from || q.to) and.push({ at: { ...(q.from ? { gte: dayStart(q.from) } : {}), ...(q.to ? { lt: new Date(dayStart(q.to).getTime() + 864e5) } : {}) } });
+  if (q.userId) and.push({ userId: q.userId });
+  if (q.action) and.push({ action: q.action });
+  if (q.entity) and.push({ entity: q.entity });
+  if (q.patientId) and.push({ patientId: q.patientId });
+  if (q.flagged === "1") and.push({ OR: [{ action: { in: [...FLAGGED_ACTIONS] as string[] } }, ...FLAGGED_EVENTS.map((e) => ({ detail: { path: ["event"], equals: e } }))] });
+  return { AND: and };
 }
 /** One line for a person reading the log (never a clinical value — the detail stays in the record). */
 function summary(e: { action: string; entity: string; detail: unknown }): string {
@@ -315,27 +346,27 @@ function summary(e: { action: string; entity: string; detail: unknown }): string
   const bits = [d.event, d.purpose, d.kind, d.reason, d.note].filter((x): x is string => typeof x === "string" && x.length > 0);
   return [`${e.action} ${e.entity}`, ...bits].join(" · ").slice(0, 200);
 }
-async function auditRows(tx: Tx, q: AuditQuery, take: number) {
+async function auditRows(tx: Tx, s: SessionData, q: AuditQuery, take: number) {
   const cursor = q.before ? await tx.auditEvent.findFirst({ where: { id: q.before }, select: { at: true, id: true } }) : null;
-  const where = { ...auditWhere(q), ...(cursor ? { OR: [{ at: { lt: cursor.at } }, { at: cursor.at, id: { lt: cursor.id } }] } : {}) };
+  const where = { AND: [auditWhere(s, q), ...(cursor ? [{ OR: [{ at: { lt: cursor.at } }, { at: cursor.at, id: { lt: cursor.id } }] }] : [])] };
   const rows = await tx.auditEvent.findMany({ where, orderBy: [{ at: "desc" }, { id: "desc" }], take: take + 1 });
   const users = await people(tx, rows.map((r) => r.userId));
   const pats = new Map((await tx.patient.findMany({ where: { id: { in: rows.flatMap((r) => (r.patientId ? [r.patientId] : [])) } }, select: { id: true, facilityNo: true, nameBn: true, nameEn: true } })).map((p) => [p.id, p]));
   const items = rows.slice(0, take).map((r) => ({
     id: r.id, at: r.at.toISOString(), user: r.userId ? users(r.userId) : null, role: r.role, action: r.action, entity: r.entity, entityId: r.entityId,
     patient: r.patientId ? pats.get(r.patientId) ?? null : null, ip: r.ip, route: ((r.detail ?? {}) as { route?: string }).route ?? null,
-    summary: summary(r), flagged: isFlagged(r.action),
+    summary: summary(r), flagged: isFlagged(r.action) || FLAGGED_EVENTS.includes(((r.detail ?? {}) as { event?: string }).event ?? ""),
   }));
   return { items, more: rows.length > take };
 }
-export async function auditPage(tx: Tx, q: AuditQuery): Promise<AuditPage> {
-  const r = await auditRows(tx, q, PAGE);
+export async function auditPage(tx: Tx, s: SessionData, q: AuditQuery): Promise<AuditPage> {
+  const r = await auditRows(tx, s, q, PAGE);
   return { items: r.items, next: r.more ? r.items[r.items.length - 1]!.id : null };
 }
 const csvCell = (v: unknown) => { const t = v === null || v === undefined ? "" : String(v); const safe = /^[=+\-@\t\r]/.test(t) ? `'${t}` : t; return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe; };
 /** CSV of the filtered log (at most 5,000 rows, newest first); formula-looking cells are neutralised. */
-export async function auditCsv(tx: Tx, q: AuditQuery): Promise<{ csv: string; rows: number; truncated: boolean }> {
-  const r = await auditRows(tx, { ...q, before: undefined }, EXPORT_MAX);
+export async function auditCsv(tx: Tx, s: SessionData, q: AuditQuery): Promise<{ csv: string; rows: number; truncated: boolean }> {
+  const r = await auditRows(tx, s, { ...q, before: undefined }, EXPORT_MAX);
   const head = ["at", "user", "role", "action", "entity", "entityId", "patient", "ip", "route", "summary", "flagged"];
   const lines = r.items.map((x) => [x.at, x.user?.nameEn ?? "", x.role ?? "", x.action, x.entity, x.entityId ?? "", x.patient?.facilityNo ?? "", x.ip ?? "", x.route ?? "", x.summary, x.flagged ? "yes" : ""].map(csvCell).join(","));
   return { csv: [head.join(","), ...lines].join("\r\n") + "\r\n", rows: r.items.length, truncated: r.more };

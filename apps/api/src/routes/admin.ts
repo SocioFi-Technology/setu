@@ -106,12 +106,12 @@ export async function adminRoutes(app: FastifyInstance) {
   app.get("/v1/admin/audit", async (req): Promise<AuditPage> => {
     requireAdm(req, "audit");
     const q = AuditQuery.parse(req.query);
-    return query(req, async (tx) => { const p = await auditPage(tx, q); return { body: p, audit: [{ action: "view", entity: "AuditEvent", detail: { purpose: "audit-log", filters: { ...q, before: undefined }, count: p.items.length } }] }; });
+    return query(req, async (tx, s) => { const p = await auditPage(tx, s, q); return { body: p, audit: [{ action: "view", entity: "AuditEvent", detail: { purpose: "audit-log", filters: { ...q, before: undefined }, count: p.items.length } }] }; });
   });
   app.get("/v1/admin/audit.csv", async (req, reply) => {
     requireAdm(req, "audit");
     const q = AuditQuery.parse(req.query);
-    const r = await query(req, async (tx) => { const x = await auditCsv(tx, q); return { body: x, audit: [{ action: "export", entity: "AuditEvent", detail: { filters: { ...q, before: undefined }, rows: x.rows, truncated: x.truncated } }] }; });
+    const r = await query(req, async (tx, s) => { const x = await auditCsv(tx, s, q); return { body: x, audit: [{ action: "export", entity: "AuditEvent", detail: { filters: { ...q, before: undefined }, rows: x.rows, truncated: x.truncated } }] }; });
     return reply.header("content-type", "text/csv; charset=utf-8").header("content-disposition", `attachment; filename="setu-audit-${new Date().toISOString().slice(0, 10)}.csv"`).header("cache-control", "no-store").send("﻿" + r.csv);
   });
 }

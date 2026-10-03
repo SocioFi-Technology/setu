@@ -51,6 +51,7 @@ describe("settings, prices, audit flags", () => {
     expect(limitProblems({ cashierLimitPaisa: 50_000, cashierLimitBp: 500, approverLimitPaisa: 1_000_000 })).toEqual([]);
     expect(limitProblems({ cashierLimitPaisa: 2_000_000, cashierLimitBp: 500, approverLimitPaisa: 1_000_000 })).toEqual(["cashier_above_approver"]);
     expect(limitProblems({ cashierLimitPaisa: 50_000, cashierLimitBp: 6000, approverLimitPaisa: 1_000_000 })).toEqual(["percent_range"]);
+    expect(limitProblems({ cashierLimitPaisa: 0, cashierLimitBp: 0, approverLimitPaisa: 0 })).toEqual(["approver_zero"]);
     expect(labelPageOk(50, 30)).toBe(true);
     expect(labelPageOk(10, 30)).toBe(false);
   });

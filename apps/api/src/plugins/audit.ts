@@ -11,7 +11,7 @@ export function auditPlugin(app: FastifyInstance) {
     const mark = req.routeOptions.config.audit;
     if (!mark || !req.session || reply.statusCode >= 400 || req.txManaged) return; // command/query routes audit inside their own transaction
     const event = {
-      tenantId: req.session.tenantId, userId: req.session.userId, role: req.session.role,
+      tenantId: req.session.tenantId, organizationId: req.session.organizationId, userId: req.session.userId, role: req.session.role,
       action: mark.action, entity: mark.entity, entityId: mark.entityId?.(req), patientId: mark.patientId?.(req),
       ip: req.ip, detail: { route: req.routeOptions.url, method: req.method },
     };

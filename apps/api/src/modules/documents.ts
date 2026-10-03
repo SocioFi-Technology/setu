@@ -50,7 +50,9 @@ async function rxHere(tx: Tx, s: SessionData, id: string) {
 async function rxInput(tx: Tx, s: SessionData, c: Rx, mode: Mode, paper: Paper, lang: Lang, verify: { url: string; code: string } | null, print: PrintLine | null) {
   const [allergies, reg, who] = await Promise.all([
     tx.allergyIntolerance.findMany({ where: { patientId: c.patientId, status: "active" }, orderBy: { recordedAt: "asc" } }),
-    c.signedById ? tx.practitioner.findFirst({ where: { userId: c.signedById }, select: { regBody: true, regNo: true, regVerified: true } }) : null,
+    // the registration as signed (ADR 0010 review), else the current one
+    c.signerRegVerified !== null ? Promise.resolve({ regBody: c.signerRegBody, regNo: c.signerRegNo, regVerified: c.signerRegVerified })
+      : c.signedById ? tx.practitioner.findFirst({ where: { userId: c.signedById }, select: { regBody: true, regNo: true, regVerified: true } }) : null,
     people(tx, [c.signedById, c.authorId]),
   ]);
   const doc = who.get(c.signedById ?? c.authorId);

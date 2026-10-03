@@ -20,11 +20,24 @@ export async function authRoutes(app: FastifyInstance) {
     // ADR 0010: a one-time password works once, for 24 hours, and only to set the user's own password and PIN
     if (u.mustChangePassword && (!u.tempPasswordExpiresAt || Date.parse(u.tempPasswordExpiresAt) < Date.now()))
       throw err(401, "otp_expired", "এককালীন পাসওয়ার্ডের মেয়াদ শেষ — অ্যাডমিনকে নতুনটি দিতে বলুন", "The one-time password has expired — ask the admin for a new one");
+    // …and works for one sign-in only (security review): a second use needs a new one from the admin
+    if (u.mustChangePassword && u.tempPasswordUsedAt)
+      throw err(401, "otp_used", "এই এককালীন পাসওয়ার্ড আগেই ব্যবহার হয়েছে — অ্যাডমিনকে নতুনটি দিতে বলুন", "This one-time password was already used — ask the admin for a new one");
     const r = u.roles[0]!;
     const plan = !config.dbEnabled && body.demoPlan ? body.demoPlan : u.plan;
+    let generation = u.sessionGeneration ?? 0;
+    if (config.dbEnabled) {
+      const { forTenant } = await import("@setu/db");
+      const now = new Date();
+      if (u.mustChangePassword) {
+        // claim the one-time password atomically; the setup session gets a fresh generation
+        const n = await forTenant(u.tenantId, (tx) => tx.user.updateMany({ where: { id: u.id, mustChangePassword: true, tempPasswordUsedAt: null, sessionGeneration: generation }, data: { tempPasswordUsedAt: now, lastLoginAt: now, sessionGeneration: { increment: 1 } } }), { userId: u.id });
+        if (n.count !== 1) throw err(401, "otp_used", "এই এককালীন পাসওয়ার্ড আগেই ব্যবহার হয়েছে — অ্যাডমিনকে নতুনটি দিতে বলুন", "This one-time password was already used — ask the admin for a new one");
+        generation += 1;
+      } else await forTenant(u.tenantId, (tx) => tx.user.update({ where: { id: u.id }, data: { lastLoginAt: now } }), { userId: u.id });
+    }
     const session: SessionData = { userId: u.id, tenantId: u.tenantId, organizationId: r.organizationId, organizationName: r.organizationName, role: r.role, plan, nameBn: u.nameBn, nameEn: u.nameEn,
-      generation: u.sessionGeneration ?? 0, ...(u.mustChangePassword ? { setup: true } : {}) };
-    if (config.dbEnabled) { const { forTenant } = await import("@setu/db"); await forTenant(u.tenantId, (tx) => tx.user.update({ where: { id: u.id }, data: { lastLoginAt: new Date() } }), { userId: u.id }); }
+      generation, ...(u.mustChangePassword ? { setup: true } : {}) };
     reply.setCookie(COOKIE, encodeSession(session), { path: "/", httpOnly: true, sameSite: "lax", signed: true, maxAge: 12 * 3600 });
     return Me.parse({ ...session, roles: u.roles.map(({ organizationId, role }) => ({ organizationId, role })), mustSetCredentials: Boolean(session.setup) });
   });
@@ -51,11 +64,15 @@ export async function authRoutes(app: FastifyInstance) {
     const { forTenant } = await import("@setu/db");
     const u = await forTenant(s.tenantId, (tx) => tx.user.findFirst({ where: { id: s.userId, active: true } }), { userId: s.userId });
     if (!u || !u.mustChangePassword || u.sessionGeneration !== (s.generation ?? 0)) throw err(401, "session_ended", "আপনার সেশন শেষ — আবার লগইন করুন", "Your session has ended — sign in again");
+    if (!u.tempPasswordExpiresAt || u.tempPasswordExpiresAt.getTime() < Date.now()) throw err(401, "otp_expired", "এককালীন পাসওয়ার্ডের মেয়াদ শেষ — অ্যাডমিনকে নতুনটি দিতে বলুন", "The one-time password has expired — ask the admin for a new one");
     const pw = passwordProblems(body.password, u.phone), pin = pinProblems(body.pin);
     if (pw.length || pin.length) throw err(400, pw[0] ?? pin[0]!, pw.length ? "পাসওয়ার্ড অন্তত ৮ অক্ষর, অক্ষর ও সংখ্যা দুটোই, ফোন নম্বর নয়" : "পিন ৪ সংখ্যার, খুব সহজ নয় (১১১১ / ১২৩৪ নয়)",
       pw.length ? "Password: at least 8 characters, a letter and a digit, not your phone number" : "PIN: 4 digits, not too simple (not 1111 / 1234)", { field: pw.length ? "password" : "pin" });
+    // atomic: a reset or role change that lands meanwhile wins (the generation no longer matches → refused)
     const generation = u.sessionGeneration + 1;
-    await forTenant(s.tenantId, (tx) => tx.user.update({ where: { id: u.id }, data: { passwordHash: devHash(body.password), pinHash: devHash(body.pin), mustChangePassword: false, tempPasswordExpiresAt: null, sessionGeneration: generation } }), { userId: s.userId });
+    const n = await forTenant(s.tenantId, (tx) => tx.user.updateMany({ where: { id: u.id, active: true, mustChangePassword: true, sessionGeneration: u.sessionGeneration },
+      data: { passwordHash: devHash(body.password), pinHash: devHash(body.pin), mustChangePassword: false, tempPasswordExpiresAt: null, tempPasswordUsedAt: null, sessionGeneration: { increment: 1 } } }), { userId: s.userId });
+    if (n.count !== 1) throw err(401, "session_ended", "আপনার সেশন শেষ — আবার লগইন করুন", "Your session has ended — sign in again");
     const session: SessionData = { ...s, generation, setup: undefined };
     delete session.setup;
     reply.setCookie(COOKIE, encodeSession(session), { path: "/", httpOnly: true, sameSite: "lax", signed: true, maxAge: 12 * 3600 });
@@ -71,7 +88,8 @@ export async function authRoutes(app: FastifyInstance) {
     const s = requireSession(req);
     const { pin } = PinVerifyRequest.parse(req.body);
     const u = await findUserById(s.tenantId, s.userId);
-    if (!u) throw unauthorized();
+    // an ended session is no PIN oracle (security review)
+    if (!u || (config.dbEnabled && (u.sessionGeneration ?? 0) !== (s.generation ?? 0))) throw unauthorized();
     return checkPinAttempt(s.userId, () => checkPin(u, pin));
   });
 }
