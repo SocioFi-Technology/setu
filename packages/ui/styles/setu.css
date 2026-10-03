@@ -159,7 +159,6 @@ textarea.input { height: auto; padding: 10px 12px; resize: vertical; }
   .shell-top { flex-wrap: wrap; height: auto; padding: 8px 12px; gap: 8px; }
   .org-btn span, .search kbd, .btn-icon.scan { display: none; }
   .search { flex: 1 1 100%; max-width: none; order: 10; }
-  .shell-top .seg[aria-label="Numerals"] { display: none; }
 }
 
 /* Doctor app (slice A12–A13, prototype Setu Doctor App · 412): one phone column with a bottom tab bar. On a wide screen

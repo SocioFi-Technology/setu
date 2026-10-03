@@ -10,7 +10,7 @@ import { aiSections, format, rxQuantity, signBlockers, type SignBlocker } from "
 import { Button, Dialog } from "@setu/ui";
 import { ApiFailure, cons } from "../../lib/api";
 import { useSession } from "../../lib/session";
-import { factsOf, rxLinesOf, useC, type Form, type Line } from "./common";
+import { factsOf, rxLinesOf, useC, useConsNav, type Form, type Line } from "./common";
 import { warningText } from "./Rx";
 
 type Phase = { st: "saving" } | { st: "ready" } | { st: "waiting" } | { st: "save-failed" };
@@ -19,7 +19,7 @@ export function SignSheet({ view, draft, form, rev, ensureSaved, onClose, onSign
   view: ConsultationView; draft: CompositionView; form: Form; rev: () => number;
   ensureSaved: () => Promise<boolean>; onClose: () => void; onSigned: (v: ConsultationView) => void;
 }) {
-  const s = useSession(); const C = useC();
+  const s = useSession(); const C = useC(); const nav = useConsNav();
   const [phase, setPhase] = useState<Phase>({ st: "saving" });
   const [pin, setPin] = useState("");
   const [aiReviewed, setAiReviewed] = useState(false);
@@ -83,9 +83,9 @@ export function SignSheet({ view, draft, form, rev, ensureSaved, onClose, onSign
   const busy = phase.st === "saving" || phase.st === "waiting";
 
   return (
-    <Dialog open onClose={() => { if (phase.st !== "waiting") onClose(); }} label={C("ss_title")} width={620}>
+    <Dialog open onClose={() => { if (phase.st !== "waiting") onClose(); }} label={nav.phone ? C("sign_send") : C("ss_title")} width={620}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 20, maxHeight: "85vh", overflowY: "auto" }} data-testid="sign-sheet">
-        <b className="t-h3">{draft.amendsId ? C("sign_amend") : C("ss_title")}</b>
+        <b className="t-h3">{draft.amendsId ? C("sign_amend") : nav.phone ? C("sign_send") : C("ss_title")}</b>
         <span className="t-small t-muted num">{s.L(p.nameBn, p.nameEn ?? p.nameBn)} · {p.facilityNo} · {C("token", { t: view.encounter.token })}</span>
 
         <div className="card" style={{ display: "flex", flexDirection: "column", gap: 4, padding: 10, background: "var(--surface-sunken)" }}>

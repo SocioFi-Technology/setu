@@ -61,6 +61,7 @@
   "ui_reason": ["আবার প্রিন্টের কারণ", "Reason to reprint"],
   "ui_choose": ["বেছে নিন", "Choose"],
   "ui_preview": ["প্রিভিউ — প্রিন্ট নয়, QR নেই", "Preview — not a print, no QR"],
+  "ui_open_preview": ["প্রিভিউ খুলুন (PDF, QR নেই)", "Open the preview (PDF, no QR)"],
   "ui_none": ["এখনো প্রিন্ট হয়নি", "Not printed yet"],
   "ui_log": ["প্রিন্টের তালিকা", "Print log"],
   "ui_copy0": ["মূল কপি", "Original"],

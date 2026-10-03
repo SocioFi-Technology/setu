@@ -72,15 +72,18 @@ export function PrintPanel({ kind, id, compact = false }: { kind: DocKindT; id: 
         <Button variant="primary" icon="printer" data-testid="doc-print" disabled={busy || !s.online} onClick={() => void print()}>{busy ? P("ui_printing") : !s.online ? P("ui_offline") : P("ui_print")}</Button>
       ))}
       {blocked === "draft_not_printable" && <Button icon="printer" data-testid="doc-print" disabled>{P("ui_print")}</Button>}
+      {/* a phone's browser does not show a PDF inside a page (hands-on test A12–A13): the compact panel opens it */}
       {shown ? (
         <>
-          <a href={docs.pdfSrc(shown)} target="_blank" rel="noreferrer" data-testid="doc-open-pdf">{P("ui_open")}</a>
-          <iframe title={P("ui_title")} src={docs.pdfSrc(shown)} style={{ width: "100%", height: compact ? 480 : 640, border: "1px solid var(--border-subtle)" }} />
+          <a href={docs.pdfSrc(shown)} target="_blank" rel="noreferrer" data-testid="doc-open-pdf" className={compact ? "btn btn-primary" : undefined} style={compact ? { justifyContent: "center" } : undefined}>{P("ui_open")}</a>
+          {!compact && <iframe title={P("ui_title")} src={docs.pdfSrc(shown)} style={{ width: "100%", height: 640, border: "1px solid var(--border-subtle)" }} />}
         </>
+      ) : compact ? (
+        <a href={docs.previewSrc(kind, id, paper, lang)} target="_blank" rel="noreferrer" data-testid="doc-preview" className="btn" style={{ justifyContent: "center" }}>{P("ui_open_preview")}</a>
       ) : (
         <>
           <span className="t-small t-muted">{P("ui_preview")}</span>
-          <iframe title={P("ui_preview")} data-testid="doc-preview" src={docs.previewSrc(kind, id, paper, lang)} style={{ width: "100%", height: compact ? 480 : 640, border: "1px solid var(--border-subtle)" }} />
+          <iframe title={P("ui_preview")} data-testid="doc-preview" src={docs.previewSrc(kind, id, paper, lang)} style={{ width: "100%", height: 640, border: "1px solid var(--border-subtle)" }} />
         </>
       )}
       {v.verifyUrl && <span className="t-small t-muted">{P("ui_verify")}: <a href={v.verifyUrl} target="_blank" rel="noreferrer" data-testid="doc-verify-url">{v.verifyUrl}</a></span>}
