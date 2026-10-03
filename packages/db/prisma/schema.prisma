@@ -16,6 +16,7 @@ enum Plan {
   lite
   pro
 }
+
 enum Role {
   receptionist
   doctor
@@ -27,6 +28,7 @@ enum Role {
   owner
   admin
 }
+
 enum LocationKind {
   branch
   department
@@ -34,6 +36,7 @@ enum LocationKind {
   room
   bed
 }
+
 enum BedState {
   vacant
   reserved
@@ -42,12 +45,14 @@ enum BedState {
   cleaning
   blocked
 }
+
 enum IdentityConfidence {
   verified
   unverified
   possible_duplicate
   provisional
 }
+
 enum Sex {
   male
   female
@@ -55,41 +60,42 @@ enum Sex {
 }
 
 model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  plan      Plan     @default(clinic)
+  id              String         @id @default(cuid())
+  name            String
+  plan            Plan           @default(clinic)
   /// facility number prefix, e.g. "GLC" → GLC-240117 (Sequence "patient" supplies the number)
-  patientNoPrefix String @default("PT")
-  createdAt DateTime @default(now())
-  organizations Organization[]
-  users     User[]
-  patients  Patient[]
-  auditEvents AuditEvent[]
+  patientNoPrefix String         @default("PT")
+  createdAt       DateTime       @default(now())
+  organizations   Organization[]
+  users           User[]
+  patients        Patient[]
+  auditEvents     AuditEvent[]
 }
 
 /// A facility (hospital or clinic). A tenant may own several.
 model Organization {
-  id        String  @id @default(cuid())
-  tenantId  String
-  tenant    Tenant  @relation(fields: [tenantId], references: [id])
-  name      String
-  nameBn    String?
-  licenceNo String?
-  address   String?
+  id                        String             @id @default(cuid())
+  tenantId                  String
+  tenant                    Tenant             @relation(fields: [tenantId], references: [id])
+  name                      String
+  nameBn                    String?
+  licenceNo                 String?
+  address                   String?
   /// Seller VAT registration (BIN) printed on the Mushak-6.3 receipt; null = not registered in Setu, so no Mushak line
   /// (slice A6–A7 decision 5). `vatBinSample` marks the prototype's sample value in demo tenants.
-  vatBin       String?
-  vatBinSample Boolean @default(false)
+  vatBin                    String?
+  vatBinSample              Boolean            @default(false)
   /// Billing limits (decision 4): cashier discount limit = lower of the amount and the percent of the subtotal; an
   /// approver (owner/admin) approves at most approverLimitPaisa per request. Paisa / basis points.
-  cashierDiscountLimitPaisa Int @default(50000)
-  cashierDiscountLimitBp    Int @default(500)
-  approverLimitPaisa        Int @default(1000000)
+  cashierDiscountLimitPaisa Int                @default(50000)
+  cashierDiscountLimitBp    Int                @default(500)
+  approverLimitPaisa        Int                @default(1000000)
   /// Lab (ADR 0006): may one person both technically verify and clinically validate a result? null = by plan
   /// (Clinic: yes; Hospital Lite / Pro: no) — @setu/domain lab.ts samePersonAllowed; the database checks it too.
   labSamePersonAllowed      Boolean?
-  locations Location[]
-  practitionerRoles PractitionerRole[]
+  locations                 Location[]
+  practitionerRoles         PractitionerRole[]
+
   @@index([tenantId])
 }
 
@@ -108,26 +114,28 @@ model Location {
   /// bed class (General/Cabin/HDU/ICU) and state apply when kind = bed
   bedClass       String?
   bedState       BedState?
+
   @@index([tenantId, organizationId])
   @@index([parentId])
 }
 
 /// Login identity. A receptionist is a User with a role but no Practitioner record.
 model User {
-  id           String   @id @default(cuid())
+  id           String             @id @default(cuid())
   tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  tenant       Tenant             @relation(fields: [tenantId], references: [id])
   phone        String?
   email        String?
   nameBn       String
   nameEn       String
   passwordHash String
   pinHash      String?
-  active       Boolean  @default(true)
+  active       Boolean            @default(true)
   roles        PractitionerRole[]
   sessions     Session[]
   practitioner Practitioner?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime           @default(now())
+
   @@unique([tenantId, phone])
   @@unique([tenantId, email])
 }
@@ -141,6 +149,7 @@ model PractitionerRole {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
   role           Role
+
   @@unique([userId, organizationId, role])
   @@index([tenantId])
 }
@@ -156,20 +165,22 @@ model Practitioner {
   regVerified Boolean @default(false)
   degrees     String?
   speciality  String?
+
   @@index([tenantId])
 }
 
 model Session {
-  id         String   @id @default(cuid())
-  tenantId   String
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  deviceId   String?
-  device     Device?  @relation(fields: [deviceId], references: [id])
+  id             String   @id @default(cuid())
+  tenantId       String
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  deviceId       String?
+  device         Device?  @relation(fields: [deviceId], references: [id])
   organizationId String
-  role       Role
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
+  role           Role
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
   @@index([tenantId, userId])
 }
 
@@ -180,16 +191,17 @@ model Device {
   pushToken  String?
   lastSyncAt DateTime?
   sessions   Session[]
+
   @@index([tenantId])
 }
 
 model Patient {
-  id                 String             @id @default(cuid())
+  id                 String               @id @default(cuid())
   tenantId           String
-  tenant             Tenant             @relation(fields: [tenantId], references: [id])
+  tenant             Tenant               @relation(fields: [tenantId], references: [id])
   /// display number, e.g. GLC-240117 — from a per-tenant sequence, Latin digits
   facilityNo         String
-  setuId             String?            @unique
+  setuId             String?              @unique
   nid                String?
   birthRegNo         String?
   nameBn             String
@@ -201,22 +213,23 @@ model Patient {
   /// when the approximate age was recorded, so it can be aged forward
   approxAgeAt        DateTime?
   phone              String?
-  phoneOwner         String?            // self | guardian | shared
+  phoneOwner         String? // self | guardian | shared
   division           String?
   district           String?
   upazila            String?
   addressLine        String?
   photoKey           String?
-  identityConfidence IdentityConfidence @default(unverified)
+  identityConfidence IdentityConfidence   @default(unverified)
   identityMethod     String?
   linkedToId         String?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
   relatedPersons     RelatedPerson[]
   encounters         Encounter[]
   observations       Observation[]
   allergies          AllergyIntolerance[]
   compositions       Composition[]
+
   @@unique([tenantId, facilityNo])
   @@index([tenantId, phone])
   @@index([tenantId, nameBn])
@@ -233,25 +246,27 @@ model RelatedPerson {
   phone         String?
   guardianProof String?
   verified      Boolean @default(false)
+
   @@index([tenantId, patientId])
 }
 
 /// Rule 5: every PHI-revealing action. Append-only; no updates or deletes (enforced in migration SQL).
 model AuditEvent {
-  id         String   @id @default(cuid())
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id])
-  at         DateTime @default(now())
-  userId     String?
-  role       Role?
-  action     String   // view | create | update | sign | print | reprint | break-glass | login
-  entity     String   // model name
-  entityId   String?
-  patientId  String?
-  deviceId   String?
-  ip         String?
-  basis      String?  // patient | referral | policy | emergency
-  detail     Json?
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  at        DateTime @default(now())
+  userId    String?
+  role      Role?
+  action    String // view | create | update | sign | print | reprint | break-glass | login
+  entity    String // model name
+  entityId  String?
+  patientId String?
+  deviceId  String?
+  ip        String?
+  basis     String? // patient | referral | policy | emergency
+  detail    Json?
+
   @@index([tenantId, patientId, at])
   @@index([tenantId, at])
 }
@@ -265,6 +280,7 @@ model IdempotencyKey {
   statusCode Int
   response   Json
   createdAt  DateTime @default(now())
+
   @@unique([tenantId, key, route])
   @@index([createdAt])
 }
@@ -274,6 +290,7 @@ model Sequence {
   tenantId String
   name     String
   value    Int    @default(0)
+
   @@id([tenantId, name])
 }
 
@@ -287,6 +304,7 @@ enum EncounterStatus {
   cancelled
   entered_in_error @map("entered-in-error")
 }
+
 enum EncounterClass {
   opd
   ipd
@@ -319,6 +337,7 @@ model Encounter {
   createdAt      DateTime        @default(now())
   observations   Observation[]
   compositions   Composition[]
+
   @@unique([tenantId, branchId, tokenDay, tokenNo])
   @@index([tenantId, branchId, tokenDay])
   @@index([tenantId, patientId])
@@ -349,6 +368,7 @@ model Task {
   decidedById   String?
   decidedAt     DateTime?
   decisionNote  String?
+
   @@index([tenantId, kind, status])
   @@index([tenantId, focusId])
 }
@@ -376,6 +396,7 @@ model Provenance {
   source     ProvenanceSource
   reason     String?
   detail     Json?
+
   @@index([tenantId, targetType, targetId])
 }
 
@@ -389,6 +410,7 @@ enum ObservationStatus {
   amended
   entered_in_error @map("entered-in-error")
 }
+
 /// Observation.interpretation (@setu/domain vitals.ts): normal, high, low, critical high, critical low.
 enum ObservationInterpretation {
   N
@@ -424,7 +446,9 @@ model Observation {
   effectiveAt      DateTime
   recordedAt       DateTime                   @default(now())
   deviceLabel      String?
-  /* ── lab results (category "laboratory", slice A8–A11, ADR 0006); null for vital signs ── */
+  /**
+   * ── lab results (category "laboratory", slice A8–A11, ADR 0006); null for vital signs ──
+   */
   /// the test (order) and the tube it was measured in; null only for seeded history (Rahima's 12/08 results)
   serviceRequestId String?
   specimenId       String?
@@ -452,13 +476,16 @@ model Observation {
   returnedAt       DateTime?
   returnReason     String?
   statusAt         DateTime?
+
   @@index([tenantId, patientId, code, effectiveAt])
   @@index([tenantId, serviceRequestId])
   @@index([tenantId, encounterId])
   @@index([tenantId, batchId])
 }
 
-/* ───────────── Slice A5: consultation ───────────── */
+/**
+ * ───────────── Slice A5: consultation ─────────────
+ */
 
 /// Sample catalogues per tenant, seeded from @setu/domain catalog.ts (NOT a drug database or a terminology server:
 /// pre-pilot, HANDOVER known gap 12). The API searches these; the prescription rules read `ingredients`/`classes`.
@@ -471,6 +498,7 @@ model Icd11Code {
   aliases      String @default("")
   /// unverified-prototype until a clinician checks it against the WHO ICD-11 browser (decision D2)
   verification String @default("unverified-prototype")
+
   @@unique([tenantId, code])
 }
 
@@ -500,6 +528,7 @@ model Medicine {
   /// true for every row until a licensed database replaces the sample list (decision D3)
   sample       Boolean    @default(true)
   active       Boolean    @default(true)
+
   @@unique([tenantId, key])
 }
 
@@ -513,6 +542,7 @@ model OrderableTest {
   /// lab | imaging | other
   group    String
   active   Boolean @default(true)
+
   @@unique([tenantId, code])
 }
 
@@ -521,12 +551,14 @@ enum AllergyStatus {
   active
   entered_in_error @map("entered-in-error")
 }
+
 /// class = a drug class key (penicillin, sulfonamide); substance = an ingredient key; other = free text (not matchable)
 enum AllergyKind {
   class
   substance
   other
 }
+
 enum AllergySeverity {
   mild
   moderate
@@ -556,6 +588,7 @@ model AllergyIntolerance {
   errorReason    String?
   errorById      String?
   errorAt        DateTime?
+
   @@index([tenantId, patientId, status])
 }
 
@@ -603,6 +636,7 @@ model Composition {
   conditions              Condition[]
   medications             MedicationRequest[]
   orders                  ServiceRequest[]
+
   @@unique([tenantId, encounterId, kind, version])
   @@index([tenantId, patientId, status])
 }
@@ -629,6 +663,7 @@ model Condition {
   labelEn            String
   verificationStatus ConditionVerification @default(provisional)
   createdAt          DateTime              @default(now())
+
   @@index([tenantId, compositionId])
   @@index([tenantId, patientId])
 }
@@ -661,6 +696,7 @@ model MedicationRequest {
   /// interaction rule ids the doctor acknowledged on this line
   acks          String[]
   createdAt     DateTime    @default(now())
+
   @@index([tenantId, compositionId])
   @@index([tenantId, patientId])
 }
@@ -678,6 +714,7 @@ enum OrderStatus {
   complete
   revoked
 }
+
 enum OrderPriority {
   routine
   urgent
@@ -712,12 +749,15 @@ model ServiceRequest {
   revokedById    String?
   revokedAt      DateTime?
   revokeReason   String?
+
   @@index([tenantId, encounterId])
   @@index([tenantId, compositionId])
 }
 
-/* ── Billing (slice A6–A7). Every amount is integer paisa; VAT rates are basis points (1500 = 15%). Line maths and
-   totals come from @setu/domain billing.ts; the database re-checks the arithmetic and the state rules. ── */
+/**
+ * ── Billing (slice A6–A7). Every amount is integer paisa; VAT rates are basis points (1500 = 15%). Line maths and
+ * totals come from @setu/domain billing.ts; the database re-checks the arithmetic and the state rules. ──
+ */
 
 enum ChargeKind {
   consultation
@@ -742,6 +782,7 @@ model ChargeItemDefinition {
   sample         Boolean    @default(true)
   active         Boolean    @default(true)
   createdAt      DateTime   @default(now())
+
   @@unique([tenantId, organizationId, code])
 }
 
@@ -749,7 +790,7 @@ model ChargeItemDefinition {
 enum InvoiceStatus {
   draft
   issued
-  partially_paid @map("partially-paid")
+  partially_paid   @map("partially-paid")
   balanced
   cancelled
   /// ADR 0005: void (owner/admin, reason; never with confirmed money)
@@ -797,6 +838,7 @@ model Invoice {
   statusAt            DateTime      @default(now())
   lines               ChargeItem[]
   payments            Payment[]
+
   @@unique([tenantId, organizationId, number])
   @@index([tenantId, encounterId])
   @@index([tenantId, status])
@@ -811,32 +853,33 @@ enum ChargeSource {
 /// A bill line (FHIR ChargeItem). Name, price and VAT rate are copied from the price list when the line is added, so a
 /// later price change never alters a bill. unitPaisa null = no price set: the line is shown and blocks issuing.
 model ChargeItem {
-  id            String       @id @default(cuid())
-  tenantId      String
-  invoiceId     String
-  invoice       Invoice      @relation(fields: [invoiceId], references: [id])
-  position      Int
-  source        ChargeSource
+  id              String       @id @default(cuid())
+  tenantId        String
+  invoiceId       String
+  invoice         Invoice      @relation(fields: [invoiceId], references: [id])
+  position        Int
+  source          ChargeSource
   /// consultation → the Encounter id; order → the ServiceRequest id; desk → null
-  sourceId      String?
-  definitionId  String?
-  code          String
-  nameEn        String
-  nameBn        String
-  unitPaisa     Int?
-  qty           Int          @default(1)
-  vatRateBp     Int          @default(0)
-  grossPaisa    Int          @default(0)
-  discountPaisa Int          @default(0)
-  netPaisa      Int          @default(0)
-  vatPaisa      Int          @default(0)
-  totalPaisa    Int          @default(0)
+  sourceId        String?
+  definitionId    String?
+  code            String
+  nameEn          String
+  nameBn          String
+  unitPaisa       Int?
+  qty             Int          @default(1)
+  vatRateBp       Int          @default(0)
+  grossPaisa      Int          @default(0)
+  discountPaisa   Int          @default(0)
+  netPaisa        Int          @default(0)
+  vatPaisa        Int          @default(0)
+  totalPaisa      Int          @default(0)
   /// decision 98: "Not billed here" — an unpriced order line excluded by an approved bill-elsewhere Task
   notBilledReason String?
   notBilledTaskId String?
   notBilledAt     DateTime?
-  addedById     String
-  createdAt     DateTime     @default(now())
+  addedById       String
+  createdAt       DateTime     @default(now())
+
   @@unique([invoiceId, position])
   @@index([tenantId, invoiceId])
 }
@@ -849,6 +892,7 @@ enum PaymentStatus {
   confirmed
   failed
 }
+
 enum PaymentMethod {
   cash
   card
@@ -891,6 +935,7 @@ model Payment {
   /// the cashier for cash/card/bank; null when the provider confirmed
   confirmedById  String?
   statusAt       DateTime      @default(now())
+
   @@unique([provider, providerRef])
   @@index([tenantId, invoiceId])
   /// callbacks for an earlier (superseded) link are looked up by reference
@@ -914,6 +959,7 @@ model ProviderEvent {
   trxId       String?
   amountPaisa Int?
   receivedAt  DateTime @default(now())
+
   @@unique([provider, eventId])
   @@index([tenantId, paymentId])
 }
@@ -923,13 +969,13 @@ model ProviderEvent {
 /// the same transaction. `verifyCode` (≥16 random characters, never sequential) is what the QR's public verify URL
 /// carries; the verify page shows only facility, receipt number, date and amount. Never updated or deleted.
 model Receipt {
-  id             String   @id @default(cuid())
+  id             String         @id @default(cuid())
   tenantId       String
   organizationId String
   invoiceId      String
   patientId      String
   number         String
-  verifyCode     String   @unique
+  verifyCode     String         @unique
   /// paid to date (confirmed money only) and still due, in paisa, as printed
   paidPaisa      Int
   totalPaisa     Int
@@ -937,8 +983,9 @@ model Receipt {
   /// everything the receipt prints (seller, patient, lines, totals, paid by, pending, cashier)
   snapshot       Json
   createdById    String
-  createdAt      DateTime @default(now())
+  createdAt      DateTime       @default(now())
   prints         ReceiptPrint[]
+
   @@unique([tenantId, organizationId, number])
   @@index([tenantId, invoiceId])
 }
@@ -959,11 +1006,14 @@ model ReceiptPrint {
   storageKey  String
   printedById String
   printedAt   DateTime @default(now())
+
   @@unique([receiptId, copy])
   @@index([tenantId, receiptId])
 }
 
-/* ───────────── Slice A8–A11: lab (ADR 0006) ───────────── */
+/**
+ * ───────────── Slice A8–A11: lab (ADR 0006) ─────────────
+ */
 
 /// SPECIMEN machine states (@setu/domain machines.ts).
 enum SpecimenStatus {
@@ -974,6 +1024,7 @@ enum SpecimenStatus {
   done
   rejected
 }
+
 enum TubeKind {
   edta
   fluoride
@@ -1011,16 +1062,19 @@ model Specimen {
   createdAt        DateTime        @default(now())
   statusAt         DateTime        @default(now())
   orders           SpecimenOrder[]
+
   @@unique([tenantId, number])
   @@index([tenantId, encounterId])
   @@index([tenantId, organizationId, status])
 }
+
 /// Which tests a tube carries (tests sharing a tube kind share a tube). Written once with the label.
 model SpecimenOrder {
   tenantId         String
   specimenId       String
   specimen         Specimen @relation(fields: [specimenId], references: [id])
   serviceRequestId String
+
   @@id([specimenId, serviceRequestId])
   @@index([tenantId, serviceRequestId])
 }
@@ -1041,9 +1095,11 @@ model LabAnalyte {
   position   Int
   sample     Boolean @default(true)
   active     Boolean @default(true)
+
   @@unique([tenantId, code])
   @@index([tenantId, testCode])
 }
+
 /// Sample reference ranges (RANGES_SAMPLE; decision D1: adult only, Hb and creatinine adult female only). Read-only.
 model LabReferenceRange {
   id          String  @id
@@ -1056,6 +1112,7 @@ model LabReferenceRange {
   high        Float
   label       String
   sample      Boolean @default(true)
+
   @@index([tenantId, analyteCode])
 }
 
@@ -1066,6 +1123,7 @@ enum LabReportStatus {
   corrected
   superseded
 }
+
 /// One report per visit, in released versions (decision D3). Immutable except `superseded` when the next version is
 /// released. `number` (LR/yy/nnnn per facility per year) is shared by all versions of the visit's report.
 model DiagnosticReport {
@@ -1087,15 +1145,18 @@ model DiagnosticReport {
   releasedAt     DateTime
   createdAt      DateTime                 @default(now())
   results        DiagnosticReportResult[]
+
   @@unique([tenantId, encounterId, version])
   @@index([tenantId, organizationId, releasedAt])
 }
+
 model DiagnosticReportResult {
   tenantId         String
   reportId         String
   report           DiagnosticReport @relation(fields: [reportId], references: [id])
   observationId    String
   serviceRequestId String
+
   @@id([reportId, observationId])
   @@index([tenantId, observationId])
 }
@@ -1104,6 +1165,7 @@ enum CallbackOutcome {
   reached
   no_answer @map("no-answer")
 }
+
 /// A critical-value call-back (ADR 0006, decision D9): append-only. Only `reached` with readBack, for that exact
 /// Observation, unblocks its clinical validation; attempts that reached no one stay on record.
 model CriticalCallback {
@@ -1123,6 +1185,7 @@ model CriticalCallback {
   readBack       Boolean
   callerId       String
   recordedAt     DateTime        @default(now())
+
   @@index([tenantId, observationId])
 }
 
@@ -1133,11 +1196,13 @@ enum CommunicationStatus {
   completed
   failed
 }
+
 enum CommunicationChannel {
   sms
   patient_app  @map("patient-app")
   doctor_inbox @map("doctor-inbox")
 }
+
 /// Every message (ADR 0006). `id` is the message id a retry reuses. SMS text is a fixed template (no values, tests,
 /// diagnosis or name); in-app deliveries (doctor's inbox, patient app) carry no text, only what they point at.
 model Communication {
@@ -1146,7 +1211,8 @@ model Communication {
   organizationId   String
   patientId        String
   encounterId      String?
-  /// recollect | report-ready | report-app | report-inbox | correction-notice | order-cancelled
+  /// recollect | report-ready | report-app | report-inbox | correction-notice | results-withdrawn | order-cancelled |
+  /// report-reviewed (SMS, ADR 0007) | critical-vital (doctor-inbox, ADR 0007)
   kind             String
   channel          CommunicationChannel
   recipientUserId  String?
@@ -1166,7 +1232,62 @@ model Communication {
   sentAt           DateTime?
   completedAt      DateTime?
   statusAt         DateTime             @default(now())
+  ack              InboxAck?            @relation("InboxAckItem")
+
   @@index([tenantId, encounterId])
   @@index([tenantId, reportId])
   @@index([tenantId, recipientUserId, channel])
+}
+
+/// The doctor's acknowledgement of a doctor-inbox Communication (ADR 0007, INBOX_ITEM unread → acknowledged):
+/// append-only, one per item, only by its recipient. "Seen + tell patient" stores the SMS it queued.
+model InboxAck {
+  id                    String        @id @default(cuid())
+  tenantId              String
+  communicationId       String        @unique
+  communication         Communication @relation("InboxAckItem", fields: [communicationId], references: [id])
+  ackedById             String
+  ackedAt               DateTime      @default(now())
+  notifyPatient         Boolean       @default(false)
+  notifyCommunicationId String?       @unique
+
+  @@index([tenantId, ackedById])
+}
+
+/// The verify code of a printable clinical document version (ADR 0007): rx = a signed consultation note version
+/// (Composition), lr = a released lab report version (DiagnosticReport). Created at its first print; never changed.
+model DocumentCode {
+  id             String          @id @default(cuid())
+  tenantId       String
+  organizationId String
+  /// rx | lr
+  kind           String
+  documentId     String
+  verifyCode     String          @unique
+  createdById    String
+  createdAt      DateTime        @default(now())
+  prints         DocumentPrint[]
+
+  @@unique([tenantId, kind, documentId])
+}
+
+/// Every print of a clinical document version: copy 0 = original, n = DUPLICATE #n with a reason. Append-only.
+model DocumentPrint {
+  id          String       @id @default(cuid())
+  tenantId    String
+  codeId      String
+  code        DocumentCode @relation(fields: [codeId], references: [id])
+  copy        Int
+  /// lost | jam | copy
+  reason      String?
+  /// a5 | a4
+  format      String
+  /// both | bn | en
+  lang        String
+  storageKey  String
+  printedById String
+  printedAt   DateTime     @default(now())
+
+  @@unique([codeId, copy])
+  @@index([tenantId, codeId])
 }
