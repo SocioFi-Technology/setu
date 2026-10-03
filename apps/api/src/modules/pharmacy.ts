@@ -404,9 +404,10 @@ export async function stockList(tx: Tx, s: SessionData, q: string, filter: "all"
       medicine: medRef(m.id), counterQty: usable(PICK), storeQty: usable(["store"]),
       nearExpiryQty: own.filter((b) => b.location !== "quarantine" && nearExpiry(b.expiry, today)).reduce((a, b) => a + b.qtyOnHand, 0),
       expiredQty: own.filter((b) => batchState(asLike(b), today) === "expired").reduce((a, b) => a + b.qtyOnHand, 0),
+      low: usable(PICK) < LOW_STOCK,
       batches: own.map((b) => batchView(b, today)),
     };
-  }).filter((x) => filter === "all" ? true : filter === "near-expiry" ? x.nearExpiryQty > 0 : filter === "expired" ? x.expiredQty > 0 : x.counterQty < LOW_STOCK);
+  }).filter((x) => filter === "all" ? true : filter === "near-expiry" ? x.nearExpiryQty > 0 : filter === "expired" ? x.expiredQty > 0 : x.low);
   return { items, today };
 }
 /** "Low" on the stock list: fewer than this many usable at the counter (sample threshold; a per-item reorder level comes with purchasing). */

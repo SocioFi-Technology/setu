@@ -10,7 +10,7 @@ import type { OtcView, StockList } from "@setu/contracts";
 import { Button, Callout, Card, PageState, Pill, TextField, useToast } from "@setu/ui";
 import { pharm } from "../../lib/api";
 import { useSession } from "../../lib/session";
-import { ClassPill, NeedsServer, toInt, useErr, useFmt, useP } from "./common";
+import { ClassPill, NeedsServer, renewKey, toInt, useErr, useFmt, useP } from "./common";
 
 const PHOTO_MAX = 3 * 1024 * 1024;
 
@@ -50,14 +50,15 @@ function Sale({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const [issueKey, setIssueKey] = useState(() => crypto.randomUUID());
   // every change to the sale runs after the one before, on the latest version (its rev) — nothing is dropped while busy
-  const latest = useRef<OtcView | null>(null); const chain = useRef<Promise<unknown>>(Promise.resolve());
+  const latest = useRef<OtcView | null>(null); const chain = useRef<Promise<unknown>>(Promise.resolve()); const lastErr = useRef<unknown>(null);
   const show = (x: OtcView) => { latest.current = x; setV(x); };
   const load = useCallback(async () => { try { show(await pharm.otc(id)); } catch { setFailed(true); } }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
     if (q.trim().length < 2) { setFound([]); return; }
-    const t = setTimeout(() => { pharm.stock(q.trim(), "all").then((r) => setFound(r.items.slice(0, 8))).catch(() => setFound([])); }, 250);
-    return () => clearTimeout(t);
+    let stale = false; // an older answer never replaces a newer search
+    const t = setTimeout(() => { pharm.stock(q.trim(), "all").then((r) => { if (!stale) setFound(r.items.slice(0, 8)); }).catch(() => { if (!stale) setFound([]); }); }, 250);
+    return () => { stale = true; clearTimeout(t); };
   }, [q]);
   if (failed) return <PageState icon="shopping-cart" title={P("error_generic")} />;
   if (!v) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
@@ -67,7 +68,7 @@ function Sale({ id }: { id: string }) {
     chain.current = chain.current.then(async () => {
       setBusy(true);
       try { show(await f(latest.current!.bill.invoice.rev)); done(true); }
-      catch (e) { toast(E(e), "triangle-alert"); await load(); done(false); }
+      catch (e) { lastErr.current = e; toast(E(e), "triangle-alert"); await load(); done(false); }
       finally { setBusy(false); }
     });
   });
@@ -87,7 +88,7 @@ function Sale({ id }: { id: string }) {
         <h1 className="t-h2" style={{ margin: 0 }}>{P("otc_title")}</h1>
         <b className="num">{inv.number ?? P("draft")}</b>
         <Pill tone={draft ? "draft" : inv.status === "balanced" ? "ok" : "warn"}>{P(`bs_${inv.status}`)}</Pill>
-        <span className="t-small t-secondary">{inv.buyer?.name ?? P("walk_in")}{inv.buyer?.phone ? ` · 0${inv.buyer.phone}` : ""}</span>
+        <span className="t-small t-secondary">{inv.buyer?.name ?? P("walk_in")}{inv.buyer?.phone ? ` · ${s.n(`0${inv.buyer.phone}`)}` : ""}</span>
         <span style={{ marginLeft: "auto" }} />
         <Button size="sm" icon="plus" onClick={() => router.push("/m/ph/otc")}>{P("new_sale")}</Button>
       </div>
@@ -143,7 +144,7 @@ function Sale({ id }: { id: string }) {
         {v.rxPhoto
           ? <><Pill tone="ok" icon="check">{P("photo_added")}</Pill><a href={pharm.otcPhotoSrc(id)} target="_blank" rel="noreferrer"><img src={pharm.otcPhotoSrc(id)} alt={P("rx_photo")} style={{ height: 64, borderRadius: 4, border: "1px solid var(--border-default)" }} /></a></>
           : draft
-            ? <label className="btn" style={{ cursor: "pointer" }}><input type="file" accept="image/jpeg,image/png" capture="environment" style={{ display: "none" }} data-testid="photo-input" onChange={(e) => void onPhoto(e.target.files?.[0])} />{P("add_photo")}</label>
+            ? <label className="btn" style={{ cursor: "pointer", position: "relative" }}><input type="file" accept="image/jpeg,image/png" capture="environment" style={{ position: "absolute", width: 1, height: 1, opacity: 0, overflow: "hidden" }} data-testid="photo-input" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; void onPhoto(f); }} />{P("add_photo")}</label>
             : <span className="t-small t-muted">{P("no_photo")}</span>}
         <span className="t-small t-secondary">{P("photo_rule")}</span>
       </Card>
@@ -153,7 +154,7 @@ function Sale({ id }: { id: string }) {
       <Card style={{ display: "flex", gap: 12, alignItems: "center", padding: 12, flexWrap: "wrap" }}>
         {draft && (
           <Button variant="primary" icon="check-check" data-testid="complete-sale" disabled={!s.online || busy || v.blockers.length > 0}
-            onClick={async () => { if (await run((rev) => pharm.otcIssue(id, rev, issueKey))) { setIssueKey(crypto.randomUUID()); toast(P("sale_done"), "check"); } else setIssueKey(crypto.randomUUID()); }}>
+            onClick={async () => { if (await run((rev) => pharm.otcIssue(id, rev, issueKey))) { setIssueKey(crypto.randomUUID()); toast(P("sale_done"), "check"); } else if (renewKey(lastErr.current)) setIssueKey(crypto.randomUUID()); }}>
             {P("complete_sale")}
           </Button>
         )}

@@ -3,7 +3,7 @@
    medicine with what is usable at the counter and in the store, what expires within 90 days and what has expired,
    the batches behind it, and store → counter transfers (dispensing and sales pick from the counter only; an expired
    batch never goes to the counter). Filters: all / near expiry / expired / low at the counter. */
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { BatchView, StockList } from "@setu/contracts";
 import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextField, useToast } from "@setu/ui";
 import { pharm } from "../../lib/api";
@@ -18,7 +18,8 @@ export function PhStock() {
   const [list, setList] = useState<StockList | null>(null); const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [moving, setMoving] = useState<BatchView | null>(null);
-  const load = useCallback(async () => { try { setList(await pharm.stock(q.trim(), filter)); setFailed(false); } catch { setFailed(true); } }, [q, filter]);
+  const ask = useRef(0); // an older answer never replaces a newer search
+  const load = useCallback(async () => { const n = ++ask.current; try { const x = await pharm.stock(q.trim(), filter); if (n === ask.current) { setList(x); setFailed(false); } } catch { if (n === ask.current) setFailed(true); } }, [q, filter]);
   useEffect(() => { const t = setTimeout(() => void load(), 200); return () => clearTimeout(t); }, [load]);
   if (failed && !list) return <PageState icon="boxes" title={P("error_generic")} />;
   return (
@@ -41,7 +42,7 @@ export function PhStock() {
                   <tr data-medicine={x.medicine.key}>
                     <td><MedName m={x.medicine} /></td>
                     <td><ClassPill c={x.medicine.saleClass} /></td>
-                    <td className="num">{F.n(x.counterQty)}{x.counterQty < 100 && <> <Pill tone="warn" icon="arrow-down">{P("low")}</Pill></>}</td>
+                    <td className="num">{F.n(x.counterQty)}{x.low && <> <Pill tone="warn" icon="arrow-down">{P("low")}</Pill></>}</td>
                     <td className="num">{F.n(x.storeQty)}</td>
                     <td className="num">{x.nearExpiryQty > 0 ? <Pill tone="warn" icon="hourglass">{F.n(x.nearExpiryQty)}</Pill> : F.n(0)}</td>
                     <td className="num">{x.expiredQty > 0 ? <Pill tone="bad" icon="ban">{F.n(x.expiredQty)}</Pill> : F.n(0)}</td>

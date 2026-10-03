@@ -4,14 +4,14 @@
    counts waiting, receipts with a batch expiring within 6 months or another price than the order). An order: lines →
    Send (or "Ask the owner" above ৳50,000, sample) → Receive goods: each line checked at the counter (batch, expiry,
    billed and received quantity, cost, MRP, where it goes) → Post (stock in; a short delivery becomes a debit note). */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { GoodsReceiptView, PharmacyApprovals, PurchaseOrderList, PurchaseOrderView, SupplierLedger, SupplierList } from "@setu/contracts";
 import { MEDICINES_SAMPLE } from "@setu/domain";
 import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
 import { purch } from "../../lib/api";
 import { useSession } from "../../lib/session";
-import { MedName, NeedsServer, takaToPaisa, toInt, useErr, useFmt, useP } from "./common";
+import { MedName, NeedsServer, renewKey, takaToPaisa, toInt, useErr, useFmt, useP } from "./common";
 
 const PO_TONE: Record<string, Tone> = { draft: "draft", sent: "pend", "partially-received": "warn", received: "ok", cancelled: "off" };
 const APPROVERS = ["owner", "admin"];
@@ -67,7 +67,7 @@ function Orders() {
             <thead><tr><th>{P("po_no")}</th><th>{P("supplier")}</th><th>{P("status")}</th><th className="num">{P("lines")}</th><th className="num">{P("total")}</th><th>{P("created")}</th></tr></thead>
             <tbody>
               {list.items.map((o) => (
-                <tr key={o.id} data-po={o.id} style={{ cursor: "pointer" }} onClick={() => router.push(`/m/ph/purchase?po=${encodeURIComponent(o.id)}`)}>
+                <tr key={o.id} data-po={o.id} style={{ cursor: "pointer" }} tabIndex={0} role="link" onClick={() => router.push(`/m/ph/purchase?po=${encodeURIComponent(o.id)}`)} onKeyDown={(e) => { if (e.key === "Enter") router.push(`/m/ph/purchase?po=${encodeURIComponent(o.id)}`); }}>
                   <td className="num">{o.number ?? P("draft")}</td><td>{o.supplier.name}</td>
                   <td><Pill tone={PO_TONE[o.status]}>{P(`po_${o.status}`)}</Pill>{o.approvalPending && <> <Pill tone="warn" icon="hourglass">{P("awaiting_approval")}</Pill></>}</td>
                   <td className="num">{F.n(o.lineCount)}</td><td className="num">{F.tk(o.totalPaisa)}</td><td className="num">{F.dateTime(o.createdAt)}</td>
@@ -92,7 +92,7 @@ function Order({ id }: { id: string }) {
   if (failed) return <PageState icon="clipboard-list" title={P("error_generic")} />;
   if (!o) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
   const approver = APPROVERS.includes(s.me?.role ?? "");
-  const run = async (f: () => Promise<PurchaseOrderView>) => { if (busy) return false; setBusy(true); try { setO(await f()); setKey(crypto.randomUUID()); return true; } catch (e) { toast(E(e), "triangle-alert"); setKey(crypto.randomUUID()); await load(); return false; } finally { setBusy(false); } };
+  const run = async (f: () => Promise<PurchaseOrderView>) => { if (busy) return false; setBusy(true); try { setO(await f()); setKey(crypto.randomUUID()); return true; } catch (e) { toast(E(e), "triangle-alert"); if (renewKey(e)) setKey(crypto.randomUUID()); await load(); return false; } finally { setBusy(false); } };
   const draft = o.status === "draft";
   const asking = o.sendBlockers.includes("approval_required");
   const openForGoods = o.status === "sent" || o.status === "partially-received";
@@ -161,7 +161,7 @@ function Order({ id }: { id: string }) {
           <span style={{ display: "inline-flex", gap: 8, alignItems: "flex-end", marginLeft: "auto" }}>
             <TextField label={P("supplier_invoice")} hint={P("optional")} value={inv} onChange={(e) => setInv(e.target.value)} data-testid="grn-invoice" />
             <Button variant="primary" icon="package-plus" data-testid="receive" disabled={!s.online || busy}
-              onClick={async () => { setBusy(true); try { const g = await purch.newReceipt(o.id, inv.trim(), key); router.push(`/m/ph/purchase?grn=${encodeURIComponent(g.id)}`); } catch (e) { toast(E(e), "triangle-alert"); setKey(crypto.randomUUID()); setBusy(false); } }}>{P("receive_goods")}</Button>
+              onClick={async () => { setBusy(true); try { const g = await purch.newReceipt(o.id, inv.trim(), key); router.push(`/m/ph/purchase?grn=${encodeURIComponent(g.id)}`); } catch (e) { toast(E(e), "triangle-alert"); if (renewKey(e)) setKey(crypto.randomUUID()); setBusy(false); } }}>{P("receive_goods")}</Button>
           </span>
         )}
       </Card>
@@ -213,7 +213,7 @@ function Receipt({ id }: { id: string }) {
   if (!g || !po) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
   const checking = g.status === "checking";
   const approver = APPROVERS.includes(s.me?.role ?? "");
-  const run = async (f: () => Promise<GoodsReceiptView>) => { if (busy) return false; setBusy(true); try { setG(await f()); setKey(crypto.randomUUID()); return true; } catch (e) { toast(E(e), "triangle-alert"); setKey(crypto.randomUUID()); await load(); return false; } finally { setBusy(false); } };
+  const run = async (f: () => Promise<GoodsReceiptView>) => { if (busy) return false; setBusy(true); try { setG(await f()); setKey(crypto.randomUUID()); return true; } catch (e) { toast(E(e), "triangle-alert"); if (renewKey(e)) setKey(crypto.randomUUID()); await load(); return false; } finally { setBusy(false); } };
   const here = (lineId: string) => g.lines.filter((x) => x.orderLineId === lineId).reduce((a, x) => a + x.receivedQty, 0);
   const ownerOnly = g.postBlockers.filter((b) => b.endsWith("needs_owner"));
   return (
@@ -230,7 +230,7 @@ function Receipt({ id }: { id: string }) {
 
       {checking && po.lines.filter((l) => l.qty - l.receivedQty - here(l.id) > 0).map((l) => {
         const f = form[l.id]; if (!f) return null;
-        const set = (p: Partial<typeof f>) => setForm((x) => ({ ...x, [l.id]: { ...f, ...p } }));
+        const set = (p: Partial<typeof f>) => setForm((x) => ({ ...x, [l.id]: { ...x[l.id]!, ...p } }));
         const ok = f.batchNo.trim() && f.expiry && toInt(f.invoiced) && toInt(f.received) !== null && takaToPaisa(f.cost) !== null && takaToPaisa(f.mrp) !== null;
         return (
           <Card key={l.id} data-testid="grn-form" data-line={l.medicine.key} style={{ display: "flex", flexDirection: "column", gap: 8, padding: 12 }}>
@@ -246,7 +246,7 @@ function Receipt({ id }: { id: string }) {
                 {(["store", "counter", "fridge"] as const).map((x) => <option key={x} value={x}>{P(`loc_${x}`)}</option>)}
               </SelectField>
               <Button icon="plus" data-testid="grn-add" disabled={!s.online || busy || !ok}
-                onClick={() => void run(() => purch.receiptLine(g.id, { rev: g.rev, orderLineId: l.id, batchNo: f.batchNo.trim(), expiry: f.expiry, invoicedQty: toInt(f.invoiced)!, receivedQty: toInt(f.received)!, costPaisa: takaToPaisa(f.cost)!, mrpPaisa: takaToPaisa(f.mrp)!, vatRateBp: 0, location: f.location }))}>{P("add")}</Button>
+                onClick={async () => { if (await run(() => purch.receiptLine(g.id, { rev: g.rev, orderLineId: l.id, batchNo: f.batchNo.trim(), expiry: f.expiry, invoicedQty: toInt(f.invoiced)!, receivedQty: toInt(f.received)!, costPaisa: takaToPaisa(f.cost)!, mrpPaisa: takaToPaisa(f.mrp)!, vatRateBp: 0, location: f.location }))) set({ batchNo: "", invoiced: "", received: "" }); }}>{P("add")}</Button>
             </div>
           </Card>
         );
@@ -310,7 +310,7 @@ function Suppliers() {
             <thead><tr><th>{P("supplier")}</th><th className="num">{P("owed")}</th></tr></thead>
             <tbody>
               {list.items.map((x) => (
-                <tr key={x.id} data-supplier={x.name} style={{ cursor: "pointer" }} onClick={() => router.push(`/m/ph/purchase?sup=${encodeURIComponent(x.id)}`)}>
+                <tr key={x.id} data-supplier={x.name} style={{ cursor: "pointer" }} tabIndex={0} role="link" onClick={() => router.push(`/m/ph/purchase?sup=${encodeURIComponent(x.id)}`)} onKeyDown={(e) => { if (e.key === "Enter") router.push(`/m/ph/purchase?sup=${encodeURIComponent(x.id)}`); }}>
                   <td>{x.name}{x.sample ? <span className="t-small t-muted"> · {P("sample")}</span> : null}</td><td className="num">{F.tk(x.owedPaisa)}</td>
                 </tr>
               ))}
@@ -324,8 +324,9 @@ function Suppliers() {
 
 function Supplier({ id }: { id: string }) {
   const s = useSession(); const P = useP(); const F = useFmt(); const E = useErr(); const router = useRouter(); const toast = useToast();
-  const [l, setL] = useState<SupplierLedger | null>(null); const [amt, setAmt] = useState(""); const [note, setNote] = useState(""); const [busy, setBusy] = useState(false); const [key, setKey] = useState(() => crypto.randomUUID());
-  useEffect(() => { purch.supplier(id).then(setL).catch(() => undefined); }, [id]);
+  const [l, setL] = useState<SupplierLedger | null>(null); const [lFailed, setLFailed] = useState(false); const [amt, setAmt] = useState(""); const [note, setNote] = useState(""); const [busy, setBusy] = useState(false); const [key, setKey] = useState(() => crypto.randomUUID());
+  useEffect(() => { purch.supplier(id).then(setL).catch(() => setLFailed(true)); }, [id]);
+  if (lFailed) return <PageState icon="truck" title={P("error_generic")} />;
   if (!l) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
   const approver = APPROVERS.includes(s.me?.role ?? "");
   const p = takaToPaisa(amt);
@@ -340,10 +341,10 @@ function Supplier({ id }: { id: string }) {
       <NeedsServer />
       {approver && (
         <Card style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }}>
-          <TextField label={P("pay_amount_tk")} inputMode="decimal" value={amt} onChange={(e) => setAmt(e.target.value)} data-testid="sup-pay-amount" error={p !== null && p > l.supplier.owedPaisa ? P("over_owed") : undefined} />
-          <TextField label={P("pay_note")} hint={P("pay_note_hint")} value={note} onChange={(e) => setNote(e.target.value)} data-testid="sup-pay-note" />
+          <TextField label={P("pay_amount_tk")} inputMode="decimal" value={amt} onChange={(e) => { setAmt(e.target.value); setKey(crypto.randomUUID()); }} data-testid="sup-pay-amount" error={p !== null && p > l.supplier.owedPaisa ? P("over_owed") : undefined} />
+          <TextField label={P("pay_note")} hint={P("pay_note_hint")} value={note} onChange={(e) => { setNote(e.target.value); setKey(crypto.randomUUID()); }} data-testid="sup-pay-note" />
           <Button variant="primary" icon="banknote" data-testid="sup-pay" disabled={!s.online || busy || !p || p > l.supplier.owedPaisa || note.trim().length < 4}
-            onClick={async () => { setBusy(true); try { setL(await purch.pay(id, { amountPaisa: p!, note: note.trim() }, key)); setAmt(""); setNote(""); setKey(crypto.randomUUID()); } catch (e) { toast(E(e), "triangle-alert"); setKey(crypto.randomUUID()); } finally { setBusy(false); } }}>{P("record_payment")}</Button>
+            onClick={async () => { setBusy(true); try { setL(await purch.pay(id, { amountPaisa: p!, note: note.trim() }, key)); setAmt(""); setNote(""); setKey(crypto.randomUUID()); } catch (e) { toast(E(e), "triangle-alert"); if (renewKey(e)) setKey(crypto.randomUUID()); } finally { setBusy(false); } }}>{P("record_payment")}</Button>
         </Card>
       )}
       <Card style={{ padding: 0, overflowX: "auto" }}>
@@ -367,6 +368,8 @@ function Supplier({ id }: { id: string }) {
 function Approvals() {
   const s = useSession(); const P = useP(); const F = useFmt(); const E = useErr(); const router = useRouter(); const toast = useToast();
   const [a, setA] = useState<PharmacyApprovals | null>(null); const [busy, setBusy] = useState(false);
+  const keys = useRef(new Map<string, string>());
+  const keyFor = (id: string) => { if (!keys.current.has(id)) keys.current.set(id, crypto.randomUUID()); return keys.current.get(id)!; };
   const load = useCallback(() => purch.approvals().then(setA).catch(() => setA({ orders: [], counts: [], receipts: [] })), []);
   useEffect(() => { void load(); }, [load]);
   if (!a) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
@@ -381,7 +384,7 @@ function Approvals() {
           <Button size="sm" icon="eye" onClick={() => router.push(`/m/ph/purchase?po=${encodeURIComponent(o.id)}`)}>{P("open")}</Button>
           {approval.requestedBy.id !== s.me?.userId && (
             <Button size="sm" variant="primary" icon="check" data-testid="appr-po-approve" disabled={!s.online || busy}
-              onClick={async () => { setBusy(true); try { await purch.approval(o.id, "approve", "", crypto.randomUUID()); toast(P("approved_sent"), "check"); await load(); } catch (e) { toast(E(e), "triangle-alert"); } finally { setBusy(false); } }}>{P("approve_send")}</Button>
+              onClick={async () => { setBusy(true); try { await purch.approval(o.id, "approve", "", keyFor(o.id)); keys.current.delete(o.id); toast(P("approved_sent"), "check"); await load(); } catch (e) { toast(E(e), "triangle-alert"); if (renewKey(e)) keys.current.delete(o.id); } finally { setBusy(false); } }}>{P("approve_send")}</Button>
           )}
         </Card>
       ))}

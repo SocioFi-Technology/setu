@@ -111,6 +111,8 @@ export const StockItem = z.object({
   /** usable (not expired, not quarantined) at the counter and in the store */
   counterQty: z.number().int(), storeQty: z.number().int(),
   nearExpiryQty: z.number().int(), expiredQty: z.number().int(),
+  /** fewer usable at the counter than the low-stock level (sample) */
+  low: z.boolean(),
   batches: z.array(BatchView),
 });
 export const StockList = z.object({ items: z.array(StockItem), today: z.string() });

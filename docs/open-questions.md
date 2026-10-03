@@ -801,3 +801,12 @@ Commit after each step, push at the end of each session.
 190. **Sample batches count in the stock-value tile** (demo stock) — keep, or show them separately?
 191. **Patient returns of dispensed medicine** (and voiding a pharmacy bill with given medicine) move to the refunds
      slice, since money goes back; until then the void stays refused (open question 166).
+
+## Phase 2 slice 2 — pharmacy, session 3 — 03/10/2026
+192. **The dose label is a screen preview only** (50 × 30 mm, Bangla). Which label printer / paper, and is the label
+     part of `print-specs.md` (patient name, medicine, dose, batch, expiry, facility)? Printing comes when decided.
+193. **The pharmacist now reaches Payment, Receipt and Shift close** in the Billing menu (ADR 0009 note) — the prototype
+     should show the pharmacist's counter till in the next design round. Keep it under Billing, or a "Counter" item in
+     the Pharmacy menu?
+194. **Owner approvals for the pharmacy are a tab in Purchase** (orders above the limit, receipts only the owner may
+     post, counts waiting). Should they also appear in the owner's Approvals screen and the dashboard's pending count?

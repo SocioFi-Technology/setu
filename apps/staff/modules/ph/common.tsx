@@ -35,6 +35,9 @@ export function useErr() {
   const s = useSession(); const P = useP();
   return (e: unknown) => (e instanceof ApiFailure ? s.L(e.body.message_bn, e.body.message_en) : P("error_generic"));
 }
+/** A write's Idempotency-Key is kept after a network failure or a server error (the server may have done it — the retry
+    then replays the stored answer instead of doing it twice) and renewed only after a refusal (4xx: nothing was stored). */
+export const renewKey = (e: unknown) => e instanceof ApiFailure && e.status < 500;
 /** taka typed in a box → paisa (whole paisa only), or null */
 export function takaToPaisa(v: string): number | null {
   const t = v.trim().replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d)));

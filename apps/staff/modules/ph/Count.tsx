@@ -10,7 +10,7 @@ import type { CountList, StockCountView } from "@setu/contracts";
 import { Button, Callout, Card, Dialog, PageState, Pill, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
 import { purch } from "../../lib/api";
 import { useSession } from "../../lib/session";
-import { MedName, NeedsServer, toInt, useErr, useFmt, useP } from "./common";
+import { MedName, NeedsServer, renewKey, toInt, useErr, useFmt, useP } from "./common";
 
 const C_TONE: Record<string, Tone> = { counting: "pend", submitted: "warn", approved: "ok", rejected: "off" };
 
@@ -33,7 +33,7 @@ function Counts() {
           {(["counter", "store", "fridge"] as const).map((x) => <option key={x} value={x}>{P(`loc_${x}`)}</option>)}
         </SelectField>
         <Button variant="primary" icon="clipboard-list" data-testid="start-count" disabled={!s.online || busy}
-          onClick={async () => { setBusy(true); try { const c = await purch.newCount(loc, key); router.push(`/m/ph/count?count=${encodeURIComponent(c.id)}`); } catch (e) { toast(E(e), "triangle-alert"); setKey(crypto.randomUUID()); setBusy(false); } }}>{P("start_count")}</Button>
+          onClick={async () => { setBusy(true); try { const c = await purch.newCount(loc, key); router.push(`/m/ph/count?count=${encodeURIComponent(c.id)}`); } catch (e) { toast(E(e), "triangle-alert"); if (renewKey(e)) setKey(crypto.randomUUID()); setBusy(false); } }}>{P("start_count")}</Button>
         <span className="t-small t-secondary">{P("count_rule")}</span>
       </Card>
       {!list ? <div aria-busy="true" className="t-muted">{P("loading")}</div> : list.items.length === 0 ? <PageState icon="clipboard-check" title={P("no_counts")} /> : (
@@ -42,7 +42,7 @@ function Counts() {
             <thead><tr><th>{P("location")}</th><th>{P("status")}</th><th className="num">{P("batches")}</th><th className="num">{P("differences")}</th><th>{P("by")}</th><th>{P("created")}</th></tr></thead>
             <tbody>
               {list.items.map((c) => (
-                <tr key={c.id} data-count={c.id} style={{ cursor: "pointer" }} onClick={() => router.push(`/m/ph/count?count=${encodeURIComponent(c.id)}`)}>
+                <tr key={c.id} data-count={c.id} style={{ cursor: "pointer" }} tabIndex={0} role="link" onClick={() => router.push(`/m/ph/count?count=${encodeURIComponent(c.id)}`)} onKeyDown={(ev) => { if (ev.key === "Enter") router.push(`/m/ph/count?count=${encodeURIComponent(c.id)}`); }}>
                   <td>{P(`loc_${c.location}`)}</td><td><Pill tone={C_TONE[c.status] ?? "neu"}>{P(`cs_${c.status}`)}</Pill></td><td className="num">{F.n(c.lineCount)}</td><td className="num">{F.n(c.varianceLines)}</td>
                   <td>{F.name(c.createdBy)}</td><td className="num">{F.dateTime(c.createdAt)}</td>
                 </tr>
@@ -69,7 +69,7 @@ function CountView({ id }: { id: string }) {
   if (!c) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
   const mine = c.createdBy.id === s.me?.userId;
   const counting = c.status === "counting" && mine;
-  const run = async (f: () => Promise<StockCountView>) => { if (busy) return false; setBusy(true); try { show(await f()); setKey(crypto.randomUUID()); return true; } catch (e) { toast(E(e), "triangle-alert"); setKey(crypto.randomUUID()); await load(); return false; } finally { setBusy(false); } };
+  const run = async (f: () => Promise<StockCountView>) => { if (busy) return false; setBusy(true); try { show(await f()); setKey(crypto.randomUUID()); return true; } catch (e) { toast(E(e), "triangle-alert"); if (renewKey(e)) setKey(crypto.randomUUID()); await load(); return false; } finally { setBusy(false); } };
   const save = (lineId: string) => {
     const e = edit[lineId]; const n = e ? toInt(e.qty) : null;
     if (n === null) return;
@@ -97,7 +97,7 @@ function CountView({ id }: { id: string }) {
           <tbody>
             {c.lines.map((l) => {
               const e = edit[l.id] ?? { qty: "", reason: "" };
-              const set = (p: Partial<typeof e>) => setEdit((x) => ({ ...x, [l.id]: { ...e, ...p } }));
+              const set = (p: Partial<typeof e>) => setEdit((x) => ({ ...x, [l.id]: { ...(x[l.id] ?? e), ...p } }));
               return (
                 <tr key={l.id} data-batch={l.batch.batchNo} data-variance={l.variance ?? ""}>
                   <td><MedName m={l.medicine} strong={false} /></td><td className="num">{l.batch.batchNo}</td><td className="num">{F.day(l.batch.expiry)}</td>

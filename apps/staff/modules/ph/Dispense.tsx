@@ -12,7 +12,7 @@ import { Button, Callout, Card, Dialog, PageState, Pill, SelectField, TextArea, 
 import { ApiFailure, bill, pharm } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { bannerOf, useLabels } from "../fd/common";
-import { BatchState, MedName, NeedsServer, toInt, useErr, useFmt, useP } from "./common";
+import { BatchState, MedName, NeedsServer, renewKey, toInt, useErr, useFmt, useP } from "./common";
 
 const LINE_TONE: Record<DispenseLine["status"], Tone> = { "to-dispense": "pend", partial: "warn", dispensed: "ok", declined: "off", "partial-declined": "off" };
 const Q_TONE: Record<string, Tone> = { "to-dispense": "pend", partial: "warn", done: "ok" };
@@ -50,7 +50,8 @@ function Queue() {
   );
 }
 
-type LinePick = { on: boolean; medicineKey: string; qty: string; reason: string };
+/** `seen`: the dispensed quantity the pick was made against — a new answer from the server starts the line afresh */
+type LinePick = { on: boolean; medicineKey: string; qty: string; reason: string; seen: number };
 
 function Visit({ encounterId }: { encounterId: string }) {
   const s = useSession(); const P = useP(); const F = useFmt(); const E = useErr(); const L = useLabels(); const router = useRouter(); const toast = useToast();
@@ -68,7 +69,7 @@ function Visit({ encounterId }: { encounterId: string }) {
     setPicks((old) => Object.fromEntries(x.lines.map((l) => {
       const o = old[l.requestId];
       const avail = l.proposal.allocations.reduce((a, b) => a + b.qty, 0);
-      return [l.requestId, o && l.remaining > 0 ? o : { on: l.remaining > 0 && avail > 0, medicineKey: l.prescribed.key, qty: String(Math.min(l.remaining, avail || l.remaining)), reason: "" }];
+      return [l.requestId, o && l.remaining > 0 && o.seen === l.dispensedQty ? o : { on: l.remaining > 0 && avail > 0, medicineKey: l.prescribed.key, qty: String(Math.min(l.remaining, avail || l.remaining)), reason: "", seen: l.dispensedQty }];
     })));
   }, [s.lang]); // eslint-disable-line react-hooks/exhaustive-deps
   const load = useCallback(async () => {
@@ -92,7 +93,7 @@ function Visit({ encounterId }: { encounterId: string }) {
       const x = await pharm.dispense(encounterId, { compositionId: v.composition.id, lines: chosen.map((l) => { const p = picks[l.requestId]!; return { requestId: l.requestId, medicineKey: p.medicineKey, qty: toInt(p.qty)!, ...(p.medicineKey !== l.prescribed.key ? { reason: p.reason.trim() } : {}) }; }) }, key);
       show(x); setKey(crypto.randomUUID());
       toast(P("dispensed_ok"), "package-check");
-    } catch (e) { toast(E(e), "triangle-alert"); setKey(crypto.randomUUID()); await load(); }
+    } catch (e) { toast(E(e), "triangle-alert"); if (renewKey(e)) setKey(crypto.randomUUID()); await load(); }
     finally { setBusy(false); }
   };
   const allClosed = v.lines.every((l) => l.remaining === 0);
@@ -260,7 +261,7 @@ function BillCard({ v, billView, onChanged }: { v: DispenseView; billView: Invoi
       <span style={{ marginLeft: "auto" }} />
       {v.bill.status === "draft" && inv && (
         <Button icon="file-check" data-testid="issue-bill" disabled={!s.online || busy}
-          onClick={async () => { setBusy(true); try { await bill.issue(v.bill!.id, inv.rev, key); setKey(crypto.randomUUID()); await onChanged(); } catch (e) { toast(E(e), "triangle-alert"); setKey(crypto.randomUUID()); } finally { setBusy(false); } }}>
+          onClick={async () => { setBusy(true); try { await bill.issue(v.bill!.id, inv.rev, key); setKey(crypto.randomUUID()); await onChanged(); } catch (e) { toast(E(e), "triangle-alert"); if (renewKey(e)) setKey(crypto.randomUUID()); } finally { setBusy(false); } }}>
           {P("issue_bill")}
         </Button>
       )}

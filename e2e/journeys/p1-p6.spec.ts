@@ -53,6 +53,8 @@ async function payCash(page: Page) {
 const line = (page: Page, key: string) => page.locator(`[data-testid="rx-line"][data-medicine="${key}"]`);
 
 test.describe("Journey P — the pharmacy", () => {
+  // each test is a whole journey with two or three people signing in — more than the default 30 s under load
+  test.describe.configure({ timeout: 120_000 });
   test("P1–P3: FEFO, expired never given, substitute (doctor told), partial → pharmacy bill paid at the counter → rest declined", async ({ page, request }) => {
     const rx = await signedRx(request, "P1");
     await login(page, PHARM);

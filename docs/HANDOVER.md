@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy sessions 1–2 of 3 done — next: pharmacy session 3, the screens)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done (3 sessions) — next: phase 2 slice 3, admin)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -503,6 +503,25 @@ hands-on as the pharmacist.
 - **Tests:** domain 257, api 215 (+9 `purchasing.test.ts`), `pnpm typecheck` 13/13, Playwright 74 green (the C1
   owner spec now expects a live stock tile). **Returns of dispensed medicine move to the refunds slice** (question 191).
 
+## Done (pharmacy, session 3 of 3, 03/10/2026) — the six pharmacy screens, journey P ✅
+- **Screens** (`apps/staff/modules/ph/`, ported from the prototype Setu Pharmacy): `ph/dispense` (queue of today's
+  signed prescriptions; per line prescribed / given / batch, FEFO, expired shown never given, same-generic substitute
+  with a reason, decline, the 50 × 30 mm label preview, the pharmacy bill → issue → payment), `ph/otc` (walk-in, sale
+  class on every item, prescription photo, controlled refused), `ph/stock` (counter / store / near expiry / expired,
+  batches, moves), `ph/purchase` (orders, goods received, suppliers and payments, the owner's approvals tab),
+  `ph/count` (expected = start + moves since; owner / admin approves). `ph/indent` (ward indents) stays a placeholder
+  until IPD (B3–B4).
+- **Access matrix:** the pharmacist reaches `bill/pay`, `bill/receipt`, `bill/shift` (ADR 0009 note + test); Pay and
+  Receipt go back to the right screen for each bill kind. The doctor's inbox shows the substitution notice.
+- **Writes keep their Idempotency-Key after a network failure or a server error** and renew it only after a 4xx
+  (`renewKey`), so a retry after a lost answer replays instead of dispensing / paying twice (screen review). Changes
+  to an OTC sale and to a count's lines run one after another on the latest rev (nothing dropped while busy).
+- **E2E:** `e2e/journeys/p1-p6.spec.ts` (P1–P3, P4, P5, P6, 1024 px); `pnpm reset-e2e` also rejects open counts and
+  discards receipts left in checking. Hands-on: `node e2e/walk-pharm.mjs <dir>` (demo clinic, Rahima Khatun, Bangla).
+- **Not yet:** printing the dose label (preview only — print spec and label printer pending, question 192), the
+  prescription photo is not checked for content, label / receipt for an OTC sale print through the billing receipt.
+- **Tests:** domain 258, api 215, `pnpm typecheck` 13/13, Playwright 79 (a full run green; journey P + shell green twice after the last fix — P5 had hit the 30 s default test timeout under load, now 120 s).
+
 ## How to run the journeys on this PC
 - Playwright's Chromium is installed (02/10/2026): plain `pnpm e2e` runs the journeys against `pnpm dev` (staff :3000,
   api :4000). The installed-Chrome route still works: `cd e2e` then `CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" pnpm exec playwright test -c pw.local.config.ts`.
@@ -576,7 +595,7 @@ hands-on as the pharmacist.
 5. ~~`/slice A12-A13`~~ — done 03/10/2026 (two sessions); **Journey A complete**. Kamrul to confirm open questions
    135–149.
 6. **Phase 2 pilot clinic, split in four slices (Kamrul, 03/10/2026):** ~~`/slice C1-C4`~~ owner dashboard + shift close
-   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; **next: session 3** — the six pharmacy screens, the approvals for the owner, journey P spec, reviews, hands-on as the pharmacist) → admin → real SMS + bKash sandbox. See open questions "Phase 2 plan".
+   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → **next: admin** → real SMS + bKash sandbox. See open questions "Phase 2 plan".
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

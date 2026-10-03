@@ -41,7 +41,8 @@ export const billHome = (v: Pick<InvoiceView, "invoice" | "encounter">) =>
   : `/m/ph/otc?inv=${encodeURIComponent(v.invoice.id)}`;
 /** Back to a bill known only by its id (receipts): asks the server which kind it is. */
 export async function goToBill(push: (href: string) => void, invoiceId: string) {
-  try { push(billHome(await bill.view(invoiceId))); } catch { push(`/m/bill/opd?inv=${encodeURIComponent(invoiceId)}`); }
+  // offline / not found: stay here (a pharmacist cannot open the OPD bill screen)
+  try { push(billHome(await bill.view(invoiceId))); } catch { /* stay */ }
 }
 /** The server's message in the chosen language. */
 export function useErr() {
