@@ -666,3 +666,21 @@ Commit after each step, push at the end of each session.
 149. **Who opens a lab report as a doctor:** the doctor it was sent to, a doctor who ordered a test of the visit, or the
      visit's doctor (security review S2). Covering doctors (leave, nights) need a rule later (break-glass, Journey E).
 
+
+## Phase 2 plan and slice C1–C4 session 1 (owner dashboard, shift close) — 03/10/2026
+
+### Decided by Kamrul (03/10/2026, before the session)
+- **Phase 2 is split into four slices** (runbook prompt 10 was about five slices of work and only C1–C4 has walkthrough
+  steps): 1) `/slice C1-C4` — owner dashboard (live + nightly rollup, drill-downs, leakage), cashier shift close, owner
+  approvals and variance on the phone; 2) pharmacy (dispense FEFO, OTC, stock, purchase / GRN / suppliers, count);
+  3) admin (onboarding + go-live, users & roles, masters); 4) real SMS gateway + bKash sandbox (with open questions 90
+  and 124). Each slice plans before code; pharmacy and admin get their own journey specs.
+- **No 'manager' / 'store keeper' role:** approvals the prototypes give a manager (shift hand-over, variance accept,
+  later purchase / count approvals) go to the **owner or admin**, as approvals do today. A manager role can come with
+  the admin slice.
+- **SMS gateway: decided later** (slice 4; Claude lists the options then — sender-ID approval has lead time).
+- **bKash: no sandbox credentials yet** — the fake provider stays until slice 4; real bKash checkout is create →
+  redirect → execute, so slice 4 adds an ADR for the execute step.
+- Plan for C1–C4 in two sessions: session 1 = ADR 0008, shift and KPI rules, Shift + DailyRollup tables, nightly job,
+  routes and tests; session 2 = bill/shift and own/dash screens (1440 + 412), phone approvals / variance, C1–C4 journey
+  spec, reviews, hands-on as the owner.

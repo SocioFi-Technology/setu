@@ -476,8 +476,8 @@ patient from the front desk to the doctor's printed prescription) are green.
 4. ~~`/slice A8-A11`~~ — done 03/10/2026 (two sessions). Kamrul to confirm open question 134.
 5. ~~`/slice A12-A13`~~ — done 03/10/2026 (two sessions); **Journey A complete**. Kamrul to confirm open questions
    135–149.
-6. **Next — phase 2 pilot clinic: `/slice C1-C4`** (pharmacy, shift close, owner dashboard, admin onboarding, real SMS
-   gateway + bKash sandbox) — prompt 10 in `docs/CLAUDE-CODE-GUIDE.md`.
+6. **Phase 2 pilot clinic, split in four slices (Kamrul, 03/10/2026):** `/slice C1-C4` owner dashboard + shift close
+   (**in progress**) → pharmacy → admin → real SMS + bKash sandbox. See open questions "Phase 2 plan".
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating
