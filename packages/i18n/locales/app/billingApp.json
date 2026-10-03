@@ -16,6 +16,8 @@
   "wl_approval": ["ছাড় অনুমোদনের অপেক্ষায়", "Discount waiting for approval"],
 
   "bill_title": ["ওপিডি বিল", "OPD bill"],
+  "back_pharmacy": ["ফার্মেসিতে ফিরুন", "Back to the pharmacy"],
+  "back_to_bill": ["বিলে ফিরুন", "Back to the bill"],
   "bill_draft": ["খসড়া", "Draft"],
   "st_draft": ["খসড়া", "Draft"],
   "st_issued": ["অপরিশোধিত", "Unpaid"],

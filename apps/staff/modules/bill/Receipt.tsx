@@ -9,7 +9,7 @@ import type { ReceiptList, ReceiptView } from "@setu/contracts";
 import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
 import { bill as api } from "../../lib/api";
 import { useSession } from "../../lib/session";
-import { useB, useErr, useMoney } from "./common";
+import { goToBill, useB, useErr, useMoney } from "./common";
 
 const REASONS = ["lost", "jam", "corp", "ins"] as const;
 
@@ -40,7 +40,7 @@ function ReceiptsOfBill({ invoiceId }: { invoiceId: string }) {
       ))}
       <span style={{ display: "flex", gap: 8 }}>
         <Button icon="receipt" disabled={!s.online} onClick={async () => { try { const r = await api.makeReceipt(invoiceId, key); router.push(`/m/bill/receipt?rc=${encodeURIComponent(r.receipt.id)}`); } catch (e) { toast(E(e), "triangle-alert"); } }}>{B("rc_new")}</Button>
-        <Button icon="arrow-left" onClick={() => router.push(`/m/bill/opd?inv=${encodeURIComponent(invoiceId)}`)}>{B("bill_title")}</Button>
+        <Button icon="arrow-left" onClick={() => void goToBill(router.push, invoiceId)}>{B("back_to_bill")}</Button>
       </span>
     </div>
   );
@@ -83,7 +83,7 @@ function ReceiptScreen({ id }: { id: string }) {
         <span className="num t-muted">{M.dateTime(r.createdAt)}</span>
         {printed && <Pill tone="neu" icon="printer">{s.n(v.prints.length)}</Pill>}
         <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="arrow-left" onClick={() => router.push(`/m/bill/opd?inv=${encodeURIComponent(r.invoiceId)}`)}>{B("bill_title")}</Button>
+        <Button size="sm" icon="arrow-left" onClick={() => void goToBill(router.push, r.invoiceId)}>{B("back_to_bill")}</Button>
       </div>
 
       <Card style={{ display: "flex", flexDirection: "column", gap: 6, padding: 16 }} data-testid="receipt-summary">

@@ -490,8 +490,10 @@ export async function pharmacyApprovals(tx: Tx, s: SessionData, now: Date): Prom
   const who = await people(tx, tasks.map((t) => t.requestedById));
   const counts = (await countList(tx, s, "submitted")).items;
   const today = dhakaDay(now);
-  const open = await tx.goodsReceipt.findMany({ where: { organizationId: s.organizationId, status: "checking" }, include: { lines: { select: { expiry: true } } } });
-  const short = open.filter((g) => g.lines.some((l) => shortExpiry(l.expiry, today)));
+  // receipts only the owner / admin may post: a batch expiring within 6 months, or a price other than the order's
+  const open = await tx.goodsReceipt.findMany({ where: { organizationId: s.organizationId, status: "checking" }, include: { lines: { select: { expiry: true, costPaisa: true, orderLineId: true } } } });
+  const orderCost = new Map((await tx.purchaseOrderLine.findMany({ where: { id: { in: open.flatMap((g) => g.lines.map((l) => l.orderLineId)) } }, select: { id: true, costPaisa: true } })).map((l) => [l.id, l.costPaisa]));
+  const short = open.filter((g) => g.lines.some((l) => shortExpiry(l.expiry, today) || orderCost.get(l.orderLineId) !== l.costPaisa));
   const [pos, sups] = await Promise.all([
     tx.purchaseOrder.findMany({ where: { id: { in: short.map((g) => g.orderId) } }, select: { id: true, number: true } }),
     tx.supplier.findMany({ where: { id: { in: short.map((g) => g.supplierId) } }, select: { id: true, name: true } }),

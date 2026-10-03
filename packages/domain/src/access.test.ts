@@ -76,3 +76,12 @@ describe("bill kinds by role (ADR 0009)", () => {
     expect(holdsShift("nurse", "clinic")).toBe(false);
   });
 });
+
+describe("the pharmacist at the counter (ADR 0009: beyond the design handoff — the prototype gets it in the next design round)", () => {
+  it("takes payment, prints receipts and holds a shift — never the OPD bill, approvals or reconciliation", () => {
+    for (const plan of ["clinic", "lite", "pro"] as const) {
+      for (const screen of ["pay", "receipt", "shift"]) expect(authorize("pharmacist", plan, "bill", screen).allowed).toBe(true);
+      for (const screen of ["opd", "approvals", "reconcile", "refund"]) expect(authorize("pharmacist", plan, "bill", screen).allowed).toBe(false);
+    }
+  });
+});

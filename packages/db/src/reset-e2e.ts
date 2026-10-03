@@ -109,6 +109,18 @@ for (const o of opening) {
   await db.stockMove.create({ data: { tenantId: T, organizationId: b.organizationId, batchId: b.id, kind: "adjust", qty: want - b.qtyOnHand, refType: "e2e-reset", reason: "e2e reset: test run", byId: RESET_BY } });
   toppedUp++;
 }
+/* ADR 0009 (pharmacy session 3): stock counts left open by earlier runs are finished as counted = expected and rejected
+   by the E2E owner ("e2e reset: test run" — nothing adjusted), so a new count of that location can start; goods
+   receipts left in checking are discarded (nothing posted). */
+const openCounts = await db.stockCount.findMany({ where: { tenantId: T, status: { in: ["counting", "submitted"] } } });
+for (const c of openCounts) {
+  if (c.status === "counting") {
+    for (const l of await db.stockCountLine.findMany({ where: { countId: c.id } })) await db.stockCountLine.update({ where: { id: l.id }, data: { countedQty: l.systemQty, reason: null } });
+    await db.stockCount.update({ where: { id: c.id }, data: { status: "submitted", submittedAt: now, statusAt: now, rev: { increment: 1 } } });
+  }
+  await db.stockCount.update({ where: { id: c.id }, data: { status: "rejected", decidedById: RECONCILE_BY, decidedAt: now, decisionNote: "e2e reset: test run", statusAt: now, rev: { increment: 1 } } });
+}
+const openGrns = await db.goodsReceipt.updateMany({ where: { tenantId: T, status: "checking" }, data: { status: "discarded", statusAt: now } });
 if (audit.length) await db.auditEvent.createMany({ data: audit.map((a) => ({ tenantId: T, userId: RESET_BY, role: "admin" as const, at: now, ...a, detail: { route: "pnpm db:reset-e2e", ...a.detail } })) });
 await db.$disconnect();
-console.log(`E2E Test Clinic reset: walkthrough family restored, ${n.count} open review(s) closed, ${undone.length} undone override(s) marked reviewed, ${extra.length} test allerg(ies) marked entered-in-error, ${restored} seeded allerg(ies) recorded again, ${open.length} leftover visit(s) closed, ${cases.length} reconciliation case(s) resolved "test run", ${unfinished.length} unfinished shift(s) approved "test run", ${toppedUp} stock batch(es) topped up`);
+console.log(`E2E Test Clinic reset: walkthrough family restored, ${n.count} open review(s) closed, ${undone.length} undone override(s) marked reviewed, ${extra.length} test allerg(ies) marked entered-in-error, ${restored} seeded allerg(ies) recorded again, ${open.length} leftover visit(s) closed, ${cases.length} reconciliation case(s) resolved "test run", ${unfinished.length} unfinished shift(s) approved "test run", ${toppedUp} stock batch(es) topped up, ${openCounts.length} open count(s) rejected, ${openGrns.count} goods receipt(s) discarded`);

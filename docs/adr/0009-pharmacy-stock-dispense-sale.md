@@ -45,6 +45,12 @@ batch set at goods received; approvals above a threshold by the owner / admin.
   any variance needs a reason; stock changes only when the owner / admin approves — the adjustment moves are written
   then). Suppliers carry what is owed (goods received − payments).
 
+### The pharmacist at the counter (session 3)
+**`bill/pay`, `bill/receipt` and `bill/shift` gain the pharmacist** — beyond the design handoff (`shell-roles-plans.md`):
+added to `packages/domain/src/access-matrix.json` by hand with a test that keeps it (as `bill/reconcile`, ADR 0005);
+**the prototype gets it in the next design round.** The pharmacist never gets `bill/opd`, approvals or reconciliation,
+and the API shows them pharmacy and OTC bills only (`billKindsFor`).
+
 ## Consequences
 - Migrations: StockBatch, StockMove, MedicationDispense (session 1); Supplier, PurchaseOrder (+ lines), GoodsReceipt
   (+ lines), StockCount (+ lines) (session 2); Invoice.kind (`opd | pharmacy | otc`), nullable visit / patient for `otc`,

@@ -13,7 +13,7 @@ import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@se
 import { bill as api } from "../../lib/api";
 import { dismissRefused, onOutbox, outboxItems } from "../../lib/outbox";
 import { useSession } from "../../lib/session";
-import { INVOICE_TONE, PAY_TONE, useB, useBanner, useErr, useMoney } from "./common";
+import { INVOICE_TONE, PAY_TONE, billHome, useB, useBanner, useErr, useMoney } from "./common";
 
 const FAKE_GATEWAY = process.env.NODE_ENV !== "production";
 const KEYS: Partial<Record<string, PaymentMethod>> = { F5: "cash", F6: "card", F7: "bkash", F8: "nagad" };
@@ -127,7 +127,7 @@ function PayView({ id }: { id: string }) {
         <b className="num">{inv.number ?? B("bill_draft")}</b>
         <Pill tone={INVOICE_TONE[inv.status]}>{B(`st_${inv.status}`)}</Pill>
         <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="arrow-left" onClick={() => router.push(`/m/bill/opd?inv=${encodeURIComponent(id)}`)}>{B("bill_title")}</Button>
+        <Button size="sm" icon="arrow-left" data-testid="back-to-bill" onClick={() => router.push(billHome(v))}>{inv.kind === "opd" ? B("bill_title") : B("back_pharmacy")}</Button>
       </div>
       {!s.online && <Callout tone="warn" icon="cloud-off">{B("offline_banner")}</Callout>}
       {inv.status === "draft" && <Callout tone="warn" icon="file-warning">{B("pay_not_issued")}</Callout>}

@@ -1,4 +1,6 @@
 import type {
+  DispenseQueue, DispenseRequest, DispenseView, OtcCreateRequest, OtcView, RxPhotoRequest, StockList, SupplierList, SupplierLedger, SupplierPaymentRequest,
+  PurchaseOrderList, PurchaseOrderView, GoodsReceiptView, GrnLineRequest, StockCountView, CountList, PharmacyApprovals, TransferRequest,
   CountShiftRequest, DashboardView, DrillView, MyShiftResponse, ShiftList, ShiftView,
   AckResponse, DocPrintRequest, DocPrintResponse, DocPrintView, InboxView, LrVerifyResponse, RxVerifyResponse,
   CallbackRequest, LabReportView, LabVisitView, LabWorklist, ResultEntryRequest, RevokeResponse, SpecimenRejectRequest,
@@ -179,4 +181,50 @@ export const api = {
   me: () => call<Me>("GET", "/v1/me"),
   capabilities: () => call<Capabilities>("GET", "/v1/me/capabilities"),
   pinVerify: (pin: string) => call<{ ok: boolean; triesLeft?: number; lockedUntil?: string }>("POST", "/v1/auth/pin/verify", { pin }),
+};
+
+/* Pharmacy (phase 2 slice 2, ADR 0009). Dispensing, sales, purchasing and counts move stock and money, so they need the
+   server: no offline queue — the screen says so and the buttons wait for a connection. */
+const k = () => crypto.randomUUID();
+export const pharm = {
+  queue: () => call<DispenseQueue>("GET", "/v1/pharmacy/queue"),
+  visit: (encounterId: string) => call<DispenseView>("GET", `/v1/pharmacy/encounters/${enc(encounterId)}`),
+  dispense: (encounterId: string, body: DispenseRequest, key: string) => call<DispenseView>("POST", `/v1/pharmacy/encounters/${enc(encounterId)}/dispense`, body, key),
+  decline: (encounterId: string, body: { compositionId: string; requestId: string; reason: string }, key: string) => call<DispenseView>("POST", `/v1/pharmacy/encounters/${enc(encounterId)}/decline`, body, key),
+  otcNew: (body: OtcCreateRequest, key: string) => call<OtcView>("POST", "/v1/pharmacy/otc", body, key),
+  otc: (id: string) => call<OtcView>("GET", `/v1/pharmacy/otc/${enc(id)}`),
+  otcAdd: (id: string, body: { rev: number; medicineKey: string; qty: number }) => call<OtcView>("POST", `/v1/pharmacy/otc/${enc(id)}/lines`, body, k()),
+  otcRemove: (id: string, lineId: string, rev: number) => call<OtcView>("POST", `/v1/pharmacy/otc/${enc(id)}/lines/${enc(lineId)}/remove`, { rev }, k()),
+  otcPhoto: (id: string, body: RxPhotoRequest) => call<OtcView>("POST", `/v1/pharmacy/otc/${enc(id)}/rx-photo`, body, k()),
+  otcPhotoSrc: (id: string) => `/api/v1/pharmacy/otc/${enc(id)}/rx-photo`,
+  otcIssue: (id: string, rev: number, key: string) => call<OtcView>("POST", `/v1/pharmacy/otc/${enc(id)}/issue`, { rev }, key),
+  stock: (q: string, filter: "all" | "near-expiry" | "expired" | "low") => call<StockList>("GET", `/v1/pharmacy/stock?q=${enc(q)}&filter=${filter}`),
+  transfer: (body: TransferRequest, key: string) => call<{ from: string; to: string }>("POST", "/v1/pharmacy/transfers", body, key),
+};
+export const purch = {
+  suppliers: () => call<SupplierList>("GET", "/v1/pharmacy/suppliers"),
+  supplier: (id: string) => call<SupplierLedger>("GET", `/v1/pharmacy/suppliers/${enc(id)}`),
+  newSupplier: (body: { name: string; phone?: string }) => call<SupplierLedger>("POST", "/v1/pharmacy/suppliers", body, k()),
+  pay: (id: string, body: SupplierPaymentRequest, key: string) => call<SupplierLedger>("POST", `/v1/pharmacy/suppliers/${enc(id)}/payments`, body, key),
+  orders: (status?: string) => call<PurchaseOrderList>("GET", "/v1/pharmacy/purchase-orders" + (status ? `?status=${status}` : "")),
+  order: (id: string) => call<PurchaseOrderView>("GET", `/v1/pharmacy/purchase-orders/${enc(id)}`),
+  newOrder: (supplierId: string, key: string) => call<PurchaseOrderView>("POST", "/v1/pharmacy/purchase-orders", { supplierId }, key),
+  addLine: (id: string, body: { rev: number; medicineKey: string; qty: number; costPaisa: number }) => call<PurchaseOrderView>("POST", `/v1/pharmacy/purchase-orders/${enc(id)}/lines`, body, k()),
+  removeLine: (id: string, lineId: string, rev: number) => call<PurchaseOrderView>("POST", `/v1/pharmacy/purchase-orders/${enc(id)}/lines/${enc(lineId)}/remove`, { rev }, k()),
+  send: (id: string, rev: number, key: string) => call<PurchaseOrderView>("POST", `/v1/pharmacy/purchase-orders/${enc(id)}/send`, { rev }, key),
+  approval: (id: string, decision: "approve" | "reject", note: string, key: string) => call<PurchaseOrderView>("POST", `/v1/pharmacy/purchase-orders/${enc(id)}/approval`, note ? { decision, note } : { decision }, key),
+  end: (id: string, how: "cancel" | "close-short", rev: number, reason: string, key: string) => call<PurchaseOrderView>("POST", `/v1/pharmacy/purchase-orders/${enc(id)}/${how}`, { rev, reason }, key),
+  newReceipt: (orderId: string, supplierInvoiceNo: string, key: string) => call<GoodsReceiptView>("POST", "/v1/pharmacy/goods-receipts", supplierInvoiceNo ? { orderId, supplierInvoiceNo } : { orderId }, key),
+  receipt: (id: string) => call<GoodsReceiptView>("GET", `/v1/pharmacy/goods-receipts/${enc(id)}`),
+  receiptLine: (id: string, body: GrnLineRequest) => call<GoodsReceiptView>("POST", `/v1/pharmacy/goods-receipts/${enc(id)}/lines`, body, k()),
+  receiptRemove: (id: string, lineId: string, rev: number) => call<GoodsReceiptView>("POST", `/v1/pharmacy/goods-receipts/${enc(id)}/lines/${enc(lineId)}/remove`, { rev }, k()),
+  post: (id: string, rev: number, note: string, key: string) => call<GoodsReceiptView>("POST", `/v1/pharmacy/goods-receipts/${enc(id)}/post`, note ? { rev, note } : { rev }, key),
+  discard: (id: string, rev: number, key: string) => call<GoodsReceiptView>("POST", `/v1/pharmacy/goods-receipts/${enc(id)}/discard`, { rev }, key),
+  counts: (status?: string) => call<CountList>("GET", "/v1/pharmacy/counts" + (status ? `?status=${status}` : "")),
+  count: (id: string) => call<StockCountView>("GET", `/v1/pharmacy/counts/${enc(id)}`),
+  newCount: (location: "counter" | "store" | "fridge", key: string) => call<StockCountView>("POST", "/v1/pharmacy/counts", { location }, key),
+  countLine: (id: string, body: { rev: number; lineId: string; countedQty: number; reason?: string }) => call<StockCountView>("POST", `/v1/pharmacy/counts/${enc(id)}/lines`, body, k()),
+  submitCount: (id: string, rev: number, key: string) => call<StockCountView>("POST", `/v1/pharmacy/counts/${enc(id)}/submit`, { rev }, key),
+  decideCount: (id: string, decision: "approve" | "reject", note: string, key: string) => call<StockCountView>("POST", `/v1/pharmacy/counts/${enc(id)}/decision`, note ? { decision, note } : { decision }, key),
+  approvals: () => call<PharmacyApprovals>("GET", "/v1/pharmacy/approvals"),
 };

@@ -13,12 +13,13 @@ import labApp from "../locales/app/labApp.json" with { type: "json" };
 import printApp from "../locales/app/printApp.json" with { type: "json" };
 import doctorApp from "../locales/app/doctorApp.json" with { type: "json" };
 import ownerApp from "../locales/app/ownerApp.json" with { type: "json" };
+import pharmApp from "../locales/app/pharmApp.json" with { type: "json" };
 type Table = Record<string, Record<string, string>>;
 const tables: Record<Lang, Table> = { bn: { ...(bn as Table) }, en: { ...(en as Table) } };
 
 /* App strings the design export does not carry, kept as [bn, en] pairs per key (one file per namespace). */
 type Pairs = Record<string, [string, string]>;
-const APP: Record<string, Pairs> = { billingApp: billingApp as unknown as Pairs, labApp: labApp as unknown as Pairs, printApp: printApp as unknown as Pairs, doctorApp: doctorApp as unknown as Pairs, ownerApp: ownerApp as unknown as Pairs, consultApp: consultApp as unknown as Pairs, frontDeskApp: frontDeskApp as unknown as Pairs, shellApp: shellApp as unknown as Pairs, vitalsApp: vitalsApp as unknown as Pairs };
+const APP: Record<string, Pairs> = { billingApp: billingApp as unknown as Pairs, labApp: labApp as unknown as Pairs, printApp: printApp as unknown as Pairs, doctorApp: doctorApp as unknown as Pairs, ownerApp: ownerApp as unknown as Pairs, pharmApp: pharmApp as unknown as Pairs, consultApp: consultApp as unknown as Pairs, frontDeskApp: frontDeskApp as unknown as Pairs, shellApp: shellApp as unknown as Pairs, vitalsApp: vitalsApp as unknown as Pairs };
 for (const [n, pairs] of Object.entries(APP)) {
   tables.bn[n] = Object.fromEntries(Object.entries(pairs).map(([k, v]) => [k, v[0]]));
   tables.en[n] = Object.fromEntries(Object.entries(pairs).map(([k, v]) => [k, v[1]]));

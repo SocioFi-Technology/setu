@@ -120,6 +120,13 @@ function InboxCard({ item: x, queued, busy, onAck }: { item: InboxItem; queued: 
         <span data-testid="critical-vital"><Icon name="siren" size={14} /> {D("k_vital", { vital: `${s.t("vitalsApp", VITAL_KEY[x.vital.code] ?? x.vital.code)} ${F.num(x.vital.value)} ${UNIT[x.vital.unit] ?? x.vital.unit}${x.vital.flag ? ` · ${lab(`flag_${x.vital.flag}`)}` : ""}` })}</span>
       )}
 
+      {x.kind === "substitution-notice" && x.substitution && (
+        <span data-testid="substitution" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span><Icon name="repeat" size={14} /> {D("k_substitution", { from: `${x.substitution.prescribed.brand} ${x.substitution.prescribed.strength}`, to: `${x.substitution.given.brand} ${x.substitution.given.strength}`, n: x.substitution.qty })}</span>
+          <span className="t-small t-secondary">{D("k_substitution_why", { reason: x.substitution.reason, name: F.name(x.substitution.by) })}</span>
+        </span>
+      )}
+
       {x.acknowledged ? (
         <span className="t-small" data-testid="acked" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           <Icon name="check" size={14} />{D("seen_at", { at: F.time(x.acknowledged.at) })}

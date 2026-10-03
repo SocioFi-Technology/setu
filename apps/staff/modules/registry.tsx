@@ -23,6 +23,11 @@ import { FrontDeskRegister } from "./fd/Register";
 import { FrontDeskSearch } from "./fd/Search";
 import { FrontDeskVitals } from "./fd/Vitals";
 import { LabAccession } from "./lab/Accession";
+import { PhCount } from "./ph/Count";
+import { PhDispense } from "./ph/Dispense";
+import { PhOtc } from "./ph/Otc";
+import { PhPurchase } from "./ph/Purchase";
+import { PhStock } from "./ph/Stock";
 import { LabCollect } from "./lab/Collect";
 import { LabDelivery } from "./lab/Delivery";
 import { LabReport } from "./lab/Report";
@@ -63,6 +68,12 @@ const SCREENS: Record<string, ComponentType> = {
   // slice C1–C4: shift close and the owner dashboard
   "bill/shift": BillShift,
   "own/dash": OwnerDash,
+  // phase 2 slice 2: the pharmacy (ADR 0009)
+  "ph/dispense": PhDispense,
+  "ph/otc": PhOtc,
+  "ph/stock": PhStock,
+  "ph/purchase": PhPurchase,
+  "ph/count": PhCount,
 };
 const SLICE: Record<string, string> = { fd: "A1–A3", cons: "A4–A5", bill: "A6–A7", lab: "A8–A11", doc: "A12–A13", ph: "phase 2", own: "C1–C4", adm: "phase 2", er: "B1–B2", ipd: "B3–B4", nur: "B5–B6", net: "E1–E4" };
 

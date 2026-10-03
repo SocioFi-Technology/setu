@@ -218,7 +218,8 @@
     "cashier",
     "owner",
     "admin",
-    "receptionist"
+    "receptionist",
+    "pharmacist"
    ],
    "screens": [
     {
@@ -243,7 +244,8 @@
      "roles": [
       "cashier",
       "owner",
-      "admin"
+      "admin",
+      "pharmacist"
      ],
      "plan": "clinic",
      "needsPatient": true
@@ -256,7 +258,8 @@
      "roles": [
       "cashier",
       "owner",
-      "admin"
+      "admin",
+      "pharmacist"
      ],
      "plan": "clinic",
      "needsPatient": true
@@ -307,7 +310,8 @@
      "roles": [
       "cashier",
       "owner",
-      "admin"
+      "admin",
+      "pharmacist"
      ],
      "plan": "clinic",
      "needsPatient": false
