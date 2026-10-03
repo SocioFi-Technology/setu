@@ -30,7 +30,7 @@ export async function doctorRoutes(app: FastifyInstance) {
     });
   });
 
-  app.post("/v1/doctor/inbox/:id/ack", async (req, reply): Promise<AckResponse> => {
+  app.post("/v1/doctor/inbox/:id/ack", { config: { ownTx: true } }, async (req, reply): Promise<AckResponse> => {
     const s = requireScreen(req, "doc", "inbox");
     const { id } = pid.parse(req.params);
     const body = AckRequest.parse(req.body ?? {});

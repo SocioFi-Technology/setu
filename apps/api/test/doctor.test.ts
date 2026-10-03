@@ -127,6 +127,9 @@ describe.runIf(db)("A12 results inbox: critical first, acknowledge, tell the pat
     const replay = ok<{ item: Item }>(await post(`/v1/doctor/inbox/${id}/ack`, { notifyPatient: false }, "doctor", key));
     expect(replay.item.acknowledged!.at).toBe(first.item.acknowledged!.at);
     expect((await post(`/v1/doctor/inbox/${id}/ack`, { notifyPatient: false })).json().code).toBe("already_acknowledged");
+    // the replay is answered inside the route, after its own checks: someone else reusing the key learns nothing
+    expect((await post(`/v1/doctor/inbox/${id}/ack`, { notifyPatient: false }, "tech", key)).statusCode).toBe(403);
+    expect((await post(`/v1/doctor/inbox/${id}/ack`, { notifyPatient: false }, "doctor2", key)).statusCode).not.toBe(200);
     const b = await inbox();
     const unreadPositions = b.items.filter((x) => !x.acknowledged).map((x) => b.items.indexOf(x));
     expect(b.items.findIndex((x) => x.id === id)).toBeGreaterThan(Math.max(...unreadPositions));
