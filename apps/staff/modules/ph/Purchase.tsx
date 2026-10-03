@@ -209,7 +209,9 @@ function Receipt({ id }: { id: string }) {
   const load = useCallback(async () => {
     try { const x = await purch.receipt(id); setG(x); const o = await purch.order(x.order.id); setPo(o); return o; } catch { setFailed(true); return null; }
   }, [id]);
-  useEffect(() => { void load().then((o) => { if (!o) return; setForm(Object.fromEntries(o.lines.map((l) => { const left = l.qty - l.receivedQty; return [l.id, { batchNo: "", expiry: plusDays(730), invoiced: String(left), received: String(left), cost: String(l.costPaisa / 100), mrp: "", location: "store" as const }]; }))); }); }, [load]);
+  // defaults only for lines without an entry yet: a second load (React runs effects twice in development, or a reload
+  // after an error) never wipes what the pharmacist has typed
+  useEffect(() => { void load().then((o) => { if (!o) return; setForm((old) => ({ ...Object.fromEntries(o.lines.map((l) => { const left = l.qty - l.receivedQty; return [l.id, { batchNo: "", expiry: plusDays(730), invoiced: String(left), received: String(left), cost: String(l.costPaisa / 100), mrp: "", location: "store" as const }]; })), ...old })); }); }, [load]);
   if (failed) return <PageState icon="package" title={P("error_generic")} />;
   if (!g || !po) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
   const checking = g.status === "checking";
