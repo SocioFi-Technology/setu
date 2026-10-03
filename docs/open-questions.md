@@ -597,3 +597,33 @@ Plan decisions (all as recommended unless noted):
      Approvals "3", …) come from `access-matrix.json`, copied from the prototype, so they do not match the real
      worklists (in Bangla "4" shows as "৪", which reads like an 8). Proposal: hide a badge until its module has a live
      count, and add live counts slice by slice (lab: tests waiting for verify / validate / call-back).
+
+## Slice A12–A13 session 1 (doctor's inbox, acknowledgement, prescription and lab report PDFs) — 03/10/2026
+
+### Decided by Kamrul (03/10/2026, before the session)
+Plan in two sessions: session 1 = ADR 0007, domain rules, schema, contracts, routes, PDFs and verify pages with tests;
+session 2 = the doctor app module at phone width (bottom tabs: home, queue, quick consult, reports), print preview on
+the signed note, the A12–A13 journey spec, reviews, hands-on as the doctor, then the whole of Journey A end to end.
+Commit after each step, push at the end of each session.
+- D1 **Acknowledge (two buttons, as the prototype):** "Seen" marks the report version reviewed by this doctor; "Seen +
+  tell patient" also sends the patient an SMS with the facility's name only ("your doctor has reviewed your report,
+  please contact <facility>") — no test, value or diagnosis. The SMS is sent only after the server has stored the
+  acknowledgement; an acknowledgement made offline waits in the outbox as "Not yet synced" and sends nothing until then.
+- D2 **Prescription verify page (QR):** facility, doctor with BMDC number (as stored, "not verified" when unverified),
+  date, version status ("a newer version exists" when superseded, "withdrawn" when entered-in-error), the patient's
+  initials, age and sex, and the medicine lines (so a pharmacy can check them). No name, phone, diagnosis or notes.
+- D3 **The lab report PDF with QR** (decision D10 of A8–A11) is part of this slice, on the same pipeline.
+- D4 **Two sessions** (above).
+
+### Settled by the sources (no decision needed)
+- **Drafts are blocked from print** (runbook, issue #19, the Consultation prototype and DS 6 agree): the preview shows the
+  watermark "খসড়া — বৈধ নয় · DRAFT", no QR, Print disabled, message "Drafts cannot be printed — sign first"; the server
+  refuses (422). `print-specs.md` line 3 ("drafts print a diagonal watermark … printing may be disabled by policy") is
+  read as that policy being on.
+- **The doctor app is a phone-width module inside apps/staff** (runbook and BUILD-PLAN); the Flutter `doctor://` routes in
+  `screens.md` are the later native app.
+- The signing PIN stays 4 digits (prototype says 4–6). "Comment" on an inbox card has no behaviour in the prototype and
+  waits; onboarding/OTP, chamber linking, voice draft, rounds and earnings belong to later journeys.
+- Inbox order: critical (HH/LL) → high/low → normal → notices, newest first within a group (the prototype only
+  hard-codes its sample order).
+- **Critical vital signs** reach the inbox of the visit's doctor (decision 47 of A4–A5).
