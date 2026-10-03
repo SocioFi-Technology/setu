@@ -16,3 +16,4 @@ export * from "./printing.js";
 export * from "./shift.js";
 export * from "./kpi.js";
 export * from "./pharmacy.js";
+export * from "./purchasing.js";

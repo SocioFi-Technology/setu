@@ -1,0 +1,195 @@
+/* Pharmacy session 2 contract tests on the real database (as setu_app), in the seeded E2E Test Clinic (ADR 0009):
+   - P5: a purchase order to a sample supplier is sent; goods arrive short and are posted → stock in the store batch,
+     the order partially received, the supplier owed the billed amount less a debit note; a batch expiring within 6
+     months is posted only by the owner; the rest of the order is closed short; refusals at the counter;
+   - above ৳50,000 (sample) the pharmacist asks; the owner approves (and so sends) — never their own request;
+   - supplier payments: owner / admin only, never more than is owed;
+   - store → counter transfer as a pair of moves; an expired batch never goes to the counter;
+   - P6: a count with a variance needs a reason; the owner (not the counter) approves → an adjust move;
+   - the owner's stock tiles and their drill-downs; the database keeps the ledgers append-only. */
+import { randomUUID } from "node:crypto";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { buildApp } from "../src/app.js";
+import { config } from "../src/config.js";
+
+const db = config.dbEnabled ? await import("@setu/db") : null;
+if (!db) console.warn("purchasing.test: DATABASE_URL_APP not set — purchasing contract tests SKIPPED");
+let app: Awaited<ReturnType<typeof buildApp>>;
+const RUN = randomUUID().slice(0, 6).toUpperCase();
+const cookies: Record<string, string> = {};
+const T = "t_e2e";
+const USERS = { pharm: "01799000007", owner: "01799000009", admin: "01799000010", doctor: "01799000002", otherPharm: "01711000007" } as const;
+type Who = keyof typeof USERS;
+const day = (n: number) => new Date(Date.now() + 6 * 3600_000 + n * 864e5).toISOString().slice(0, 10);
+let supplierId = "";
+
+beforeAll(async () => {
+  app = await buildApp();
+  if (!db) return;
+  for (const [k, phone] of Object.entries(USERS)) {
+    const r = await app.inject({ method: "POST", url: "/v1/auth/login", payload: { identifier: phone, password: "setu1234" } });
+    const c = r.headers["set-cookie"]; cookies[k] = Array.isArray(c) ? c[0]! : (c as string);
+  }
+  const list = (await get("/v1/pharmacy/suppliers")).json();
+  supplierId = list.items.find((x: { name: string }) => x.name.startsWith("Square"))!.id;
+});
+afterAll(async () => { await app.close(); });
+
+const get = (url: string, who: Who = "pharm") => app.inject({ method: "GET", url, headers: { cookie: cookies[who]! } });
+const post = (url: string, payload: object = {}, who: Who = "pharm", key: string | null = randomUUID()) =>
+  app.inject({ method: "POST", url, payload, headers: { cookie: cookies[who]!, ...(key ? { "idempotency-key": key } : {}) } });
+const ok = async (r: Promise<{ statusCode: number; body: string; json: () => any }>, status = 200) => { const x = await r; expect(x.statusCode, x.body).toBe(status); return x.json(); }; // eslint-disable-line @typescript-eslint/no-explicit-any
+const inTenant = <R>(fn: (tx: NonNullable<typeof db>["prisma"]) => Promise<R>) => db!.forTenant(T, fn as never) as Promise<R>;
+const owed = async () => (await ok(get(`/v1/pharmacy/suppliers/${supplierId}`))).supplier.owedPaisa as number;
+
+async function sentOrder(lines: { medicineKey: string; qty: number; costPaisa: number }[]) {
+  let po = await ok(post("/v1/pharmacy/purchase-orders", { supplierId, note: `test ${RUN}` }), 201);
+  for (const l of lines) po = await ok(post(`/v1/pharmacy/purchase-orders/${po.id}/lines`, { rev: po.rev, ...l }));
+  return ok(post(`/v1/pharmacy/purchase-orders/${po.id}/send`, { rev: po.rev }));
+}
+
+describe.runIf(db)("P5 purchase order → goods received", () => {
+  it("send → receive short (debit note) → owner posts a short-expiry batch → close short; refusals", { timeout: 30_000 }, async () => {
+    const po = await sentOrder([{ medicineKey: "comet", qty: 1000, costPaisa: 340 }, { medicineKey: "amdocal", qty: 500, costPaisa: 100 }]);
+    expect(po).toMatchObject({ status: "sent", number: expect.stringMatching(/^PO\/\d{2}\/\d{4}$/), totalPaisa: 390_000, sentBy: { nameEn: "Test Pharmacist" } });
+    const [comet, amdocal] = po.lines as { id: string }[];
+    const owedBefore = await owed();
+
+    let g = await ok(post("/v1/pharmacy/goods-receipts", { orderId: po.id, supplierInvoiceNo: `INV-${RUN}` }), 201);
+    const line = (x: object) => post(`/v1/pharmacy/goods-receipts/${g.id}/lines`, { rev: g.rev, orderLineId: comet!.id, batchNo: `CM${RUN}`, expiry: day(700), invoicedQty: 1000, receivedQty: 900, costPaisa: 340, mrpPaisa: 400, location: "store", ...x });
+    for (const [x, code] of [[{ expiry: day(-1) }, "expired"], [{ invoicedQty: 1001, receivedQty: 1001 }, "over_order"], [{ mrpPaisa: 300 }, "mrp_below_cost"], [{ receivedQty: 950, invoicedQty: 900 }, "over_invoice"]] as const) {
+      const r = await line(x);
+      expect([r.statusCode, r.json().code], JSON.stringify(x)).toEqual([422, code]);
+    }
+    g = await ok(line({}));
+    expect(g.money).toEqual({ invoicedPaisa: 340_000, debitNotePaisa: 34_000, owedPaisa: 306_000 });
+    expect(g.postBlockers).toEqual([]);
+    g = await ok(post(`/v1/pharmacy/goods-receipts/${g.id}/post`, { rev: g.rev }));
+    expect(g).toMatchObject({ status: "posted", number: expect.stringMatching(/^GRN\//), postedBy: { nameEn: "Test Pharmacist" } });
+    const batch = await inTenant((tx) => tx.stockBatch.findFirst({ where: { batchNo: `CM${RUN}`, location: "store" } }));
+    expect(batch).toMatchObject({ medicineKey: "comet", qtyOnHand: 900, costPaisa: 340, mrpPaisa: 400, expiry: day(700) });
+    expect(await owed()).toBe(owedBefore + 306_000);
+    const ledger = (await ok(get(`/v1/pharmacy/suppliers/${supplierId}`))).entries.slice(0, 2).map((e: { kind: string; amountPaisa: number }) => [e.kind, e.amountPaisa]);
+    expect(ledger).toEqual(expect.arrayContaining([["goods-received", 340_000], ["debit-note", 34_000]]));
+    expect((await ok(get(`/v1/pharmacy/purchase-orders/${po.id}`))).status).toBe("partially-received");
+    // a posted receipt never changes, even in the database
+    await expect(inTenant((tx) => tx.goodsReceiptLine.updateMany({ where: { receiptId: g.id }, data: { receivedQty: 1 } }))).rejects.toThrow(/never change/);
+
+    // a batch expiring within 6 months: the pharmacist cannot post it; the owner can
+    let g2 = await ok(post("/v1/pharmacy/goods-receipts", { orderId: po.id }), 201);
+    g2 = await ok(post(`/v1/pharmacy/goods-receipts/${g2.id}/lines`, { rev: g2.rev, orderLineId: amdocal!.id, batchNo: `AM${RUN}`, expiry: day(80), invoicedQty: 500, receivedQty: 500, costPaisa: 100, mrpPaisa: 120, location: "store" }));
+    expect(g2.lines[0].shortExpiry).toBe(true);
+    expect(g2.postBlockers).toEqual(["short_expiry_needs_owner"]);
+    const pharmPost = await post(`/v1/pharmacy/goods-receipts/${g2.id}/post`, { rev: g2.rev });
+    expect([pharmPost.statusCode, pharmPost.json().code]).toEqual([403, "short_expiry_needs_owner"]);
+    const appr = await ok(get("/v1/pharmacy/approvals", "owner"));
+    expect(appr.receipts.map((r: { id: string }) => r.id)).toContain(g2.id);
+    g2 = await ok(post(`/v1/pharmacy/goods-receipts/${g2.id}/post`, { rev: g2.rev, note: "Short expiry accepted — fast mover" }, "owner"));
+    expect(g2.postedBy.nameEn).toBe("Test Owner");
+
+    // the rest of Comet will not come: cancelling is refused once goods arrived; close it short with a reason
+    let o = await ok(get(`/v1/pharmacy/purchase-orders/${po.id}`));
+    const cancel = await post(`/v1/pharmacy/purchase-orders/${po.id}/cancel`, { rev: o.rev, reason: "Supplier cannot deliver" });
+    expect([cancel.statusCode, cancel.json().code]).toEqual([409, "goods_arrived"]);
+    o = await ok(post(`/v1/pharmacy/purchase-orders/${po.id}/close-short`, { rev: o.rev, reason: "Supplier out of Comet until next month" }));
+    expect(o).toMatchObject({ status: "received", endReason: "Supplier out of Comet until next month" });
+    expect(o.lines.map((l: { receivedQty: number }) => l.receivedQty)).toEqual([900, 500]);
+  });
+
+  it("above ৳50,000 the pharmacist asks; the owner approves and so sends it; a rejection needs a note", async () => {
+    let po = await ok(post("/v1/pharmacy/purchase-orders", { supplierId }), 201);
+    po = await ok(post(`/v1/pharmacy/purchase-orders/${po.id}/lines`, { rev: po.rev, medicineKey: "azith", qty: 2000, costPaisa: 3000 })); // ৳60,000
+    expect(po.sendBlockers).toEqual(["approval_required"]);
+    const asked = await post(`/v1/pharmacy/purchase-orders/${po.id}/send`, { rev: po.rev });
+    expect(asked.statusCode, asked.body).toBe(202);
+    expect(asked.json()).toMatchObject({ status: "draft", number: null, approval: { status: "requested" }, sendBlockers: ["approval_pending"] });
+    const locked = await post(`/v1/pharmacy/purchase-orders/${po.id}/lines`, { rev: po.rev, medicineKey: "napa", qty: 1, costPaisa: 100 });
+    expect([locked.statusCode, locked.json().code]).toEqual([409, "approval_pending"]);
+    expect((await post(`/v1/pharmacy/purchase-orders/${po.id}/approval`, { decision: "approve" })).statusCode).toBe(403);
+    expect((await ok(get("/v1/pharmacy/approvals", "owner"))).orders.map((x: { order: { id: string } }) => x.order.id)).toContain(po.id);
+    const noNote = await post(`/v1/pharmacy/purchase-orders/${po.id}/approval`, { decision: "reject", note: "no" }, "owner");
+    expect([noNote.statusCode, noNote.json().code]).toEqual([400, "note_required"]);
+    const sent = await ok(post(`/v1/pharmacy/purchase-orders/${po.id}/approval`, { decision: "approve" }, "owner"));
+    expect(sent).toMatchObject({ status: "sent", number: expect.stringMatching(/^PO\//), sentBy: { nameEn: "Test Owner" }, approval: { status: "approved", decidedBy: { nameEn: "Test Owner" } } });
+    // nothing arrived: it can be cancelled with a reason
+    const c = await ok(post(`/v1/pharmacy/purchase-orders/${po.id}/cancel`, { rev: sent.rev, reason: "Ordered from another supplier" }));
+    expect(c.status).toBe("cancelled");
+  });
+
+  it("supplier payments: owner / admin only, never more than is owed", async () => {
+    const due = await owed();
+    expect((await post(`/v1/pharmacy/suppliers/${supplierId}/payments`, { amountPaisa: 100, note: "cash" })).statusCode).toBe(403);
+    const over = await post(`/v1/pharmacy/suppliers/${supplierId}/payments`, { amountPaisa: due + 1, note: "cheque 001" }, "owner");
+    expect([over.statusCode, over.json().code]).toEqual([409, "over_owed"]);
+    const paid = await ok(post(`/v1/pharmacy/suppliers/${supplierId}/payments`, { amountPaisa: 10_000, note: `cheque ${RUN}` }, "owner"), 201);
+    expect(paid.supplier.owedPaisa).toBe(due - 10_000);
+    await expect(inTenant((tx) => tx.supplierEntry.updateMany({ where: { supplierId }, data: { amountPaisa: 1 } }))).rejects.toThrow();
+  });
+});
+
+describe.runIf(db)("store → counter, and P6 count", () => {
+  it("a transfer is a pair of moves on the same batch; an expired batch never goes to the counter", async () => {
+    const store = (await inTenant((tx) => tx.stockBatch.findFirst({ where: { medicineKey: "seclo", location: "store", qtyOnHand: { gte: 10 } } })))!;
+    const counterBefore = (await inTenant((tx) => tx.stockBatch.findFirst({ where: { medicineKey: "seclo", batchNo: store.batchNo, location: "counter" } })))?.qtyOnHand ?? 0;
+    const r = await ok(post("/v1/pharmacy/transfers", { batchId: store.id, qty: 10, to: "counter" }), 201);
+    const dest = (await inTenant((tx) => tx.stockBatch.findFirst({ where: { id: r.to } })))!;
+    expect(dest).toMatchObject({ medicineKey: "seclo", batchNo: store.batchNo, location: "counter", expiry: store.expiry, mrpPaisa: store.mrpPaisa, qtyOnHand: counterBefore + 10 });
+    expect((await inTenant((tx) => tx.stockBatch.findFirst({ where: { id: store.id } })))!.qtyOnHand).toBe(store.qtyOnHand - 10);
+    const expired = (await inTenant((tx) => tx.stockBatch.findFirst({ where: { batchNo: "NP2504", location: "counter" } })))!;
+    const x = await post("/v1/pharmacy/transfers", { batchId: expired.id, qty: 1, to: "fridge" });
+    expect([x.statusCode, x.json().code]).toEqual([409, "expired"]);
+  });
+
+  it("count the fridge: a variance needs a reason; the counter cannot approve; the owner approves → adjust move", { timeout: 30_000 }, async () => {
+    // leftovers of an earlier run: finish and reject them so one count per location can start
+    for (const c of await inTenant((tx) => tx.stockCount.findMany({ where: { location: "fridge", status: { in: ["counting", "submitted"] } } }))) {
+      let v = await ok(get(`/v1/pharmacy/counts/${c.id}`));
+      if (v.status === "counting") {
+        for (const l of v.lines) v = await ok(post(`/v1/pharmacy/counts/${c.id}/lines`, { rev: v.rev, lineId: l.id, countedQty: l.systemQty }));
+        v = await ok(post(`/v1/pharmacy/counts/${c.id}/submit`, { rev: v.rev }));
+      }
+      await ok(post(`/v1/pharmacy/counts/${c.id}/decision`, { decision: "reject", note: "leftover from an earlier test run" }, "owner"));
+    }
+    // something in the fridge to count
+    const store = (await inTenant((tx) => tx.stockBatch.findFirst({ where: { medicineKey: "pantonix", location: "store", qtyOnHand: { gte: 20 } } })))!;
+    const moved = await ok(post("/v1/pharmacy/transfers", { batchId: store.id, qty: 20, to: "fridge" }), 201);
+    let c = await ok(post("/v1/pharmacy/counts", { location: "fridge" }), 201);
+    expect((await post("/v1/pharmacy/counts", { location: "fridge" })).json().code).toBe("count_open");
+    const target = c.lines.find((l: { batch: { id: string } }) => l.batch.id === moved.to)!;
+    const before = target.systemQty as number;
+    for (const l of c.lines) c = await ok(post(`/v1/pharmacy/counts/${c.id}/lines`, { rev: c.rev, lineId: l.id, countedQty: l.id === target.id ? before - 2 : l.systemQty }));
+    const noReason = await post(`/v1/pharmacy/counts/${c.id}/submit`, { rev: c.rev });
+    expect([noReason.statusCode, noReason.json().code]).toEqual([422, "reason_required"]);
+    c = await ok(post(`/v1/pharmacy/counts/${c.id}/lines`, { rev: c.rev, lineId: target.id, countedQty: before - 2, reason: "Two strips damaged in the fridge" }));
+    expect(c.varianceValuePaisa).toBe(2 * store.costPaisa);
+    c = await ok(post(`/v1/pharmacy/counts/${c.id}/submit`, { rev: c.rev }));
+    expect(c).toMatchObject({ status: "submitted", canDecide: false });
+    expect((await post(`/v1/pharmacy/counts/${c.id}/decision`, { decision: "approve" })).statusCode).toBe(403);
+    expect((await ok(get("/v1/pharmacy/approvals", "owner"))).counts.map((x: { id: string }) => x.id)).toContain(c.id);
+    const qtyBefore = (await inTenant((tx) => tx.stockBatch.findFirst({ where: { id: moved.to } })))!.qtyOnHand;
+    c = await ok(post(`/v1/pharmacy/counts/${c.id}/decision`, { decision: "approve", note: "ok" }, "owner"));
+    expect(c).toMatchObject({ status: "approved", decidedBy: { nameEn: "Test Owner" } });
+    expect((await inTenant((tx) => tx.stockBatch.findFirst({ where: { id: moved.to } })))!.qtyOnHand).toBe(qtyBefore - 2);
+    const adj = await inTenant((tx) => tx.stockMove.findMany({ where: { refType: "count", refId: c.id } }));
+    expect(adj.map((m) => [m.kind, m.qty])).toEqual([["adjust", -2]]);
+  });
+});
+
+describe.runIf(db)("owner stock tiles and who may", () => {
+  it("stock value, near-expiry and supplier dues are live, with the batches / suppliers behind them", async () => {
+    const d = await ok(get("/v1/owner/dashboard?period=7d", "owner"));
+    const k = (key: string) => d.kpis.find((x: { key: string }) => x.key === key);
+    expect(k("stockValue")).toMatchObject({ comesWith: null, value: expect.any(Number) });
+    expect(k("stockValue").value).toBeGreaterThan(0);
+    expect(k("supplierDues").value).toBeGreaterThan(0);
+    const near = await ok(get("/v1/owner/drill?period=7d&what=nearExpiry", "owner"));
+    expect(near.rows.map((r: { number: string }) => r.number)).toContain(`AM${RUN}`);
+    const dues = await ok(get("/v1/owner/drill?period=7d&what=supplierDues", "owner"));
+    expect(dues.rows.map((r: { number: string }) => r.number)).toContain("Square Pharma Distribution (sample)");
+  });
+  it("the doctor is denied; another tenant's pharmacist finds nothing", async () => {
+    expect((await get("/v1/pharmacy/suppliers", "doctor")).statusCode).toBe(403);
+    expect((await get(`/v1/pharmacy/suppliers/${supplierId}`, "otherPharm")).statusCode).toBe(404);
+    expect((await get("/v1/pharmacy/approvals")).statusCode).toBe(403);
+  });
+});

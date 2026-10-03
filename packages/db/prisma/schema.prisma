@@ -1470,3 +1470,182 @@ model MedicationDispense {
   @@index([tenantId, encounterId])
   @@index([tenantId, requestId])
 }
+
+/* ───── pharmacy purchasing and counts (ADR 0009, pharmacy session 2) ───── */
+
+model Supplier {
+  id             String   @id @default(cuid())
+  tenantId       String
+  organizationId String
+  name           String
+  phone          String?
+  active         Boolean  @default(true)
+  sample         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@unique([tenantId, organizationId, name])
+}
+
+/// PURCHASE_ORDER machine states (@setu/domain machines.ts).
+enum PurchaseOrderStatus {
+  draft
+  sent
+  partially_received @map("partially-received")
+  received
+  cancelled
+}
+
+model PurchaseOrder {
+  id             String              @id @default(cuid())
+  tenantId       String
+  organizationId String
+  supplierId     String
+  /// PO/26/0001 once sent
+  number         String?
+  status         PurchaseOrderStatus @default(draft)
+  /// what the order is expected to cost (Σ qty × unit cost), paisa
+  totalPaisa     Int                 @default(0)
+  rev            Int                 @default(1)
+  /// above the threshold: the owner's / admin's approval Task
+  approvalTaskId String?
+  note           String?
+  cancelReason   String?
+  createdById    String
+  createdAt      DateTime            @default(now())
+  sentById       String?
+  sentAt         DateTime?
+  statusAt       DateTime            @default(now())
+  lines          PurchaseOrderLine[]
+
+  @@index([tenantId, organizationId, status])
+}
+
+model PurchaseOrderLine {
+  id          String        @id @default(cuid())
+  tenantId    String
+  orderId     String
+  order       PurchaseOrder @relation(fields: [orderId], references: [id])
+  position    Int
+  medicineKey String
+  qty         Int
+  /// expected unit cost per tablet / capsule, paisa
+  costPaisa   Int
+  receivedQty Int           @default(0)
+
+  @@index([tenantId, orderId])
+}
+
+/// GOODS_RECEIPT machine states.
+enum GoodsReceiptStatus {
+  checking
+  posted
+  discarded
+}
+
+model GoodsReceipt {
+  id                String             @id @default(cuid())
+  tenantId          String
+  organizationId    String
+  orderId           String
+  supplierId        String
+  /// GRN/26/0001 once posted
+  number            String?
+  supplierInvoiceNo String?
+  status            GoodsReceiptStatus @default(checking)
+  rev               Int                @default(1)
+  invoicedPaisa     Int                @default(0)
+  debitNotePaisa    Int                @default(0)
+  note              String?
+  createdById       String
+  createdAt         DateTime           @default(now())
+  postedById        String?
+  postedAt          DateTime?
+  statusAt          DateTime           @default(now())
+  lines             GoodsReceiptLine[]
+
+  @@index([tenantId, orderId])
+}
+
+model GoodsReceiptLine {
+  id          String       @id @default(cuid())
+  tenantId    String
+  receiptId   String
+  receipt     GoodsReceipt @relation(fields: [receiptId], references: [id])
+  orderLineId String
+  medicineKey String
+  batchNo     String
+  /// last usable day (yyyy-mm-dd)
+  expiry      String
+  /// what the supplier billed
+  invoicedQty Int
+  /// what arrived and was checked
+  receivedQty Int
+  costPaisa   Int
+  mrpPaisa    Int
+  vatRateBp   Int          @default(0)
+  /// counter | store | fridge
+  location    String       @default("store")
+  /// the batch the received quantity went into (on posting)
+  batchId     String?
+
+  @@index([tenantId, receiptId])
+}
+
+/// What the facility owes a supplier (append-only): goods-received (+), debit-note (−), payment (−).
+model SupplierEntry {
+  id             String   @id @default(cuid())
+  tenantId       String
+  organizationId String
+  supplierId     String
+  kind           String
+  amountPaisa    Int
+  refType        String?
+  refId          String?
+  note           String?
+  byId           String
+  at             DateTime @default(now())
+
+  @@index([tenantId, supplierId])
+}
+
+/// STOCK_COUNT machine states.
+enum StockCountStatus {
+  counting
+  submitted
+  approved
+  rejected
+}
+
+model StockCount {
+  id             String           @id @default(cuid())
+  tenantId       String
+  organizationId String
+  /// counter | store | fridge
+  location       String
+  status         StockCountStatus @default(counting)
+  rev            Int              @default(1)
+  createdById    String
+  createdAt      DateTime         @default(now())
+  submittedAt    DateTime?
+  decidedById    String?
+  decidedAt      DateTime?
+  decisionNote   String?
+  statusAt       DateTime         @default(now())
+  lines          StockCountLine[]
+
+  @@index([tenantId, organizationId, status])
+}
+
+model StockCountLine {
+  id         String     @id @default(cuid())
+  tenantId   String
+  countId    String
+  count      StockCount @relation(fields: [countId], references: [id])
+  batchId    String
+  /// the batch's quantity when the count started
+  systemQty  Int
+  countedQty Int?
+  reason     String?
+
+  @@unique([countId, batchId])
+}

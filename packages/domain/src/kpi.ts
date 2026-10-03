@@ -12,7 +12,8 @@ type Better = "up" | "down" | "abs";
 export const KPIS: { key: KpiKey; better: Better; comesWith?: "pharmacy" | "ipd" | "refunds" | "ledger" }[] = [
   { key: "revenue", better: "up" }, { key: "collections", better: "up" }, { key: "dues", better: "down" }, { key: "deposits", better: "up", comesWith: "ipd" },
   { key: "discounts", better: "down" }, { key: "refunds", better: "down", comesWith: "refunds" }, { key: "sharePayable", better: "down", comesWith: "ledger" },
-  { key: "supplierDues", better: "down", comesWith: "pharmacy" }, { key: "stockValue", better: "up", comesWith: "pharmacy" }, { key: "nearExpiry", better: "down", comesWith: "pharmacy" },
+  // pharmacy session 2 (ADR 0009): stock and supplier tiles are live — point-in-time values from the ledgers
+  { key: "supplierDues", better: "down" }, { key: "stockValue", better: "up" }, { key: "nearExpiry", better: "down" },
 ];
 const OPS_BETTER: Record<OpsKey, Better> = { opdVisits: "up", labTests: "up", labTat: "down", noShows: "down", cashVariance: "abs", reprints: "down" };
 

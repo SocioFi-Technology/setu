@@ -277,6 +277,10 @@ async function main() {
   for (const t of [tenant.id, "t_clinicdemo", "t_litedemo", E2E.tenant]) { await seedCatalogues(t); await seedLabCatalogues(t); }
   for (const [t, o] of [[tenant.id, org.id], ["t_clinicdemo", "o_clinicdemo"], ["t_litedemo", "o_litedemo"], [E2E.tenant, E2E.org]] as const) await seedPriceList(t, o);
   for (const [t, o, by] of [[tenant.id, org.id, "u_jewel"], [E2E.tenant, E2E.org, "u_e2e_pharm"]] as const) await seedStock(t, o, by);
+  /* Pharmacy session 2 (ADR 0009): sample suppliers (distributors) for purchase orders — names are samples. */
+  for (const [t, o] of [[tenant.id, org.id], [E2E.tenant, E2E.org]] as const)
+    for (const name of ["Square Pharma Distribution (sample)", "Incepta Distribution (sample)", "Beximco Pharma Depot (sample)"])
+      await prisma.supplier.upsert({ where: { tenantId_organizationId_name: { tenantId: t, organizationId: o, name } }, update: {}, create: { tenantId: t, organizationId: o, name, sample: true } });
   /* The prototype's sample seller BIN (receipt header), marked sample; the plan demos have none, so no Mushak-6.3 line. */
   for (const id of [org.id, E2E.org]) await prisma.organization.update({ where: { id }, data: { vatBin: "000123456-0101", vatBinSample: true } });
   await prisma.sequence.upsert({ where: { tenantId_name: { tenantId: E2E.tenant, name: "patient" } }, update: {}, create: { tenantId: E2E.tenant, name: "patient", value: 240210 } });

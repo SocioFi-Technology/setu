@@ -210,6 +210,26 @@ export type ShiftState = "open" | "counted" | "closed" | "approved";
 export type ShiftEvent = "count" | "close" | "approve" | "recount";
 export const SHIFT: Table<ShiftState, ShiftEvent> = { open: { count: "counted" }, counted: { close: "closed", recount: "open" }, closed: { approve: "approved", recount: "open" }, approved: {} };
 
+/* ADR 0009 (pharmacy purchasing and counts). A purchase order is sent (above the threshold only with the owner's /
+   admin's approval), received in one or more goods receipts, closed short when the rest will not come, or cancelled
+   before anything arrives. A goods receipt is checked, then posted (stock in). A count is submitted and changes stock
+   only when the owner / admin approves it. */
+export type PurchaseOrderState = "draft" | "sent" | "partially-received" | "received" | "cancelled";
+export type PurchaseOrderEvent = "send" | "receivePart" | "receiveAll" | "closeShort" | "cancel";
+export const PURCHASE_ORDER: Table<PurchaseOrderState, PurchaseOrderEvent> = {
+  draft: { send: "sent", cancel: "cancelled" },
+  sent: { receivePart: "partially-received", receiveAll: "received", cancel: "cancelled" },
+  "partially-received": { receivePart: "partially-received", receiveAll: "received", closeShort: "received" },
+  received: {},
+  cancelled: {},
+};
+export type GoodsReceiptState = "checking" | "posted" | "discarded";
+export type GoodsReceiptEvent = "post" | "discard";
+export const GOODS_RECEIPT: Table<GoodsReceiptState, GoodsReceiptEvent> = { checking: { post: "posted", discard: "discarded" }, posted: {}, discarded: {} };
+export type StockCountState = "counting" | "submitted" | "approved" | "rejected";
+export type StockCountEvent = "submit" | "approve" | "reject";
+export const STOCK_COUNT: Table<StockCountState, StockCountEvent> = { counting: { submit: "submitted" }, submitted: { approve: "approved", reject: "rejected" }, approved: {}, rejected: {} };
+
 export type SyncState = "local" | "pending" | "confirmed" | "conflict" | "failed-retry";
 export type SyncEvent = "queue" | "ack" | "conflict" | "fail" | "retry" | "resolve";
 export const SYNC: Table<SyncState, SyncEvent> = {

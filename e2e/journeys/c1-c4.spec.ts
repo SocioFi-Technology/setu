@@ -65,7 +65,9 @@ test("@phone C1: the owner's phone home is the live dashboard — every number o
   await expect(page.getByTestId("dash-compare")).toContainText("vs the same day last week");
   const revenue = page.locator('[data-kpi="revenue"]');
   await expect(revenue.locator(".v")).toContainText("৳");
-  await expect(page.locator('[data-kpi="stockValue"]')).toContainText("Comes with the pharmacy module");
+  // pharmacy session 2: the stock tile is live; IPD deposits still come later
+  await expect(page.locator('[data-kpi="stockValue"] .v')).toContainText("৳");
+  await expect(page.locator('[data-kpi="deposits"]')).toContainText("Comes with");
   await expect(page.getByTestId("revenue-chart").locator("svg text").filter({ hasText: "X: hour of day · Y: taka" })).toHaveCount(1);
   await noSideways(page);
   await revenue.click();

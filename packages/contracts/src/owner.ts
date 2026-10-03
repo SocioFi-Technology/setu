@@ -73,7 +73,7 @@ export const DashboardView = z.object({
 });
 export type DashboardView = z.infer<typeof DashboardView>;
 export const DashboardQuery = z.object({ period: Period.default("today") });
-export const DrillWhat = z.enum(["revenue", "collections", "dues", "discounts", "opdVisits", "labTests", "noShows", "reprints", "shiftVariance", "discountAbovePolicy", "notBilledHere", "cashOutsideShift"]);
+export const DrillWhat = z.enum(["revenue", "collections", "dues", "discounts", "opdVisits", "labTests", "noShows", "reprints", "shiftVariance", "discountAbovePolicy", "notBilledHere", "cashOutsideShift", "stockValue", "nearExpiry", "supplierDues"]);
 export const DrillQuery = z.object({ period: Period.default("today"), what: DrillWhat });
 export const DrillView = z.object({
   what: DrillWhat, period: Period,

@@ -9,3 +9,4 @@ export * from "./lab.js";
 export * from "./doctor.js";
 export * from "./owner.js";
 export * from "./pharmacy.js";
+export * from "./purchasing.js";

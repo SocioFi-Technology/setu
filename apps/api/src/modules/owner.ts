@@ -4,7 +4,7 @@
    with the patients it reveals. */
 import type { DashboardView, DrillView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
-import { KPIS, dhakaDay, kpiChange, periodDays, sumUpToHour, type KpiKey, type OpsKey, type Period } from "@setu/domain";
+import { KPIS, MEDICINES_SAMPLE, NEAR_EXPIRY_DAYS, dhakaDay, kpiChange, periodDays, sumUpToHour, type KpiKey, type OpsKey, type Period } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
 import type { SessionData } from "../plugins/session.js";
 
@@ -135,6 +135,22 @@ export async function runNightlyRollup(now = new Date(), back = 35, onlyTenant?:
 
 const sumBy = (m: Map<string, DayMetrics>, days: string[], f: (x: DayMetrics) => number) => days.reduce((a, d) => a + (m.has(d) ? f(m.get(d)!) : 0), 0);
 
+/* Pharmacy tiles (ADR 0009): what the stock and supplier ledgers held at a moment — stock value at cost (not expired,
+   not quarantined), the part of it expiring within 90 days, and what is owed to suppliers. Point-in-time, live. */
+const addDay = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
+async function stockAt(tx: Tx, org: string, at: Date) {
+  const day = dhakaDay(at), near = addDay(day, NEAR_EXPIRY_DAYS);
+  const [st] = await tx.$queryRaw<{ value: bigint; near: bigint }[]>`
+    WITH q AS (SELECT m."batchId", sum(m."qty") AS qty FROM "StockMove" m WHERE m."organizationId" = ${org} AND m."at" <= ${at} GROUP BY m."batchId")
+    SELECT coalesce(sum(q.qty * b."costPaisa") FILTER (WHERE b."expiry" >= ${day} AND b."location" <> 'quarantine'), 0)::bigint AS value,
+           coalesce(sum(q.qty * b."costPaisa") FILTER (WHERE b."expiry" >= ${day} AND b."expiry" <= ${near} AND b."location" <> 'quarantine'), 0)::bigint AS near
+    FROM q JOIN "StockBatch" b ON b."id" = q."batchId"`;
+  const [sd] = await tx.$queryRaw<{ owed: bigint }[]>`
+    SELECT coalesce(sum(CASE WHEN "kind" = 'goods-received' THEN "amountPaisa" ELSE -"amountPaisa" END), 0)::bigint AS owed
+    FROM "SupplierEntry" WHERE "organizationId" = ${org} AND "at" <= ${at}`;
+  return { stockValue: Number(st?.value ?? 0), nearExpiry: Number(st?.near ?? 0), supplierDues: Number(sd?.owed ?? 0) };
+}
+
 export async function dashboard(tx: Tx, s: SessionData, period: Period, now: Date): Promise<DashboardView> {
   const p = periodDays(period, now);
   const { m, missing } = await metricsFor(tx, s, period === "today" ? p.days : [...p.days, ...p.previous], now);
@@ -148,6 +164,9 @@ export async function dashboard(tx: Tx, s: SessionData, period: Period, now: Dat
     revenue: money((x) => x.revenueByHour), collections: money((x) => x.collectionsByHour), discounts: plain((x) => x.discountsPaisa),
     dues: { cur: m.get(last(p.days))?.duesPaisa ?? 0, prev: m.get(last(p.previous))?.duesPaisa ?? 0 },
   };
+  // compared with the same moment last week (today) or the start of the period (7 / 30 days)
+  const [stNow, stThen] = await Promise.all([stockAt(tx, s.organizationId, now), stockAt(tx, s.organizationId, p.previousUntil ?? new Date(dayBounds(p.days[0]!).from.getTime() - 1))]);
+  for (const k of ["stockValue", "nearExpiry", "supplierDues"] as const) values[k] = { cur: stNow[k], prev: stThen[k] };
   const opsVals: Record<OpsKey, { cur: number | null; prev: number | null }> = {
     opdVisits: plain((x) => x.opdVisits), labTests: plain((x) => x.labTests), noShows: plain((x) => x.noShows),
     labTat: (() => { const t = plain((x) => x.labTests), mins = plain((x) => x.labTatMinutesSum); return { cur: t.cur ? Math.round(mins.cur / t.cur) : null, prev: t.prev ? Math.round(mins.prev / t.prev) : null }; })(),
@@ -295,6 +314,21 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
     count = agg._count._all; totalPaisa = agg._sum.grossPaisa ?? 0;
     const P = await patients(ci.map((x) => x.invoice.patientId));
     rows = ci.map((x) => ({ id: x.id, at: x.notBilledAt!.toISOString(), number: x.invoice.number, patient: P(x.invoice.patientId), amountPaisa: x.grossPaisa, by: null, approvedBy: null, detail: `${x.nameEn} — ${x.notBilledReason ?? ""}`, link: { kind: "invoice" as const, id: x.invoiceId } }));
+  } else if (what === "stockValue" || what === "nearExpiry") {
+    // the batches behind the tile, now (point-in-time — the period does not apply), by value
+    const today = dhakaDay(now), near = addDay(today, NEAR_EXPIRY_DAYS);
+    const batches = await tx.stockBatch.findMany({ where: { organizationId: org, qtyOnHand: { gt: 0 }, location: { not: "quarantine" }, expiry: what === "nearExpiry" ? { gte: today, lte: near } : { gte: today } } });
+    const valued = batches.map((b) => ({ b, v: b.qtyOnHand * b.costPaisa })).sort((a, b) => b.v - a.v || a.b.expiry.localeCompare(b.b.expiry));
+    count = valued.length; totalPaisa = valued.reduce((a, x) => a + x.v, 0);
+    const name = (k: string) => { const md = MEDICINES_SAMPLE.find((x) => x.id === k); return md ? `${md.brand} ${md.strength}` : k; };
+    rows = valued.slice(0, DRILL_ROWS).map(({ b, v }) => ({ id: b.id, at: b.createdAt.toISOString(), number: b.batchNo, patient: null, amountPaisa: v, by: null, approvedBy: null, detail: `${name(b.medicineKey)} · ${b.location} · exp ${b.expiry} · ${b.qtyOnHand}`, link: null }));
+  } else if (what === "supplierDues") {
+    const owed = await tx.$queryRaw<{ id: string; name: string; owed: bigint; last: Date }[]>`
+      SELECT s."id", s."name", sum(CASE WHEN e."kind" = 'goods-received' THEN e."amountPaisa" ELSE -e."amountPaisa" END)::bigint AS owed, max(e."at") AS last
+      FROM "SupplierEntry" e JOIN "Supplier" s ON s."id" = e."supplierId" WHERE e."organizationId" = ${org} GROUP BY s."id", s."name"
+      HAVING sum(CASE WHEN e."kind" = 'goods-received' THEN e."amountPaisa" ELSE -e."amountPaisa" END) <> 0 ORDER BY 3 DESC`;
+    count = owed.length; totalPaisa = owed.reduce((a, x) => a + Number(x.owed), 0);
+    rows = owed.slice(0, DRILL_ROWS).map((x) => ({ id: x.id, at: x.last.toISOString(), number: x.name, patient: null, amountPaisa: Number(x.owed), by: null, approvedBy: null, detail: null, link: null }));
   } else if (what === "labTests") {
     const rel = await tx.$queryRaw<{ sr: string; released: Date }[]>`
       WITH day AS (SELECT DISTINCT x."serviceRequestId" AS sr FROM "DiagnosticReportResult" x JOIN "DiagnosticReport" r ON r."id" = x."reportId"

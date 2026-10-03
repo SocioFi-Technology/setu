@@ -18,6 +18,7 @@ import { doctorRoutes } from "./routes/doctor.js";
 import { documentRoutes } from "./routes/documents.js";
 import { ownerRoutes } from "./routes/owner.js";
 import { pharmacyRoutes } from "./routes/pharmacy.js";
+import { purchasingRoutes } from "./routes/purchasing.js";
 import { metaRoutes } from "./routes/meta.js";
 import { vitalsRoutes } from "./routes/vitals.js";
 
@@ -55,6 +56,7 @@ export async function buildApp() {
   await app.register(billingRoutes);
   await app.register(labRoutes);
   await app.register(pharmacyRoutes);
+  await app.register(purchasingRoutes);
   await app.register(doctorRoutes);
   await app.register(documentRoutes);
   await app.register(ownerRoutes);

@@ -161,7 +161,10 @@ describe.runIf(db)("C1–C2 owner dashboard", () => {
     const v = (k: string) => d.kpis.find((x) => x.key === k)!;
     expect(v("revenue").value).toBeGreaterThan(0);
     expect(v("collections").value).toBeGreaterThan(0);
-    for (const k of ["deposits", "refunds", "sharePayable", "supplierDues", "stockValue", "nearExpiry"]) expect(v(k)).toMatchObject({ value: null, comesWith: expect.any(String) });
+    for (const k of ["deposits", "refunds", "sharePayable"]) expect(v(k)).toMatchObject({ value: null, comesWith: expect.any(String) });
+    // pharmacy session 2: live from the stock and supplier ledgers (the seeded sample stock has a value)
+    for (const k of ["supplierDues", "stockValue", "nearExpiry"]) expect(v(k)).toMatchObject({ value: expect.any(Number), comesWith: null });
+    expect(v("stockValue")!.value).toBeGreaterThan(0);
     expect(d.series.unit).toBe("hour");
     expect(d.series.points).toHaveLength(d.uptoHour! + 1);
     expect(d.ops.find((o) => o.key === "opdVisits")!.value).toBeGreaterThan(0);

@@ -226,7 +226,7 @@ function DrillDialog({ period, what, onClose }: { period: Period; what: DrillVie
   const O = useO(); const F = useFmt(); const router = useRouter();
   const [d, setD] = useState<DrillView | null>(null); const [failed, setFailed] = useState(false);
   useEffect(() => { owner.drill(period, what).then(setD).catch(() => setFailed(true)); }, [period, what]);
-  const title = (["revenue", "collections", "dues", "discounts"].includes(what) ? O(`k_${what}`) : ["opdVisits", "labTests", "noShows"].includes(what) ? O(`o_${what}`) : O(`l_${what}`));
+  const title = (["revenue", "collections", "dues", "discounts", "stockValue", "nearExpiry", "supplierDues"].includes(what) ? O(`k_${what}`) : ["opdVisits", "labTests", "noShows"].includes(what) ? O(`o_${what}`) : O(`l_${what}`));
   const href = (l: NonNullable<DrillView["rows"][number]["link"]>) => l.kind === "invoice" ? `/m/bill/opd?inv=${encodeURIComponent(l.id)}` : l.kind === "receipt" ? `/m/bill/receipt?id=${encodeURIComponent(l.id)}` : l.kind === "shift" ? "/m/bill/shift" : null;
   return (
     <Dialog open onClose={onClose} label={title} width={760}>
