@@ -212,6 +212,15 @@ describe.runIf(db)("owner stock tiles and who may", () => {
     const dues = await ok(get("/v1/owner/drill?period=7d&what=supplierDues", "owner"));
     expect(dues.rows.map((r: { number: string }) => r.number)).toContain("Square Pharma Distribution (sample)");
   });
+  it("one approval queue: the pharmacy kinds by status, and the dashboard's pending count includes them", async () => {
+    const waiting = await ok(get("/v1/pharmacy/approvals?status=requested", "owner"));
+    const approved = await ok(get("/v1/pharmacy/approvals?status=approved", "owner"));
+    expect(approved.orders.every((x: { approval: { status: string } }) => x.approval.status === "approved")).toBe(true);
+    expect(approved.counts.every((c: { status: string }) => c.status === "approved")).toBe(true);
+    expect(approved.receipts.every((r: { postedBy: unknown; reasons: string[] }) => r.postedBy && r.reasons.length > 0)).toBe(true);
+    const d = await ok(get("/v1/owner/dashboard?period=today", "owner"));
+    expect(d.pending.approvals).toBeGreaterThanOrEqual(waiting.orders.length + waiting.counts.length + waiting.receipts.length);
+  });
   it("the doctor is denied; another tenant's pharmacist finds nothing", async () => {
     expect((await get("/v1/pharmacy/suppliers", "doctor")).statusCode).toBe(403);
     expect((await get(`/v1/pharmacy/suppliers/${supplierId}`, "otherPharm")).statusCode).toBe(404);

@@ -11,6 +11,7 @@ import { MEDICINES_SAMPLE } from "@setu/domain";
 import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
 import { purch } from "../../lib/api";
 import { useSession } from "../../lib/session";
+import { PharmacyApprovalCards } from "./Approvals";
 import { MedName, NeedsServer, renewKey, takaToPaisa, toInt, useErr, useFmt, useP } from "./common";
 
 const PO_TONE: Record<string, Tone> = { draft: "draft", sent: "pend", "partially-received": "warn", received: "ok", cancelled: "off" };
@@ -366,42 +367,13 @@ function Supplier({ id }: { id: string }) {
 }
 
 function Approvals() {
-  const s = useSession(); const P = useP(); const F = useFmt(); const E = useErr(); const router = useRouter(); const toast = useToast();
-  const [a, setA] = useState<PharmacyApprovals | null>(null); const [busy, setBusy] = useState(false);
-  const keys = useRef(new Map<string, string>());
-  const keyFor = (id: string) => { if (!keys.current.has(id)) keys.current.set(id, crypto.randomUUID()); return keys.current.get(id)!; };
-  const load = useCallback(() => purch.approvals().then(setA).catch(() => setA({ orders: [], counts: [], receipts: [] })), []);
-  useEffect(() => { void load(); }, [load]);
-  if (!a) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
-  const none = !a.orders.length && !a.counts.length && !a.receipts.length;
+  const P = useP();
+  const [status, setStatus] = useState<"requested" | "approved" | "rejected">("requested"); const [n, setN] = useState<number | null>(null);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }} data-testid="ph-approvals">
-      {none && <PageState icon="check-check" title={P("nothing_waiting")} />}
-      {a.orders.map(({ order: o, approval }) => (
-        <Card key={o.id} data-testid="appr-po" data-po={o.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: 12, flexWrap: "wrap" }}>
-          <Pill tone="warn" icon="stamp">{P("po_above")}</Pill>
-          <span style={{ flex: 1, minWidth: 220 }}><b>{o.supplier.name}</b> · <span className="num">{F.tk(o.totalPaisa)}</span> · {P("lines_n", { n: o.lineCount })} · {P("asked_by", { name: F.name(approval.requestedBy), at: F.dateTime(approval.requestedAt) })}</span>
-          <Button size="sm" icon="eye" onClick={() => router.push(`/m/ph/purchase?po=${encodeURIComponent(o.id)}`)}>{P("open")}</Button>
-          {approval.requestedBy.id !== s.me?.userId && (
-            <Button size="sm" variant="primary" icon="check" data-testid="appr-po-approve" disabled={!s.online || busy}
-              onClick={async () => { setBusy(true); try { await purch.approval(o.id, "approve", "", keyFor(o.id)); keys.current.delete(o.id); toast(P("approved_sent"), "check"); await load(); } catch (e) { toast(E(e), "triangle-alert"); if (renewKey(e)) keys.current.delete(o.id); } finally { setBusy(false); } }}>{P("approve_send")}</Button>
-          )}
-        </Card>
-      ))}
-      {a.counts.map((c) => (
-        <Card key={c.id} data-testid="appr-count" style={{ display: "flex", gap: 10, alignItems: "center", padding: 12, flexWrap: "wrap" }}>
-          <Pill tone="warn" icon="clipboard-check">{P("count_waiting")}</Pill>
-          <span style={{ flex: 1 }}>{P(`loc_${c.location}`)} · {P("variance_lines_n", { n: c.varianceLines })} · {F.name(c.createdBy)} · {F.dateTime(c.createdAt)}</span>
-          <Button size="sm" icon="eye" onClick={() => router.push(`/m/ph/count?count=${encodeURIComponent(c.id)}`)}>{P("open")}</Button>
-        </Card>
-      ))}
-      {a.receipts.map((r) => (
-        <Card key={r.id} data-testid="appr-grn" style={{ display: "flex", gap: 10, alignItems: "center", padding: 12, flexWrap: "wrap" }}>
-          <Pill tone="warn" icon="hourglass">{P("grn_needs_owner")}</Pill>
-          <span style={{ flex: 1 }}>{r.supplier} · {P("po")} <span className="num">{r.order.number}</span> · {F.dateTime(r.createdAt)}</span>
-          <Button size="sm" icon="eye" onClick={() => router.push(`/m/ph/purchase?grn=${encodeURIComponent(r.id)}`)}>{P("open")}</Button>
-        </Card>
-      ))}
+      <Segmented label={P("tab_approvals")} value={status} onChange={setStatus} options={(["requested", "approved", "rejected"] as const).map((x) => ({ value: x, label: P(`as_${x}`) }))} />
+      {n === 0 && <PageState icon="check-check" title={P("nothing_waiting")} />}
+      <PharmacyApprovalCards status={status} kinds={["purchase-order", "goods-receipt", "count"]} onCount={setN} />
     </div>
   );
 }

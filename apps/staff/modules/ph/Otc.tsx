@@ -158,8 +158,8 @@ function Sale({ id }: { id: string }) {
             {P("complete_sale")}
           </Button>
         )}
-        {(inv.status === "issued" || inv.status === "partially-paid") && <Button variant="primary" icon="wallet" data-testid="take-payment" onClick={() => router.push(`/m/bill/pay?inv=${encodeURIComponent(id)}`)}>{P("take_payment")}</Button>}
-        {inv.status === "balanced" && <Button icon="receipt" onClick={() => router.push(`/m/bill/receipt?inv=${encodeURIComponent(id)}`)}>{P("receipt")}</Button>}
+        {(inv.status === "issued" || inv.status === "partially-paid") && <Button variant="primary" icon="wallet" data-testid="take-payment" onClick={() => router.push(`/m/ph/pay?inv=${encodeURIComponent(id)}`)}>{P("take_payment")}</Button>}
+        {inv.status === "balanced" && <Button icon="receipt" onClick={() => router.push(`/m/ph/receipt?inv=${encodeURIComponent(id)}`)}>{P("receipt")}</Button>}
         <span className="t-small t-muted">{P("otc_no_discount")}</span>
       </Card>
     </div>

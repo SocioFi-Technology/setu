@@ -66,6 +66,9 @@ export const DispenseView = z.object({
   allergies: z.array(z.object({ labelBn: z.string(), labelEn: z.string(), severity: z.string() })),
   lines: z.array(DispenseLine),
   bill: PharmacyBillSummary.nullable(),
+  /** the dose label's page (facility setting, default 50 × 30 mm) and the name printed on it */
+  labelPage: z.object({ widthMm: z.number().int(), heightMm: z.number().int() }),
+  facility: z.object({ nameEn: z.string(), nameBn: z.string().nullable() }),
 });
 export type DispenseView = z.infer<typeof DispenseView>;
 
@@ -82,6 +85,11 @@ export const DispenseRequest = z.object({
 export type DispenseRequest = z.infer<typeof DispenseRequest>;
 export const DeclineRequest = z.object({ compositionId: z.string().min(1).max(64), requestId: z.string().min(1).max(64), reason: Reason });
 export type DeclineRequest = z.infer<typeof DeclineRequest>;
+/** Dose labels are printed by the browser; the server records each print first (an audited PHI print). */
+export const LabelPrintRequest = z.object({ requestIds: z.array(z.string().min(1).max(64)).min(1).max(30) });
+export type LabelPrintRequest = z.infer<typeof LabelPrintRequest>;
+export const LabelPrintResponse = z.object({ printedAt: z.string(), labels: z.number().int() });
+export type LabelPrintResponse = z.infer<typeof LabelPrintResponse>;
 
 /* ── over the counter ── */
 export const OtcCreateRequest = z.object({

@@ -202,6 +202,21 @@ describe.runIf(db)("P1–P3 dispense against the signed prescription", () => {
     expect((await get("/v1/billing/worklist")).statusCode).toBe(403);
     expect((await get("/v1/shifts/mine")).statusCode).toBe(200);
   });
+
+  it("dose labels: the view carries the facility's label page (default 50 × 30 mm); each print is recorded first, only for lines given", async () => {
+    const { enc } = await signedVisit([COMET, NAPA]);
+    const v0 = (await get(`/v1/pharmacy/encounters/${enc}`)).json();
+    expect(v0.labelPage).toEqual({ widthMm: 50, heightMm: 30 });
+    expect(v0.facility.nameEn).toBeTruthy();
+    const none = await post(`/v1/pharmacy/encounters/${enc}/labels/print`, { requestIds: [lineOf(v0, "comet").requestId] });
+    expect([none.statusCode, none.json().code]).toEqual([409, "nothing_given"]);
+    const d = (await post(`/v1/pharmacy/encounters/${enc}/dispense`, { compositionId: v0.composition.id, lines: [{ requestId: lineOf(v0, "comet").requestId, medicineKey: "comet", qty: 10 }] })).json();
+    const ok = await post(`/v1/pharmacy/encounters/${enc}/labels/print`, { requestIds: [lineOf(d, "comet").requestId] });
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect(ok.json().labels).toBe(1);
+    const audit = await inTenant((tx) => tx.auditEvent.findFirst({ where: { entity: "DoseLabel", action: "print", entityId: v0.composition.id } }));
+    expect(audit?.patientId).toBeTruthy();
+  });
 });
 
 describe.runIf(db)("review fixes (clinical, money)", () => {

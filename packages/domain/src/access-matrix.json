@@ -218,8 +218,7 @@
     "cashier",
     "owner",
     "admin",
-    "receptionist",
-    "pharmacist"
+    "receptionist"
    ],
    "screens": [
     {
@@ -244,8 +243,7 @@
      "roles": [
       "cashier",
       "owner",
-      "admin",
-      "pharmacist"
+      "admin"
      ],
      "plan": "clinic",
      "needsPatient": true
@@ -258,8 +256,7 @@
      "roles": [
       "cashier",
       "owner",
-      "admin",
-      "pharmacist"
+      "admin"
      ],
      "plan": "clinic",
      "needsPatient": true
@@ -310,8 +307,7 @@
      "roles": [
       "cashier",
       "owner",
-      "admin",
-      "pharmacist"
+      "admin"
      ],
      "plan": "clinic",
      "needsPatient": false
@@ -707,6 +703,45 @@
       "pharmacist",
       "admin",
       "owner"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "pay",
+     "name_bn": "পেমেন্ট",
+     "name_en": "Payment",
+     "icon": "wallet",
+     "roles": [
+      "pharmacist",
+      "owner",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "receipt",
+     "name_bn": "রসিদ",
+     "name_en": "Receipt",
+     "icon": "printer",
+     "roles": [
+      "pharmacist",
+      "owner",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "shift",
+     "name_bn": "শিফট ক্লোজ",
+     "name_en": "Shift close",
+     "icon": "lock",
+     "roles": [
+      "pharmacist",
+      "owner",
+      "admin"
      ],
      "plan": "clinic",
      "needsPatient": false

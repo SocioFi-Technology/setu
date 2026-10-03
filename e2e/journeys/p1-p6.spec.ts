@@ -43,12 +43,12 @@ async function signedRx(request: APIRequestContext, tag: string) {
 }
 /** Cash for the whole open amount on the payment screen (the amount box starts at what is still due). */
 async function payCash(page: Page) {
-  await expect(page.locator('[data-screen="bill/pay"]')).toBeVisible();
+  await expect(page.locator('[data-screen="ph/pay"]')).toBeVisible();
   await page.getByRole("radio", { name: "Cash" }).click();
   await expect(page.locator("input[name=pay-amount]")).not.toHaveValue("");
   await page.fill("input[name=pay-tendered]", await page.inputValue("input[name=pay-amount]"));
   await page.getByTestId("pay-submit").click();
-  await expect(page.locator('[data-screen="bill/pay"]')).toHaveAttribute("data-invoice-status", "balanced");
+  await expect(page.locator('[data-screen="ph/pay"]')).toHaveAttribute("data-invoice-status", "balanced");
 }
 const line = (page: Page, key: string) => page.locator(`[data-testid="rx-line"][data-medicine="${key}"]`);
 
@@ -100,6 +100,16 @@ test.describe("Journey P — the pharmacy", () => {
     await page.getByTestId("back-to-bill").click();
     await expect(page.locator('[data-screen="ph/dispense"][data-encounter]')).toBeVisible();
     await expect(page.getByTestId("pharmacy-bill")).toHaveAttribute("data-status", "balanced");
+
+    // the dose labels print through the browser on the facility's label page (default 50 × 30 mm); each print is logged
+    await page.evaluate(() => { (window as unknown as { __printed: number }).__printed = 0; window.print = () => { (window as unknown as { __printed: number }).__printed++; }; });
+    await page.getByTestId("print-labels").click();
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __printed: number }).__printed)).toBe(1);
+    const sheet = page.getByTestId("label-print");
+    await expect(sheet).toHaveAttribute("data-page", "50x30");
+    await expect(sheet.locator(".label-page")).toHaveCount(2);
+    await expect(sheet.locator(".label-page").nth(1)).toContainText("Ace 500 mg × 9");
+    await expect(sheet.locator(".label-page").nth(1)).toContainText("সকালে ১টি, দুপুরে ১টি, রাতে ১টি · খাবারের পরে · ৩ দিন");
 
     // P3: the rest of Comet is declined with a reason → the visit is done
     await comet.getByTestId("decline").click();
@@ -155,7 +165,7 @@ test.describe("Journey P — the pharmacy", () => {
   });
 
   test("P5: order → goods received short (debit note) → posted; short expiry posted by the owner; above ৳50,000 the owner approves", async ({ page }) => {
-    await login(page, PHARM);
+    await test.step("pharmacist: sign in", () => login(page, PHARM));
     await page.goto("/m/ph/purchase?tab=orders");
     await page.getByTestId("new-po").click();
     await expect(page.locator('[data-screen="ph/purchase"][data-status="draft"]')).toBeVisible();
@@ -163,11 +173,13 @@ test.describe("Journey P — the pharmacy", () => {
       await page.getByTestId("po-medicine").selectOption(med); await page.getByTestId("po-qty").fill(qty); await page.getByTestId("po-cost").fill(cost);
       await page.getByTestId("po-add").click(); await expect(page.locator(`[data-testid="po-lines"] tr[data-line="${med}"]`)).toBeVisible();
     };
+    await test.step("pharmacist: order with two lines, sent", async () => {
     await addLine("comet", "200", "3.40");
     await addLine("amdocal", "100", "4");
     await page.getByTestId("po-send").click();
     await expect(page.locator('[data-screen="ph/purchase"]')).toHaveAttribute("data-status", "sent");
     await expect(page.getByTestId("po-number")).toContainText("PO/");
+    });
 
     // goods arrive: Comet 180 of 200 billed (a debit note); Amlodipine expiring in 80 days (the owner posts it)
     await page.getByTestId("grn-invoice").fill(`SQ-${RUN}`);
@@ -181,6 +193,7 @@ test.describe("Journey P — the pharmacy", () => {
       await f.getByTestId("grn-add").click();
       await expect(page.locator(`[data-testid="grn-lines"] tr[data-batch="${batch}"]`)).toBeVisible();
     };
+    await test.step("pharmacist: goods received, two lines checked", async () => {
     await fill("comet", `CM${RUN}`, day(700), "200", "180", "4");
     await expect(page.locator(`[data-testid="grn-lines"] tr[data-batch="CM${RUN}"]`)).toContainText("Short — debit note");
     await expect(page.getByTestId("grn-money")).toContainText("68");
@@ -188,13 +201,19 @@ test.describe("Journey P — the pharmacy", () => {
     await expect(page.locator(`[data-testid="grn-lines"] tr[data-batch="AM${RUN}"]`)).toContainText("Expires within 6 months");
     await expect(page.getByText("the owner or an admin posts it").first()).toBeVisible();
     await expect(page.getByTestId("grn-post")).toBeDisabled();
-    const grnUrl = page.url();
+    });
+    const grnId = new URL(page.url()).searchParams.get("grn")!;
 
-    // the owner sees it on the approvals tab and posts it
-    await login(page, OWNER);
+    // the owner sees it in the one approval queue (and on Pharmacy › Purchase) and posts it
+    await test.step("owner: sign in", () => login(page, OWNER));
+    await test.step("owner: the receipt is in both approval views; posts it", async () => {
+    await page.goto("/m/bill/approvals");
+    await page.getByRole("radiogroup", { name: "Kind" }).getByRole("radio", { name: "Goods receipt" }).click();
+    await expect(page.locator('[data-testid="appr-grn"]').first()).toContainText("Expires within 6 months");
     await page.goto("/m/ph/purchase");
     await expect(page.getByTestId("ph-approvals")).toBeVisible();
-    await page.goto(grnUrl);
+    await expect(page.locator('[data-testid="appr-grn"]').first()).toBeVisible();
+    await page.goto(`/m/ph/purchase?grn=${grnId}`);
     await page.getByTestId("grn-note").fill("Short expiry accepted — fast mover");
     await page.getByTestId("grn-post").click();
     await expect(page.locator('[data-screen="ph/purchase"][data-grn]')).toHaveAttribute("data-status", "posted");
@@ -205,21 +224,30 @@ test.describe("Journey P — the pharmacy", () => {
     await page.getByTestId("reason").fill("Supplier out of Comet until next month");
     await page.getByTestId("reason-confirm").click();
     await expect(page.locator('[data-screen="ph/purchase"][data-po]')).toHaveAttribute("data-status", "received");
+    });
 
-    // above ৳50,000: the pharmacist asks, the owner approves (and so sends)
-    await login(page, PHARM);
+    // above ৳50,000: the pharmacist asks, the owner approves (and so sends) from the one approval queue
+    await test.step("pharmacist: sign in", () => login(page, PHARM));
+    await test.step("pharmacist: an order above the limit asks the owner", async () => {
     await page.goto("/m/ph/purchase?tab=orders");
     await page.getByTestId("new-po").click();
     await addLine("azith", "2000", "30");
     await expect(page.getByTestId("po-send")).toContainText("Ask the owner to approve");
     await page.getByTestId("po-send").click();
     await expect(page.getByTestId("po-approval")).toContainText("asked for approval");
-    const poUrl = page.url();
-    await login(page, OWNER);
-    await page.goto(poUrl);
-    await page.getByTestId("po-approve").click();
+    });
+    const poId = new URL(page.url()).searchParams.get("po")!;
+    await test.step("owner: sign in", () => login(page, OWNER));
+    await test.step("owner: approves it in the Approvals screen (kind: purchase order)", async () => {
+    await page.goto("/m/bill/approvals");
+    await page.getByRole("radiogroup", { name: "Kind" }).getByRole("radio", { name: "Purchase order" }).click();
+    const card = page.locator(`[data-testid="appr-po"][data-po="${poId}"]`);
+    await card.getByTestId("appr-po-approve").click();
+    await expect(card).toHaveCount(0);
+    await page.goto(`/m/ph/purchase?po=${poId}`);
     await expect(page.locator('[data-screen="ph/purchase"][data-po]')).toHaveAttribute("data-status", "sent");
     await expect(page.getByTestId("po-approval")).toContainText("Approved and sent by Test Owner");
+    });
   });
 
   test("P6: store → fridge, a count with a difference and a reason → the owner approves → adjusted; the stock tile is live", async ({ page }) => {
@@ -256,11 +284,15 @@ test.describe("Journey P — the pharmacy", () => {
     await page.getByTestId("submit-count").click();
     await expect(page.locator('[data-screen="ph/count"]')).toHaveAttribute("data-status", "submitted");
     await expect(page.getByText("Waiting for the owner or an admin")).toBeVisible();
-    const countUrl = page.url();
+    const countId = new URL(page.url()).searchParams.get("count")!;
 
+    // the owner approves it from the one approval queue (kind: stock count)
     await login(page, OWNER);
-    await page.goto(countUrl);
-    await page.getByTestId("approve-count").click();
+    await page.goto("/m/bill/approvals");
+    await page.getByRole("radiogroup", { name: "Kind" }).getByRole("radio", { name: "Stock count" }).click();
+    await page.locator(`[data-testid="appr-count"][data-count="${countId}"]`).getByTestId("appr-count-approve").click();
+    await expect(page.locator(`[data-testid="appr-count"][data-count="${countId}"]`)).toHaveCount(0);
+    await page.goto(`/m/ph/count?count=${countId}`);
     await expect(page.locator('[data-screen="ph/count"]')).toHaveAttribute("data-status", "approved");
     await expect(page.getByText("Approved by Test Owner")).toBeVisible();
     await page.goto("/m/own/dash");

@@ -4,7 +4,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
-  ApprovalDecision, CountCreate, CountLineRequest, GrnCreate, GrnLineRequest, GrnPostRequest, PoCreate, PoEndRequest, PoLineRequest, PoRev, SupplierCreate, SupplierPaymentRequest, TransferRequest,
+  ApprovalDecision, ApprovalStatusQuery, CountCreate, CountLineRequest, GrnCreate, GrnLineRequest, GrnPostRequest, PoCreate, PoEndRequest, PoLineRequest, PoRev, SupplierCreate, SupplierPaymentRequest, TransferRequest,
   type CountList, type GoodsReceiptView, type PharmacyApprovals, type PurchaseOrderList, type PurchaseOrderView, type StockCountView, type SupplierLedger, type SupplierList,
 } from "@setu/contracts";
 import { authorize } from "@setu/domain";
@@ -193,6 +193,7 @@ export async function purchasingRoutes(app: FastifyInstance) {
   /* ── the owner's / admin's pharmacy approvals ── */
   app.get("/v1/pharmacy/approvals", async (req): Promise<PharmacyApprovals> => {
     requirePh(req, "purchase");
-    return query(req, async (tx, s) => ({ body: await pharmacyApprovals(tx, s, new Date()), audit: [{ action: "view", entity: "Task", detail: { purpose: "pharmacy-approvals" } }] }));
+    const { status } = ApprovalStatusQuery.parse(req.query);
+    return query(req, async (tx, s) => ({ body: await pharmacyApprovals(tx, s, status, new Date()), audit: [{ action: "view", entity: "Task", detail: { purpose: "pharmacy-approvals", status } }] }));
   });
 }

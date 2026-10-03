@@ -27,7 +27,9 @@ import { requireSession } from "../plugins/session.js";
 function requireBill(req: FastifyRequest, screen: "opd" | "pay" | "receipt" | "approvals" | "reconcile", pharmacy = false) {
   const s = requireSession(req);
   const d = authorize(s.role, s.plan, "bill", screen);
-  if (!d.allowed && !(pharmacy && authorize(s.role, s.plan, "ph", "otc").allowed)) throw forbidden(d.reason ?? "unknown");
+  // the pharmacy counter's own screens (ADR 0009): ph/pay for payments, ph/receipt for receipts, ph/otc for the bill itself
+  const phScreen = screen === "pay" ? "pay" : screen === "receipt" ? "receipt" : "otc";
+  if (!d.allowed && !(pharmacy && authorize(s.role, s.plan, "ph", phScreen).allowed)) throw forbidden(d.reason ?? "unknown");
   return s;
 }
 type SessionRole = ReturnType<typeof requireSession>["role"];

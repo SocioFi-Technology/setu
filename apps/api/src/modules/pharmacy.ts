@@ -180,7 +180,10 @@ export async function dispenseView(tx: Tx, s: SessionData, encounterId: string, 
       label: (() => { const bn = doseLabel(r.dose, r.meal as Meal, r.days, "bn"), en = doseLabel(r.dose, r.meal as Meal, r.days, "en"); return bn && en ? { bn, en } : null; })(),
     };
   });
+  const org = (await tx.organization.findFirst({ where: { id: s.organizationId }, select: { name: true, nameBn: true, labelWidthMm: true, labelHeightMm: true } }))!;
   return {
+    labelPage: { widthMm: org.labelWidthMm, heightMm: org.labelHeightMm },
+    facility: { nameEn: org.name, nameBn: org.nameBn },
     encounter: { ...toVitalsEncounter(e), practitioner: e.practitionerId ? who(e.practitionerId) : null },
     composition: { id: note.id, version: note.version, status: note.status as "final" | "amended", signedAt: (note.signedAt ?? note.updatedAt).toISOString() },
     allergies: allergies.map((a) => ({ labelBn: a.labelBn, labelEn: a.labelEn, severity: a.severity ?? "unknown" })),
@@ -290,6 +293,20 @@ export async function decline(tx: Tx, s: SessionData, encounterId: string, req: 
     prescribedKey: r.medicineKey, medicineKey: r.medicineKey, action: "decline", qty: 0, reason, byId: s.userId, at: now,
   } });
   return { view: await dispenseView(tx, s, e.id, now), audit: [{ action: "create", entity: "MedicationDispense", entityId: id, patientId: e.patientId, detail: { action: "decline", requestId: r.id, dispensedBefore: p.dispensedQty } }] };
+}
+
+/** Records a dose-label print (ADR 0009: printed by the browser on the facility's label page): only lines of the current
+    note with something given; the audit names the dispenses each label covers. */
+export async function labelPrint(tx: Tx, s: SessionData, encounterId: string, requestIds: string[], now: Date): Promise<{ printedAt: string; labels: number; audit: AuditEntry[] }> {
+  const e = await encounterHere(tx, s, encounterId);
+  const note = await currentNote(tx, e.id);
+  if (!note) throw err(404, "no_prescription", "এই ভিজিটে স্বাক্ষরিত প্রেসক্রিপশন নেই", "This visit has no signed prescription");
+  const P = await progressAll(tx, note.medications, await tx.medicationDispense.findMany({ where: { encounterId: e.id } }));
+  const lines = [...new Set(requestIds)].map((id) => note.medications.find((m) => m.id === id));
+  if (lines.some((l) => !l)) throw err(404, "line_not_found", "এই লাইন প্রেসক্রিপশনে নেই", "This line is not on the prescription", { field: "requestIds" });
+  const given = lines.map((l) => ({ l: l!, g: P(l!).given }));
+  if (given.some((x) => x.g.length === 0)) throw err(409, "nothing_given", "এই লাইনে এখনো কিছু দেওয়া হয়নি — লেবেল হয় না", "Nothing has been given on this line yet — no label", { field: "requestIds" });
+  return { printedAt: now.toISOString(), labels: given.length, audit: [{ action: "print", entity: "DoseLabel", entityId: note.id, patientId: e.patientId, detail: { encounterId: e.id, labels: given.map((x) => ({ requestId: x.l.id, dispenseIds: x.g.map((d) => d.id) })) } }] };
 }
 
 /* ───── over the counter ───── */

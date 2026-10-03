@@ -4,12 +4,12 @@
    those two kinds only. */
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { DeclineRequest, DispenseRequest, OtcCreateRequest, OtcLineRequest, OtcRevRequest, RxPhotoRequest, StockQuery, type DispenseQueue, type DispenseView, type OtcView, type StockList } from "@setu/contracts";
+import { DeclineRequest, DispenseRequest, LabelPrintRequest, type LabelPrintResponse, OtcCreateRequest, OtcLineRequest, OtcRevRequest, RxPhotoRequest, StockQuery, type DispenseQueue, type DispenseView, type OtcView, type StockList } from "@setu/contracts";
 import { authorize } from "@setu/domain";
 import { command, query } from "../command.js";
 import { forbidden } from "../errors.js";
 import { invoiceHere } from "../modules/billing.js";
-import { addOtcLine, addRxPhoto, createOtc, decline, dispense, dispenseQueue, dispenseView, issueOtc, otcView, removeOtcLine, rxPhoto, stockList } from "../modules/pharmacy.js";
+import { addOtcLine, addRxPhoto, createOtc, decline, dispense, dispenseQueue, dispenseView, issueOtc, labelPrint, otcView, removeOtcLine, rxPhoto, stockList } from "../modules/pharmacy.js";
 import { requireSession } from "../plugins/session.js";
 
 function requirePh(req: FastifyRequest, screen: "dispense" | "otc" | "stock") {
@@ -49,6 +49,13 @@ export async function pharmacyRoutes(app: FastifyInstance) {
     const { id } = pid.parse(req.params);
     const body = DeclineRequest.parse(req.body ?? {});
     return command(req, reply, async (tx, s) => { const r = await decline(tx, s, id, body, new Date()); return { status: 200, body: r.view, audit: r.audit }; });
+  });
+
+  app.post("/v1/pharmacy/encounters/:id/labels/print", { config: { ownTx: true } }, async (req, reply): Promise<LabelPrintResponse> => {
+    requirePh(req, "dispense");
+    const { id } = pid.parse(req.params);
+    const body = LabelPrintRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const r = await labelPrint(tx, s, id, body.requestIds, new Date()); return { status: 200, body: { printedAt: r.printedAt, labels: r.labels }, audit: r.audit }; });
   });
 
   /* ── over the counter (ph/otc) ── */

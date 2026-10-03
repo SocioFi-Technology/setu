@@ -74,6 +74,10 @@ const SCREENS: Record<string, ComponentType> = {
   "ph/stock": PhStock,
   "ph/purchase": PhPurchase,
   "ph/count": PhCount,
+  // ADR 0009: the pharmacy counter's payment, receipt and shift reuse the billing screens (links stay in Pharmacy)
+  "ph/pay": BillPay,
+  "ph/receipt": BillReceipt,
+  "ph/shift": BillShift,
 };
 const SLICE: Record<string, string> = { fd: "A1–A3", cons: "A4–A5", bill: "A6–A7", lab: "A8–A11", doc: "A12–A13", ph: "phase 2", own: "C1–C4", adm: "phase 2", er: "B1–B2", ipd: "B3–B4", nur: "B5–B6", net: "E1–E4" };
 

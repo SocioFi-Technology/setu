@@ -9,7 +9,7 @@ import type { ReceiptList, ReceiptView } from "@setu/contracts";
 import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
 import { bill as api } from "../../lib/api";
 import { useSession } from "../../lib/session";
-import { goToBill, useB, useErr, useMoney } from "./common";
+import { goToBill, useB, useErr, useMod, useMoney } from "./common";
 
 const REASONS = ["lost", "jam", "corp", "ins"] as const;
 
@@ -23,23 +23,24 @@ export function BillReceipt() {
 }
 
 function ReceiptsOfBill({ invoiceId }: { invoiceId: string }) {
+  const mod = useMod();
   const s = useSession(); const B = useB(); const M = useMoney(); const E = useErr(); const router = useRouter(); const toast = useToast();
   const [list, setList] = useState<ReceiptList | null>(null);
   const [key] = useState(() => crypto.randomUUID());
   useEffect(() => { api.receipts(invoiceId).then(setList).catch(() => setList({ items: [] })); }, [invoiceId]);
   if (!list) return <div aria-busy="true" className="t-muted">{B("loading")}</div>;
   return (
-    <div data-screen="bill/receipt" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div data-screen={`${mod}/receipt`} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <h1 className="t-h2" style={{ margin: 0 }}>{B("receipts")}</h1>
       {list.items.length === 0 && <PageState icon="printer" title={B("rc_none")} />}
       {list.items.map((r) => (
-        <button key={r.id} type="button" className="card" style={{ display: "flex", gap: 12, padding: 12, textAlign: "left", cursor: "pointer" }} onClick={() => router.push(`/m/bill/receipt?rc=${encodeURIComponent(r.id)}`)}>
+        <button key={r.id} type="button" className="card" style={{ display: "flex", gap: 12, padding: 12, textAlign: "left", cursor: "pointer" }} onClick={() => router.push(`/m/${mod}/receipt?rc=${encodeURIComponent(r.id)}`)}>
           <b className="num">{r.number}</b><span className="num">{M.dateTime(r.createdAt)}</span><span>{B("paid")}: <span className="num">{M.tk(r.paidPaisa)}</span></span>
           {r.duePaisa > 0 && <span>{B("due")}: <span className="num">{M.tk(r.duePaisa)}</span></span>}
         </button>
       ))}
       <span style={{ display: "flex", gap: 8 }}>
-        <Button icon="receipt" disabled={!s.online} onClick={async () => { try { const r = await api.makeReceipt(invoiceId, key); router.push(`/m/bill/receipt?rc=${encodeURIComponent(r.receipt.id)}`); } catch (e) { toast(E(e), "triangle-alert"); } }}>{B("rc_new")}</Button>
+        <Button icon="receipt" disabled={!s.online} onClick={async () => { try { const r = await api.makeReceipt(invoiceId, key); router.push(`/m/${mod}/receipt?rc=${encodeURIComponent(r.receipt.id)}`); } catch (e) { toast(E(e), "triangle-alert"); } }}>{B("rc_new")}</Button>
         <Button icon="arrow-left" onClick={() => void goToBill(router.push, invoiceId)}>{B("back_to_bill")}</Button>
       </span>
     </div>
@@ -47,6 +48,7 @@ function ReceiptsOfBill({ invoiceId }: { invoiceId: string }) {
 }
 
 function ReceiptScreen({ id }: { id: string }) {
+  const mod = useMod();
   const s = useSession(); const B = useB(); const M = useMoney(); const E = useErr(); const router = useRouter(); const toast = useToast();
   const [v, setV] = useState<ReceiptView | null>(null); const [failed, setFailed] = useState(false);
   const [lang, setLang] = useState<"both" | "bn" | "en">("both");
@@ -76,7 +78,7 @@ function ReceiptScreen({ id }: { id: string }) {
   const r = v.receipt; const snap = r.snapshot;
   const printed = v.prints.length > 0;
   return (
-    <div data-screen="bill/receipt" style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+    <div data-screen={`${mod}/receipt`} style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h1 className="t-h2" style={{ margin: 0 }}>{B("rc_title")}</h1>
         <b className="num" data-testid="receipt-number">{r.number}</b>

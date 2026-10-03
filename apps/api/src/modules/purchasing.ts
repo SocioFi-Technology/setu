@@ -481,29 +481,63 @@ export async function transfer(tx: Tx, s: SessionData, req: TransferRequest, now
   return { from: src.id, to: dest.id, audit: [{ action: "create", entity: "StockMove", entityId: ref, detail: { kind: "transfer", medicineKey: src.medicineKey, batchNo: src.batchNo, qty: req.qty, from: src.location, to: req.to } }] };
 }
 
-/* ───── the owner's pharmacy approvals ───── */
-export async function pharmacyApprovals(tx: Tx, s: SessionData, now: Date): Promise<PharmacyApprovals> {
-  if (!isStockApprover(s.role as Role)) throw notApprover();
-  const here = (await tx.purchaseOrder.findMany({ where: { organizationId: s.organizationId, status: "draft" }, select: { id: true } })).map((x) => x.id);
-  const tasks = await tx.task.findMany({ where: { kind: PO_APPROVAL_TASK, status: "requested", focusId: { in: here } }, orderBy: { requestedAt: "asc" } });
-  const list = await poList(tx, s, "draft");
-  const who = await people(tx, tasks.map((t) => t.requestedById));
-  const counts = (await countList(tx, s, "submitted")).items;
+/* ───── the owner's pharmacy approvals (one queue with billing's — Kamrul 03/10/2026) ───── */
+type ApprStatus = "requested" | "approved" | "rejected";
+/** Receipts only the owner / admin may post, with why: a batch expiring within 6 months, a price other than the order's. */
+async function ownerOnlyReceipts(tx: Tx, s: SessionData, status: ApprStatus, now: Date) {
+  if (status === "rejected") return [];
   const today = dhakaDay(now);
-  // receipts only the owner / admin may post: a batch expiring within 6 months, or a price other than the order's
-  const open = await tx.goodsReceipt.findMany({ where: { organizationId: s.organizationId, status: "checking" }, include: { lines: { select: { expiry: true, costPaisa: true, orderLineId: true } } } });
-  const orderCost = new Map((await tx.purchaseOrderLine.findMany({ where: { id: { in: open.flatMap((g) => g.lines.map((l) => l.orderLineId)) } }, select: { id: true, costPaisa: true } })).map((l) => [l.id, l.costPaisa]));
-  const short = open.filter((g) => g.lines.some((l) => shortExpiry(l.expiry, today) || orderCost.get(l.orderLineId) !== l.costPaisa));
-  const [pos, sups] = await Promise.all([
-    tx.purchaseOrder.findMany({ where: { id: { in: short.map((g) => g.orderId) } }, select: { id: true, number: true } }),
-    tx.supplier.findMany({ where: { id: { in: short.map((g) => g.supplierId) } }, select: { id: true, name: true } }),
+  const rows = await tx.goodsReceipt.findMany({
+    where: { organizationId: s.organizationId, ...(status === "requested" ? { status: "checking" as const } : { status: "posted" as const, postedAt: { gte: new Date(now.getTime() - 30 * 864e5) } }) },
+    include: { lines: { select: { expiry: true, costPaisa: true, orderLineId: true } } }, orderBy: { createdAt: "desc" }, take: 100,
+  });
+  const orderCost = new Map((await tx.purchaseOrderLine.findMany({ where: { id: { in: rows.flatMap((g) => g.lines.map((l) => l.orderLineId)) } }, select: { id: true, costPaisa: true } })).map((l) => [l.id, l.costPaisa]));
+  // a posted receipt's short expiry is judged on the day it was posted
+  return rows.map((g) => {
+    const on = g.postedAt ? dhakaDay(g.postedAt) : today;
+    const reasons: ("short-expiry" | "price-variance")[] = [];
+    if (g.lines.some((l) => shortExpiry(l.expiry, on))) reasons.push("short-expiry");
+    if (g.lines.some((l) => orderCost.get(l.orderLineId) !== l.costPaisa)) reasons.push("price-variance");
+    return { g, reasons };
+  }).filter((x) => x.reasons.length > 0);
+}
+export async function pendingPharmacyApprovals(tx: Tx, s: SessionData, now: Date): Promise<number> {
+  const drafts = (await tx.purchaseOrder.findMany({ where: { organizationId: s.organizationId, status: "draft" }, select: { id: true } })).map((x) => x.id);
+  const [orders, counts, receipts] = await Promise.all([
+    tx.task.count({ where: { kind: PO_APPROVAL_TASK, status: "requested", focusId: { in: drafts } } }),
+    tx.stockCount.count({ where: { organizationId: s.organizationId, status: "submitted" } }),
+    ownerOnlyReceipts(tx, s, "requested", now),
   ]);
+  return orders + counts + receipts.length;
+}
+export async function pharmacyApprovals(tx: Tx, s: SessionData, status: ApprStatus, now: Date): Promise<PharmacyApprovals> {
+  if (!isStockApprover(s.role as Role)) throw notApprover();
+  const pos = await tx.purchaseOrder.findMany({ where: { organizationId: s.organizationId, ...(status === "requested" ? { status: "draft" as const } : {}) }, select: { id: true } });
+  const tasks = await tx.task.findMany({ where: { kind: PO_APPROVAL_TASK, status, focusId: { in: pos.map((x) => x.id) } }, orderBy: { requestedAt: status === "requested" ? "asc" : "desc" }, take: 100 });
+  const list = (await poList(tx, s)).items;
+  const counts = await tx.stockCount.findMany({ where: { organizationId: s.organizationId, status: status === "requested" ? "submitted" : status }, orderBy: { createdAt: "desc" }, take: 50, include: { lines: true } });
+  const batches = new Map((await tx.stockBatch.findMany({ where: { id: { in: counts.flatMap((c) => c.lines.map((l) => l.batchId)) } }, select: { id: true, costPaisa: true } })).map((b) => [b.id, b.costPaisa]));
+  const rec = await ownerOnlyReceipts(tx, s, status, now);
+  const [orderNo, sups] = await Promise.all([
+    tx.purchaseOrder.findMany({ where: { id: { in: rec.map((r) => r.g.orderId) } }, select: { id: true, number: true } }),
+    tx.supplier.findMany({ where: { id: { in: rec.map((r) => r.g.supplierId) } }, select: { id: true, name: true } }),
+  ]);
+  const who = await people(tx, [...tasks.flatMap((t) => [t.requestedById, t.decidedById]), ...counts.flatMap((c) => [c.createdById, c.decidedById]), ...rec.flatMap((r) => [r.g.createdById, r.g.postedById])]);
   return {
     orders: tasks.flatMap((t) => {
-      const order = list.items.find((o) => o.id === t.focusId);
-      return order ? [{ order, approval: { taskId: t.id, status: "requested" as const, requestedBy: who(t.requestedById), requestedAt: t.requestedAt.toISOString(), decidedBy: null, decidedAt: null, note: null } }] : [];
+      const order = list.find((o) => o.id === t.focusId);
+      return order ? [{ order, approval: { taskId: t.id, status: t.status as ApprStatus, requestedBy: who(t.requestedById), requestedAt: t.requestedAt.toISOString(), decidedBy: t.decidedById ? who(t.decidedById) : null, decidedAt: iso(t.decidedAt), note: t.decisionNote } }] : [];
     }),
-    counts,
-    receipts: short.map((g) => ({ id: g.id, order: { id: g.orderId, number: pos.find((p) => p.id === g.orderId)?.number ?? null }, supplier: sups.find((x) => x.id === g.supplierId)?.name ?? "—", createdAt: g.createdAt.toISOString() })),
+    counts: counts.map((c) => {
+      // the difference as counted against the start (what was on the shelf then); the view on the count adds later moves
+      const diffs = c.lines.filter((l) => l.countedQty !== null && l.countedQty !== l.systemQty);
+      return { id: c.id, location: c.location, status: c.status, lineCount: c.lines.length, varianceLines: diffs.length,
+        varianceValuePaisa: diffs.reduce((a, l) => a + Math.abs(l.countedQty! - l.systemQty) * (batches.get(l.batchId) ?? 0), 0),
+        createdBy: who(c.createdById), createdAt: c.createdAt.toISOString(), decidedBy: c.decidedById ? who(c.decidedById) : null, decidedAt: iso(c.decidedAt), decisionNote: c.decisionNote };
+    }),
+    receipts: rec.map(({ g, reasons }) => ({
+      id: g.id, order: { id: g.orderId, number: orderNo.find((p) => p.id === g.orderId)?.number ?? null }, supplier: sups.find((x) => x.id === g.supplierId)?.name ?? "—",
+      createdBy: who(g.createdById), createdAt: g.createdAt.toISOString(), reasons, invoicedPaisa: g.invoicedPaisa, postedBy: g.postedById ? who(g.postedById) : null, postedAt: iso(g.postedAt),
+    })),
   };
 }

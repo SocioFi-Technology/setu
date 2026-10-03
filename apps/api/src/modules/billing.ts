@@ -446,7 +446,7 @@ async function approvalItem(tx: Tx, s: SessionData, t: TaskRow, now: Date): Prom
     ...toApprovalView(t, who),
     kind: t.kind === BILL_ELSEWHERE_TASK ? "bill-elsewhere" : "discount-approval",
     line,
-    invoice: { id: inv.id, status: dash<InvoiceState>(inv.status), number: inv.number, subtotalPaisa: inv.subtotalPaisa, totalPaisa: inv.totalPaisa },
+    invoice: { id: inv.id, status: dash<InvoiceState>(inv.status), number: inv.number, subtotalPaisa: inv.subtotalPaisa, totalPaisa: inv.totalPaisa, kind: inv.kind, encounterId: inv.encounterId },
     patient: toVitalsEncounter({ id: "", token: "", tokenDay: "", status: "finished", patient: p } as unknown as Parameters<typeof toVitalsEncounter>[0]).patient,
     requesterToday: { count: mine.length, totalPaisa: mine.reduce((a, m) => a + ((m.detail as unknown as DiscountDetail)?.amountPaisa ?? 0), 0) },
   };

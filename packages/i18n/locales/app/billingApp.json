@@ -17,6 +17,13 @@
 
   "bill_title": ["ওপিডি বিল", "OPD bill"],
   "back_pharmacy": ["ফার্মেসিতে ফিরুন", "Back to the pharmacy"],
+  "appr_kind": ["ধরন", "Kind"],
+  "appr_k_all": ["সব", "All"],
+  "appr_k_discount": ["ছাড়", "Discount"],
+  "appr_k_not-billed": ["এখানে বিল নয়", "Not billed here"],
+  "appr_k_purchase-order": ["ক্রয় অর্ডার", "Purchase order"],
+  "appr_k_goods-receipt": ["মাল গ্রহণ", "Goods receipt"],
+  "appr_k_count": ["স্টক গণনা", "Stock count"],
   "back_to_bill": ["বিলে ফিরুন", "Back to the bill"],
   "bill_draft": ["খসড়া", "Draft"],
   "st_draft": ["খসড়া", "Draft"],

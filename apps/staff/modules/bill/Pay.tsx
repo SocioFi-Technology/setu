@@ -13,7 +13,7 @@ import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@se
 import { bill as api } from "../../lib/api";
 import { dismissRefused, onOutbox, outboxItems } from "../../lib/outbox";
 import { useSession } from "../../lib/session";
-import { INVOICE_TONE, PAY_TONE, billHome, useB, useBanner, useErr, useMoney } from "./common";
+import { INVOICE_TONE, PAY_TONE, billHome, useB, useBanner, useErr, useMod, useMoney } from "./common";
 
 const FAKE_GATEWAY = process.env.NODE_ENV !== "production";
 const KEYS: Partial<Record<string, PaymentMethod>> = { F5: "cash", F6: "card", F7: "bkash", F8: "nagad" };
@@ -35,6 +35,7 @@ function PayView({ id }: { id: string }) {
   const [lostTrx, setLostTrx] = useState<Record<string, string>>({});
   const [queued, setQueued] = useState(() => [] as ReturnType<typeof outboxItems>);
   const [rcKey] = useState(() => crypto.randomUUID());
+  const mod = useMod();
 
   // A refresh that fails (offline, server away) keeps the last bill on screen; only a first load that fails shows the error.
   const have = useRef(false);
@@ -105,7 +106,7 @@ function PayView({ id }: { id: string }) {
   };
   const makeReceipt = async () => {
     setBusy(true);
-    try { const r = await api.makeReceipt(id, rcKey); router.push(`/m/bill/receipt?rc=${encodeURIComponent(r.receipt.id)}`); }
+    try { const r = await api.makeReceipt(id, rcKey); router.push(`/m/${mod}/receipt?rc=${encodeURIComponent(r.receipt.id)}`); }
     catch (e) { toast(E(e), "triangle-alert"); } finally { setBusy(false); }
   };
 
@@ -121,7 +122,7 @@ function PayView({ id }: { id: string }) {
     && (s.online || method === "cash" || isWallet(method));
 
   return (
-    <div data-screen="bill/pay" data-invoice-status={inv.status} style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+    <div data-screen={`${mod}/pay`} data-invoice-status={inv.status} style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h1 className="t-h2" style={{ margin: 0 }}>{B("pay_title")}</h1>
         <b className="num">{inv.number ?? B("bill_draft")}</b>

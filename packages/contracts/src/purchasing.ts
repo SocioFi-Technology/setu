@@ -110,9 +110,20 @@ export const TransferRequest = z.object({ batchId: Id, qty: Qty, to: z.enum(["co
 export type TransferRequest = z.infer<typeof TransferRequest>;
 
 /* ── the owner's pharmacy approvals ── */
+/** One approval queue for the owner / admin (Kamrul 03/10/2026): requested now, or decided (approved / rejected). */
+export const ApprovalStatusQuery = z.object({ status: z.enum(["requested", "approved", "rejected"]).default("requested") });
 export const PharmacyApprovals = z.object({
+  /** purchase orders above the limit */
   orders: z.array(z.object({ order: PurchaseOrderList.shape.items.element, approval: PoApprovalView })),
-  counts: CountList.shape.items,
-  receipts: z.array(z.object({ id: z.string(), order: z.object({ id: z.string(), number: z.string().nullable() }), supplier: z.string(), createdAt: z.string() })),
+  /** counts with their decision */
+  counts: z.array(z.object({
+    id: z.string(), location: z.string(), status: z.string(), lineCount: z.number().int(), varianceLines: z.number().int(), varianceValuePaisa: z.number().int(),
+    createdBy: Person, createdAt: z.string(), decidedBy: Person.nullable(), decidedAt: z.string().nullable(), decisionNote: z.string().nullable(),
+  })),
+  /** goods receipts only the owner / admin may post: waiting (requested) or posted by them (approved) */
+  receipts: z.array(z.object({
+    id: z.string(), order: z.object({ id: z.string(), number: z.string().nullable() }), supplier: z.string(), createdBy: Person, createdAt: z.string(),
+    reasons: z.array(z.enum(["short-expiry", "price-variance"])), invoicedPaisa: z.number().int(), postedBy: Person.nullable(), postedAt: z.string().nullable(),
+  })),
 });
 export type PharmacyApprovals = z.infer<typeof PharmacyApprovals>;

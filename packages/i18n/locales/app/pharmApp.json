@@ -98,7 +98,7 @@
   "fix_lines": ["পরিমাণ বা কারণ ঠিক করুন", "Fix a quantity or a reason"],
   "all_done": ["সব লাইন সম্পন্ন", "Every line done"],
   "dispensed_ok": ["দেওয়া হয়েছে — স্টক ও বিল আপডেট হয়েছে", "Dispensed — stock and bill updated"],
-  "label_caption": ["লেবেল ৫০ × ৩০ মিমি (প্রিভিউ)", "Label 50 × 30 mm (preview)"],
+  "label_caption": ["লেবেলের প্রিভিউ", "Label preview"],
   "pharmacy_bill": ["ফার্মেসি বিল", "Pharmacy bill"],
   "bill_none": ["এখনো কিছু দেওয়া হয়নি — বিল নেই", "Nothing given yet — no bill"],
   "issue_bill": ["বিল ইস্যু করুন", "Issue the bill"],
@@ -245,5 +245,15 @@
   "owner_decides": ["মালিক বা অ্যাডমিন অনুমোদন করবেন", "The owner or an admin decides"],
   "approve_adjust": ["অনুমোদন — সমন্বয় পোস্ট করুন", "Approve — post the adjustment"],
   "decided_approved": ["{name} অনুমোদন করেছেন · {at} {note}", "Approved by {name} · {at} {note}"],
-  "decided_rejected": ["{name} প্রত্যাখ্যান করেছেন · {at} — {note}", "Rejected by {name} · {at} — {note}"]
+  "decided_rejected": ["{name} প্রত্যাখ্যান করেছেন · {at} — {note}", "Rejected by {name} · {at} — {note}"],
+  "own_request": ["নিজের অনুরোধ নিজে অনুমোদন করা যায় না", "You cannot decide your own request"],
+  "own_count": ["নিজের গণনা নিজে অনুমোদন করা যায় না", "You cannot decide a count you made"],
+  "open_to_post": ["খুলে পোস্ট করুন", "Open to post"],
+  "why_short-expiry": ["৬ মাসের মধ্যে মেয়াদ শেষ", "Expires within 6 months"],
+  "why_price-variance": ["দাম অর্ডার থেকে আলাদা", "Price differs from the order"],
+  "as_requested": ["অপেক্ষায়", "Waiting"],
+  "as_approved": ["অনুমোদিত", "Approved"],
+  "as_rejected": ["প্রত্যাখ্যাত", "Rejected"],
+  "print_label": ["লেবেল ছাপুন", "Print label"],
+  "print_labels_n": ["{n}টি লেবেল ছাপুন ({w} × {h} মিমি)", "Print {n} label(s) ({w} × {h} mm)"]
 }

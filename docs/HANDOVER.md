@@ -518,8 +518,23 @@ hands-on as the pharmacist.
   to an OTC sale and to a count's lines run one after another on the latest rev (nothing dropped while busy).
 - **E2E:** `e2e/journeys/p1-p6.spec.ts` (P1–P3, P4, P5, P6, 1024 px); `pnpm reset-e2e` also rejects open counts and
   discards receipts left in checking. Hands-on: `node e2e/walk-pharm.mjs <dir>` (demo clinic, Rahima Khatun, Bangla).
-- **Not yet:** printing the dose label (preview only — print spec and label printer pending, question 192), the
-  prescription photo is not checked for content, label / receipt for an OTC sale print through the billing receipt.
+- **Kamrul's decisions (03/10/2026, after the session):** (1) the dose label prints through the browser's print dialog on a
+  label-sized page — default 50 × 30 mm, `Organization.labelWidthMm / labelHeightMm` (migration `label_page`; set in the
+  database until the admin slice brings settings screens) — so any thermal printer with an OS driver works; each print is
+  recorded first (`POST /v1/pharmacy/encounters/:id/labels/print`, audited `DoseLabel print`). **Direct printer protocols
+  (ZPL / TSPL) are phase 2**, only when a pilot clinic names its printer. (2) The pharmacist's payment, receipt and shift
+  are Pharmacy screens `ph/pay`, `ph/receipt`, `ph/shift` reusing the billing components; the cashier keeps `bill/pay`;
+  the pharmacist has no Billing screen (access matrix + test, ADR 0009 note — shift moved with pay and receipt so the
+  pharmacist has one module). (3) The owner's Approvals screen (`bill/approvals`) is the single queue for every kind —
+  discount, not billed here, purchase order, goods receipt (owner-only post), count — with a kind filter; Pharmacy ›
+  Purchase › Approvals is the pre-filtered view; the dashboard's pending count includes the pharmacy kinds.
+  A goods receipt is "approved" by posting it from its page (its lines are checked there); the queue links to it.
+- **Not yet:** the prescription photo is not checked for content (pre-pilot list, gap 12); the menu badges are the
+  prototype's static sample numbers (not live counts — gap 5).
+- **Journey P timing (P5, 28.9 s on this PC):** four sign-ins 10.5 s (login page, home, the language and numeral toggles),
+  owner screens 12.3 s (Approvals with the kind filter, Purchase, the receipt, the order — mostly dev-server page loads),
+  the pharmacist's own work about 3.6 s, page loads between steps 2.5 s. Signing in once per role (Playwright
+  storageState) would save about 10 s per journey if the suite grows slow.
 - **Tests:** domain 258, api 215, `pnpm typecheck` 13/13, Playwright 79 (a full run green; journey P + shell green twice after the last fix — P5 had hit the 30 s default test timeout under load, now 120 s).
 
 ## How to run the journeys on this PC
@@ -584,6 +599,11 @@ hands-on as the pharmacist.
       builder takes only tablet/capsule counts like 1+0+1 (`packages/domain/src/format.ts` `dose`; the screen says so
       under the prescription). A clinician decides the formats (ml, drops, IU, "as needed") and a per-dose cap
       (open question 78).
+    - **Pharmacy (pre-pilot, a pharmacist):** verify the uploaded photo is a prescription (prescriber, date, the items
+      and quantities sold against it) — today any JPEG / PNG unlocks prescription-only items on that OTC sale; the sale
+      classes (OTC / Rx / controlled) of the demo list (`packages/domain/src/pharmacy.ts`, all `sample`); whether
+      controlled drugs need a register entry or a second check; substitution rules (same ingredients, strength and form)
+      and the dose-label wording.
 11. **Patients are per tenant** (decided 02/10/2026, open question 21): one record shared across an owner's branches; between different owners only through Connected Care with consent (Journey E), never by default.
 
 ## Next (in order)

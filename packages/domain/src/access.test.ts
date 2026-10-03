@@ -77,11 +77,15 @@ describe("bill kinds by role (ADR 0009)", () => {
   });
 });
 
-describe("the pharmacist at the counter (ADR 0009: beyond the design handoff — the prototype gets it in the next design round)", () => {
-  it("takes payment, prints receipts and holds a shift — never the OPD bill, approvals or reconciliation", () => {
+describe("the pharmacist at the counter (ADR 0009: ph/pay, ph/receipt, ph/shift — beyond the design handoff)", () => {
+  it("takes payment, prints receipts and holds a shift inside Pharmacy; never the Billing module", () => {
     for (const plan of ["clinic", "lite", "pro"] as const) {
-      for (const screen of ["pay", "receipt", "shift"]) expect(authorize("pharmacist", plan, "bill", screen).allowed).toBe(true);
-      for (const screen of ["opd", "approvals", "reconcile", "refund"]) expect(authorize("pharmacist", plan, "bill", screen).allowed).toBe(false);
+      for (const screen of ["pay", "receipt", "shift"]) {
+        expect(authorize("pharmacist", plan, "ph", screen).allowed).toBe(true);
+        expect(authorize("owner", plan, "ph", screen).allowed).toBe(true);
+        expect(authorize("cashier", plan, "ph", screen).allowed).toBe(false); // the cashier keeps bill/pay
+      }
+      for (const screen of ["opd", "pay", "receipt", "shift", "approvals", "reconcile", "refund"]) expect(authorize("pharmacist", plan, "bill", screen).allowed).toBe(false);
     }
   });
 });

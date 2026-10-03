@@ -190,6 +190,7 @@ export const pharm = {
   queue: () => call<DispenseQueue>("GET", "/v1/pharmacy/queue"),
   visit: (encounterId: string) => call<DispenseView>("GET", `/v1/pharmacy/encounters/${enc(encounterId)}`),
   dispense: (encounterId: string, body: DispenseRequest, key: string) => call<DispenseView>("POST", `/v1/pharmacy/encounters/${enc(encounterId)}/dispense`, body, key),
+  labels: (encounterId: string, requestIds: string[], key: string) => call<{ printedAt: string; labels: number }>("POST", `/v1/pharmacy/encounters/${enc(encounterId)}/labels/print`, { requestIds }, key),
   decline: (encounterId: string, body: { compositionId: string; requestId: string; reason: string }, key: string) => call<DispenseView>("POST", `/v1/pharmacy/encounters/${enc(encounterId)}/decline`, body, key),
   otcNew: (body: OtcCreateRequest, key: string) => call<OtcView>("POST", "/v1/pharmacy/otc", body, key),
   otc: (id: string) => call<OtcView>("GET", `/v1/pharmacy/otc/${enc(id)}`),
@@ -226,5 +227,5 @@ export const purch = {
   countLine: (id: string, body: { rev: number; lineId: string; countedQty: number; reason?: string }) => call<StockCountView>("POST", `/v1/pharmacy/counts/${enc(id)}/lines`, body, k()),
   submitCount: (id: string, rev: number, key: string) => call<StockCountView>("POST", `/v1/pharmacy/counts/${enc(id)}/submit`, { rev }, key),
   decideCount: (id: string, decision: "approve" | "reject", note: string, key: string) => call<StockCountView>("POST", `/v1/pharmacy/counts/${enc(id)}/decision`, note ? { decision, note } : { decision }, key),
-  approvals: () => call<PharmacyApprovals>("GET", "/v1/pharmacy/approvals"),
+  approvals: (status: "requested" | "approved" | "rejected" = "requested") => call<PharmacyApprovals>("GET", `/v1/pharmacy/approvals?status=${status}`),
 };

@@ -13,6 +13,7 @@ import { ApiFailure, bill, pharm } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { bannerOf, useLabels } from "../fd/common";
 import { BatchState, MedName, NeedsServer, renewKey, toInt, useErr, useFmt, useP } from "./common";
+import { printDoseLabels, type DoseLabelData } from "./labels";
 
 const LINE_TONE: Record<DispenseLine["status"], Tone> = { "to-dispense": "pend", partial: "warn", dispensed: "ok", declined: "off", "partial-declined": "off" };
 const Q_TONE: Record<string, Tone> = { "to-dispense": "pend", partial: "warn", done: "ok" };
@@ -61,6 +62,7 @@ function Visit({ encounterId }: { encounterId: string }) {
   const [key, setKey] = useState(() => crypto.randomUUID());
   const [declining, setDeclining] = useState<DispenseLine | null>(null);
   const [billView, setBillView] = useState<InvoiceView | null>(null);
+  const [labelKey, setLabelKey] = useState(() => crypto.randomUUID());
 
   const show = useCallback((x: DispenseView) => {
     setV(x);
@@ -97,6 +99,23 @@ function Visit({ encounterId }: { encounterId: string }) {
     finally { setBusy(false); }
   };
   const allClosed = v.lines.every((l) => l.remaining === 0);
+  const printable = v.lines.filter((l) => l.given.length > 0 && l.label);
+  /** the label of a line as it goes in the bag: what was given (brand, total), the Bangla dose, the batches */
+  const labelOf = (l: DispenseLine): DoseLabelData => {
+    const m = l.given[l.given.length - 1]!.medicine;
+    return {
+      medicine: `${m.brand} ${m.strength}`, qty: s.n(l.given.reduce((a, g) => a + g.qty, 0)), dose: l.label!.bn,
+      patient: v.encounter.patient.nameBn, batches: [...new Set(l.given.map((g) => `${g.batchNo} · মেয়াদ ${F.day(g.expiry)}`))].join(", "),
+      facility: v.facility.nameBn ?? v.facility.nameEn, date: F.date(new Date().toISOString()),
+    };
+  };
+  const print = async (lines: DispenseLine[]) => {
+    if (busy || !lines.length) return;
+    setBusy(true);
+    try { await pharm.labels(encounterId, lines.map((l) => l.requestId), labelKey); setLabelKey(crypto.randomUUID()); printDoseLabels(lines.map(labelOf), v.labelPage); }
+    catch (e) { toast(E(e), "triangle-alert"); if (renewKey(e)) setLabelKey(crypto.randomUUID()); }
+    finally { setBusy(false); }
+  };
 
   return (
     <div data-screen="ph/dispense" data-encounter={encounterId} style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
@@ -112,7 +131,7 @@ function Visit({ encounterId }: { encounterId: string }) {
       )}
       <Callout tone="info" icon="layers">{P("three_facts")}</Callout>
 
-      {v.lines.map((l) => <LineCard key={l.requestId} l={l} pick={picks[l.requestId]} set={(p) => set(l.requestId, p)} patient={F.name(v.encounter.patient)} onDecline={() => setDeclining(l)} />)}
+      {v.lines.map((l) => <LineCard key={l.requestId} l={l} pick={picks[l.requestId]} set={(p) => set(l.requestId, p)} patient={F.name(v.encounter.patient)} onDecline={() => setDeclining(l)} onPrint={l.given.length > 0 && l.label ? () => void print([l]) : undefined} />)}
 
       <Card style={{ display: "flex", gap: 12, alignItems: "center", padding: 12, flexWrap: "wrap" }}>
         <Button variant="primary" icon="package-check" data-testid="dispense" disabled={!s.online || busy || !chosen.length || invalid} onClick={dispense}>
@@ -120,6 +139,8 @@ function Visit({ encounterId }: { encounterId: string }) {
         </Button>
         {invalid && <span className="t-small" style={{ color: "var(--danger-fg)" }}>{P("fix_lines")}</span>}
         {allClosed && <Pill tone="ok" icon="check">{P("all_done")}</Pill>}
+        <span style={{ marginLeft: "auto" }} />
+        {printable.length > 0 && <Button icon="printer" data-testid="print-labels" disabled={!s.online || busy} onClick={() => void print(printable)}>{P("print_labels_n", { n: printable.length, w: v.labelPage.widthMm, h: v.labelPage.heightMm })}</Button>}
       </Card>
 
       <BillCard v={v} billView={billView} onChanged={load} />
@@ -131,7 +152,7 @@ function Visit({ encounterId }: { encounterId: string }) {
   );
 }
 
-function LineCard({ l, pick, set, patient, onDecline }: { l: DispenseLine; pick: LinePick | undefined; set: (p: Partial<LinePick>) => void; patient: string; onDecline: () => void }) {
+function LineCard({ l, pick, set, patient, onDecline, onPrint }: { l: DispenseLine; pick: LinePick | undefined; set: (p: Partial<LinePick>) => void; patient: string; onDecline: () => void; onPrint?: () => void }) {
   const s = useSession(); const P = useP(); const F = useFmt();
   const open = l.remaining > 0;
   const sub = pick && pick.medicineKey !== l.prescribed.key ? l.substitutes.find((x) => x.medicine.key === pick.medicineKey) : null;
@@ -208,6 +229,7 @@ function LineCard({ l, pick, set, patient, onDecline }: { l: DispenseLine; pick:
           return <DoseLabel patient={patient} name={`${m.brand} ${m.strength}`} label={l.label.bn} />;
         })()}
         <span style={{ marginLeft: "auto" }} />
+        {onPrint && <Button size="sm" icon="printer" onClick={onPrint} disabled={!s.online} data-testid="print-label">{P("print_label")}</Button>}
         {open && !l.declined && <Button size="sm" icon="circle-slash" onClick={onDecline} data-testid="decline">{P("decline")}</Button>}
       </div>
     </Card>
@@ -266,9 +288,9 @@ function BillCard({ v, billView, onChanged }: { v: DispenseView; billView: Invoi
         </Button>
       )}
       {(v.bill.status === "issued" || v.bill.status === "partially-paid") && (
-        <Button variant="primary" icon="wallet" data-testid="take-payment" onClick={() => router.push(`/m/bill/pay?inv=${encodeURIComponent(v.bill!.id)}`)}>{P("take_payment")}</Button>
+        <Button variant="primary" icon="wallet" data-testid="take-payment" onClick={() => router.push(`/m/ph/pay?inv=${encodeURIComponent(v.bill!.id)}`)}>{P("take_payment")}</Button>
       )}
-      {v.bill.status === "balanced" && <Button icon="receipt" onClick={() => router.push(`/m/bill/receipt?inv=${encodeURIComponent(v.bill!.id)}`)}>{P("receipt")}</Button>}
+      {v.bill.status === "balanced" && <Button icon="receipt" onClick={() => router.push(`/m/ph/receipt?inv=${encodeURIComponent(v.bill!.id)}`)}>{P("receipt")}</Button>}
     </Card>
   );
 }

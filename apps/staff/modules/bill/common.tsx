@@ -5,6 +5,7 @@ import type { InvoiceView } from "@setu/contracts";
 import { format } from "@setu/domain";
 import { fill } from "@setu/i18n";
 import type { Tone } from "@setu/ui";
+import { usePathname } from "next/navigation";
 import { ApiFailure, bill } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { bannerOf, useLabels } from "../fd/common";
@@ -33,6 +34,11 @@ export const WRITERS = ["cashier", "owner", "admin"];
 export function useBanner() {
   const s = useSession(); const L = useLabels();
   return (v: InvoiceView | null) => s.setPatient(v?.encounter ? bannerOf(v.encounter.patient, L) : null);
+}
+/** The module a shared billing screen is open in: `bill` for the cashier, `ph` for the pharmacist's counter (ADR 0009 —
+    ph/pay, ph/receipt and ph/shift reuse the billing screens). Links stay inside that module. */
+export function useMod(): "bill" | "ph" {
+  return usePathname()?.split("/")[2] === "ph" ? "ph" : "bill";
 }
 /** Where a bill lives (ADR 0009): the OPD bill screen, the visit's dispense at the pharmacy, or the OTC sale. */
 export const billHome = (v: Pick<InvoiceView, "invoice" | "encounter">) =>

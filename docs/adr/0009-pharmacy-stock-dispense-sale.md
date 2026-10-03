@@ -45,11 +45,24 @@ batch set at goods received; approvals above a threshold by the owner / admin.
   any variance needs a reason; stock changes only when the owner / admin approves — the adjustment moves are written
   then). Suppliers carry what is owed (goods received − payments).
 
-### The pharmacist at the counter (session 3)
-**`bill/pay`, `bill/receipt` and `bill/shift` gain the pharmacist** — beyond the design handoff (`shell-roles-plans.md`):
-added to `packages/domain/src/access-matrix.json` by hand with a test that keeps it (as `bill/reconcile`, ADR 0005);
-**the prototype gets it in the next design round.** The pharmacist never gets `bill/opd`, approvals or reconciliation,
-and the API shows them pharmacy and OTC bills only (`billKindsFor`).
+### The pharmacist at the counter (session 3; Kamrul 03/10/2026)
+**`ph/pay`, `ph/receipt` and `ph/shift` are Pharmacy screens** — beyond the design handoff (`shell-roles-plans.md` has no
+such screens): added to `packages/domain/src/access-matrix.json` by hand (pharmacist, owner, admin; Clinic plan) with a
+test that keeps them; **the prototype gets them in the next design round.** They reuse the billing payment, receipt and
+shift components (links stay inside Pharmacy); the cashier keeps `bill/pay`. The pharmacist has no Billing screen; the
+API shows them pharmacy and OTC bills only (`billKindsFor`). Shift close moved with payment so the pharmacist's menu has
+one module (Kamrul asked for pay and receipt; shift follows the same rule).
+
+### Approvals (session 3; Kamrul 03/10/2026)
+The owner's Approvals screen (`bill/approvals`) is the **single queue for every approval kind** — discount, not billed
+here, purchase order above the limit, a goods receipt only the owner may post (price different from the order, expiry
+within 6 months), count variance — with a kind filter. The Pharmacy approvals tab stays as the pre-filtered view of the
+pharmacy kinds. Nothing is approvable in one place and invisible in the other.
+
+### Dose labels (session 3; Kamrul 03/10/2026)
+Printed through the browser's print dialog on a label-sized page (default 50 × 30 mm; the page size is a facility
+setting), so any thermal label printer with an OS driver works. Direct printer protocols (ZPL / TSPL) come only when a
+pilot clinic names its printer (phase 2). Each print is audited.
 
 ## Consequences
 - Migrations: StockBatch, StockMove, MedicationDispense (session 1); Supplier, PurchaseOrder (+ lines), GoodsReceipt

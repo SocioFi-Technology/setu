@@ -137,7 +137,8 @@ export const ApprovalItem = ApprovalView.extend({
   kind: ApprovalKind,
   /** bill-elsewhere: the line asked to be not billed here */
   line: z.object({ id: z.string(), nameEn: z.string(), nameBn: z.string() }).nullable(),
-  invoice: z.object({ id: z.string(), status: InvoiceStatus, number: z.string().nullable(), subtotalPaisa: Paisa, totalPaisa: Paisa }),
+  /** kind: where the bill opens (an OPD bill, or a pharmacy bill at the pharmacy) */
+  invoice: z.object({ id: z.string(), status: InvoiceStatus, number: z.string().nullable(), subtotalPaisa: Paisa, totalPaisa: Paisa, kind: InvoiceKind, encounterId: z.string().nullable() }),
   patient: VitalsEncounter.shape.patient,
   /** leak signal: the requester's discount requests today (count and paisa) */
   requesterToday: z.object({ count: z.number().int(), totalPaisa: Paisa }),

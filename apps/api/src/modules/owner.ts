@@ -6,6 +6,7 @@ import type { DashboardView, DrillView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import { KPIS, MEDICINES_SAMPLE, NEAR_EXPIRY_DAYS, dhakaDay, kpiChange, periodDays, sumUpToHour, type KpiKey, type OpsKey, type Period } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
+import { pendingPharmacyApprovals } from "./purchasing.js";
 import type { SessionData } from "../plugins/session.js";
 
 /** 2: the cash variance is stored as short and over separately (money-controls review H3); older rows are recomputed. */
@@ -208,7 +209,8 @@ export async function dashboard(tx: Tx, s: SessionData, period: Period, now: Dat
     // never handed over: open for more than 12 hours (money-controls review M5)
     tx.shift.count({ where: { organizationId: s.organizationId, status: "open", openedAt: { lt: new Date(now.getTime() - 12 * 3600_000) } } }),
   ]);
-  const approvals = Number(appr?.n ?? 0), reconcile = Number(rec?.n ?? 0);
+  // one approval queue (Kamrul 03/10/2026): the pharmacy's orders above the limit, owner-only receipts and counts too
+  const approvals = Number(appr?.n ?? 0) + await pendingPharmacyApprovals(tx, s, now), reconcile = Number(rec?.n ?? 0);
   return {
     period, days: p.days, previousDays: p.previous, uptoHour: H, asOf: now.toISOString(), kpis, ops, series,
     byMethod: (["cash", "bkash", "nagad", "card", "bank"] as const).map((method) => ({ method, paisa: byMethodTotals.get(method) ?? 0 })),

@@ -7,8 +7,8 @@ const ROLES: [string, string, string[]][] = [
   ["01711000004", "nurse", ["fd", "ipd", "nur", "er"]],
   ["01711000005", "labTech", ["lab", "net"]],
   ["01711000006", "pathologist", ["lab"]],
-  // ADR 0009: the pharmacist also takes payment, prints receipts and closes a shift (bill/pay, receipt, shift)
-  ["01711000007", "pharmacist", ["bill", "ph"]],
+  // ADR 0009: the pharmacist's payment, receipt and shift screens live in Pharmacy (ph/pay, ph/receipt, ph/shift)
+  ["01711000007", "pharmacist", ["ph"]],
   ["01711000008", "cashier", ["bill"]],
   ["01711000009", "owner", ["fd", "bill", "ipd", "lab", "ph", "own", "adm", "net"]],
   ["01711000010", "admin", ["fd", "bill", "ipd", "nur", "lab", "ph", "er", "own", "adm", "net"]],

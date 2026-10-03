@@ -11,7 +11,7 @@ import { fill } from "@setu/i18n";
 import { Button, Callout, Card, PageState, Pill, useToast } from "@setu/ui";
 import { ApiFailure, shifts } from "../../lib/api";
 import { useSession } from "../../lib/session";
-import { useMoney } from "./common";
+import { useMod, useMoney } from "./common";
 
 function useO() {
   const s = useSession();
@@ -24,9 +24,10 @@ const VTONE = { short: "bad", over: "warn", matched: "ok" } as const;
 export function BillShift() {
   const s = useSession();
   const reviewer = s.me?.role === "owner" || s.me?.role === "admin";
+  const mod = useMod();
   useEffect(() => { s.setPatient(null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div data-screen="bill/shift" style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0, maxWidth: 980 }}>
+    <div data-screen={`${mod}/shift`} style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0, maxWidth: 980 }}>
       {reviewer ? <ReviewList /> : <MyDrawer />}
     </div>
   );

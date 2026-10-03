@@ -40,8 +40,8 @@ export function billKindsFor(role: Role, plan: Plan): BillKind[] {
   if (authorize(role, plan, "ph", "otc").allowed) return ["pharmacy", "otc"];
   return [];
 }
-/** ADR 0008 + 0009: who holds a drawer shift — billing's shift screen, or the pharmacist who takes money at the counter. */
-export const holdsShift = (role: Role, plan: Plan) => authorize(role, plan, "bill", "shift").allowed || authorize(role, plan, "ph", "otc").allowed;
+/** ADR 0008 + 0009: who holds a drawer shift — billing's shift screen, or the pharmacy counter's (ph/shift). */
+export const holdsShift = (role: Role, plan: Plan) => authorize(role, plan, "bill", "shift").allowed || authorize(role, plan, "ph", "shift").allowed;
 
 export interface CapabilityScreen { key: string; name_bn: string; name_en: string; icon: string; allowed: boolean; reason?: Denial; needs?: Plan; needsPatient: boolean; badge?: string }
 export interface Capability { key: string; name_bn: string; name_en: string; icon: string; plan: Plan; locked?: Denial; screens: CapabilityScreen[] }

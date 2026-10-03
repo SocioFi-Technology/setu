@@ -810,3 +810,12 @@ Commit after each step, push at the end of each session.
      the Pharmacy menu?
 194. **Owner approvals for the pharmacy are a tab in Purchase** (orders above the limit, receipts only the owner may
      post, counts waiting). Should they also appear in the owner's Approvals screen and the dashboard's pending count?
+
+### Decided by Kamrul (03/10/2026, after session 3)
+- **192 → the browser prints the label** on a label-sized page (default 50 × 30 mm, a facility setting); ZPL / TSPL
+  only when a pilot clinic names its printer (phase 2).
+- **193 → Pharmacy screens `ph/pay`, `ph/receipt`** (and `ph/shift`, which moved with them so the pharmacist has one
+  module — confirm), reusing the billing components; the cashier keeps `bill/pay`.
+- **194 → one approval queue**: the owner's Approvals screen lists every kind with a kind filter; Pharmacy's tab is the
+  pre-filtered view; nothing approvable in one place and invisible in the other.
+- Pre-pilot (pharmacist): verify the uploaded photo is a prescription — HANDOVER gap 12.

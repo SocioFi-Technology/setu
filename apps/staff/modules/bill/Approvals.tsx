@@ -1,5 +1,7 @@
 "use client";
-/* bill/approvals — owner / admin. Ported from docs/prototype/Setu Billing.dc.html (screen "Approvals inbox").
+/* bill/approvals — owner / admin: the single approval queue (Kamrul 03/10/2026) — discounts, not billed here, and the
+   pharmacy's purchase orders above the limit, owner-only goods receipts and count differences, with a kind filter.
+   Ported from docs/prototype/Setu Billing.dc.html (screen "Approvals inbox").
    Discount requests above the cashier's limit: approve (A) applies the discount to the bill; reject (R) needs a note
    and applies nothing. Nobody approves their own request (the server refuses it; the button says so). */
 import { useCallback, useEffect, useState } from "react";
@@ -8,9 +10,15 @@ import type { ApprovalList } from "@setu/contracts";
 import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
 import { bill as api } from "../../lib/api";
 import { useSession } from "../../lib/session";
+import { PharmacyApprovalCards, type PhApprovalKind } from "../ph/Approvals";
 import { useB, useErr, useMoney } from "./common";
 
 type Tab = "requested" | "approved" | "rejected";
+type Kind = "all" | "discount" | "not-billed" | PhApprovalKind;
+const KINDS: Kind[] = ["all", "discount", "not-billed", "purchase-order", "goods-receipt", "count"];
+const PH_KINDS: PhApprovalKind[] = ["purchase-order", "goods-receipt", "count"];
+const billHref = (i: { id: string; kind: string; encounterId: string | null }) =>
+  i.kind === "opd" ? `/m/bill/opd?inv=${encodeURIComponent(i.id)}` : i.kind === "pharmacy" && i.encounterId ? `/m/ph/dispense?enc=${encodeURIComponent(i.encounterId)}` : `/m/ph/otc?inv=${encodeURIComponent(i.id)}`;
 
 export function BillApprovals() {
   const s = useSession(); const B = useB(); const M = useMoney(); const E = useErr(); const router = useRouter(); const toast = useToast();
@@ -20,6 +28,9 @@ export function BillApprovals() {
   const [busy, setBusy] = useState<string | null>(null);
   const [keys, setKeys] = useState<Record<string, string>>({});
   const [focus, setFocus] = useState<string | null>(null);
+  const [kind, setKind] = useState<Kind>("all"); const [phCount, setPhCount] = useState<number | null>(null);
+  const items = (list?.items ?? []).filter((a) => kind === "all" || (kind === "discount" ? a.kind === "discount-approval" : kind === "not-billed" ? a.kind === "bill-elsewhere" : false));
+  const phKinds = kind === "all" ? PH_KINDS : PH_KINDS.filter((k) => k === kind);
   const load = useCallback(async () => { try { setList(await api.approvals(tab)); setFailed(false); } catch { setFailed(true); } }, [tab]);
   useEffect(() => { s.setPatient(null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setList(null); void load(); }, [load]);
@@ -47,11 +58,12 @@ export function BillApprovals() {
     <div data-screen="bill/approvals" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <h1 className="t-h2" style={{ margin: 0 }}>{B("appr_title")}</h1>
       <Segmented label={B("appr_title")} value={tab} onChange={setTab} options={(["requested", "approved", "rejected"] as const).map((t) => ({ value: t, label: B(`appr_tab_${t}`) }))} />
+      <Segmented label={B("appr_kind")} value={kind} onChange={setKind} options={KINDS.map((k) => ({ value: k, label: B(`appr_k_${k}`) }))} />
       {!s.online && <Callout tone="warn" icon="cloud-off">{B("online_needed")}</Callout>}
       {failed ? <Callout tone="warn" icon="triangle-alert">{B("error_generic")}</Callout>
         : !list ? <div aria-busy="true" className="t-muted">{B("loading")}</div>
-        : list.items.length === 0 ? <PageState icon="badge-check" title={B("appr_empty")} />
-        : list.items.map((a) => {
+        : items.length === 0 && (phKinds.length === 0 || phCount === 0) ? <PageState icon="badge-check" title={B("appr_empty")} />
+        : items.map((a) => {
           const pct = a.subtotalPaisa > 0 ? Math.round((a.amountPaisa * 1000) / a.subtotalPaisa) / 10 : 0;
           const mine = a.requestedBy.id === s.me?.userId;
           const note = notes[a.taskId] ?? "";
@@ -68,7 +80,7 @@ export function BillApprovals() {
                   </>
                 ) : <b data-testid="appr-line">{B("appr_line")}: {a.line ? (s.lang === "bn" ? a.line.nameBn : a.line.nameEn) : "—"}</b>}
                 <span style={{ marginLeft: "auto" }} />
-                <Button size="sm" variant="ghost" icon="external-link" onClick={() => router.push(`/m/bill/opd?inv=${encodeURIComponent(a.invoice.id)}`)}>{B("appr_bill")} {a.invoice.number ?? B("bill_draft")}</Button>
+                <Button size="sm" variant="ghost" icon="external-link" onClick={() => router.push(billHref(a.invoice))}>{B("appr_bill")} {a.invoice.number ?? B("bill_draft")}</Button>
               </span>
               <span>{M.name(a.patient)} · <span className="num">{a.patient.facilityNo}</span> · {B("total")} <span className="num">{M.tk(a.invoice.totalPaisa)}</span></span>
               <span className="t-small">{B("appr_by")}: {M.name(a.requestedBy)} · {M.dateTime(a.requestedAt)}</span>
@@ -90,6 +102,8 @@ export function BillApprovals() {
             </Card>
           );
         })}
+      {/* the pharmacy's approvals in the same queue (and on Pharmacy › Purchase, pre-filtered) */}
+      {phKinds.length > 0 && <PharmacyApprovalCards status={tab} kinds={phKinds} onCount={setPhCount} />}
     </div>
   );
 }
