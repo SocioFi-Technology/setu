@@ -385,6 +385,88 @@ describe.runIf(db)("send-back (decision 119) and withdraw results (decision 133)
   });
 });
 
+describe.runIf(db)("fixes from the clinical-safety and security reviews", () => {
+  it("clinical H1: after released results are withdrawn, a new tube can be labelled, collected and the test released again (Corrected)", async () => {
+    const { enc } = await signedVisit(undefined, ["rbs"]);
+    await toInProcess(enc);
+    await validated(enc, ["rbs"]);
+    ok(await release(enc), 201);
+    const rbs = order(await view(enc), "rbs").id;
+    ok(await post(`/v1/lab/orders/${rbs}/withdraw`, { reason: "tube belonged to another patient" }));
+    const v = await toInProcess(enc);
+    expect(v.specimens.filter((x) => x.tube === "fluoride").map((x) => x.status).sort()).toEqual(["in-process", "rejected"]);
+    await validated(enc, ["rbs"]);
+    const v2 = ok<View>(await release(enc), 201);
+    expect(v2.reports.map((r) => r.status)).toEqual(["superseded", "corrected"]);
+    expect(current(v2, "rbs").map((r) => r.status)).toEqual(["final"]);
+  });
+  it("clinical H2: a tube with results still current cannot be rejected (withdraw first); a tube never collected is rejected without an SMS", async () => {
+    const { enc } = await signedVisit(undefined, ["rbs", "elec"]);
+    await toInProcess(enc);
+    await enter(enc, "rbs");
+    const v = await view(enc);
+    const fl = v.specimens.find((x) => x.tube === "fluoride")!;
+    expect((await post(`/v1/lab/specimens/${fl.id}/reject`, { reason: "haemolysed", at: now() })).json().code).toBe("results_entered");
+    const { enc: enc2 } = await signedVisit(undefined, ["rbs"]);
+    const p = ok<View>(await post(`/v1/lab/visits/${enc2}/labels`, {}));
+    const r = ok<View>(await post(`/v1/lab/specimens/${p.specimens[0]!.id}/reject`, { reason: "insufficient", at: now() }));
+    expect(r.communications.filter((c) => c.kind === "recollect")).toEqual([]);
+  });
+  it("clinical H3: correcting a critical value the doctor was phoned about tells the doctor even before release", async () => {
+    const { enc } = await signedVisit(undefined, ["elec"]);
+    await toInProcess(enc);
+    let v = await enter(enc, "elec");
+    const k = current(v, "elec").find((r) => r.analyteCode === "k")!;
+    ok(await callback(k.id), 201);
+    v = ok<View>(await post(`/v1/lab/observations/${k.id}/correct`, { value: "4.2", reason: "wrong tube was measured" }), 201);
+    expect(v.reports).toEqual([]);
+    expect(v.communications.find((c) => c.kind === "correction-notice")).toMatchObject({ channel: "doctor-inbox", recipient: expect.objectContaining({ id: "u_e2e_doctor" }) });
+  });
+  it("clinical M2: a value with more decimals than the analyte reports is refused", async () => {
+    const { enc } = await signedVisit(undefined, ["elec"]);
+    await toInProcess(enc);
+    const id = order(await view(enc), "elec").id;
+    const r = await post(`/v1/lab/orders/${id}/results`, { entries: [{ analyteCode: "na", value: "119.6" }, { analyteCode: "k", value: "4.2" }, { analyteCode: "cl", value: "101" }] });
+    expect(r.json().fields).toEqual([{ field: "na", code: "too_many_decimals" }]);
+  });
+  it("security M1: the lab cannot cancel an imaging order", async () => {
+    const { enc } = await signedVisit(undefined, ["rbs", "cxr"]);
+    const cxr = await inTenant((tx) => tx.serviceRequest.findFirst({ where: { encounterId: enc, testCode: "cxr" } }));
+    expect((await post(`/v1/orders/${cxr!.id}/revoke`, { reason: "not done in this lab" }, "tech")).statusCode).toBe(403);
+    expect((await post(`/v1/orders/${cxr!.id}/revoke`, { reason: "not needed after all" }, "doctor")).statusCode).toBe(200);
+  });
+  it("security L1: the database refuses a verification recorded in someone else's name", async () => {
+    const { enc } = await signedVisit(undefined, ["rbs"]);
+    await toInProcess(enc);
+    const v = await enter(enc, "rbs");
+    const r = current(v, "rbs")[0]!;
+    // inTenant runs as setu_app without a signed-in user
+    await expect(inTenant((tx) => tx.observation.update({ where: { id: r.id }, data: { status: "verified", verifiedById: "u_e2e_labtech", verifiedAt: new Date() } }))).rejects.toThrow(/someone other than the signed-in user/);
+  });
+  it("security L6: a step cannot be dated before the step before it", async () => {
+    const { enc } = await signedVisit(undefined, ["rbs"]);
+    const p = ok<View>(await post(`/v1/lab/visits/${enc}/labels`, {}));
+    expect((await post(`/v1/lab/specimens/${p.specimens[0]!.id}/collect`, { at: new Date(Date.now() - 30 * 60_000).toISOString() })).json().code).toBe("time_order");
+  });
+  it("security M3: a message left queued by an interrupted send can be retried after a while; a fresh one is still sending", async () => {
+    const { enc, patient } = await signedVisit(undefined, ["rbs"]);
+    await toInProcess(enc);
+    const base = { tenantId: T, organizationId: "o_e2e", patientId: patient, encounterId: enc, kind: "recollect", channel: "sms" as const, toPhone: "01911000001", templateKey: "sms_recollect", text: "E2E Test Clinic: test", createdById: "u_e2e_labtech" };
+    const stuck = await inTenant((tx) => tx.communication.create({ data: { ...base, id: `com_${randomUUID()}`, createdAt: new Date(Date.now() - 5 * 60_000) } }));
+    const fresh = await inTenant((tx) => tx.communication.create({ data: { ...base, id: `com_${randomUUID()}` } }));
+    expect((await post(`/v1/lab/communications/${fresh.id}/retry`, {})).json().code).toBe("still_sending");
+    const v = ok<View>(await post(`/v1/lab/communications/${stuck.id}/retry`, {}));
+    expect(v.communications.find((c) => c.id === stuck.id)).toMatchObject({ status: "completed", attempts: 1 });
+  });
+  it("security M4: the dev message list shows this tenant's messages only, numbers masked", async () => {
+    const r = ok<{ messages: { to: string }[] }>(await get("/v1/dev/fake-messenger/messages"));
+    expect(r.messages.length).toBeGreaterThan(0);
+    for (const m of r.messages) expect(m.to).toMatch(/^\d{3}\*{5}\d{3}$/);
+    const other = ok<{ messages: unknown[] }>(await get("/v1/dev/fake-messenger/messages", "otherTech"));
+    expect(other.messages).toEqual([]);
+  });
+});
+
 describe.runIf(db)("A11 delivery per channel, retry with the same message id", () => {
   it("SMS (fixed text) and patient app for the current version; a failed SMS is retried and delivered once; a superseded version is not sent", async () => {
     const { enc } = await signedVisit(undefined, ["rbs"]);

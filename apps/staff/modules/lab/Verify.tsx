@@ -15,7 +15,7 @@ import { Button, Callout, Card, PageState, Pill, useToast } from "@setu/ui";
 import { ApiFailure, lab } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { DeltaBanner, ResultsTable } from "./Result";
-import { FlagPill, REPORT_TONE, ReasonDialog, VisitHead, isLabWriter, useErr, useFmt, useLabVisit, useLb } from "./common";
+import { FlagPill, REPORT_TONE, RangeText, ReasonDialog, VisitHead, isLabWriter, useErr, useFmt, useLabVisit, useLb } from "./common";
 import { LabWorklist } from "./Worklist";
 
 export function LabVerify() {
@@ -142,11 +142,15 @@ function ValidateStep({ v, results, show, onSendBack }: { v: LabVisitView; resul
   const key = useRef(crypto.randomUUID());
   const can = isLabWriter(s.me?.role, "validate");
   const locked = results.filter((r) => isCritical(r.flag) && !reached(r));
-  const mine = !v.samePersonAllowed && results.some((r) => r.verifiedBy?.id === s.me?.userId);
-  const ok = can && s.online && results.length > 0 && /^\d{4}$/.test(format.toEn(pin));
+  // the tests that can be validated now: none of their results waits for a call-back (a locked test does not hold
+  // the others back — clinical review L6)
+  const lockedOrders = new Set(locked.map((r) => r.orderId));
+  const ready = results.filter((r) => !lockedOrders.has(r.orderId));
+  const mine = !v.samePersonAllowed && ready.some((r) => r.verifiedBy?.id === s.me?.userId);
+  const ok = can && s.online && ready.length > 0 && /^\d{4}$/.test(format.toEn(pin));
   const go = async () => {
-    if (!ok) return; setBusy(true); setMsg(null);
-    try { const x = await lab.validate(v.encounter.id, { pin: format.toEn(pin), observationIds: results.map((r) => r.id) }, key.current); key.current = crypto.randomUUID(); setPin(""); show(x); }
+    if (!can || !s.online || !/^\d{4}$/.test(format.toEn(pin))) return; setBusy(true); setMsg(null);
+    try { const x = await lab.validate(v.encounter.id, { pin: format.toEn(pin), observationIds: (ready.length ? ready : results).map((r) => r.id) }, key.current); key.current = crypto.randomUUID(); setPin(""); show(x); }
     catch (e) { setPin(""); setMsg(PE(e)); key.current = crypto.randomUUID(); } finally { setBusy(false); }
   };
   const tests = v.orders.filter((o) => cur(o).length > 0 && cur(o).every((r) => r.status === "verified"));
@@ -169,7 +173,7 @@ function ValidateStep({ v, results, show, onSendBack }: { v: LabVisitView; resul
       {results.length > 0 && can && (
         <span style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
           <PinField name="validate-pin" value={pin} onChange={setPin} onEnter={() => void go()} disabled={busy || !s.online} />
-          <Button variant="primary" icon="shield-check" data-testid="validate" disabled={!ok || busy} onClick={() => void go()}>{busy ? T("waiting_server") : T("validate")}</Button>
+          <Button variant="primary" icon="shield-check" data-testid="validate" disabled={!can || !s.online || busy || !/^\d{4}$/.test(format.toEn(pin))} onClick={() => void go()}>{busy ? T("waiting_server") : ready.length && ready.length < results.length ? T("validate_ready", { n: new Set(ready.map((r) => r.orderId)).size }) : T("validate")}</Button>
         </span>
       )}
       {msg && <Callout tone="warn" icon="circle-alert" data-testid="validate-msg">{msg}</Callout>}
@@ -183,7 +187,7 @@ function CallbackPanel({ v, r, show }: { v: LabVisitView; r: LabResult; show: (x
   const order = v.orders.find((o) => o.id === r.orderId);
   const [outcome, setOutcome] = useState<"reached" | "no-answer">("reached");
   const [role, setRole] = useState<(typeof CALLBACK_RECIPIENTS)[number]>("ordering-doctor");
-  const [name, setName] = useState(order ? F.name(order.orderedBy) : "");
+  const [name, setName] = useState("");
   const [time, setTime] = useState(hhmm(new Date()));
   const [via, setVia] = useState<(typeof CALLBACK_VIA)[number]>("phone");
   const [readBack, setReadBack] = useState(false);
@@ -205,7 +209,9 @@ function CallbackPanel({ v, r, show }: { v: LabVisitView; r: LabResult; show: (x
         <b>{T("callback_title")}</b><span style={{ marginLeft: "auto" }} /><FlagPill flag={r.flag} />
       </div>
       <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-        <b className="num">{r.nameEn} {F.value(r.value, r.decimals)} {r.unit}{r.range ? ` · ${T("ref_short")} ${F.value(r.range.low, r.decimals)}–${F.value(r.range.high, r.decimals)}` : ""}</b>
+        <b className="num">{r.nameEn} {F.value(r.value, r.decimals)} {r.unit}</b>
+        <RangeText range={r.range} unit={r.unit} decimals={r.decimals} />
+        {order && <span className="t-small t-muted">{T("cb_ordering", { name: F.name(order.orderedBy) })}</span>}
         {r.callbacks.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }} data-testid="callback-log">
             {r.callbacks.map((c) => (

@@ -186,9 +186,12 @@ test("A10: validation is locked until the critical call-back; an attempt does no
   await expect(page.locator(`[data-encounter="${visit.id}"]`)).toContainText("1 critical");
   await page.locator(`[data-encounter="${visit.id}"]`).click();
   await expect(page.getByTestId("callback-lock")).toContainText("Critical value: log the call-back first");
+  // Validate takes the ready test (RBS); the potassium stays locked (clinical review L6: one critical does not hold the rest)
+  await expect(page.getByTestId("validate")).toContainText("Validate the 1 ready test(s)");
   await page.fill("input[name=validate-pin]", "1234");
   await page.getByTestId("validate").click();
-  await expect(page.getByTestId("validate-msg")).toContainText("Critical value");
+  await expect(page.locator('[data-order="rbs"] [data-result="rbs"]')).toContainText("Validated");
+  await expect(page.locator('[data-order="elec"] [data-result="k"]')).toContainText("Verified");
   const panel = page.locator('[data-callback="k"]');
   await panel.getByLabel("No answer").check();
   await panel.locator("input[name=cb-name]").fill("Dr. Test (no answer)");

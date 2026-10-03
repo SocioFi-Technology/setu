@@ -16,11 +16,14 @@ export type Tx = PrismaClient;
 /**
  * Runs `fn` inside a transaction with the Postgres session variable `app.tenant_id` set,
  * which the row-level-security policies read. Every request handler and every job uses this.
+ * `userId` (a signed-in request) sets `app.user_id`: the lab guards require every "who" column the API writes to be
+ * that user (security review A8–A11, L1). Jobs and provider callbacks run without one.
  */
-export async function forTenant<T>(tenantId: string, fn: (tx: Tx) => Promise<T>, opts: { timeoutMs?: number } = {}): Promise<T> {
+export async function forTenant<T>(tenantId: string, fn: (tx: Tx) => Promise<T>, opts: { timeoutMs?: number; userId?: string } = {}): Promise<T> {
   if (!tenantId) throw new Error("forTenant: tenantId is required");
   return prisma.$transaction(async (tx: unknown) => {
     await (tx as PrismaClient).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+    if (opts.userId) await (tx as PrismaClient).$executeRaw`SELECT set_config('app.user_id', ${opts.userId}, true)`;
     return fn(tx as unknown as Tx);
   }, opts.timeoutMs ? { timeout: opts.timeoutMs, maxWait: 5_000 } : undefined);
 }

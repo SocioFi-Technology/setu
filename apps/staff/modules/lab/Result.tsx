@@ -46,7 +46,7 @@ function ResultVisit({ encounterId }: { encounterId: string }) {
         {v.orders.some((o) => current(o).some((r) => r.status === "preliminary")) && <Button variant="primary" icon="shield-check" onClick={() => router.push(`/m/lab/verify?enc=${encodeURIComponent(v.encounter.id)}`)}>{T("go_verify")}</Button>}
       </span>
       <CorrectDialog r={correct} onClose={() => setCorrect(null)} onDone={(x) => { setCorrect(null); show(x); }} />
-      <WithdrawDialog o={withdraw} onClose={() => setWithdraw(null)} onDone={(x) => { setWithdraw(null); show(x); }} />
+      <WithdrawDialog o={withdraw} others={withdraw ? v.orders.filter((x) => x.id !== withdraw.id && x.specimen && x.specimen.id === withdraw.specimen?.id && current(x).length > 0) : []} onClose={() => setWithdraw(null)} onDone={(x) => { setWithdraw(null); show(x); }} />
     </div>
   );
 }
@@ -197,13 +197,14 @@ function CorrectDialog({ r, onClose, onDone }: { r: LabResult | null; onClose: (
   );
 }
 
-function WithdrawDialog({ o, onClose, onDone }: { o: LabOrder | null; onClose: () => void; onDone: (v: LabVisitView) => void }) {
+function WithdrawDialog({ o, others, onClose, onDone }: { o: LabOrder | null; others: LabOrder[]; onClose: () => void; onDone: (v: LabVisitView) => void }) {
   const T = useLb(); const E = useErr();
   const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
   const key = useRef(crypto.randomUUID());
   if (!o) return null;
   return (
-    <ReasonDialog open title={T("withdraw_title", { test: o.nameEn })} body={<>{T("withdraw_body")}{o.results.some((r) => r.released && r.status !== "entered-in-error") && <><br /><b>{T("withdraw_released")}</b></>}</>}
+    <ReasonDialog open title={T("withdraw_title", { test: o.nameEn })} body={<>{T("withdraw_body")}{o.results.some((r) => r.released && r.status !== "entered-in-error") && <><br /><b>{T("withdraw_released")}</b></>}
+        {others.length > 0 && <><br /><b data-testid="withdraw-others">{T("withdraw_others", { tests: others.map((x) => x.nameEn).join(", ") })}</b></>}</>}
       label={T("reason")} confirm={T("withdraw_confirm")} busy={busy} error={error}
       onClose={() => { setError(null); onClose(); }}
       onConfirm={async (reason) => {

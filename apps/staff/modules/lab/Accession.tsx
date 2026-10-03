@@ -29,6 +29,8 @@ function AccessionVisit({ encounterId }: { encounterId: string }) {
   if (!v) return <div aria-busy="true" className="t-muted">{T("loading")}</div>;
   const writer = isLabWriter(s.me?.role, "collect");
   const orderName = (id: string) => v.orders.find((o) => o.id === id)?.nameEn ?? "—";
+  // results entered from this tube are withdrawn on the result screen first (clinical review H2)
+  const hasResults = (spId: string) => v.orders.some((o) => o.specimen?.id === spId && o.results.some((r) => r.status !== "entered-in-error"));
 
   const step = async (specimenId: string, st: "receive" | "start") => {
     setBusy(true);
@@ -73,7 +75,7 @@ function AccessionVisit({ encounterId }: { encounterId: string }) {
             {queued[sp.id] ? <Pill tone="off" icon="cloud-off">{T("not_synced")}</Pill> : <Pill tone={SPECIMEN_TONE[sp.status] ?? "neu"}>{T(`sp_${sp.status}`)}</Pill>}
             {writer && !queued[sp.id] && sp.status === "collected" && <Button size="sm" icon="inbox" data-testid={`receive-${sp.tube}`} disabled={busy} onClick={() => void step(sp.id, "receive")}>{T("receive")}</Button>}
             {writer && !queued[sp.id] && sp.status === "received" && <Button size="sm" variant="primary" icon="play" data-testid={`start-${sp.tube}`} disabled={busy} onClick={() => void step(sp.id, "start")}>{T("start")}</Button>}
-            {writer && !queued[sp.id] && ["collected", "received", "in-process"].includes(sp.status) && <Button size="sm" variant="ghost" icon="x" data-testid={`reject-${sp.tube}`} disabled={busy} onClick={() => setReject(sp.id)}>{T("reject")}</Button>}
+            {writer && !queued[sp.id] && ["collected", "received", "in-process"].includes(sp.status) && !hasResults(sp.id) && <Button size="sm" variant="ghost" icon="x" data-testid={`reject-${sp.tube}`} disabled={busy} onClick={() => setReject(sp.id)}>{T("reject")}</Button>}
           </div>
         ))}
       </Card>

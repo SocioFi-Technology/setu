@@ -5,32 +5,37 @@
 import { randomBytes } from "node:crypto";
 import type { Messenger, SendResult, SmsMessage } from "./messenger.js";
 
-export interface FakeAttempt { messageId: string; to: string; text: string; at: Date; outcome: "delivered" | "failed" | "already-delivered"; providerRef: string | null }
+export interface FakeAttempt { messageId: string; to: string; text: string; tenantId: string; at: Date; outcome: "delivered" | "failed" | "already-delivered"; providerRef: string | null }
 
 export class FakeMessenger implements Messenger {
   readonly name = "fake";
   private attempts: FakeAttempt[] = [];
   private delivered = new Map<string, string>();
-  private failures: string[] = [];
+  private failures = new Map<string, string[]>();
 
   async sendSms(m: SmsMessage): Promise<SendResult> {
-    const at = new Date();
+    const at = new Date(), tenantId = m.tenantId ?? "";
+    const rec = (outcome: FakeAttempt["outcome"], providerRef: string | null) => this.attempts.push({ messageId: m.messageId, to: m.to, text: m.text, tenantId, at, outcome, providerRef });
     const done = this.delivered.get(m.messageId);
-    if (done) { this.attempts.push({ ...m, at, outcome: "already-delivered", providerRef: done }); return { status: "delivered", providerRef: done }; }
-    if (!/^01[3-9]\d{8}$/.test(m.to)) { this.attempts.push({ ...m, at, outcome: "failed", providerRef: null }); return { status: "failed", error: "invalid number", providerRef: null }; }
-    const failure = this.failures.shift();
-    if (failure) { this.attempts.push({ ...m, at, outcome: "failed", providerRef: null }); return { status: "failed", error: failure, providerRef: null }; }
+    if (done) { rec("already-delivered", done); return { status: "delivered", providerRef: done }; }
+    if (!/^01[3-9]\d{8}$/.test(m.to)) { rec("failed", null); return { status: "failed", error: "invalid number", providerRef: null }; }
+    const failure = this.failures.get(tenantId)?.shift();
+    if (failure) { rec("failed", null); return { status: "failed", error: failure, providerRef: null }; }
     const providerRef = "FM" + randomBytes(8).toString("hex").toUpperCase();
     this.delivered.set(m.messageId, providerRef);
-    this.attempts.push({ ...m, at, outcome: "delivered", providerRef });
+    rec("delivered", providerRef);
     return { status: "delivered", providerRef };
   }
 
-  /** The next `n` sends fail with `error` (default: the number cannot be reached). */
-  failNext(n = 1, error = "number unreachable") { for (let i = 0; i < n; i++) this.failures.push(error); }
-  /** Every attempt, oldest first (tests and the dev route read it; nothing leaves the process). */
-  log(): FakeAttempt[] { return [...this.attempts]; }
+  /** The next `n` sends of this tenant fail with `error` (default: the number cannot be reached). */
+  failNext(n = 1, error = "number unreachable", tenantId = "") {
+    const q = this.failures.get(tenantId) ?? [];
+    for (let i = 0; i < n; i++) q.push(error);
+    this.failures.set(tenantId, q);
+  }
+  /** Every attempt, oldest first, optionally of one tenant (tests and the dev route read it; nothing leaves the process). */
+  log(tenantId?: string): FakeAttempt[] { return this.attempts.filter((a) => tenantId === undefined || a.tenantId === tenantId); }
   /** Messages that reached a phone, one per message id. */
   deliveredMessages(): FakeAttempt[] { return this.attempts.filter((a) => a.outcome === "delivered"); }
-  clearFailures() { this.failures = []; }
+  clearFailures() { this.failures.clear(); }
 }

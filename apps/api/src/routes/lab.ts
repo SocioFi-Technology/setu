@@ -44,7 +44,9 @@ async function labWrite(req: FastifyRequest, reply: Parameters<typeof command>[1
   }, { hashOmit: opts.hashOmit });
   dispatch = out.dispatch;
   if (!dispatch.length) return out.view;
-  const sent = await dispatchSms(requireSession(req), dispatch, { ip: req.ip, route: req.routeOptions.url ?? "" });
+  // The write has committed: a sending problem never turns it into an error (security review M3). A message that could
+  // not be sent stays queued / in progress, and Retry picks it up.
+  const sent = await dispatchSms(requireSession(req), dispatch, { ip: req.ip, route: req.routeOptions.url ?? "" }).catch((e) => { req.log.error(e); return new Map(); });
   return { ...out.view, communications: out.view.communications.map((c) => (sent.has(c.id) ? { ...c, ...sent.get(c.id)! } : c)) };
 }
 
@@ -192,12 +194,13 @@ export async function labRoutes(app: FastifyInstance) {
     app.post("/v1/dev/fake-messenger/fail-next", async (req) => {
       requireAny(req, ...ANY_LAB);
       const { n } = DevFailNextRequest.parse(req.body ?? {});
-      fakeMessenger()!.failNext(n ?? 1);
+      fakeMessenger()!.failNext(n ?? 1, undefined, requireSession(req).tenantId);
       return { failing: n ?? 1 };
     });
     app.get("/v1/dev/fake-messenger/messages", async (req) => {
       requireAny(req, ...ANY_LAB);
-      return { messages: fakeMessenger()!.log().map((m) => ({ messageId: m.messageId, to: m.to, text: m.text, outcome: m.outcome, at: m.at.toISOString() })) };
+      // this tenant's messages only, the number masked (security review M4)
+      return { messages: fakeMessenger()!.log(requireSession(req).tenantId).map((m) => ({ messageId: m.messageId, to: `${m.to.slice(0, 3)}*****${m.to.slice(-3)}`, text: m.text, outcome: m.outcome, at: m.at.toISOString() })) };
     });
   }
 }

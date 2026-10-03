@@ -38,6 +38,8 @@ function DeliveryVisit({ encounterId }: { encounterId: string }) {
     catch (e) { delete keys.current[k]; toast(E(e), "triangle-alert"); await reload(); } finally { setBusy(null); }
   };
   const sms = forCur("report-ready"), app = forCur("report-app"), inbox = forCur("report-inbox");
+  // a send that was interrupted (queued > 1 min, in progress > 2 min) can be retried like a failed one
+  const stuck = (c: CommunicationItem) => (c.status === "preparation" && Date.now() - Date.parse(c.createdAt) > 60_000) || (c.status === "in-progress" && Date.now() - Date.parse(c.sentAt ?? c.createdAt) > 120_000);
   const older = v.reports.filter((r) => r.status === "superseded" && v.communications.some((c) => c.reportId === r.id && (c.kind === "report-ready" || c.kind === "report-app")));
   return (
     <div data-screen="lab/delivery" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -52,10 +54,10 @@ function DeliveryVisit({ encounterId }: { encounterId: string }) {
           <Channel icon="message-square" title={T("ch_sms")} to={v.patient.phone ? L.phone(v.patient.phone) : T("no_mobile")} c={sms} data="sms"
             note={T("sms_no_results")}
             action={writer && s.online && (!sms ? <Button variant="primary" icon="send" data-testid="send-sms" disabled={!!busy || !v.patient.phone} onClick={() => void act("sms", () => lab.send(cur.id, "sms", key("sms")))}>{T("send")}</Button>
-              : sms.status === "failed" ? <Button variant="primary" icon="rotate-ccw" data-testid="retry-sms" disabled={!!busy} onClick={() => void act(`retry:${sms.id}`, () => lab.retry(sms.id, key(`retry:${sms.id}`)))}>{T("retry")}</Button> : null)} />
+              : sms.status === "failed" || stuck(sms) ? <Button variant="primary" icon="rotate-ccw" data-testid="retry-sms" disabled={!!busy} onClick={() => void act(`retry:${sms.id}`, () => lab.retry(sms.id, key(`retry:${sms.id}`)))}>{T("retry")}</Button> : null)} />
           <Channel icon="smartphone" title={T("ch_app")} to={T("ch_app_to")} c={app} data="app" note={T("ch_app_note")}
             action={writer && s.online && !app && <Button variant="primary" icon="send" data-testid="send-app" disabled={!!busy} onClick={() => void act("app", () => lab.send(cur.id, "patient-app", key("app")))}>{T("send")}</Button>} />
-          <Channel icon="inbox" title={T("ch_inbox")} to={inbox?.recipient ? F.name(inbox.recipient) : "—"} c={inbox} data="inbox" note={T("ch_inbox_note")} action={null} />
+          <Channel icon="inbox" title={T("ch_inbox")} to={inbox?.recipient ? F.name(inbox.recipient) : "—"} c={inbox} data="inbox" note={T("ch_inbox_note")} action={null} recordOnly />
         </div>
       )}
       {process.env.NODE_ENV !== "production" && writer && cur && (
@@ -73,7 +75,7 @@ function DeliveryVisit({ encounterId }: { encounterId: string }) {
             {[...v.communications].reverse().map((c) => (
               <tr key={c.id} data-event={c.kind} data-status={c.status}>
                 <td>{T(`ck_${c.kind}`)}{c.reportVersion ? ` · v${s.n(c.reportVersion)}` : ""}</td><td>{T(`ch_${c.channel}`)}</td>
-                <td><Pill tone={COMM_TONE[c.status] ?? "neu"}>{T(`cs_${c.status}`)}</Pill>{c.lastError && <div className="t-small">{c.lastError}</div>}{c.attempts > 1 && <div className="t-small t-muted">{T("attempts", { n: c.attempts })}</div>}</td>
+                <td><Pill tone={COMM_TONE[c.status] ?? "neu"}>{c.channel === "doctor-inbox" && c.status === "completed" ? T("cs_inbox_recorded") : T(`cs_${c.status}`)}</Pill>{c.lastError && <div className="t-small">{c.lastError}</div>}{c.attempts > 1 && <div className="t-small t-muted">{T("attempts", { n: c.attempts })}</div>}</td>
                 <td className="num">{F.dateTime(c.completedAt ?? c.sentAt ?? c.createdAt)}</td><td>{c.recipient ? F.name(c.recipient) : c.toPhone ? L.phone(c.toPhone.slice(1)) : c.channel === "patient-app" ? T("ch_app_to") : "—"}</td>
               </tr>
             ))}
@@ -85,13 +87,13 @@ function DeliveryVisit({ encounterId }: { encounterId: string }) {
   );
 }
 
-function Channel({ icon, title, to, c, note, action, data }: { icon: string; title: string; to: string; c: CommunicationItem | null; note: string; action: React.ReactNode; data: string }) {
+function Channel({ icon, title, to, c, note, action, data, recordOnly }: { icon: string; title: string; to: string; c: CommunicationItem | null; note: string; action: React.ReactNode; data: string; recordOnly?: boolean }) {
   const T = useLb(); const F = useFmt();
   return (
     <Card style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8, borderColor: c?.status === "failed" ? "var(--danger-border)" : undefined }} data-channel={data} data-status={c?.status ?? "not-sent"}>
       <span style={{ display: "flex", gap: 8, alignItems: "center" }}><b>{title}</b></span>
       <span className="t-small t-muted num">{to}</span>
-      <span>{c ? <Pill tone={COMM_TONE[c.status] ?? "neu"} icon={icon}>{T(`cs_${c.status}`)}</Pill> : <Pill tone="neu" icon={icon}>{T("cs_not_sent")}</Pill>}</span>
+      <span>{c ? <Pill tone={COMM_TONE[c.status] ?? "neu"} icon={icon}>{recordOnly && c.status === "completed" ? T("cs_inbox_recorded") : T(`cs_${c.status}`)}</Pill> : <Pill tone="neu" icon={icon}>{T("cs_not_sent")}</Pill>}</span>
       {c?.lastError && <span className="t-small" style={{ color: "var(--danger-fg, #b91c1c)" }}>{T("failed_why", { why: c.lastError })}</span>}
       {c && <span className="t-small t-muted">{F.dateTime(c.completedAt ?? c.sentAt ?? c.createdAt)}{c.attempts > 1 ? ` · ${T("attempts", { n: c.attempts })}` : ""}</span>}
       <span className="t-small t-muted">{note}</span>

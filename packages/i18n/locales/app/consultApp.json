@@ -227,7 +227,7 @@
   "order_cancelled": ["বাতিল", "Cancelled"],
   "order_in-progress": ["নমুনা নেওয়া হয়েছে", "Sample collected"],
   "order_partially-complete": ["আংশিক ফলাফল", "Partly reported"],
-  "order_complete": ["রিপোর্ট প্রকাশিত", "Reported"],
+  "order_complete": ["ল্যাব রিপোর্ট প্রকাশ করেছে — বর্তমান অবস্থা ল্যাব রিপোর্টে দেখুন", "Lab report released — see the lab report for its current state"],
   "order_cancel": ["পরীক্ষা বাতিল", "Cancel test"],
   "order_cancel_title": ["{test} বাতিল করবেন?", "Cancel {test}?"],
   "order_cancel_body": ["নমুনা নেওয়ার আগেই শুধু বাতিল করা যায়। খসড়া বিল থেকে লাইনটি সাথে সাথে বাদ যাবে; ইস্যু করা বিলে পরিবর্তনটি চিহ্নিত থাকবে।", "A test can be cancelled only before its sample is taken. A draft bill drops the line at once; an issued bill flags the change."],

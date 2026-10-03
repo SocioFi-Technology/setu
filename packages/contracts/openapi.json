@@ -45755,6 +45755,15 @@
                                   "null"
                                 ]
                               },
+                              "identityConfidence": {
+                                "type": "string",
+                                "enum": [
+                                  "verified",
+                                  "unverified",
+                                  "possible-duplicate",
+                                  "provisional"
+                                ]
+                              },
                               "ageYears": {
                                 "type": [
                                   "integer",
@@ -45772,6 +45781,7 @@
                               "approxAgeYears",
                               "approxAgeMonths",
                               "approxAgeAt",
+                              "identityConfidence",
                               "ageYears"
                             ]
                           },
@@ -46154,6 +46164,15 @@
                           ],
                           "pattern": "^1[3-9]\\d{8}$"
                         },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
                         "ageYears": {
                           "type": [
                             "integer",
@@ -46172,6 +46191,7 @@
                         "approxAgeMonths",
                         "approxAgeAt",
                         "phone",
+                        "identityConfidence",
                         "ageYears"
                       ]
                     },
@@ -46344,6 +46364,9 @@
                                     "null"
                                   ]
                                 },
+                                "deltaCheck": {
+                                  "type": "boolean"
+                                },
                                 "previous": {
                                   "type": [
                                     "object",
@@ -46372,6 +46395,7 @@
                                 "range",
                                 "critLow",
                                 "critHigh",
+                                "deltaCheck",
                                 "previous"
                               ]
                             }
@@ -47681,6 +47705,15 @@
                           ],
                           "pattern": "^1[3-9]\\d{8}$"
                         },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
                         "ageYears": {
                           "type": [
                             "integer",
@@ -47699,6 +47732,7 @@
                         "approxAgeMonths",
                         "approxAgeAt",
                         "phone",
+                        "identityConfidence",
                         "ageYears"
                       ]
                     },
@@ -47871,6 +47905,9 @@
                                     "null"
                                   ]
                                 },
+                                "deltaCheck": {
+                                  "type": "boolean"
+                                },
                                 "previous": {
                                   "type": [
                                     "object",
@@ -47899,6 +47936,7 @@
                                 "range",
                                 "critLow",
                                 "critHigh",
+                                "deltaCheck",
                                 "previous"
                               ]
                             }
@@ -49201,6 +49239,15 @@
                           ],
                           "pattern": "^1[3-9]\\d{8}$"
                         },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
                         "ageYears": {
                           "type": [
                             "integer",
@@ -49219,6 +49266,7 @@
                         "approxAgeMonths",
                         "approxAgeAt",
                         "phone",
+                        "identityConfidence",
                         "ageYears"
                       ]
                     },
@@ -49391,6 +49439,9 @@
                                     "null"
                                   ]
                                 },
+                                "deltaCheck": {
+                                  "type": "boolean"
+                                },
                                 "previous": {
                                   "type": [
                                     "object",
@@ -49419,6 +49470,7 @@
                                 "range",
                                 "critLow",
                                 "critHigh",
+                                "deltaCheck",
                                 "previous"
                               ]
                             }
@@ -50721,6 +50773,15 @@
                           ],
                           "pattern": "^1[3-9]\\d{8}$"
                         },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
                         "ageYears": {
                           "type": [
                             "integer",
@@ -50739,6 +50800,7 @@
                         "approxAgeMonths",
                         "approxAgeAt",
                         "phone",
+                        "identityConfidence",
                         "ageYears"
                       ]
                     },
@@ -50911,6 +50973,9 @@
                                     "null"
                                   ]
                                 },
+                                "deltaCheck": {
+                                  "type": "boolean"
+                                },
                                 "previous": {
                                   "type": [
                                     "object",
@@ -50939,6 +51004,7 @@
                                 "range",
                                 "critLow",
                                 "critHigh",
+                                "deltaCheck",
                                 "previous"
                               ]
                             }
@@ -52241,6 +52307,15 @@
                           ],
                           "pattern": "^1[3-9]\\d{8}$"
                         },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
                         "ageYears": {
                           "type": [
                             "integer",
@@ -52259,6 +52334,7 @@
                         "approxAgeMonths",
                         "approxAgeAt",
                         "phone",
+                        "identityConfidence",
                         "ageYears"
                       ]
                     },
@@ -52431,6 +52507,9 @@
                                     "null"
                                   ]
                                 },
+                                "deltaCheck": {
+                                  "type": "boolean"
+                                },
                                 "previous": {
                                   "type": [
                                     "object",
@@ -52459,6 +52538,7 @@
                                 "range",
                                 "critLow",
                                 "critHigh",
+                                "deltaCheck",
                                 "previous"
                               ]
                             }
@@ -53777,6 +53857,15 @@
                           ],
                           "pattern": "^1[3-9]\\d{8}$"
                         },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
                         "ageYears": {
                           "type": [
                             "integer",
@@ -53795,6 +53884,7 @@
                         "approxAgeMonths",
                         "approxAgeAt",
                         "phone",
+                        "identityConfidence",
                         "ageYears"
                       ]
                     },
@@ -53967,6 +54057,9 @@
                                     "null"
                                   ]
                                 },
+                                "deltaCheck": {
+                                  "type": "boolean"
+                                },
                                 "previous": {
                                   "type": [
                                     "object",
@@ -53995,6 +54088,7 @@
                                 "range",
                                 "critLow",
                                 "critHigh",
+                                "deltaCheck",
                                 "previous"
                               ]
                             }
@@ -55390,6 +55484,15 @@
                           ],
                           "pattern": "^1[3-9]\\d{8}$"
                         },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
                         "ageYears": {
                           "type": [
                             "integer",
@@ -55408,6 +55511,7 @@
                         "approxAgeMonths",
                         "approxAgeAt",
                         "phone",
+                        "identityConfidence",
                         "ageYears"
                       ]
                     },
@@ -55580,6 +55684,9 @@
                                     "null"
                                   ]
                                 },
+                                "deltaCheck": {
+                                  "type": "boolean"
+                                },
                                 "previous": {
                                   "type": [
                                     "object",
@@ -55608,6 +55715,7 @@
                                 "range",
                                 "critLow",
                                 "critHigh",
+                                "deltaCheck",
                                 "previous"
                               ]
                             }
@@ -56989,6 +57097,15 @@
                           ],
                           "pattern": "^1[3-9]\\d{8}$"
                         },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
                         "ageYears": {
                           "type": [
                             "integer",
@@ -57007,6 +57124,7 @@
                         "approxAgeMonths",
                         "approxAgeAt",
                         "phone",
+                        "identityConfidence",
                         "ageYears"
                       ]
                     },
@@ -57179,6 +57297,9 @@
                                     "null"
                                   ]
                                 },
+                                "deltaCheck": {
+                                  "type": "boolean"
+                                },
                                 "previous": {
                                   "type": [
                                     "object",
@@ -57207,6 +57328,7 @@
                                 "range",
                                 "critLow",
                                 "critHigh",
+                                "deltaCheck",
                                 "previous"
                               ]
                             }
@@ -58594,6 +58716,15 @@
                           ],
                           "pattern": "^1[3-9]\\d{8}$"
                         },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
                         "ageYears": {
                           "type": [
                             "integer",
@@ -58612,6 +58743,7 @@
                         "approxAgeMonths",
                         "approxAgeAt",
                         "phone",
+                        "identityConfidence",
                         "ageYears"
                       ]
                     },
@@ -58784,6 +58916,9 @@
                                     "null"
                                   ]
                                 },
+                                "deltaCheck": {
+                                  "type": "boolean"
+                                },
                                 "previous": {
                                   "type": [
                                     "object",
@@ -58812,6 +58947,7 @@
                                 "range",
                                 "critLow",
                                 "critHigh",
+                                "deltaCheck",
                                 "previous"
                               ]
                             }
@@ -60359,6 +60495,15 @@
                           ],
                           "pattern": "^1[3-9]\\d{8}$"
                         },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
                         "ageYears": {
                           "type": [
                             "integer",
@@ -60377,6 +60522,7 @@
                         "approxAgeMonths",
                         "approxAgeAt",
                         "phone",
+                        "identityConfidence",
                         "ageYears"
                       ]
                     },
@@ -60549,6 +60695,9 @@
                                     "null"
                                   ]
                                 },
+                                "deltaCheck": {
+                                  "type": "boolean"
+                                },
                                 "previous": {
                                   "type": [
                                     "object",
@@ -60577,6 +60726,7 @@
                                 "range",
                                 "critLow",
                                 "critHigh",
+                                "deltaCheck",
                                 "previous"
                               ]
                             }
@@ -61960,6 +62110,15 @@
                           ],
                           "pattern": "^1[3-9]\\d{8}$"
                         },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
                         "ageYears": {
                           "type": [
                             "integer",
@@ -61978,6 +62137,7 @@
                         "approxAgeMonths",
                         "approxAgeAt",
                         "phone",
+                        "identityConfidence",
                         "ageYears"
                       ]
                     },
@@ -62150,6 +62310,9 @@
                                     "null"
                                   ]
                                 },
+                                "deltaCheck": {
+                                  "type": "boolean"
+                                },
                                 "previous": {
                                   "type": [
                                     "object",
@@ -62178,6 +62341,7 @@
                                 "range",
                                 "critLow",
                                 "critHigh",
+                                "deltaCheck",
                                 "previous"
                               ]
                             }
@@ -63690,6 +63854,15 @@
                           ],
                           "pattern": "^1[3-9]\\d{8}$"
                         },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
                         "ageYears": {
                           "type": [
                             "integer",
@@ -63708,6 +63881,7 @@
                         "approxAgeMonths",
                         "approxAgeAt",
                         "phone",
+                        "identityConfidence",
                         "ageYears"
                       ]
                     },
@@ -63880,6 +64054,9 @@
                                     "null"
                                   ]
                                 },
+                                "deltaCheck": {
+                                  "type": "boolean"
+                                },
                                 "previous": {
                                   "type": [
                                     "object",
@@ -63908,6 +64085,7 @@
                                 "range",
                                 "critLow",
                                 "critHigh",
+                                "deltaCheck",
                                 "previous"
                               ]
                             }
@@ -65350,6 +65528,15 @@
                           ],
                           "pattern": "^1[3-9]\\d{8}$"
                         },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
                         "ageYears": {
                           "type": [
                             "integer",
@@ -65368,6 +65555,7 @@
                         "approxAgeMonths",
                         "approxAgeAt",
                         "phone",
+                        "identityConfidence",
                         "ageYears"
                       ]
                     },
@@ -65540,6 +65728,9 @@
                                     "null"
                                   ]
                                 },
+                                "deltaCheck": {
+                                  "type": "boolean"
+                                },
                                 "previous": {
                                   "type": [
                                     "object",
@@ -65568,6 +65759,7 @@
                                 "range",
                                 "critLow",
                                 "critHigh",
+                                "deltaCheck",
                                 "previous"
                               ]
                             }
@@ -67016,6 +67208,15 @@
                           ],
                           "pattern": "^1[3-9]\\d{8}$"
                         },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
                         "ageYears": {
                           "type": [
                             "integer",
@@ -67034,6 +67235,7 @@
                         "approxAgeMonths",
                         "approxAgeAt",
                         "phone",
+                        "identityConfidence",
                         "ageYears"
                       ]
                     },
@@ -67206,6 +67408,9 @@
                                     "null"
                                   ]
                                 },
+                                "deltaCheck": {
+                                  "type": "boolean"
+                                },
                                 "previous": {
                                   "type": [
                                     "object",
@@ -67234,6 +67439,7 @@
                                 "range",
                                 "critLow",
                                 "critHigh",
+                                "deltaCheck",
                                 "previous"
                               ]
                             }
@@ -68641,6 +68847,15 @@
                             "null"
                           ]
                         },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
                         "ageYears": {
                           "type": [
                             "integer",
@@ -68658,6 +68873,7 @@
                         "approxAgeYears",
                         "approxAgeMonths",
                         "approxAgeAt",
+                        "identityConfidence",
                         "ageYears"
                       ]
                     },
@@ -69532,6 +69748,15 @@
                           ],
                           "pattern": "^1[3-9]\\d{8}$"
                         },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
                         "ageYears": {
                           "type": [
                             "integer",
@@ -69550,6 +69775,7 @@
                         "approxAgeMonths",
                         "approxAgeAt",
                         "phone",
+                        "identityConfidence",
                         "ageYears"
                       ]
                     },
@@ -69722,6 +69948,9 @@
                                     "null"
                                   ]
                                 },
+                                "deltaCheck": {
+                                  "type": "boolean"
+                                },
                                 "previous": {
                                   "type": [
                                     "object",
@@ -69750,6 +69979,7 @@
                                 "range",
                                 "critLow",
                                 "critHigh",
+                                "deltaCheck",
                                 "previous"
                               ]
                             }
@@ -71115,6 +71345,15 @@
                           ],
                           "pattern": "^1[3-9]\\d{8}$"
                         },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        },
                         "ageYears": {
                           "type": [
                             "integer",
@@ -71133,6 +71372,7 @@
                         "approxAgeMonths",
                         "approxAgeAt",
                         "phone",
+                        "identityConfidence",
                         "ageYears"
                       ]
                     },
@@ -71305,6 +71545,9 @@
                                     "null"
                                   ]
                                 },
+                                "deltaCheck": {
+                                  "type": "boolean"
+                                },
                                 "previous": {
                                   "type": [
                                     "object",
@@ -71333,6 +71576,7 @@
                                 "range",
                                 "critLow",
                                 "critHigh",
+                                "deltaCheck",
                                 "previous"
                               ]
                             }

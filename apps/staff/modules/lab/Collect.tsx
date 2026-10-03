@@ -37,6 +37,8 @@ function CollectVisit({ encounterId }: { encounterId: string }) {
   if (!v) return <div aria-busy="true" className="t-muted">{T("loading")}</div>;
   const writer = isLabWriter(s.me?.role, "collect");
   const orderName = (id: string) => v.orders.find((o) => o.id === id)?.nameEn ?? "—";
+  // results entered from this tube are withdrawn on the result screen first (clinical review H2)
+  const hasResults = (spId: string) => v.orders.some((o) => o.specimen?.id === spId && o.results.some((r) => r.status !== "entered-in-error"));
 
   const print = async () => {
     setBusy(true);
@@ -121,7 +123,7 @@ function CollectVisit({ encounterId }: { encounterId: string }) {
                 <span style={{ marginLeft: "auto" }} />
                 {queued[sp.id] ? <Pill tone="off" icon="cloud-off">{T("not_synced")}</Pill> : <Pill tone={SPECIMEN_TONE[sp.status] ?? "neu"}>{T(`sp_${sp.status}`)}</Pill>}
                 {writer && sp.status === "pending" && !queued[sp.id] && <Button size="sm" variant="primary" icon="check" data-testid={`collect-${sp.tube}`} disabled={busy} onClick={() => void collect(sp.id)}>{T("collected")}</Button>}
-                {writer && ["pending", "collected", "received", "in-process"].includes(sp.status) && !queued[sp.id] && <Button size="sm" variant="ghost" icon="x" data-testid={`reject-${sp.tube}`} disabled={busy} onClick={() => setReject(sp.id)}>{T("reject")}</Button>}
+                {writer && ["pending", "collected", "received", "in-process"].includes(sp.status) && !queued[sp.id] && !hasResults(sp.id) && <Button size="sm" variant="ghost" icon="x" data-testid={`reject-${sp.tube}`} disabled={busy} onClick={() => setReject(sp.id)}>{T("reject")}</Button>}
               </div>
             ))}
             {v.specimens.some((x) => ["collected", "received", "in-process"].includes(x.status)) && <span><Button icon="arrow-right" onClick={() => router.push(`/m/lab/accession?enc=${encodeURIComponent(v.encounter.id)}`)}>{T("next_accession")}</Button></span>}

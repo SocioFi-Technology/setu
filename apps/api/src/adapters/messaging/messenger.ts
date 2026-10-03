@@ -10,6 +10,8 @@ export interface SmsMessage {
   /** Bangladesh mobile as stored on the patient (01XXXXXXXXX) */
   to: string;
   text: string;
+  /** whose message it is (the gateway's accounting; the fake keeps each tenant's log and failures apart) */
+  tenantId?: string;
 }
 export type SendResult = { status: "delivered"; providerRef: string } | { status: "failed"; error: string; providerRef: string | null };
 

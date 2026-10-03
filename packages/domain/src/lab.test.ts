@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ANALYTES_SAMPLE, DELTA_LIMIT_PCT, RANGES_SAMPLE, analytesOf, callbackCheck, correctionCheck, deltaOf, isCritical, labFlag, parseLabValue, patientAgeYears, rangeFor,
   releasePlan, resultEntryCheck, revokeBlockers, samePersonAllowed, smsPlaceholdersOk, specimenNumber, labReportNumber, tubeFor, tubePlan, validateBlockers, verifyBlockers,
-  rejectCheck, returnBlockers, withdrawBlockers, WITHDRAWN_REASON, type ReleaseTest,
+  decimalsOf, rejectCheck, returnBlockers, withdrawBlockers, WITHDRAWN_REASON, type ReleaseTest,
 } from "./lab.js";
 import { COMMUNICATION, LAB_REPORT, RESULT, TransitionError, can, transition } from "./machines.js";
 
@@ -153,6 +153,13 @@ describe("result entry (A9, decision D2)", () => {
     const ok = resultEntryCheck(elec, [...base, { analyteCode: "k", raw: "6.9", confirm: "6.90" }], rf);
     expect(ok.errors).toEqual([]);
     expect(ok.values.find((v) => v.analyteCode === "k")).toMatchObject({ value: 6.9, flag: "HH" });
+  });
+  it("clinical review M2: no more decimals than the analyte reports (Na 119.6 would show as 120 next to 'critical <120')", () => {
+    const elec = analytesOf("elec");
+    const r = resultEntryCheck(elec, [{ analyteCode: "na", raw: "119.6" }, { analyteCode: "k", raw: "4.25" }, { analyteCode: "cl", raw: "101" }], rf);
+    expect(r.errors).toEqual([{ field: "na", code: "too_many_decimals" }, { field: "k", code: "too_many_decimals" }]);
+    expect(decimalsOf("৪.২")).toBe(1);
+    expect(decimalsOf("138")).toBe(0);
   });
   it("unknown or repeated analytes are refused", () => {
     const r = resultEntryCheck(cbc, [{ analyteCode: "hb", raw: "9" }, { analyteCode: "hb", raw: "9" }, { analyteCode: "wbc", raw: "8000" }, { analyteCode: "plt", raw: "200000" }, { analyteCode: "k", raw: "4" }], rf);

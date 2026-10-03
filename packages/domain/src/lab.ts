@@ -148,7 +148,10 @@ export function parseLabValue(raw: string | number): { ok: true; value: number }
 }
 
 export interface EntryInput { analyteCode: string; raw: string; /** the critical value typed a second time */ confirm?: string | null }
-export type EntryErrorCode = ValueCode | "unknown_analyte" | "duplicate" | "confirm_required" | "confirm_mismatch";
+export type EntryErrorCode = ValueCode | "too_many_decimals" | "unknown_analyte" | "duplicate" | "confirm_required" | "confirm_mismatch";
+/** Decimal places typed (Bangla digits read as Latin). A value may not carry more than the analyte reports (clinical
+    review M2: Na 119.6 must not show as "120 · LL" next to "critical <120"). */
+export const decimalsOf = (raw: string | number) => { const s = toEn(String(raw)).trim(); const i = s.indexOf("."); return i < 0 ? 0 : s.length - i - 1; };
 export interface EntryValue { analyteCode: string; value: number; flag: LabFlag | null }
 /** "Send for verification" for one test: every analyte needs a valid value; a critical one must be typed twice. */
 export function resultEntryCheck(analytes: AnalyteDef[], entries: EntryInput[], rangeOf: (analyteCode: string) => { low: number; high: number } | null): { errors: { field: string; code: EntryErrorCode }[]; values: EntryValue[] } {
@@ -165,6 +168,7 @@ export function resultEntryCheck(analytes: AnalyteDef[], entries: EntryInput[], 
     const e = entries.find((x) => x.analyteCode === a.code);
     const v = e ? parseLabValue(e.raw) : ({ ok: false, code: "required" } as const);
     if (!v.ok) { errors.push({ field: a.code, code: v.code }); continue; }
+    if (decimalsOf(e!.raw) > a.decimals) { errors.push({ field: a.code, code: "too_many_decimals" }); continue; }
     const flag = labFlag(v.value, rangeOf(a.code), a);
     if (isCritical(flag)) {
       const c = e?.confirm == null || String(e.confirm).trim() === "" ? null : parseLabValue(e.confirm);

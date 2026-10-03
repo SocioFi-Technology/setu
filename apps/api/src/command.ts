@@ -62,11 +62,11 @@ export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (
       await writeAudit(tx, req, s, r.audit);
       await tx.idempotencyKey.create({ data: { tenantId: s.tenantId, key, route, statusCode: status, response: { hash, body: r.body } as object } });
       return { replayed: false as const, status, body: r.body };
-    }, { timeoutMs: opts.txTimeoutMs }));
+    }, { timeoutMs: opts.txTimeoutMs, userId: s.userId }));
   } catch (e) {
     // Two requests with the same key raced: the loser rolls back entirely and answers with the winner's response.
     if (!isUniqueViolation(e)) throw e;
-    return send(await forTenant(s.tenantId, async (tx) => { const hit = await find(tx); if (!hit) throw e; return answer(tx, hit); }));
+    return send(await forTenant(s.tenantId, async (tx) => { const hit = await find(tx); if (!hit) throw e; return answer(tx, hit); }, { userId: s.userId }));
   }
 }
 
@@ -80,5 +80,5 @@ export async function query<T>(req: FastifyRequest, fn: (tx: Tx, s: SessionData)
     const r = await fn(tx, s);
     await writeAudit(tx, req, s, r.audit);
     return r.body;
-  });
+  }, { userId: s.userId });
 }

@@ -20,7 +20,7 @@ import type { Tx } from "@setu/db";
 import {
   COMMUNICATION, LAB_REPORT, ORDER, RESULT, SMS_TEMPLATES, SPECIMEN, analytesOf, callbackCheck, correctionCheck, deltaOf, dhakaDay, isCritical, labFlag, labReportNumber,
   labRoleCan, parseLabValue, patientAgeYears, rangeFor, rejectCheck, releasePlan, resultEntryCheck, revokeBlockers, samePersonAllowed, specimenNumber, transition, tubeFor, tubePlan,
-  WITHDRAWN_REASON, returnBlockers, validateBlockers, verifyBlockers, withdrawBlockers, type AnalyteDef, type LabFlag, type OrderState, type RangeDef, type ResultState, type SpecimenState, type TubeKind,
+  WITHDRAWN_REASON, decimalsOf, returnBlockers, validateBlockers, verifyBlockers, withdrawBlockers, type AnalyteDef, type LabFlag, type OrderState, type RangeDef, type ResultState, type SpecimenState, type TubeKind,
 } from "@setu/domain";
 import { fill, t } from "@setu/i18n";
 import { messenger } from "../adapters/messaging/index.js";
@@ -100,7 +100,8 @@ async function loadBundle(tx: Tx, s: SessionData, encounterIds: string[], withPr
     const codes = [...new Set(orders.flatMap((o) => analytesOf(o.testCode, analytes).map((a) => a.code)))];
     const prevIds = obs.map((o) => o.deltaPrevId).filter((x): x is string => Boolean(x));
     previous = await tx.observation.findMany({
-      where: { category: LAB, OR: [{ patientId: { in: encounters.map((e) => e.patientId) }, code: { in: codes }, status: "final", encounterId: { notIn: ids } }, { id: { in: prevIds } }] },
+      // this facility only (security review L5; the owner's other facilities need a decision like open question 45)
+      where: { category: LAB, organizationId: s.organizationId, OR: [{ patientId: { in: encounters.map((e) => e.patientId) }, code: { in: codes }, status: "final", encounterId: { notIn: ids } }, { id: { in: prevIds } }] },
       orderBy: [{ effectiveAt: "desc" }, { recordedAt: "desc" }],
     });
   }
@@ -156,7 +157,8 @@ function previousOf(b: Bundle, v: Visit, code: string) {
 
 function resultOf(b: Bundle, v: Visit, o: Obs): LabResult {
   const a = b.analytes.find((x) => x.code === o.code);
-  const prev = o.deltaPrevId ? b.previous.find((p) => p.id === o.deltaPrevId) ?? null : null;
+  // clinical review M6: an earlier result corrected or withdrawn since is no basis for a delta warning
+  const prev = o.deltaPrevId ? b.previous.find((p) => p.id === o.deltaPrevId && p.status === "final") ?? null : null;
   const d = prev && a ? deltaOf(o.value, prev.value, a) : null;
   const replacedBy = v.obs.find((x) => x.replacesId === o.id);
   return {
@@ -376,37 +378,60 @@ async function deliverInApp(tx: Tx, s: SessionData, to: { patientId: string; enc
   return id;
 }
 
-/** Sends queued SMS through the Messenger, one transaction per message, after the write that queued them committed.
-    preparation → in-progress (one attempt) → completed | failed. A retried message keeps its id, so the gateway never
-    delivers it twice. Returns each message's new state (the route merges them into its answer). */
+/** Sends queued SMS through the Messenger after the write that queued them committed (security review M3): one short
+    transaction claims the message (preparation → in-progress, one attempt), the gateway is called outside any
+    transaction, a second one records the outcome (completed | failed). A message whose send was interrupted stays
+    in-progress and can be retried after a while (retryMessage); the gateway never delivers the same message id twice.
+    Returns each message's new state (the route merges them into its answer). */
+type Sent = Pick<CommunicationItem, "status" | "attempts" | "lastError" | "sentAt" | "completedAt">;
 export async function dispatchSms(s: SessionData, ids: string[], meta: { ip: string; route: string }) {
-  if (!ids.length) return new Map<string, Pick<CommunicationItem, "status" | "attempts" | "lastError" | "sentAt" | "completedAt">>();
+  const out = new Map<string, Sent>();
+  if (!ids.length) return out;
   const { forTenant } = await import("@setu/db");
-  const out = new Map<string, Pick<CommunicationItem, "status" | "attempts" | "lastError" | "sentAt" | "completedAt">>();
   for (const id of ids) {
-    await forTenant(s.tenantId, async (tx) => {
-      const c = await tx.communication.findFirst({ where: { id, channel: "sms", status: "preparation" } });
-      if (!c || !c.toPhone || !c.text) return;
+    try {
       const now = new Date();
-      const sending = undash<"in_progress">(transition("COMMUNICATION", COMMUNICATION, "preparation", "send"));
-      const n = await tx.communication.updateMany({ where: { id, status: "preparation" }, data: { status: sending, attempts: c.attempts + 1, sentAt: now, statusAt: now } });
-      if (n.count !== 1) return;
-      const r = await messenger.sendSms({ messageId: c.id, to: c.toPhone, text: c.text });
-      const next = undash<"completed" | "failed">(transition("COMMUNICATION", COMMUNICATION, "in-progress", r.status === "delivered" ? "deliver" : "fail"));
+      const claimed = await forTenant(s.tenantId, async (tx) => {
+        const c = await tx.communication.findFirst({ where: { id, channel: "sms", status: "preparation" } });
+        if (!c || !c.toPhone || !c.text) return null;
+        const sending = undash<"in_progress">(transition("COMMUNICATION", COMMUNICATION, "preparation", "send"));
+        const n = await tx.communication.updateMany({ where: { id, status: "preparation" }, data: { status: sending, attempts: c.attempts + 1, sentAt: now, statusAt: now } });
+        return n.count === 1 ? c : null;
+      });
+      if (!claimed) continue;
+      const r = await messenger.sendSms({ messageId: claimed.id, to: claimed.toPhone!, text: claimed.text!, tenantId: s.tenantId })
+        .catch((e: unknown): { status: "failed"; error: string; providerRef: null } => ({ status: "failed", error: e instanceof Error ? e.message.slice(0, 120) : "gateway error", providerRef: null }));
       const done = new Date();
-      await tx.communication.update({ where: { id }, data: { status: next, providerRef: r.providerRef ?? c.providerRef, lastError: r.status === "failed" ? r.error : null, completedAt: r.status === "delivered" ? done : null, statusAt: done } });
-      await tx.auditEvent.create({ data: { tenantId: s.tenantId, userId: s.userId, role: s.role, action: "send", entity: "Communication", entityId: id, patientId: c.patientId, ip: meta.ip,
-        detail: { route: meta.route, channel: "sms", kind: c.kind, outcome: r.status, attempt: c.attempts + 1, provider: messenger.name } } });
-      out.set(id, { status: dash(next), attempts: c.attempts + 1, lastError: r.status === "failed" ? r.error : null, sentAt: now.toISOString(), completedAt: r.status === "delivered" ? done.toISOString() : null });
-    });
+      const next = undash<"completed" | "failed">(transition("COMMUNICATION", COMMUNICATION, "in-progress", r.status === "delivered" ? "deliver" : "fail"));
+      await forTenant(s.tenantId, async (tx) => {
+        await tx.communication.updateMany({ where: { id, status: "in_progress" }, data: { status: next, providerRef: r.providerRef ?? claimed.providerRef, lastError: r.status === "failed" ? r.error : null, completedAt: r.status === "delivered" ? done : null, statusAt: done } });
+        await tx.auditEvent.create({ data: { tenantId: s.tenantId, userId: s.userId, role: s.role, action: "send", entity: "Communication", entityId: id, patientId: claimed.patientId, ip: meta.ip,
+          detail: { route: meta.route, channel: "sms", kind: claimed.kind, outcome: r.status, attempt: claimed.attempts + 1, provider: messenger.name } } });
+      });
+      out.set(id, { status: dash(next), attempts: claimed.attempts + 1, lastError: r.status === "failed" ? r.error : null, sentAt: now.toISOString(), completedAt: r.status === "delivered" ? done.toISOString() : null });
+    } catch { /* left queued or in progress: Retry picks it up */ }
   }
   return out;
 }
+/** How long a message may sit queued or in progress before Retry may pick it up again (security review M3). */
+export const STUCK_QUEUED_MS = 60_000, STUCK_SENDING_MS = 120_000;
 
 /* ───── A8: labels, collection, accession, rejection ───── */
 async function nextNumber(tx: Tx, s: SessionData, name: string) {
   const seq = await tx.sequence.upsert({ where: { tenantId_name: { tenantId: s.tenantId, name } }, create: { tenantId: s.tenantId, name, value: 1 }, update: { value: { increment: 1 } } });
   return seq.value;
+}
+/** Tube numbers run per tenant and month (the barcode is unique per tenant — security review L4). A month's counter
+    that does not exist yet starts after the highest number already issued that month. */
+async function nextSpecimenNo(tx: Tx, s: SessionData, yymm: string) {
+  const name = `specimen:${yymm}`;
+  if (!(await tx.sequence.findUnique({ where: { tenantId_name: { tenantId: s.tenantId, name } } }))) {
+    const prefix = `S-${yymm}-`;
+    const used = await tx.specimen.findMany({ where: { number: { startsWith: prefix } }, select: { number: true } });
+    const max = used.reduce((m, x) => Math.max(m, Number(x.number.slice(prefix.length)) || 0), 0);
+    await tx.sequence.upsert({ where: { tenantId_name: { tenantId: s.tenantId, name } }, create: { tenantId: s.tenantId, name, value: max }, update: {} });
+  }
+  return nextNumber(tx, s, name);
 }
 /** Print labels for the tubes the visit still needs: a new pending tube per need, or a reprint of its label. */
 export async function printLabels(tx: Tx, s: SessionData, encounterId: string, tubes: TubeKind[] | undefined, now: Date) {
@@ -424,7 +449,7 @@ export async function printLabels(tx: Tx, s: SessionData, encounterId: string, t
       audit.push({ action: "reprint", entity: "Specimen", entityId: sp.id, patientId: v.e.patientId, detail: { number: sp.number, tube: n.tube, copy: sp.labelPrints + 1 } });
       continue;
     }
-    const number = specimenNumber(yymm, await nextNumber(tx, s, `specimen:${s.organizationId}:${yymm}`));
+    const number = specimenNumber(yymm, await nextSpecimenNo(tx, s, yymm));
     const sp = await tx.specimen.create({ data: {
       tenantId: s.tenantId, organizationId: s.organizationId, branchId: v.e.branchId, patientId: v.e.patientId, encounterId: v.e.id, number, tube: n.tube,
       labelPrintedById: s.userId, labelPrintedAt: now, statusAt: now,
@@ -444,6 +469,9 @@ async function specimenStep(tx: Tx, s: SessionData, specimenId: string, event: "
   const orderIds = sp.orders.map((o) => o.serviceRequestId);
   const live = v.orders.filter((o) => orderIds.includes(o.id) && o.status !== "revoked");
   if (event === "collect" && !live.length) throw err(409, "orders_cancelled", "এই টিউবের সব পরীক্ষা বাতিল — লেবেলটি ফেলে দিন", "Every test on this tube was cancelled — discard the label");
+  const before = event === "collect" ? new Date(sp.labelPrintedAt.getTime() - 5 * 60_000) : event === "receive" ? sp.collectedAt : sp.receivedAt;
+  if (before && when.getTime() < before.getTime() - 60_000)
+    throw err(400, "time_order", "এই ধাপের সময় আগের ধাপের আগে হতে পারে না", "This step cannot be before the step before it", { field: "at" });
   const data = event === "collect" ? { collectedById: s.userId, collectedAt: when } : event === "receive" ? { receivedById: s.userId, receivedAt: when } : { startedById: s.userId, startedAt: when };
   const u = await tx.specimen.updateMany({ where: { id: sp.id, status: sp.status }, data: { status: undash<DbSpecimen>(to), statusAt: now, ...data } });
   if (u.count !== 1) throw stale();
@@ -471,12 +499,16 @@ export async function rejectSpecimen(tx: Tx, s: SessionData, specimenId: string,
   const bad = rejectCheck({ reason: body.reason, note: body.note });
   if (bad.length) throw err(400, "reject_reason", "কারণ লিখুন (অন্য কারণ হলে অন্তত ১০ অক্ষর)", "Give a reason (for 'other', at least 10 characters)", { field: bad[0] === "note_required" ? "note" : "reason" });
   const { v, sp } = await specimenVisit(tx, s, specimenId, now);
+  // clinical review H2: results entered from this tube must be withdrawn first (so none stays current from a bad tube)
+  if (v.obs.some((x) => x.specimenId === sp.id && isCurrent(x)))
+    throw err(409, "results_entered", "এই টিউবের ফলাফল লেখা হয়ে গেছে — আগে পরীক্ষার ফলাফল প্রত্যাহার করুন", "Results from this tube are already entered — withdraw the test's results first");
   const from = dash<SpecimenState>(sp.status);
   const to = transition("SPECIMEN", SPECIMEN, from, "reject");
   const u = await tx.specimen.updateMany({ where: { id: sp.id, status: sp.status }, data: { status: undash<DbSpecimen>(to), statusAt: now, rejectedById: s.userId, rejectedAt: when, rejectReason: body.reason, rejectNote: body.note?.trim() || null } });
   if (u.count !== 1) throw stale();
   await tx.provenance.create({ data: provenance(s, "Specimen", sp.id, "reject", now, { number: sp.number, reason: body.reason }) });
-  const smsId = await queueSms(tx, s, v, "recollect", { specimenId: sp.id });
+  // a tube never collected (e.g. the sample could not be drawn) needs no "come back" SMS: the patient is at the desk
+  const smsId = from === "pending" ? null : await queueSms(tx, s, v, "recollect", { specimenId: sp.id });
   return {
     encounterId: v.e.id, dispatch: smsId ? [smsId] : [],
     audit: [{ action: "update", entity: "Specimen", entityId: sp.id, patientId: v.e.patientId, detail: { event: "reject", from, to, reason: body.reason, number: sp.number, recollectionSms: Boolean(smsId) } }] as AuditEntry[],
@@ -546,6 +578,7 @@ export async function correctResult(tx: Tx, s: SessionData, observationId: strin
   const a = b.analytes.find((x) => x.code === o.code);
   const parsed = parseLabValue(body.value);
   if (!parsed.ok) throw err(400, "result_entry", "মানটি ঠিক করুন", "Check the value", { field: "value", fields: fields([{ field: "value", code: parsed.code }]) });
+  if (a && decimalsOf(body.value) > a.decimals) throw err(400, "result_entry", "এই পরীক্ষায় এত দশমিক ঘর হয় না", "Too many decimal places for this test", { field: "value", fields: fields([{ field: "value", code: "too_many_decimals" }]) });
   const bad = correctionCheck({ status: dash<ResultState>(o.status), oldValue: o.value, newValue: parsed.value, reason: body.reason });
   if (bad.includes("not_current")) throw err(409, "not_current", "এই ফলাফল আগেই সংশোধিত হয়েছে", "This result was already corrected");
   if (bad.length) throw err(400, bad[0]!, bad[0] === "reason_required" ? "কারণ লিখুন (অন্তত ১০ অক্ষর)" : "নতুন মান আগের মানের মতোই", bad[0] === "reason_required" ? "Give a reason (at least 10 characters)" : "The new value is the same as the old one", { field: bad[0] === "reason_required" ? "reason" : "value" });
@@ -574,7 +607,8 @@ export async function correctResult(tx: Tx, s: SessionData, observationId: strin
     { action: "update", entity: "Observation", entityId: o.id, patientId: o.patientId, detail: { event: "markError", from: dash(o.status), to: errTo, reason: body.reason.trim(), replacedBy: n.id } },
     { action: "create", entity: "Observation", entityId: n.id, patientId: o.patientId, detail: { replaces: o.id, analyte: o.code, flag } },
   ];
-  if (v.everReleased.has(o.id)) {
+  const phoned = v.callbacks.some((c) => c.observationId === o.id && c.outcome === "reached");
+  if (v.everReleased.has(o.id) || phoned) {
     const order = v.orders.find((x) => x.id === o.serviceRequestId);
     if (order) {
       const cid = await deliverInApp(tx, s, target(v), { kind: "correction-notice", channel: "doctor_inbox", recipientUserId: order.orderedById, serviceRequestId: order.id, observationId: o.id, reportId: v.current?.id ?? null }, now);
@@ -631,7 +665,9 @@ export async function withdrawTest(tx: Tx, s: SessionData, orderId: string, reas
   }
   audit.push({ action: "update", entity: "Observation", entityId: rows[0]!.id, patientId: v.e.patientId, detail: { event: "withdraw", orderId: o.id, testCode: o.testCode, reason: reason.trim(), observations: rows.map((x) => x.id) } });
   const dispatch: string[] = [];
-  const sp = liveSpecimen(v, o.id);
+  // clinical review M1: the tube these results were measured in (not merely the newest tube of the test)
+  const tubeId = rows.find((x) => x.specimenId)?.specimenId ?? null;
+  const sp = v.specimens.find((x) => x.id === tubeId && LIVE.includes(dash<SpecimenState>(x.status))) ?? null;
   if (sp) {
     const from = dash<SpecimenState>(sp.status);
     const to = transition("SPECIMEN", SPECIMEN, from, "reject");
@@ -642,7 +678,7 @@ export async function withdrawTest(tx: Tx, s: SessionData, orderId: string, reas
     if (smsId) dispatch.push(smsId);
   }
   await tx.provenance.create({ data: provenance(s, "ServiceRequest", o.id, "lab-withdraw", now, { reason: reason.trim(), observations: rows.map((x) => x.id), specimen: sp?.number ?? null }) });
-  if (rows.some((x) => v.everReleased.has(x.id))) {
+  if (rows.some((x) => v.everReleased.has(x.id) || v.callbacks.some((c) => c.observationId === x.id && c.outcome === "reached"))) {
     const cid = await deliverInApp(tx, s, target(v), { kind: "results-withdrawn", channel: "doctor_inbox", recipientUserId: o.orderedById, serviceRequestId: o.id, reportId: v.current?.id ?? null }, now);
     audit.push({ action: "create", entity: "Communication", entityId: cid, patientId: v.e.patientId, detail: { kind: "results-withdrawn", to: o.orderedById } });
   }
@@ -807,11 +843,26 @@ export async function retryMessage(tx: Tx, s: SessionData, communicationId: stri
   const { v } = await visitFor(tx, s, c0.encounterId, now);
   const c = v.comms.find((x) => x.id === communicationId);
   if (!c) throw notFound();
-  const to = transition("COMMUNICATION", COMMUNICATION, dash<"failed">(c.status), "retry");
   if (c.reportId && v.reports.find((x) => x.id === c.reportId)?.status === "superseded")
     throw err(409, "superseded", "এই সংস্করণ বদলে গেছে — নতুন সংস্করণ পাঠান", "This version was replaced — send the new version");
-  const u = await tx.communication.updateMany({ where: { id: c.id, status: c.status }, data: { status: undash(to) as "preparation", statusAt: now } });
-  if (u.count !== 1) throw stale();
+  if (c.channel !== "sms") throw err(409, "not_retryable", "এই মাধ্যম আবার পাঠানো যায় না", "This channel cannot be retried");
+  // A failed message is re-queued (same id). One that was queued or in progress for too long (the send was
+  // interrupted) is sent again too: in progress → failed ("no answer from the gateway") → re-queued.
+  const age = now.getTime() - (c.sentAt ?? c.createdAt).getTime();
+  if (c.status === "preparation") { if (age < STUCK_QUEUED_MS) throw err(409, "still_sending", "পাঠানো হচ্ছে — একটু পরে দেখুন", "Still sending — check again shortly"); }
+  else {
+    let from = dash<"failed" | "in-progress" | "completed">(c.status);
+    if (from === "in-progress") {
+      if (age < STUCK_SENDING_MS) throw err(409, "still_sending", "পাঠানো হচ্ছে — একটু পরে দেখুন", "Still sending — check again shortly");
+      const failed = transition("COMMUNICATION", COMMUNICATION, "in-progress", "fail");
+      const f = await tx.communication.updateMany({ where: { id: c.id, status: c.status }, data: { status: undash(failed) as "failed", lastError: "no answer from the gateway", statusAt: now } });
+      if (f.count !== 1) throw stale();
+      from = "failed";
+    }
+    const to = transition("COMMUNICATION", COMMUNICATION, from as "failed", "retry");
+    const u = await tx.communication.updateMany({ where: { id: c.id, status: undash(from) as "failed" }, data: { status: undash(to) as "preparation", statusAt: now } });
+    if (u.count !== 1) throw stale();
+  }
   return { encounterId: v.e.id, dispatch: [c.id], audit: [{ action: "update", entity: "Communication", entityId: c.id, patientId: v.e.patientId, detail: { event: "retry", kind: c.kind, attempts: c.attempts } }] as AuditEntry[] };
 }
 
@@ -819,7 +870,8 @@ export async function retryMessage(tx: Tx, s: SessionData, communicationId: stri
 export async function labReportView(tx: Tx, s: SessionData, reportId: string, now = new Date()): Promise<LabReportView> {
   const r0 = await tx.diagnosticReport.findFirst({ where: { id: reportId, organizationId: s.organizationId }, select: { encounterId: true } });
   if (!r0) throw notFound();
-  const b = await loadBundle(tx, s, [r0.encounterId], true);
+  // no earlier results here (no delta on a released version), so the report view reveals nothing beyond the visit
+  const b = await loadBundle(tx, s, [r0.encounterId], false);
   const e = b.encounters[0];
   if (!e) throw notFound();
   const v = visitOf(b, e, now);
@@ -838,6 +890,8 @@ export async function labReportView(tx: Tx, s: SessionData, reportId: string, no
 export async function revokeOrder(tx: Tx, s: SessionData, orderId: string, reason: string, now: Date) {
   const o0 = await tx.serviceRequest.findFirst({ where: { id: orderId, organizationId: s.organizationId } });
   if (!o0) throw notFound();
+  // security review M1: the lab cancels lab tests only (imaging and other orders are the doctor's)
+  if (s.role !== "doctor" && o0.group !== "lab") throw err(403, "forbidden", "ল্যাব শুধু ল্যাবের পরীক্ষা বাতিল করতে পারে", "The lab can cancel lab tests only", { reason: "role", canRequest: false });
   const branch = await branchOf(tx, s);
   if (o0.branchId !== branch.id) throw notFound();
   await tx.$queryRaw`SELECT 1 FROM "Encounter" WHERE "id" = ${o0.encounterId} FOR UPDATE`;
