@@ -684,3 +684,22 @@ Commit after each step, push at the end of each session.
 - Plan for C1–C4 in two sessions: session 1 = ADR 0008, shift and KPI rules, Shift + DailyRollup tables, nightly job,
   routes and tests; session 2 = bill/shift and own/dash screens (1440 + 412), phone approvals / variance, C1–C4 journey
   spec, reviews, hands-on as the owner.
+
+### Chosen conservatively by Claude in C1–C4 session 1 — please confirm
+150. **Cash refunds count as 0** in the expected cash until the refunds slice exists.
+151. **Taking cash without an open shift is not blocked** (the A6–A7 flows stay as they are); it shows on the owner's
+     leakage list as "cash taken outside a shift". Should a cashier have to open a shift before taking cash?
+152. **Whose shift a payment belongs to:** the cashier who took it (`Payment.createdById`), by the time it was confirmed —
+     a bKash link confirmed later by the gateway counts in that cashier's shift if it is still open.
+153. **"Today" is compared with the same weekday last week, up to the same hour** (the prototype's "vs last Sunday");
+     7 / 30 days with the 7 / 30 before.
+154. **Lab turnaround** = the average minutes from the order to the test's first release (the prototype says TAT without
+     defining it).
+155. **"Discounts above policy"** = discounts that needed the owner's approval (above the cashier's limit), with who asked
+     and who approved.
+156. **Dues** = issued, not voided bills minus confirmed payments at the end of the day (no credit notes or refunds yet).
+157. **Pending approvals on the dashboard are counted per tenant** (an approval task has no facility); right for a
+     single-facility pilot, to revisit for multi-branch owners.
+158. **The nightly job runs inside the API process** (00:30 Dhaka; a second instance would recompute the same rows); a
+     separate worker before scaling out.
+

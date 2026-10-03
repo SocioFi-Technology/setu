@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A (phase 1) complete; next phase 2: /slice C1-C4)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 C1–C4 session 1 of 2 done; next C1–C4 session 2)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -404,6 +404,24 @@ patient from the front desk to the doctor's printed prescription) are green.
 - **Staff dev server memory:** at `--max-old-space-size=1536` it ran out of heap during the full run; it now runs with
   3072 (the machine had ~11 GB free with the other projects stopped).
 
+## Done (slice C1–C4, session 1 of 2, 03/10/2026) — shift close and owner dashboard (backend) ✅
+Phase 2 split in four slices (Kamrul, 03/10/2026; open questions "Phase 2 plan"): C1–C4 owner + shift close → pharmacy
+→ admin → real SMS + bKash. **Session 2** does `bill/shift` (cashier: open, live expected, count by note, hand over;
+owner / admin: approve with a note or recount) and `own/dash` at 1440 and 412 (KPI tiles with real changes, labelled
+axes, leakage, the list behind each number, approvals and variance on the phone), the owner's live home, the C1–C4
+journey spec @phone, the reviews, the hands-on test as the owner.
+- **ADR 0008:** Shift / ShiftCount / ShiftReview (expected = float + the cashier's confirmed cash; count by note and hand
+  over; variance needs a reason; owner / admin approve with a note (issue #24) or recount; history append-only);
+  DailyRollup per facility and Dhaka day (nightly 00:30 job recomputes the last 7 finished days; today live); KPI
+  comparisons; drill-downs audited; leakage list.
+- **Rules:** `@setu/domain` `shift.ts`, `kpi.ts`. **Database:** migrations `shift_close_rollup` (guards) and
+  `rollup_targets` (SECURITY DEFINER list of facilities for the job).
+- **API:** `/v1/shifts/mine`, `/v1/shifts` (open, list), `/v1/shifts/:id` (+ `/count`, `/review`), `/v1/owner/dashboard`,
+  `/v1/owner/drill`, dev `/v1/dev/rollup/run`; the server schedules the nightly job (`scheduleNightlyRollup`).
+- **E2E reset** approves shifts left unfinished by test runs ("e2e reset: test run").
+- **Tests:** domain 231, api 199 (+10 `owner.test.ts`, green twice), contracts 2, i18n 3; `pnpm typecheck` 13/13.
+  Playwright not re-run this session (no screen changed; 69 green at the end of A12–A13).
+
 ## How to run the journeys on this PC
 - Playwright's Chromium is installed (02/10/2026): plain `pnpm e2e` runs the journeys against `pnpm dev` (staff :3000,
   api :4000). The installed-Chrome route still works: `cd e2e` then `CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" pnpm exec playwright test -c pw.local.config.ts`.
@@ -477,7 +495,7 @@ patient from the front desk to the doctor's printed prescription) are green.
 5. ~~`/slice A12-A13`~~ — done 03/10/2026 (two sessions); **Journey A complete**. Kamrul to confirm open questions
    135–149.
 6. **Phase 2 pilot clinic, split in four slices (Kamrul, 03/10/2026):** `/slice C1-C4` owner dashboard + shift close
-   (**in progress**) → pharmacy → admin → real SMS + bKash sandbox. See open questions "Phase 2 plan".
+   (**session 1 done; session 2 next** — Kamrul to confirm open questions 150–158) → pharmacy → admin → real SMS + bKash sandbox. See open questions "Phase 2 plan".
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating
