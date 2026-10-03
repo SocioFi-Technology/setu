@@ -97,6 +97,8 @@
   "sh_system": ["সিস্টেম", "System"],
   "sh_settlement": ["সেটেলমেন্ট (আপনি দেখে লিখুন)", "Settlement (as you read it)"],
   "sh_d_matched": ["ক্যাশিয়ারের লেখা অঙ্কের সাথে মিলেছে", "matches the cashier's figure"],
+  "sh_d_none": ["কিছু নেওয়া হয়নি", "nothing taken"],
+  "sh_done_handover": ["হস্তান্তর হয়েছে · সার্ভারে নিশ্চিত", "Handed over · confirmed by the server"],
   "sh_d_unverified": ["সেটেলমেন্টের অঙ্ক ক্যাশিয়ার লিখেছেন — টার্মিনাল/ব্যাংক স্টেটমেন্টের সাথে মিলিয়ে নিন", "Settlement figures were entered by the cashier — check them against the terminal / bank statement"],
   "sh_blind": ["না দেখে গণনা: ড্রয়ারে কত থাকার কথা তা গণনার পরে দেখানো হবে", "Blind count: what the drawer should hold is shown after you count"],
   "sh_revealed": ["সার্ভারের হিসাব", "server figure"],

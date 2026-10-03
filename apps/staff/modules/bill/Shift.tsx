@@ -90,7 +90,7 @@ function CountForm({ sh, onDone }: { sh: ShiftView; onDone: () => Promise<void> 
     setBusy(true);
     try {
       await shifts.count(sh.id, { counts: parsed as Record<string, number>, settlement, ...(reason.trim() ? { reason: reason.trim() } : {}), ...(revealed !== null ? { varianceSeenPaisa: revealed } : {}) }, key);
-      setKey(crypto.randomUUID()); toast(O("sh_waiting"), "check"); await onDone();
+      setKey(crypto.randomUUID()); toast(O("sh_done_handover"), "check"); await onDone();
     } catch (e) {
       // the server revealed a variance (or it changed meanwhile): show it, ask for the reason, send again
       if (e instanceof ApiFailure && (e.body.code === "reason_required" || e.body.code === "variance_changed") && e.body.amountPaisa !== undefined) {
@@ -130,7 +130,7 @@ function CountForm({ sh, onDone }: { sh: ShiftView; onDone: () => Promise<void> 
             <span style={{ minWidth: 64 }}>{O(`m_${r.method}`)}</span>
             <span className="t-small">{O("sh_system")}: <b className="num">{M.tk(r.systemPaisa)}</b></span>
             <input className="input num" name={`settle-${r.method}`} inputMode="decimal" style={{ width: 120 }} aria-label={`${O(`m_${r.method}`)} — ${O("sh_settlement")}`} placeholder={O("sh_settlement")} value={settle[r.method] ?? ""} onChange={(e) => setSettle((x) => ({ ...x, [r.method]: e.target.value }))} />
-            <Pill tone={r.state === "matched" ? "ok" : r.state === "pending" ? "pend" : "warn"}>{r.state === "mismatch" ? O("sh_d_mismatch", { diff: M.tk(r.diffPaisa ?? 0) }) : O(`sh_d_${r.state}`)}</Pill>
+            <Pill tone={r.state === "matched" ? "ok" : r.state === "pending" ? "pend" : "warn"}>{r.state === "mismatch" ? O("sh_d_mismatch", { diff: M.tk(r.diffPaisa ?? 0) }) : r.state === "matched" && r.systemPaisa === 0 && r.settlementPaisa === null ? O("sh_d_none") : O(`sh_d_${r.state}`)}</Pill>
           </span>
         ))}
         <span className="t-small t-muted">{O("sh_d_hint")}</span>
