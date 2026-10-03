@@ -39,7 +39,7 @@ const LAB = "laboratory";
 /** How far a device's "when it happened" may differ from the server clock (offline steps wait up to a day). */
 const MAX_FUTURE_MS = 5 * 60_000, MAX_PAST_MS = 24 * 3600_000;
 /** The worklists look back this far (older open work: a dues-style list later). */
-const WORKLIST_DAYS = 30;
+const WORKLIST_DAYS = 30, WORKLIST_MAX = 200;
 const LIVE: SpecimenState[] = ["collected", "received", "in-process", "done"];
 const PRE_COLLECT: OrderState[] = ["active", "accepted", "partially-accepted"];
 
@@ -192,14 +192,15 @@ function withdrawnOf(b: Bundle, v: Visit, orderId: string) {
 }
 
 function orderOf(b: Bundle, v: Visit, o: Order): LabOrder {
-  const sp = liveSpecimen(v, o.id);
+  // the tube it is measured in, else a printed label not yet collected
+  const sp = liveSpecimen(v, o.id) ?? [...v.specimens].reverse().find((x) => x.status === "pending" && x.orders.some((y) => y.serviceRequestId === o.id)) ?? null;
   return {
     id: o.id, testCode: o.testCode, nameEn: o.nameEn, nameBn: o.nameBn, priority: o.priority, status: dash<OrderState>(o.status),
     orderedBy: personOf(b, o.orderedById)!, orderedAt: iso(o.orderedAt), tube: tubeFor(o.testCode),
     specimen: sp ? { id: sp.id, number: sp.number, status: dash<SpecimenState>(sp.status) } : null,
     template: analytesOf(o.testCode, b.analytes).map((a) => {
       const r = rangeOfPatient(b, v, a.code), p = previousOf(b, v, a.code);
-      return { analyteCode: a.code, nameEn: a.nameEn, nameBn: a.nameBn, unit: a.unit, decimals: a.decimals, range: r ? { low: r.low, high: r.high, label: r.label } : null, critLow: a.critLow, critHigh: a.critHigh, previous: p ? { value: p.value, at: p.effectiveAt.toISOString() } : null };
+      return { analyteCode: a.code, nameEn: a.nameEn, nameBn: a.nameBn, unit: a.unit, decimals: a.decimals, range: r ? { low: r.low, high: r.high, label: r.label } : null, critLow: a.critLow, critHigh: a.critHigh, deltaCheck: a.deltaCheck, previous: p ? { value: p.value, at: p.effectiveAt.toISOString() } : null };
     }),
     results: v.obs.filter((x) => x.serviceRequestId === o.id).map((x) => resultOf(b, v, x)),
     revoke: o.status === "revoked" && o.revokedById ? { by: personOf(b, o.revokedById)!, at: iso(o.revokedAt)!, reason: o.revokeReason ?? "" } : null,
@@ -224,7 +225,7 @@ const encounterOf = (e: EncP) => ({ id: e.id, token: e.token, day: e.tokenDay, s
 const patientOf = (v: Visit) => ({
   id: v.e.patient.id, facilityNo: v.e.patient.facilityNo, nameBn: v.e.patient.nameBn, nameEn: v.e.patient.nameEn, sex: v.e.patient.sex,
   birthDate: v.e.patient.birthDate ? v.e.patient.birthDate.toISOString().slice(0, 10) : null, approxAgeYears: v.e.patient.approxAgeYears, approxAgeMonths: v.e.patient.approxAgeMonths,
-  approxAgeAt: iso(v.e.patient.approxAgeAt), phone: v.e.patient.phone, ageYears: v.ageYears,
+  approxAgeAt: iso(v.e.patient.approxAgeAt), phone: v.e.patient.phone, ageYears: v.ageYears, identityConfidence: dash<"verified">(v.e.patient.identityConfidence),
 });
 
 async function samePersonHere(tx: Tx, s: SessionData) {
@@ -268,10 +269,12 @@ const PRIORITY_RANK = { routine: 0, urgent: 1, stat: 2 } as const;
 export async function labWorklist(tx: Tx, s: SessionData, stage: LabWorklist["stage"], now = new Date()): Promise<LabWorklist> {
   const branch = await branchOf(tx, s);
   const since = new Date(now.getTime() - WORKLIST_DAYS * 864e5);
-  const encIds = (await tx.serviceRequest.findMany({
+  // The most recent visits with lab orders (a busy lab's older open work needs a separate list later).
+  const recent = await tx.serviceRequest.findMany({
     where: { organizationId: s.organizationId, branchId: branch.id, group: "lab", status: { not: "draft" }, orderedAt: { gte: since } },
-    select: { encounterId: true }, distinct: ["encounterId"], orderBy: { encounterId: "asc" },
-  })).map((x) => x.encounterId);
+    select: { encounterId: true }, orderBy: { orderedAt: "desc" },
+  });
+  const encIds = [...new Set(recent.map((x) => x.encounterId))].slice(0, WORKLIST_MAX);
   const b = await loadBundle(tx, s, encIds, false);
   const items: LabWorklist["items"] = [];
   for (const e of b.encounters) {

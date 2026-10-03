@@ -222,5 +222,18 @@
   "v_signed": ["স্বাক্ষর {at}", "Signed {at}"],
   "v_not_signed": ["স্বাক্ষর হয়নি", "Not signed"],
   "no_note": ["এই ভিজিটে এখনো স্বাক্ষরিত নোট নেই", "No signed note in this visit yet"],
-  "open_draft": ["খসড়া খুলুন", "Open the draft"]
+  "open_draft": ["খসড়া খুলুন", "Open the draft"],
+
+  "order_cancelled": ["বাতিল", "Cancelled"],
+  "order_in-progress": ["নমুনা নেওয়া হয়েছে", "Sample collected"],
+  "order_partially-complete": ["আংশিক ফলাফল", "Partly reported"],
+  "order_complete": ["রিপোর্ট প্রকাশিত", "Reported"],
+  "order_cancel": ["পরীক্ষা বাতিল", "Cancel test"],
+  "order_cancel_title": ["{test} বাতিল করবেন?", "Cancel {test}?"],
+  "order_cancel_body": ["নমুনা নেওয়ার আগেই শুধু বাতিল করা যায়। খসড়া বিল থেকে লাইনটি সাথে সাথে বাদ যাবে; ইস্যু করা বিলে পরিবর্তনটি চিহ্নিত থাকবে।", "A test can be cancelled only before its sample is taken. A draft bill drops the line at once; an issued bill flags the change."],
+  "order_cancel_reason": ["কারণ (অন্তত ১০ অক্ষর)", "Reason (at least 10 characters)"],
+  "order_cancel_confirm": ["পরীক্ষা বাতিল করুন", "Cancel the test"],
+  "order_cancel_bill": ["বাতিল হয়েছে · বিল থেকে বাদ: {lines}", "Cancelled · removed from the bill: {lines}"],
+  "order_cancel_bill_waits": ["বাতিল হয়েছে · বিলে ছাড় বা অনুমোদন আছে — ক্যাশিয়ার বিলটি হালনাগাদ করবেন", "Cancelled · the bill has a discount or approval — the cashier updates it"],
+  "order_cancel_done": ["বাতিল হয়েছে", "Cancelled"]
 }

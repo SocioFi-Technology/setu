@@ -31,7 +31,7 @@ const Pin = z.string().regex(/^\d{4}$/);
 const Ids = z.array(z.string().min(1).max(64)).min(1).max(60);
 
 export const LabRange = z.object({ low: z.number(), high: z.number(), label: RangeLabel });
-export const LabPatient = PatientSummary.pick({ id: true, facilityNo: true, nameBn: true, nameEn: true, sex: true, birthDate: true, approxAgeYears: true, approxAgeMonths: true, approxAgeAt: true, phone: true })
+export const LabPatient = PatientSummary.pick({ id: true, facilityNo: true, nameBn: true, nameEn: true, sex: true, birthDate: true, approxAgeYears: true, approxAgeMonths: true, approxAgeAt: true, phone: true, identityConfidence: true })
   .extend({ /** at collection (or today when nothing is collected yet); null = unknown */ ageYears: z.number().int().nullable() });
 
 export const CriticalCallbackItem = z.object({
@@ -60,6 +60,8 @@ export type LabResult = z.infer<typeof LabResult>;
 export const LabTemplateRow = z.object({
   analyteCode: z.string(), nameEn: z.string(), nameBn: z.string(), unit: z.string(), decimals: z.number().int(),
   range: LabRange.nullable(), critLow: z.number().nullable(), critHigh: z.number().nullable(),
+  /** the delta check runs for this analyte (sample rule; WBC is left out) */
+  deltaCheck: z.boolean(),
   /** the patient's previous validated result for this analyte (any earlier visit in this organisation's records) */
   previous: z.object({ value: z.number(), at: z.string() }).nullable(),
 });

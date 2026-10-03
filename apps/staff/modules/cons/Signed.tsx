@@ -1,13 +1,16 @@
 "use client";
 /* cons/signed and cons/amended — walkthrough A5 (ADR 0003). Both read the note from the server: "Signed" appears only
    for a version the server holds as final/amended, with the server's time. Amend opens v+1 as a draft (reason ≥ 5);
-   the signed version is never edited, and signing the amendment marks it superseded. The history lists every version. */
+   the signed version is never edited, and signing the amendment marks it superseded. The history lists every version.
+   Slice A8–A11 (decision D5): the ordering doctor can cancel a test that has no sample collected yet ("Cancel test",
+   reason ≥10, ORDER revoke); the visit's draft bill drops the line at once (decision 99). */
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { CompositionView, ConsultationView } from "@setu/contracts";
 import { rxQuantity } from "@setu/domain";
 import { Button, Callout, Card, Dialog, PageState, Pill, type Tone } from "@setu/ui";
-import { ApiFailure, cons } from "../../lib/api";
+import { ApiFailure, cons, lab } from "../../lib/api";
+import { ReasonDialog } from "../lab/common";
 import { useSession } from "../../lib/session";
 import { AllergyStrip } from "./Allergies";
 import { consUrl, useBanner, useC, useFmt } from "./common";
@@ -39,6 +42,7 @@ export function ConsultSigned() {
   const s = useSession(); const C = useC(); const F = useFmt(); const router = useRouter();
   const { view, failure, load } = useConsultation(enc);
   const [amending, setAmending] = useState(false);
+  const [orderNotice, setOrderNotice] = useState<string | null>(null);
   if (!enc) return <NoPatient />;
   if (failure) return <Callout tone="warn" icon="triangle-alert">{failure}</Callout>;
   if (!view) return <div aria-busy="true" className="t-muted">{C("loading")}</div>;
@@ -66,7 +70,10 @@ export function ConsultSigned() {
               {c.amendReason && <span>{C("v_reason", { r: c.amendReason })}</span>}
             </span>
           </Callout>
-          <NoteView c={c} />
+          <>
+            {orderNotice && <Callout tone="info" icon="ban" data-testid="order-notice">{orderNotice}</Callout>}
+            <NoteView c={c} onChanged={(msg) => { setOrderNotice(msg); void load(); }} canCancel={!view.readOnly && s.me?.role === "doctor"} />
+          </>
           {!view.readOnly && (
             <span style={{ display: "flex", gap: 8 }}>
               {draftOpen
@@ -112,7 +119,33 @@ function AmendDialog({ c, onClose, onDone }: { c: CompositionView; onClose: () =
 }
 
 /** A signed version, read-only. */
-function NoteView({ c }: { c: CompositionView }) {
+function OrderLine({ o, canCancel, onChanged }: { o: CompositionView["orders"][number]; canCancel: boolean; onChanged: (notice: string) => void }) {
+  const s = useSession(); const C = useC();
+  const [open, setOpen] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
+  const [key] = useState(() => crypto.randomUUID());
+  const cancellable = canCancel && ["active", "accepted", "partially-accepted"].includes(o.status);
+  return (
+    <div data-order={o.testCode} data-order-status={o.status} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      <span>{s.L(o.nameBn, o.nameEn)} · {C(`pr_${o.priority}`)}</span>
+      {o.status === "revoked" && <Pill tone="off" icon="ban">{C("order_cancelled")}</Pill>}
+      {["in-progress", "partially-complete", "complete"].includes(o.status) && <Pill tone="info" icon="test-tube">{C(`order_${o.status}`)}</Pill>}
+      {cancellable && <Button size="sm" variant="ghost" icon="ban" data-testid={`cancel-order-${o.testCode}`} disabled={!s.online} onClick={() => { setError(null); setOpen(true); }}>{C("order_cancel")}</Button>}
+      <ReasonDialog open={open} title={C("order_cancel_title", { test: s.L(o.nameBn, o.nameEn) })} body={C("order_cancel_body")} label={C("order_cancel_reason")} confirm={C("order_cancel_confirm")} busy={busy} error={error}
+        onClose={() => setOpen(false)}
+        onConfirm={async (reason) => {
+          setBusy(true); setError(null);
+          try {
+            const r = await lab.revoke(o.id, reason, key);
+            setOpen(false);
+            const name = s.L(o.nameBn, o.nameEn);
+            onChanged(`${name}: ${r.bill && r.bill.removed.length ? C("order_cancel_bill", { lines: r.bill.removed.join(", ") }) : r.bill?.waits ? C("order_cancel_bill_waits") : C("order_cancel_done")}`);
+          } catch (e) { setError(e instanceof ApiFailure ? s.L(e.body.message_bn, e.body.message_en) : C("error_generic")); } finally { setBusy(false); }
+        }} />
+    </div>
+  );
+}
+
+function NoteView({ c, onChanged, canCancel = false }: { c: CompositionView; onChanged?: (notice: string) => void; canCancel?: boolean }) {
   const s = useSession(); const C = useC();
   const x = c.sections;
   const exam = (["general", "cvs", "chest", "abdomen"] as const).filter((k) => x.exam[k].trim());
@@ -133,7 +166,7 @@ function NoteView({ c }: { c: CompositionView }) {
           {m.note && <div className="t-small t-muted">{m.note}</div>}
         </div>
       ))}</Row>
-      <Row t={C("sec_orders")}>{c.orders.length === 0 ? "—" : c.orders.map((o) => <div key={o.id} data-order={o.testCode}>{s.L(o.nameBn, o.nameEn)} · {C(`pr_${o.priority}`)}</div>)}</Row>
+      <Row t={C("sec_orders")}>{c.orders.length === 0 ? "—" : c.orders.map((o) => <OrderLine key={o.id} o={o} canCancel={canCancel} onChanged={onChanged ?? (() => {})} />)}</Row>
       {x.advice.trim() && <Row t={C("sec_advice")}><span style={{ whiteSpace: "pre-wrap" }}>{x.advice}</span></Row>}
       {x.followUp.trim() && <Row t={C("sec_followup")}>{x.followUp}</Row>}
     </Card>

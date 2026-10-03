@@ -1,4 +1,5 @@
 import type {
+  CallbackRequest, LabReportView, LabVisitView, LabWorklist, ResultEntryRequest, RevokeResponse, SpecimenRejectRequest,
   ApprovalDecisionResponse, ApprovalList, ReconcileDecisionResponse, ReconcileList, BillingWorklist, ChargeDefinitionList, DiscountRequest, DiscountResponse, InvoiceView, NewPaymentRequest, PaymentResponse, PrintRequest, PrintResponse, ReceiptList, ReceiptView, VerifyResponse,
   AiDraftResponse, AllergyOptions, AllergyView, CompositionView, ConsultationView, ConsultWorklist, Icd11Search, MedicineSearch, RecordAllergyRequest, SaveDraftRequest, SignRequest, TestList,
   ApiError, Capabilities, VitalsBatchRequest, VitalsBatchResponse, VitalsView, VitalsWorklist, CreateVisitResponse, MatchDecisionResponse, MatchPreviewResponse, Me, PatientMatches, PatientSearchResponse, QueueItem, QueueResponse, RegisterResponse, RegistrationInput, ReviewOutcomeResponse, ReviewQueueResponse,
@@ -107,6 +108,33 @@ export const bill = {
   receipt: (id: string) => call<ReceiptView>("GET", `/v1/receipts/${enc(id)}`),
   print: (id: string, body: PrintRequest, key: string) => call<PrintResponse>("POST", `/v1/receipts/${enc(id)}/print`, body, key),
   verify: (code: string) => call<VerifyResponse>("GET", `/v1/verify/rc/${enc(code)}`),
+};
+
+/* Lab (slice A8–A11, ADR 0006). Collect / receive / start / reject go through the outbox when offline (decision D8):
+   the tube shows "Not yet synced" until the server answers. Results, verify, validate, call-backs, release and sending
+   need the server — nothing is verified, validated, released or sent on this device. `key`: the caller's
+   Idempotency-Key, so pressing a button twice (or a PIN retry) is one request. */
+type LabStage = LabWorklist["stage"];
+export const lab = {
+  worklist: (stage: LabStage) => call<LabWorklist>("GET", "/v1/lab/worklist?stage=" + stage),
+  visit: (encounterId: string) => call<LabVisitView>("GET", `/v1/lab/visits/${enc(encounterId)}`),
+  report: (id: string) => call<LabReportView>("GET", `/v1/lab/reports/${enc(id)}`),
+  labels: (encounterId: string, key: string) => call<LabVisitView>("POST", `/v1/lab/visits/${enc(encounterId)}/labels`, {}, key),
+  step: (specimenId: string, step: "collect" | "receive" | "start", key: string) => write<LabVisitView>("POST", `/v1/lab/specimens/${enc(specimenId)}/${step}`, { at: new Date().toISOString() }, `lab_${step}`, key),
+  reject: (specimenId: string, body: Omit<SpecimenRejectRequest, "at">, key: string) => write<LabVisitView>("POST", `/v1/lab/specimens/${enc(specimenId)}/reject`, { ...body, at: new Date().toISOString() }, "lab_reject", key),
+  results: (orderId: string, body: ResultEntryRequest, key: string) => call<LabVisitView>("POST", `/v1/lab/orders/${enc(orderId)}/results`, body, key),
+  correct: (observationId: string, body: { value: string; confirm?: string; reason: string }, key: string) => call<LabVisitView>("POST", `/v1/lab/observations/${enc(observationId)}/correct`, body, key),
+  verify: (encounterId: string, body: { pin: string; observationIds: string[]; deltaChecked: boolean }, key: string) => call<LabVisitView>("POST", `/v1/lab/visits/${enc(encounterId)}/verify`, body, key),
+  validate: (encounterId: string, body: { pin: string; observationIds: string[] }, key: string) => call<LabVisitView>("POST", `/v1/lab/visits/${enc(encounterId)}/validate`, body, key),
+  callback: (observationId: string, body: CallbackRequest, key: string) => call<LabVisitView>("POST", `/v1/lab/observations/${enc(observationId)}/callbacks`, body, key),
+  sendBack: (orderId: string, reason: string, key: string) => call<LabVisitView>("POST", `/v1/lab/orders/${enc(orderId)}/return`, { reason }, key),
+  withdraw: (orderId: string, reason: string, key: string) => call<LabVisitView>("POST", `/v1/lab/orders/${enc(orderId)}/withdraw`, { reason }, key),
+  release: (encounterId: string, observationIds: string[], key: string) => call<LabVisitView>("POST", `/v1/lab/visits/${enc(encounterId)}/release`, { observationIds }, key),
+  send: (reportId: string, channel: "sms" | "patient-app", key: string) => call<LabVisitView>("POST", `/v1/lab/reports/${enc(reportId)}/send`, { channel }, key),
+  retry: (communicationId: string, key: string) => call<LabVisitView>("POST", `/v1/lab/communications/${enc(communicationId)}/retry`, {}, key),
+  revoke: (orderId: string, reason: string, key: string) => call<RevokeResponse>("POST", `/v1/orders/${enc(orderId)}/revoke`, { reason }, key),
+  /** dev and tests only: the fake SMS gateway fails the next send (the API refuses it with a real gateway or in production) */
+  failNextSms: () => call<{ failing: number }>("POST", "/v1/dev/fake-messenger/fail-next", { n: 1 }),
 };
 
 export const api = {

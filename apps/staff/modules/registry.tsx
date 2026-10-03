@@ -16,6 +16,12 @@ import { FrontDeskQueue } from "./fd/Queue";
 import { FrontDeskRegister } from "./fd/Register";
 import { FrontDeskSearch } from "./fd/Search";
 import { FrontDeskVitals } from "./fd/Vitals";
+import { LabAccession } from "./lab/Accession";
+import { LabCollect } from "./lab/Collect";
+import { LabDelivery } from "./lab/Delivery";
+import { LabReport } from "./lab/Report";
+import { LabResultEntry } from "./lab/Result";
+import { LabVerify } from "./lab/Verify";
 
 const SCREENS: Record<string, ComponentType> = {
   // slice A1–A3
@@ -36,6 +42,13 @@ const SCREENS: Record<string, ComponentType> = {
   "bill/approvals": BillApprovals,
   // billing follow-ups (ADR 0005)
   "bill/reconcile": BillReconcile,
+  // slice A8–A11
+  "lab/collect": LabCollect,
+  "lab/accession": LabAccession,
+  "lab/result": LabResultEntry,
+  "lab/verify": LabVerify,
+  "lab/report": LabReport,
+  "lab/delivery": LabDelivery,
 };
 const SLICE: Record<string, string> = { fd: "A1–A3", cons: "A4–A5", bill: "A6–A7", lab: "A8–A11", ph: "phase 2", own: "phase 2", adm: "phase 2", er: "B1–B2", ipd: "B3–B4", nur: "B5–B6", net: "E1–E4" };
 

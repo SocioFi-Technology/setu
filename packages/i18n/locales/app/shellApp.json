@@ -35,6 +35,22 @@
     "ভিজিট ও টোকেন",
     "Visit and token"
   ],
+  "label_lab_collect": [
+    "নমুনা সংগ্রহ",
+    "Sample collected"
+  ],
+  "label_lab_receive": [
+    "নমুনা গ্রহণ",
+    "Sample received"
+  ],
+  "label_lab_start": [
+    "প্রক্রিয়া শুরু",
+    "Processing started"
+  ],
+  "label_lab_reject": [
+    "নমুনা বাতিল",
+    "Sample rejected"
+  ],
   "label_vitals": [
     "ভাইটাল",
     "Vitals"
