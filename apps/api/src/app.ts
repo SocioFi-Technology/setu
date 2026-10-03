@@ -16,6 +16,7 @@ import { frontDeskRoutes } from "./routes/frontdesk.js";
 import { labRoutes } from "./routes/lab.js";
 import { doctorRoutes } from "./routes/doctor.js";
 import { documentRoutes } from "./routes/documents.js";
+import { ownerRoutes } from "./routes/owner.js";
 import { metaRoutes } from "./routes/meta.js";
 import { vitalsRoutes } from "./routes/vitals.js";
 
@@ -54,5 +55,6 @@ export async function buildApp() {
   await app.register(labRoutes);
   await app.register(doctorRoutes);
   await app.register(documentRoutes);
+  await app.register(ownerRoutes);
   return app;
 }
