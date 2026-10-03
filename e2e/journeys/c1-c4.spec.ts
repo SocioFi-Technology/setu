@@ -127,15 +127,20 @@ test("C4 cashier: counts the drawer by note, a short count needs a reason, hands
   await page.goto("/m/bill/shift");
   await page.fill("input[name=shift-float]", "2000");
   await page.getByTestId("shift-open").click();
-  await expect(page.getByTestId("shift-expected")).toContainText("৳ 2,000");
+  // blind count (money-controls review M1): what the drawer should hold is not shown while counting
+  await expect(page.getByTestId("shift-live")).toContainText("Blind count");
+  await expect(page.getByTestId("shift-variance")).toHaveCount(0);
   await page.fill("input[name=note-1000]", "1");
   await page.fill("input[name=note-500]", "1");
   await expect(page.getByTestId("shift-counted")).toContainText("৳ 1,500");
+  await page.fill("input[name=settle-bkash]", "0");
+  await page.getByTestId("shift-handover").click();
+  // the server reveals the variance and asks for the reason
   await expect(page.getByTestId("shift-variance")).toHaveAttribute("data-judgement", "short");
+  await expect(page.getByTestId("shift-variance")).toContainText("500");
   await expect(page.getByTestId("reason-needed")).toBeVisible();
   await expect(page.getByTestId("shift-handover")).toBeDisabled();
   await page.fill("textarea[name=shift-reason]", "gave change twice to one patient");
-  await page.fill("input[name=settle-bkash]", "0");
   await page.getByTestId("shift-handover").click();
   await expect(page.getByTestId("shift-closed")).toContainText("waiting for the owner / admin");
   await expect(page.getByTestId("count-variance")).toHaveAttribute("data-judgement", "short");

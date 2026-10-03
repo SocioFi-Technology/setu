@@ -24,6 +24,10 @@ describe("cash count by denomination (prototype Billing › Shift close)", () =>
     expect(countCheck({ 300: 1 } as never)).toEqual({ ok: false, error: "denomination_unknown", denomination: 300 });
     expect(countCheck({})).toEqual({ ok: true, countedPaisa: 0 });
   });
+  it("security review #9: a count larger than ৳1 crore is refused (it would overflow, and no drawer holds it)", () => {
+    expect(countCheck({ 1000: 10_000 })).toEqual({ ok: true, countedPaisa: 1_000_000_000 });
+    expect(countCheck({ 1000: 10_001 })).toEqual({ ok: false, error: "count_too_large", denomination: 1000 });
+  });
   it("expected cash = opening float + confirmed cash taken − cash refunds", () => {
     expect(expectedCashPaisa({ openingFloatPaisa: 200_000, cashInPaisa: 4_250_000, cashRefundPaisa: 50_000 })).toBe(4_400_000);
   });

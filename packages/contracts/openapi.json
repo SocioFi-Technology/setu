@@ -247,6 +247,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -808,6 +811,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -1649,6 +1655,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -2362,6 +2371,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -2432,6 +2444,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -2923,6 +2938,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -2993,6 +3011,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -3063,6 +3084,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -3619,6 +3643,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -4076,6 +4103,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -4631,6 +4661,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -5402,6 +5435,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -5472,6 +5508,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -5758,6 +5797,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -5828,6 +5870,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -6036,6 +6081,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -6405,6 +6453,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -6475,6 +6526,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -6865,6 +6919,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -6935,6 +6992,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -7005,6 +7065,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -7075,6 +7138,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -7204,6 +7270,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -7389,6 +7458,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -7511,6 +7583,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -7631,6 +7706,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -7858,6 +7936,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -9306,6 +9387,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -9376,6 +9460,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -10832,6 +10919,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -10902,6 +10992,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -10972,6 +11065,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -11808,6 +11904,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -11878,6 +11977,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -11948,6 +12050,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -13435,6 +13540,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -13505,6 +13613,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -13575,6 +13686,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -13645,6 +13759,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -13715,6 +13832,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -15190,6 +15310,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -15260,6 +15383,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -15451,6 +15577,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -15731,6 +15860,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -15801,6 +15933,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -16055,6 +16190,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -16125,6 +16263,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -16406,6 +16547,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -16554,6 +16698,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -18762,6 +18909,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -18832,6 +18982,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -18902,6 +19055,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -20045,6 +20201,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -20115,6 +20274,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -21296,6 +21458,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -21366,6 +21531,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -21436,6 +21604,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -22619,6 +22790,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -22689,6 +22863,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -23866,6 +24043,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -23936,6 +24116,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -25156,6 +25339,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -25226,6 +25412,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -25296,6 +25485,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -26465,6 +26657,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -26535,6 +26730,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -27704,6 +27902,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -27774,6 +27975,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -27844,6 +28048,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -28237,6 +28444,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -29695,6 +29905,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -29765,6 +29978,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -29835,6 +30051,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -31297,6 +31516,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -31367,6 +31589,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -31437,6 +31662,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -32770,6 +32998,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -32840,6 +33071,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -32910,6 +33144,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -32980,6 +33217,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -34274,6 +34514,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -34344,6 +34587,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -35638,6 +35884,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -35708,6 +35957,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -37020,6 +37272,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -37090,6 +37345,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -37160,6 +37418,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -37272,6 +37533,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -37342,6 +37606,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -37481,6 +37748,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -37551,6 +37821,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -38619,6 +38892,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -39193,6 +39469,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -39263,6 +39542,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -39964,6 +40246,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -40068,6 +40353,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -40194,6 +40482,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -40264,6 +40555,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -41447,6 +41741,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -41517,6 +41814,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -41587,6 +41887,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -42756,6 +43059,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -43926,6 +44232,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -43996,6 +44305,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -44066,6 +44378,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -44479,6 +44794,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -44906,6 +45224,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -44976,6 +45297,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -45046,6 +45370,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -45477,6 +45804,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -45547,6 +45877,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -45617,6 +45950,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -46041,6 +46377,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -47481,6 +47820,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -47551,6 +47893,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -49024,6 +49369,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -49094,6 +49442,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -50560,6 +50911,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -50630,6 +50984,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -52096,6 +52453,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -52166,6 +52526,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -53632,6 +53995,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -53702,6 +54068,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -55184,6 +55553,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -55254,6 +55626,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -55324,6 +55699,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -56813,6 +57191,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -56883,6 +57264,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -56953,6 +57337,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -58428,6 +58815,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -58498,6 +58888,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -58568,6 +58961,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -60049,6 +60445,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -60119,6 +60518,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -60189,6 +60591,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -60259,6 +60664,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -60329,6 +60737,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -61830,6 +62241,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -61900,6 +62314,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -61970,6 +62387,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -63447,6 +63867,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -63517,6 +63940,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -63587,6 +64013,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -63657,6 +64086,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -63727,6 +64159,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -65193,6 +65628,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -65263,6 +65701,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -65333,6 +65774,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -65403,6 +65847,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -66869,6 +67316,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -66939,6 +67389,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -67009,6 +67462,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -67079,6 +67535,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -68551,6 +69010,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -68621,6 +69083,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -68691,6 +69156,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -69556,6 +70024,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -69626,6 +70097,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -71095,6 +71569,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -71165,6 +71642,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -71235,6 +71715,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -72694,6 +73177,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -72764,6 +73250,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -72987,6 +73476,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -73057,6 +73549,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -73127,6 +73622,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -73599,6 +74097,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -74072,6 +74573,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -74142,6 +74646,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -74212,6 +74719,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -74282,6 +74792,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -74512,6 +75025,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -74582,6 +75098,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -74927,6 +75446,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -74997,6 +75519,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -75067,6 +75592,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -75137,6 +75665,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -75272,6 +75803,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -75342,6 +75876,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -75438,6 +75975,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -75508,6 +76048,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -75754,6 +76297,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -75824,6 +76370,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -76090,6 +76639,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -76160,6 +76712,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -77238,6 +77793,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -77840,6 +78398,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -77910,6 +78471,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -78520,6 +79084,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -78593,6 +79160,9 @@
                   "reason": {
                     "type": "string",
                     "maxLength": 300
+                  },
+                  "varianceSeenPaisa": {
+                    "type": "integer"
                   }
                 },
                 "required": [
@@ -79159,6 +79729,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -79229,6 +79802,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -79299,6 +79875,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -79369,6 +79948,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -79952,6 +80534,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -80022,6 +80607,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -80638,6 +81226,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -80708,6 +81299,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -80778,6 +81372,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -81092,12 +81689,41 @@
                         },
                         "reconcile": {
                           "type": "integer"
+                        },
+                        "staleShifts": {
+                          "type": "integer"
                         }
                       },
                       "required": [
                         "approvals",
                         "shifts",
-                        "reconcile"
+                        "reconcile",
+                        "staleShifts"
+                      ]
+                    },
+                    "missingDays": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "cash": {
+                      "type": "object",
+                      "properties": {
+                        "shortPaisa": {
+                          "type": "integer"
+                        },
+                        "overPaisa": {
+                          "type": "integer"
+                        },
+                        "shiftsWithVariance": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "shortPaisa",
+                        "overPaisa",
+                        "shiftsWithVariance"
                       ]
                     }
                   },
@@ -81112,7 +81738,9 @@
                     "series",
                     "byMethod",
                     "leakage",
-                    "pending"
+                    "pending",
+                    "missingDays",
+                    "cash"
                   ]
                 }
               }
@@ -81177,6 +81805,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -81272,6 +81903,9 @@
                     },
                     "count": {
                       "type": "integer"
+                    },
+                    "truncated": {
+                      "type": "boolean"
                     },
                     "rows": {
                       "type": "array",
@@ -81419,6 +82053,7 @@
                     "period",
                     "totalPaisa",
                     "count",
+                    "truncated",
                     "rows"
                   ]
                 }
@@ -81484,6 +82119,9 @@
                     },
                     "lockedUntil": {
                       "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
                     }
                   },
                   "required": [

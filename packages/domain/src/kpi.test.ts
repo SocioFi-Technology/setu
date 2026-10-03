@@ -5,7 +5,7 @@ describe("periods and what they are compared with (Dhaka days)", () => {
   // 03/10/2026 14:30 Dhaka = 08:30 UTC, a Saturday
   const now = new Date("2026-10-03T08:30:00Z");
   it("today is compared with the same weekday last week, up to the same hour", () => {
-    expect(periodDays("today", now)).toEqual({ days: ["2026-10-03"], previous: ["2026-09-26"], uptoHour: 14 });
+    expect(periodDays("today", now)).toEqual({ days: ["2026-10-03"], previous: ["2026-09-26"], uptoHour: 14, previousUntil: new Date("2026-09-26T08:30:00Z") });
   });
   it("7 days = today and the 6 before, against the 7 before those; 30 days likewise", () => {
     const p = periodDays("7d", now);

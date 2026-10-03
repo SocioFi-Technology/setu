@@ -66,12 +66,18 @@ export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (
   } catch (e) {
     // Two requests with the same key raced: the loser rolls back entirely and answers with the winner's response.
     if (!isUniqueViolation(e)) throw e;
-    return send(await forTenant(s.tenantId, async (tx) => { const hit = await find(tx); if (!hit) throw e; return answer(tx, hit); }, { userId: s.userId }));
+    // Not a key race: another write took the same unique slot at the same moment (e.g. two shift opens) — a clean 409,
+    // never a raw 500 (security review C1–C4 #8).
+    return send(await forTenant(s.tenantId, async (tx) => {
+      const hit = await find(tx);
+      if (!hit) throw err(409, "conflict", "একই সময়ে অন্য একটি পরিবর্তন হয়েছে — আবার দেখুন", "Another change happened at the same moment — refresh and try again");
+      return answer(tx, hit);
+    }, { userId: s.userId }));
   }
 }
 
 /** A read under the session's tenant; `audit` (if any) is written in the same transaction. */
-export async function query<T>(req: FastifyRequest, fn: (tx: Tx, s: SessionData) => Promise<{ body: T; audit: AuditEntry[] }>): Promise<T> {
+export async function query<T>(req: FastifyRequest, fn: (tx: Tx, s: SessionData) => Promise<{ body: T; audit: AuditEntry[] }>, opts: { timeoutMs?: number } = {}): Promise<T> {
   const s = requireSession(req);
   req.txManaged = true;
   if (!config.dbEnabled) throw dbOff();
@@ -80,5 +86,5 @@ export async function query<T>(req: FastifyRequest, fn: (tx: Tx, s: SessionData)
     const r = await fn(tx, s);
     await writeAudit(tx, req, s, r.audit);
     return r.body;
-  }, { userId: s.userId });
+  }, { userId: s.userId, timeoutMs: opts.timeoutMs });
 }

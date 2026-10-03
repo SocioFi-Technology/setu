@@ -61,7 +61,8 @@ export function OwnerDash({ home = false }: { home?: boolean } = {}) {
       {!failed && !v && <div aria-busy="true" className="t-muted">{O("loading")}</div>}
       {v && (
         <>
-          {(v.pending.approvals > 0 || v.pending.shifts > 0 || v.pending.reconcile > 0) && <Pending v={v} />}
+          {(v.pending.approvals > 0 || v.pending.shifts > 0 || v.pending.reconcile > 0 || v.pending.staleShifts > 0) && <Pending v={v} />}
+          {v.missingDays.length > 0 && <Callout icon="hourglass" data-testid="missing-days">{O("missing_days", { n: v.missingDays.length })}</Callout>}
           <div className="kpi-grid-own" data-testid="kpi-tiles">
             {/* tiles with data first; those that come with a later module after them (they pushed the chart off a phone) */}
             {[...v.kpis.filter((k) => !k.comesWith), ...v.kpis.filter((k) => k.comesWith)].map((k) => (
@@ -92,7 +93,7 @@ export function OwnerDash({ home = false }: { home?: boolean } = {}) {
                 <button key={l.kind} type="button" className="kpi-tile" data-leak={l.kind} data-count={l.count} onClick={() => setDrill(l.kind)} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                   <Pill tone={l.count === 0 ? "ok" : l.severity === "high" ? "bad" : "warn"} icon={l.count === 0 ? "check" : l.severity === "high" ? "siren" : "eye"}>{l.count === 0 ? O("leak_none") : O(`sev_${l.severity}`)}</Pill>
                   <span style={{ flex: 1, minWidth: 0 }}>{O(`l_${l.kind}`)}</span>
-                  <span className="num t-small">{F.num(l.count)}{l.paisa ? ` · ${F.tk(l.paisa)}` : ""}</span>
+                  <span className="num t-small">{F.num(l.count)}{l.paisa ? ` · ${F.tk(l.paisa)}` : ""}{l.kind === "shiftVariance" && l.count ? <><br />{O("cash_split", { short: F.tk(v.cash.shortPaisa), over: F.tk(v.cash.overPaisa) })}</> : null}</span>
                   <Icon name="chevron-right" size={14} />
                 </button>
               ))}
@@ -128,6 +129,7 @@ function Pending({ v }: { v: DashboardView }) {
       {v.pending.approvals > 0 && <Button size="sm" icon="badge-check" data-testid="pending-approvals" onClick={() => router.push("/m/bill/approvals")}>{O("pending_approvals", { n: v.pending.approvals })}</Button>}
       {v.pending.shifts > 0 && <Button size="sm" icon="lock" data-testid="pending-shifts" onClick={() => router.push("/m/bill/shift")}>{O("pending_shifts", { n: v.pending.shifts })}</Button>}
       {v.pending.reconcile > 0 && <Button size="sm" icon="scale" onClick={() => router.push("/m/bill/reconcile")}>{O("pending_reconcile", { n: v.pending.reconcile })}</Button>}
+      {v.pending.staleShifts > 0 && <Button size="sm" icon="clock" data-testid="pending-stale" onClick={() => router.push("/m/bill/shift")}>{O("pending_stale", { n: v.pending.staleShifts })}</Button>}
     </Card>
   );
 }
@@ -236,6 +238,7 @@ function DrillDialog({ period, what, onClose }: { period: Period; what: DrillVie
         {d && (d.rows.length === 0 ? <PageState icon="inbox" title={O("drill_empty")} /> : (
           <>
             <span className="t-small" data-testid="drill-total">{O("drill_total", { total: d.totalPaisa === null ? "—" : F.tk(d.totalPaisa), n: d.count })}</span>
+            {d.truncated && <span className="t-small t-muted" data-testid="drill-truncated">{O("drill_truncated", { n: d.rows.length })}</span>}
             {d.rows.map((r) => {
               const to = r.link ? href(r.link) : null;
               return (

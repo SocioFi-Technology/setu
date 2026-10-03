@@ -94,7 +94,10 @@ describe.runIf(db)("C4 shift close", () => {
     const short = { counts: notesFor(100_000 - 50_000) };
     const r1 = await post(`/v1/shifts/${sh.id}/count`, short);
     expect(r1.statusCode).toBe(422);
-    expect(r1.json().code).toBe("reason_required");
+    // blind count: the server reveals the variance only now (money-controls review M1)
+    expect(r1.json()).toMatchObject({ code: "reason_required", amountPaisa: -50_000 });
+    // the reason was written for a different variance → asked again with the current one (M2)
+    expect((await post(`/v1/shifts/${sh.id}/count`, { ...short, reason: "gave change twice to one patient", varianceSeenPaisa: -20_000 })).json()).toMatchObject({ code: "variance_changed", amountPaisa: -50_000 });
     const c1 = ok<Shift>(await post(`/v1/shifts/${sh.id}/count`, { ...short, reason: "gave change twice to one patient" }));
     expect(c1.latestCount).toMatchObject({ variancePaisa: -50_000, judgement: "short" });
     expect((await post(`/v1/shifts/${sh.id}/review`, { decision: "approve" }, "owner")).json().code).toBe("note_required");
@@ -142,13 +145,17 @@ describe.runIf(db)("C4 shift close", () => {
     await expect(db!.forTenant(T, (tx) => tx.shiftReview.create({ data: { tenantId: T, shiftId: sh.id, countId: row!.id, decision: "approve", note: "approving my own drawer", byId: "u_e2e_cashier" } }), { userId: "u_e2e_cashier" })).rejects.toThrow(/own shift/);
     await expect(db!.forTenant(T, (tx) => tx.shiftReview.create({ data: { tenantId: T, shiftId: sh.id, countId: row!.id, decision: "approve", byId: "u_e2e_owner" } }), { userId: "u_e2e_owner" })).rejects.toThrow(/note/);
     expect(c.status).toBe("closed");
+    // security review #1 / #2: no approval without the owner's decision row; the latest count is never repointed
+    await expect(db!.forTenant(T, (tx) => tx.shift.updateMany({ where: { id: sh.id }, data: { status: "approved" } }), { userId: "u_e2e_cashier" })).rejects.toThrow(/decision on the latest count/);
+    await expect(db!.forTenant(T, (tx) => tx.shift.updateMany({ where: { id: sh.id }, data: { latestCountId: null } }), { userId: "u_e2e_cashier" })).rejects.toThrow(/latest count changes only when counting/);
     ok(await post(`/v1/shifts/${sh.id}/review`, { decision: "approve", note: "accepted after checking the log" }, "owner"));
   });
 });
 
 describe.runIf(db)("C1–C2 owner dashboard", () => {
   type Dash = { kpis: { key: string; value: number | null; comesWith: string | null; pct: number | null; judgement: string | null }[]; ops: { key: string; value: number | null }[];
-    series: { unit: string; points: { label: string }[] }; leakage: { kind: string; count: number; paisa: number }[]; pending: { shifts: number }; uptoHour: number | null; byMethod: { method: string; paisa: number }[] };
+    series: { unit: string; points: { label: string }[] }; leakage: { kind: string; count: number; paisa: number }[]; pending: { shifts: number; staleShifts: number }; uptoHour: number | null; byMethod: { method: string; paisa: number }[];
+    cash: { shortPaisa: number; overPaisa: number; shiftsWithVariance: number }; missingDays: string[] };
   it("today is live: revenue and collections include today's bills; later modules' tiles say so; leakage counts today's variance", async () => {
     const d = ok<Dash>(await get("/v1/owner/dashboard?period=today"));
     const v = (k: string) => d.kpis.find((x) => x.key === k)!;
@@ -159,11 +166,15 @@ describe.runIf(db)("C1–C2 owner dashboard", () => {
     expect(d.series.points).toHaveLength(d.uptoHour! + 1);
     expect(d.ops.find((o) => o.key === "opdVisits")!.value).toBeGreaterThan(0);
     expect(d.leakage.find((l) => l.kind === "shiftVariance")!.count).toBeGreaterThan(0);
+    // money-controls review H3: short and over are kept apart; the leakage figure is the size of both
+    expect(d.cash.shortPaisa).toBeGreaterThanOrEqual(50_000);
+    expect(d.leakage.find((l) => l.kind === "shiftVariance")!.paisa).toBe(d.cash.shortPaisa + d.cash.overPaisa);
+    expect(d.pending.staleShifts).toBeGreaterThanOrEqual(0);
     expect(d.byMethod.find((m) => m.method === "cash")!.paisa).toBeGreaterThan(0);
   });
   it("7 and 30 days: one point per day; the nightly job stores finished days (never today)", async () => {
-    const r = ok<{ facilities: number; days: number }>(await post("/v1/dev/rollup/run", {}, "owner", null));
-    expect(r.facilities).toBeGreaterThan(0);
+    const r = ok<{ days: number; failed: number }>(await post("/v1/dev/rollup/run", {}, "owner", null));
+    expect(r).toMatchObject({ days: 35, failed: 0 });
     const d = ok<Dash>(await get("/v1/owner/dashboard?period=7d"));
     expect(d.series).toMatchObject({ unit: "day" });
     expect(d.series.points).toHaveLength(7);
@@ -174,8 +185,12 @@ describe.runIf(db)("C1–C2 owner dashboard", () => {
     expect((await get("/v1/owner/dashboard?period=30d")).statusCode).toBe(200);
   }, 60_000);
   it("the list behind a number: today's collections with patients, audited; the shift variance with who and why", async () => {
-    const c = ok<{ count: number; rows: { patient: { id: string } | null; amountPaisa: number; by: { id: string } | null }[] }>(await get("/v1/owner/drill?period=today&what=collections"));
+    const c = ok<{ count: number; totalPaisa: number; truncated: boolean; rows: { patient: { id: string } | null; amountPaisa: number; by: { id: string } | null }[] }>(await get("/v1/owner/drill?period=today&what=collections"));
     expect(c.count).toBeGreaterThan(0);
+    // money-controls review M4: the drill's total is the tile's figure, over every row
+    const tile = ok<{ kpis: { key: string; value: number }[] }>(await get("/v1/owner/dashboard?period=today")).kpis.find((k) => k.key === "collections")!.value;
+    expect(c.totalPaisa).toBe(tile);
+    expect(c.truncated).toBe(c.count > c.rows.length);
     expect(c.rows[0]!.patient).not.toBeNull();
     const a = await db!.forTenant(T, (tx) => tx.auditEvent.findFirst({ where: { entity: "OwnerDrill", userId: "u_e2e_owner" }, orderBy: { at: "desc" } }));
     expect((a!.detail as { patientIds: string[] }).patientIds.length).toBeGreaterThan(0);

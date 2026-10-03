@@ -76,30 +76,36 @@ function CountForm({ sh, onDone }: { sh: ShiftView; onDone: () => Promise<void> 
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [key, setKey] = useState(() => crypto.randomUUID());
+  /** blind count (money-controls review M1): the variance is unknown until the server reveals it after the count */
+  const [revealed, setRevealed] = useState<number | null>(null);
   const live = sh.live!;
   const parsed = useMemo(() => Object.fromEntries(Object.entries(counts).filter(([, v]) => v.trim() !== "").map(([k, v]) => [k, Number(v.replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d))))])), [counts]);
   const check = countCheck(parsed as never);
   const counted = check.ok ? check.countedPaisa : 0;
-  const variance = counted - live.expectedCashPaisa;
-  const j = varianceJudgement(variance);
   const settlement = Object.fromEntries(Object.entries(settle).map(([k, v]) => [k, parseTaka(v)]).filter(([, v]) => v !== null)) as Record<string, number>;
   const rows = digitalRows(Object.fromEntries(live.digital.map((d) => [d.method, d.systemPaisa])), settlement);
-  const needReason = variance !== 0 && reason.trim().length < 10;
+  const needReason = revealed !== null && revealed !== 0 && reason.trim().length < 10;
   const lastRecount = [...sh.reviews].reverse().find((r) => r.decision === "recount");
   const submit = async () => {
     setBusy(true);
     try {
-      await shifts.count(sh.id, { counts: parsed as Record<string, number>, settlement, ...(reason.trim() ? { reason: reason.trim() } : {}) }, key);
+      await shifts.count(sh.id, { counts: parsed as Record<string, number>, settlement, ...(reason.trim() ? { reason: reason.trim() } : {}), ...(revealed !== null ? { varianceSeenPaisa: revealed } : {}) }, key);
       setKey(crypto.randomUUID()); toast(O("sh_waiting"), "check"); await onDone();
-    } catch (e) { toast(errText(e, s.lang), "triangle-alert"); await onDone(); } finally { setBusy(false); }
+    } catch (e) {
+      // the server revealed a variance (or it changed meanwhile): show it, ask for the reason, send again
+      if (e instanceof ApiFailure && (e.body.code === "reason_required" || e.body.code === "variance_changed") && e.body.amountPaisa !== undefined) {
+        setRevealed(e.body.amountPaisa); setKey(crypto.randomUUID());
+        if (e.body.code === "variance_changed") toast(errText(e, s.lang), "triangle-alert");
+      } else { toast(errText(e, s.lang), "triangle-alert"); await onDone(); }
+    } finally { setBusy(false); }
   };
   return (
     <>
       {lastRecount && <Callout tone="warn" icon="rotate-ccw" data-testid="recount-banner">{O("sh_recount", { by: M.name(lastRecount.by), note: lastRecount.note ?? "" })}</Callout>}
       <Card style={{ padding: 16, display: "flex", flexDirection: "column", gap: 6 }} data-testid="shift-live">
         <span className="t-small t-muted">{O("sh_opened", { at: M.dateTime(sh.openedAt), float: M.tk(sh.openingFloatPaisa) })}</span>
-        <span>{O("sh_cash_in")}: <b className="num">{M.tk(live.cashInPaisa)}</b> · <span className="t-small t-muted">{O("sh_payments", { n: live.payments })}</span></span>
-        <span>{O("sh_expected_now")}: <b className="num" data-testid="shift-expected" style={{ fontSize: 20 }}>{M.tk(live.expectedCashPaisa)}</b></span>
+        <span className="t-small t-muted">{O("sh_payments", { n: live.payments })}</span>
+        <span className="t-small">{O("sh_blind")}</span>
       </Card>
       <Card style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
         <b>{O("sh_count")}</b>
@@ -114,10 +120,8 @@ function CountForm({ sh, onDone }: { sh: ShiftView; onDone: () => Promise<void> 
         {!check.ok && <span className="field-error" role="alert">{O("error_generic")}</span>}
         <span style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }} data-testid="shift-sums">
           <span>{O("sh_counted")}: <b className="num" data-testid="shift-counted">{M.tk(counted)}</b></span>
-          <span>{O("sh_expected")}: <b className="num">{M.tk(live.expectedCashPaisa)}</b></span>
-          <span data-testid="shift-variance" data-judgement={j}>{O("sh_variance")}: <b className="num">{M.tk(variance)}</b> <Pill tone={VTONE[j]} icon={j === "matched" ? "check" : "triangle-alert"}>{O(`sh_${j}`)}</Pill></span>
+          {revealed !== null && <span data-testid="shift-variance" data-judgement={varianceJudgement(revealed)}>{O("sh_variance")}: <b className="num">{M.tk(revealed)}</b> <Pill tone={VTONE[varianceJudgement(revealed)]} icon="triangle-alert">{O(`sh_${varianceJudgement(revealed)}`)}</Pill> <span className="t-small t-muted">{O("sh_revealed")}</span></span>}
         </span>
-        <span className="t-small t-muted">{O("sh_preview")}</span>
       </Card>
       <Card style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }} data-testid="shift-digital">
         <b>{O("sh_digital")}</b>
@@ -132,7 +136,7 @@ function CountForm({ sh, onDone }: { sh: ShiftView; onDone: () => Promise<void> 
         <span className="t-small t-muted">{O("sh_d_hint")}</span>
       </Card>
       <Card style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-        {variance !== 0 && (
+        {revealed !== null && revealed !== 0 && (
           <label className="field t-small">{O("sh_reason")}
             <textarea className="input" name="shift-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
           </label>
@@ -157,8 +161,9 @@ function CountSummary({ sh }: { sh: ShiftView }) {
       </span>
       {c.reason && <span className="t-small">{O("sh_why", { reason: c.reason })}</span>}
       <span className="t-small" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {c.digital.filter((d) => d.systemPaisa || d.settlementPaisa !== null).map((d) => <span key={d.method} data-method={d.method} data-state={d.state}>{O(`m_${d.method}`)} <span className="num">{M.tk(d.systemPaisa)}</span>{d.state === "mismatch" ? ` · ${O("sh_d_mismatch", { diff: M.tk(d.diffPaisa ?? 0) })}` : d.state === "pending" ? ` · ${O("sh_d_pending")}` : " ✓"}</span>)}
+        {c.digital.filter((d) => d.systemPaisa || d.settlementPaisa !== null).map((d) => <span key={d.method} data-method={d.method} data-state={d.state}>{O(`m_${d.method}`)} <span className="num">{M.tk(d.systemPaisa)}</span>{d.state === "mismatch" ? ` · ${O("sh_d_mismatch", { diff: M.tk(d.diffPaisa ?? 0) })}` : d.state === "pending" ? ` · ${O("sh_d_pending")}` : ` · ${O("sh_d_matched")}`}</span>)}
       </span>
+      {c.digital.some((d) => d.settlementPaisa !== null) && <span className="t-small t-muted">{O("sh_d_unverified")}</span>}
     </span>
   );
 }
@@ -206,6 +211,7 @@ function ReviewCard({ sh, onDone }: { sh: ShiftView; onDone: () => Promise<void>
         <b>{O("sh_cashier", { name: M.name(sh.cashier) })}</b>
         <span className="t-small t-muted">{M.dateTime(sh.openedAt)} → {M.dateTime(c.countedAt)}</span>
       </span>
+      <span className="t-small" data-testid="review-float">{O("sh_float_owner", { float: M.tk(sh.openingFloatPaisa) })}</span>
       <CountSummary sh={sh} />
       {sh.reviews.length > 0 && <span className="t-small t-muted">{O("sh_history")}: {sh.reviews.map((r) => `${O("sh_count_no", { n: r.countNo })} — ${r.decision === "recount" ? O("sh_recount_btn") : O("sh_approve")}: ${r.note ?? ""}`).join(" · ")}</span>}
       <label className="field t-small">{O("sh_review_note")}

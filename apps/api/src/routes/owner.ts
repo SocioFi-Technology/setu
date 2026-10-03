@@ -65,7 +65,7 @@ export async function ownerRoutes(app: FastifyInstance) {
   app.get("/v1/owner/dashboard", async (req): Promise<DashboardView> => {
     requireScreen(req, "own", "dash");
     const q = DashboardQuery.parse(req.query);
-    return query(req, async (tx, s) => ({ body: await dashboard(tx, s, q.period, new Date()), audit: [{ action: "view", entity: "OwnerDashboard", detail: { period: q.period } }] }));
+    return query(req, async (tx, s) => ({ body: await dashboard(tx, s, q.period, new Date()), audit: [{ action: "view", entity: "OwnerDashboard", detail: { period: q.period } }] }), { timeoutMs: 30_000 });
   });
   app.get("/v1/owner/drill", async (req): Promise<DrillView> => {
     requireScreen(req, "own", "dash");
@@ -73,12 +73,16 @@ export async function ownerRoutes(app: FastifyInstance) {
     return query(req, async (tx, s) => { const r = await drill(tx, s, q.period, q.what, new Date()); return { body: r.view, audit: r.audit }; });
   });
 
-  /* ── dev and tests only: run the nightly rollup now ── */
-  app.post("/v1/dev/rollup/run", async (req) => {
-    const s = requireSession(req);
-    if (process.env.NODE_ENV === "production" || !config.dbEnabled || (s.role !== "owner" && s.role !== "admin")) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
-    return runNightlyRollup(new Date());
-  });
+  /* ── dev and tests only (ROLLUP_DEV_ROUTE=1, never in production): run the nightly rollup now for the caller's
+     tenant — opt-in like the fake gateways' routes, rate-limited (security review C1–C4 #3) ── */
+  if (config.rollupDevRoute) {
+    app.post("/v1/dev/rollup/run", { config: { rateLimit: { max: 6, timeWindow: "1 minute" } } }, async (req) => {
+      const s = requireSession(req);
+      if (!config.dbEnabled || (s.role !== "owner" && s.role !== "admin")) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
+      const r = await runNightlyRollup(new Date(), undefined, s.tenantId);
+      return { days: r.days, failed: r.failed };
+    });
+  }
 }
 
 /** The nightly job (ADR 0008): at 00:30 Dhaka, then every 24 h. One timer per API process; the rows are upserts. */

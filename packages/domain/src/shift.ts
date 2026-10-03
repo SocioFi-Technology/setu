@@ -8,13 +8,16 @@ export const DENOMINATIONS = [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1] as const
 export type Denomination = (typeof DENOMINATIONS)[number];
 export type Counts = Partial<Record<Denomination, number>>;
 
-export function countCheck(counts: Counts): { ok: true; countedPaisa: number } | { ok: false; error: "count_invalid" | "denomination_unknown"; denomination: number } {
+/** ৳1 crore: far above any drawer, and inside the database's integer (security review C1–C4 #9). */
+export const MAX_COUNT_PAISA = 1_000_000_000;
+export function countCheck(counts: Counts): { ok: true; countedPaisa: number } | { ok: false; error: "count_invalid" | "denomination_unknown" | "count_too_large"; denomination: number } {
   let paisa = 0;
   for (const [k, n] of Object.entries(counts)) {
     const d = Number(k);
     if (!(DENOMINATIONS as readonly number[]).includes(d)) return { ok: false, error: "denomination_unknown", denomination: d };
     if (!Number.isInteger(n) || (n as number) < 0 || (n as number) > 100_000) return { ok: false, error: "count_invalid", denomination: d };
     paisa += d * 100 * (n as number);
+    if (paisa > MAX_COUNT_PAISA) return { ok: false, error: "count_too_large", denomination: d };
   }
   return { ok: true, countedPaisa: paisa };
 }

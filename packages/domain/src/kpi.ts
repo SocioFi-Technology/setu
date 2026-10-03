@@ -29,12 +29,13 @@ export function kpiChange(key: KpiKey | OpsKey, current: number, previous: numbe
 const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
 const range = (last: string, n: number) => Array.from({ length: n }, (_, i) => addDays(last, i - n + 1));
 
-/** The Dhaka days of a period and the days it is compared with; `uptoHour` (Dhaka) for today against a partial day. */
-export function periodDays(period: Period, now: Date): { days: string[]; previous: string[]; uptoHour: number | null } {
+/** The Dhaka days of a period and the days it is compared with. Today is compared with the same weekday last week up
+    to exactly the same moment (`previousUntil` = now − 7 days, for every metric — money-controls review M3). */
+export function periodDays(period: Period, now: Date): { days: string[]; previous: string[]; uptoHour: number | null; previousUntil: Date | null } {
   const today = dhakaDay(now);
-  if (period === "today") return { days: [today], previous: [addDays(today, -7)], uptoHour: (now.getUTCHours() + 6) % 24 };
+  if (period === "today") return { days: [today], previous: [addDays(today, -7)], uptoHour: (now.getUTCHours() + 6) % 24, previousUntil: new Date(now.getTime() - 7 * 864e5) };
   const n = period === "7d" ? 7 : 30;
-  return { days: range(today, n), previous: range(addDays(today, -n), n), uptoHour: null };
+  return { days: range(today, n), previous: range(addDays(today, -n), n), uptoHour: null, previousUntil: null };
 }
 
 /** The total of an hourly series up to and including `hour` (null = the whole day). */

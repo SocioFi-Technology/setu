@@ -37,6 +37,8 @@ export const CountShiftRequest = z.object({
   counts: z.record(z.string().regex(/^\d{1,4}$/), z.number().int().min(0).max(100_000)),
   settlement: z.object({ bkash: Paisa.min(0), nagad: Paisa.min(0), card: Paisa.min(0), bank: Paisa.min(0) }).partial().default({}),
   reason: z.string().max(300).optional(),
+  /** the variance the server revealed and the reason was written for: a different variance now → 409 variance_changed */
+  varianceSeenPaisa: z.number().int().optional(),
 });
 export type CountShiftRequest = z.infer<typeof CountShiftRequest>;
 export const ReviewShiftRequest = z.object({ decision: z.enum(["approve", "recount"]), note: z.string().max(300).optional() });
@@ -61,14 +63,22 @@ export const DashboardView = z.object({
   series: z.object({ unit: z.enum(["hour", "day"]), points: z.array(z.object({ label: z.string(), revenuePaisa: Paisa, collectedPaisa: Paisa })) }),
   byMethod: z.array(z.object({ method: z.enum(["cash", "card", "bank", "bkash", "nagad"]), paisa: Paisa })),
   leakage: z.array(z.object({ kind: LeakageKind, count: z.number().int(), paisa: Paisa, severity: z.enum(["high", "review"]) })),
-  pending: z.object({ approvals: z.number().int(), shifts: z.number().int(), reconcile: z.number().int() }),
+  pending: z.object({ approvals: z.number().int(), shifts: z.number().int(), reconcile: z.number().int(),
+    /** shifts open for more than 12 hours (never handed over — money-controls review M5) */
+    staleShifts: z.number().int() }),
+  /** past days not yet prepared (at most a few are computed per request; the nightly job fills the rest) */
+  missingDays: z.array(z.string()),
+  /** the cash variance split: short and over never cancel out (money-controls review H3) */
+  cash: z.object({ shortPaisa: Paisa, overPaisa: Paisa, shiftsWithVariance: z.number().int() }),
 });
 export type DashboardView = z.infer<typeof DashboardView>;
 export const DashboardQuery = z.object({ period: Period.default("today") });
 export const DrillWhat = z.enum(["revenue", "collections", "dues", "discounts", "opdVisits", "labTests", "noShows", "reprints", "shiftVariance", "discountAbovePolicy", "notBilledHere", "cashOutsideShift"]);
 export const DrillQuery = z.object({ period: Period.default("today"), what: DrillWhat });
 export const DrillView = z.object({
-  what: DrillWhat, period: Period, totalPaisa: Paisa.nullable(), count: z.number().int(),
+  what: DrillWhat, period: Period,
+  /** totals are computed over every matching row (not only the rows listed); `truncated` = more rows than listed */
+  totalPaisa: Paisa.nullable(), count: z.number().int(), truncated: z.boolean(),
   rows: z.array(z.object({
     id: z.string(), at: z.string(), number: z.string().nullable(),
     patient: z.object({ id: z.string(), nameBn: z.string(), nameEn: z.string().nullable(), facilityNo: z.string() }).nullable(),

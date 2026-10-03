@@ -83,13 +83,17 @@ export async function countShift(tx: Tx, s: SessionData, id: string, req: CountS
   if (sh.status !== "open") throw err(409, "shift_not_open", "এই শিফট গণনার অবস্থায় নেই", "This shift is not open for counting");
   const counts = Object.fromEntries(Object.entries(req.counts).map(([k, v]) => [Number(k), v])) as Counts;
   const c = countCheck(counts);
-  if (!c.ok) throw err(400, c.error, "নোটের সংখ্যা ঠিক নেই", "A note count is not valid", { field: `counts.${c.denomination}` });
+  if (!c.ok) throw err(400, c.error, c.error === "count_too_large" ? "গণনা অস্বাভাবিক বড় — আবার দেখুন" : "নোটের সংখ্যা ঠিক নেই", c.error === "count_too_large" ? "The count is implausibly large — check it" : "A note count is not valid", { field: `counts.${c.denomination}` });
   const t = await takings(tx, s, sh.cashierId, sh.openedAt, now);
   const expected = expectedCashPaisa({ openingFloatPaisa: sh.openingFloatPaisa, cashInPaisa: t.cashInPaisa, cashRefundPaisa: t.cashRefundPaisa });
   const variance = c.countedPaisa - expected;
   const reason = req.reason?.trim() ?? "";
+  // blind count (money-controls review M1): the cashier counts without seeing what the drawer should hold; the server
+  // reveals the variance here and asks for a reason; if the money changed since it was revealed, it asks again (M2)
   if (handOverBlockers({ variancePaisa: variance, reason }).length)
-    throw err(422, "reason_required", "গরমিল আছে — কারণ লিখুন (অন্তত ১০ অক্ষর)", "There is a variance — give a reason (at least 10 characters)", { field: "reason" });
+    throw err(422, "reason_required", "গরমিল আছে — কারণ লিখুন (অন্তত ১০ অক্ষর)", "There is a variance — give a reason (at least 10 characters)", { field: "reason", amountPaisa: variance });
+  if (variance !== 0 && req.varianceSeenPaisa !== undefined && req.varianceSeenPaisa !== variance)
+    throw err(409, "variance_changed", "এর মধ্যে আরেকটি পেমেন্ট এসেছে — গরমিল বদলেছে, কারণ আবার দেখুন", "Another payment arrived meanwhile — the variance changed; check the reason", { field: "reason", amountPaisa: variance });
   const countNo = sh.counts.length + 1;
   const row = await tx.shiftCount.create({ data: {
     tenantId: s.tenantId, shiftId: sh.id, countNo, counts: Object.fromEntries(Object.entries(counts).filter(([, n]) => (n ?? 0) > 0)) as object,

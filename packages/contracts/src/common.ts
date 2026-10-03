@@ -18,6 +18,9 @@ export const ApiError = z.object({
   /** Wrong signing PIN (401 pin_wrong) / locked (423 pin_locked). */
   triesLeft: z.number().int().optional(),
   lockedUntil: z.string().optional(),
+  /** Blind count (422 reason_required / 409 variance_changed, ADR 0008): the variance the server found, revealed only
+      after the count was submitted. */
+  amountPaisa: z.number().int().optional(),
 });
 export type ApiError = z.infer<typeof ApiError>;
 
