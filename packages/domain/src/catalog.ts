@@ -48,6 +48,8 @@ export const MEDICINES_SAMPLE: MedicineEntry[] = ([
   ["clopi", "Clopirel", "ক্লোপিরেল", "Clopidogrel", "75 mg", "Tab.", "Incepta", ["clopidogrel"], ["antiplatelet"], "0+1+0", "after", 30],
   ["amdocal", "Amdocal", "অ্যামডোক্যাল", "Amlodipine", "5 mg", "Tab.", "Beximco", ["amlodipine"], ["calcium-channel-blocker"], "0+0+1", "after", 30],
   ["osartil", "Osartil", "ওসারটিল", "Losartan Potassium", "50 mg", "Tab.", "Incepta", ["losartan"], ["arb"], "1+0+0", "after", 30],
+  // a controlled sample (pharmacy slice: never sold over the counter); demo only
+  ["sedil", "Sedil", "সেডিল", "Diazepam", "5 mg", "Tab.", "Square", ["diazepam"], ["benzodiazepine"], "0+0+1", "after", 7],
 ] as M[]).map(([id, brand, brandBn, generic, strength, form, manufacturer, ingredients, classes, dose, meal, days]) =>
   ({ id, brand, brandBn, generic, strength, form, manufacturer, ingredients, classes, defaults: { dose, meal, days }, sample: true as const }));
 
