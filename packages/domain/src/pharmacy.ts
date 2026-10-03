@@ -40,8 +40,11 @@ export function dispenseStatus(x: { prescribed: number; dispensed: number; decli
   return x.dispensed > 0 ? "partial" : "to-dispense";
 }
 
-type Med = { id: string; ingredients: string[]; classes: string[] };
-const sameGeneric = (a: Med, b: Med) => a.ingredients.length === b.ingredients.length && a.ingredients.every((i) => b.ingredients.includes(i));
+type Med = { id: string; ingredients: string[]; classes: string[]; strength: string; form: string };
+/** Same ingredients, same strength, same form — Comet 850 is not a substitute for Comet 500 (clinical review: the label's
+    "1 tablet" would be a different dose). */
+export const sameGeneric = (a: Med, b: Med) => a.ingredients.length === b.ingredients.length && a.ingredients.every((i) => b.ingredients.includes(i))
+  && a.strength.replace(/\s/g, "").toLowerCase() === b.strength.replace(/\s/g, "").toLowerCase() && a.form === b.form;
 export type SubstitutionBlocker = "not_same_generic" | "reason_required" | "allergy";
 export function substitutionBlockers(x: { prescribed: Med; substitute: Med; reason: string; allergies: AllergyFact[] }): SubstitutionBlocker[] {
   const out: SubstitutionBlocker[] = [];
@@ -67,13 +70,18 @@ export function otcCheck(cls: SaleClass, hasRxPhoto: boolean): OtcBlocker[] {
 }
 export const isSampleMedicine = (key: string) => MEDICINES_SAMPLE.some((m) => m.id === key);
 
-/** The dose on the label: "সকালে ১টি, রাতে ১টি · খাবারের পরে · ৩০ দিন" (Bangla digits on a Bangla label). */
+/** The dose on the label: "সকালে ১টি, রাতে ১টি · খাবারের পরে · ৩০ দিন" (Bangla digits on a Bangla label). Read through the
+    same parser as the prescription (½, 0.5, 1-0-1, Bangla digits); null when it cannot be read — never a label
+    without the dose (clinical review). */
 const TIMES = { bn: ["সকালে", "দুপুরে", "রাতে", "ঘুমের আগে"], en: ["Morning", "Noon", "Night", "Bedtime"] };
 const MEAL = { bn: { before: "খাবারের আগে", after: "খাবারের পরে", with: "খাবারের সাথে", any: "যেকোনো সময়" }, en: { before: "Before food", after: "After food", with: "With food", any: "Any time" } };
-export function doseLabel(dose: string, meal: "before" | "after" | "with" | "any", daysN: number, lang: "bn" | "en"): string {
-  const parts = dose.split("+").map((x) => Number(x));
+export function doseLabel(dose: string, meal: "before" | "after" | "with" | "any", daysN: number, lang: "bn" | "en"): string | null {
+  const d = format.dose(dose);
+  if (!d.ok) return null;
+  const parts = d.parts.map((x) => (x === "½" ? 0.5 : Number(x)));
   const bn = lang === "bn";
-  const times = parts.map((n, i) => (n > 0 ? (bn ? `${TIMES.bn[i]} ${format.toBn(n)}টি` : `${TIMES.en[i]} ${n}`) : null)).filter(Boolean).join(", ");
+  const count = (n: number) => (n === 0.5 ? "½" : Number.isInteger(n) ? String(n) : `${Math.floor(n)}½`);
+  const times = parts.map((n, i) => (n > 0 ? (bn ? `${TIMES.bn[i]} ${format.toBn(count(n))}টি` : `${TIMES.en[i]} ${count(n)}`) : null)).filter(Boolean).join(", ");
   return `${times} · ${MEAL[lang][meal]} · ${bn ? `${format.toBn(daysN)} দিন` : `${daysN} days`}`;
 }
 

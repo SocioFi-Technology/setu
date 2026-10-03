@@ -44,6 +44,9 @@ describe("substitution (same generic, a reason, never against an allergy)", () =
     expect(substitutionBlockers({ prescribed: med("napa"), substitute: med("ace"), reason: "Napa out of stock today", allergies: [] })).toEqual([]);
     expect(substitutionBlockers({ prescribed: med("napa"), substitute: med("ace"), reason: "none", allergies: [] })).toEqual(["reason_required"]);
   });
+  it("another strength of the same generic is not a substitute (Comet 850 for Comet 500 would change the dose)", () => {
+    expect(substitutionBlockers({ prescribed: med("comet"), substitute: med("comet850"), reason: "Comet 500 out of stock", allergies: [] })).toContain("not_same_generic");
+  });
   it("a different generic is not a substitute (the doctor decides that)", () => {
     expect(substitutionBlockers({ prescribed: med("seclo"), substitute: med("pantonix"), reason: "Seclo out of stock today", allergies: [] })).toEqual(["not_same_generic"]);
   });
@@ -72,5 +75,13 @@ describe("the Bangla dose label (50 × 30 mm)", () => {
     expect(doseLabel("1+1+1", "before", 5, "bn")).toBe("সকালে ১টি, দুপুরে ১টি, রাতে ১টি · খাবারের আগে · ৫ দিন");
     expect(doseLabel("0+0+1+1", "any", 7, "bn")).toBe("রাতে ১টি, ঘুমের আগে ১টি · যেকোনো সময় · ৭ দিন");
     expect(doseLabel("1+0+1", "after", 30, "en")).toBe("Morning 1, Night 1 · After food · 30 days");
+  });
+  it("reads every form the prescription accepts — ½, 0.5, dashes, Bangla digits — and never prints a label without the dose", () => {
+    expect(doseLabel("½+0+½", "after", 5, "bn")).toBe("সকালে ½টি, রাতে ½টি · খাবারের পরে · ৫ দিন");
+    expect(doseLabel("0.5+0+0.5", "after", 5, "en")).toBe("Morning ½, Night ½ · After food · 5 days");
+    expect(doseLabel("1-0-1", "before", 5, "en")).toBe("Morning 1, Night 1 · Before food · 5 days");
+    expect(doseLabel("১+০+১", "after", 5, "bn")).toBe("সকালে ১টি, রাতে ১টি · খাবারের পরে · ৫ দিন");
+    expect(doseLabel("as needed", "any", 5, "bn")).toBeNull();
+    expect(doseLabel("0+0+0", "any", 5, "bn")).toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; next phase 2 slice 2: pharmacy)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy session 1 of 3 done — next: pharmacy session 2)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -451,6 +451,36 @@ Slice C1–C4 is **done**: Journey C (the owner's morning check on the phone) is
   were all green. Watch them; if they recur, look at the dev server under load first.
   `ROLLUP_DEV_ROUTE=1` in the local `.env` and the API tests (dev route opt-in).
 
+## Done (pharmacy, session 1 of 3, 03/10/2026) — stock ledger, dispense, OTC sale (backend) ✅
+Journey P (Kamrul, 03/10/2026; open questions "Phase 2 slice 2"): P1–P3 dispense, P4 OTC sale, P5 goods received, P6
+count and adjust. **Session 2:** suppliers, purchase orders, goods received, counts and adjustments, returns, store →
+counter transfer, owner stock tiles. **Session 3:** the six pharmacy screens, `e2e/journeys/p1-p6.spec.ts`, reviews,
+hands-on as the pharmacist.
+- **ADR 0009.** `@setu/domain` `pharmacy.ts` (FEFO, batch state, near expiry, dispense status, substitution — same
+  ingredients, strength and form —, sale class, dose label through the prescription's dose parser); `access.ts`
+  `billKindsFor`, `holdsShift`; inbox kind `substitution-notice`; sample "Sedil" (diazepam, controlled).
+- **Database:** StockBatch (quantity only through StockMove; the app role cannot update it), StockMove (append-only,
+  never below zero), MedicationDispense (append-only; signed current note; every dispense billed at commit);
+  Invoice.kind `opd | pharmacy | otc` (OTC: no visit, optional patient, walk-in buyer, prescription photo); one OPD bill
+  per visit, one draft pharmacy bill per visit; medicine lines priced at their batch MRP / VAT; a dispense line is
+  never edited or removed; an OTC bill is issued only after every line's stock moved; payment / receipt patient = the
+  bill's patient. Migrations `20261003200000_pharmacy` … `20261003200600_pharmacy_review_fixes`.
+- **API:** `/v1/pharmacy/queue`, `/v1/pharmacy/encounters/:id` (+ `/dispense`, `/decline`), `/v1/pharmacy/otc`
+  (+ `/:id`, `/lines`, `/lines/:lineId/remove`, `/rx-photo` GET/POST, `/issue`), `/v1/pharmacy/stock`. The billing
+  view / issue / payment / receipt routes and the shift routes serve the pharmacist for pharmacy and OTC bills only
+  (`invoiceHere` hides every other kind). Billing's "the visit's bill" lookups ask for kind `opd`; OTC bills take no
+  discount and are issued only from the pharmacy; a bill with given medicine cannot be voided (returns: session 2).
+- **Seed:** sample stock per medicine (counter + store; Comet has a near-expiry and an expired batch; Napa only an
+  expired one), E2E pharmacist 01799000007; `pnpm reset-e2e` tops the sample batches back up with an `adjust` move.
+- **Reviews:** security (no critical / high; fixed: app role could set the ledger flag and update a batch, dispense
+  without a bill line, orphan photo on a refused upload, photo headers) and clinical / money (fixed: blank dose label
+  for ½ / dashes / Bangla digits, another strength accepted as a substitute, a substitute counted twice after an
+  amendment, two lines of the same medicine counting each other, given medicine voidable off its bill, a pharmacy bill
+  marked "Replaced by" the next one). Open: questions 166–178 (stock out before payment, OTC discount, photo rules,
+  controlled register, queue days, expiry vs course, revenue split by kind).
+- **Also fixed:** consultation orders written in one save keep their order (load-only test flake).
+- **Tests:** domain 247, api 207 (+8 `pharmacy.test.ts`), `pnpm typecheck` 13/13. No screens yet (session 3).
+
 ## How to run the journeys on this PC
 - Playwright's Chromium is installed (02/10/2026): plain `pnpm e2e` runs the journeys against `pnpm dev` (staff :3000,
   api :4000). The installed-Chrome route still works: `cd e2e` then `CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" pnpm exec playwright test -c pw.local.config.ts`.
@@ -524,7 +554,7 @@ Slice C1–C4 is **done**: Journey C (the owner's morning check on the phone) is
 5. ~~`/slice A12-A13`~~ — done 03/10/2026 (two sessions); **Journey A complete**. Kamrul to confirm open questions
    135–149.
 6. **Phase 2 pilot clinic, split in four slices (Kamrul, 03/10/2026):** ~~`/slice C1-C4`~~ owner dashboard + shift close
-   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **next: pharmacy** → pharmacy → admin → real SMS + bKash sandbox. See open questions "Phase 2 plan".
+   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; **next: session 2** — suppliers, purchase orders, goods received, counts, returns, transfers, stock tiles; then session 3 — screens + journey P) → admin → real SMS + bKash sandbox. See open questions "Phase 2 plan".
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

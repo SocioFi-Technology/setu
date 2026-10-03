@@ -13,7 +13,7 @@ import { randomUUID } from "node:crypto";
 import type { DeclineRequest, DispenseLine, DispenseQueue, DispenseRequest, DispenseView, MedicineRef, OtcCreateRequest, OtcView, RxPhotoRequest, StockList, BatchView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
-  MEDICINES_SAMPLE, batchState, dhakaDay, dispenseStatus, doseLabel, fefoPick, nearExpiry, otcCheck, saleClass, substitutionBlockers, type AllergyFact, type Meal,
+  MEDICINES_SAMPLE, batchState, sameGeneric, dhakaDay, dispenseStatus, doseLabel, fefoPick, nearExpiry, otcCheck, saleClass, substitutionBlockers, type AllergyFact, type Meal,
 } from "@setu/domain";
 import { storage } from "../adapters/storage.js";
 import type { AuditEntry } from "../command.js";
@@ -68,13 +68,34 @@ async function currentNote(tx: Tx, encounterId: string) {
   });
 }
 
-/** One prescription line's progress: given for this medicine across the visit's versions; declined on this version. */
+/** One prescription line's progress from the dispense rows assigned to it (progressAll). */
 function progress(r: Req, rows: Disp[]) {
-  const given = rows.filter((d) => d.action === "dispense" && d.prescribedKey === r.medicineKey);
-  const declinedRow = rows.find((d) => d.action === "decline" && d.requestId === r.id) ?? null;
+  const given = rows.filter((d) => d.action === "dispense");
+  const declinedRow = rows.find((d) => d.action === "decline") ?? null;
   const dispensedQty = given.reduce((a, d) => a + d.qty, 0);
   return { given, declinedRow, dispensedQty, remaining: Math.max(0, r.quantity - dispensedQty), status: dispenseStatus({ prescribed: r.quantity, dispensed: dispensedQty, declined: Boolean(declinedRow) }) };
 }
+/** Which current line each of the visit's dispense / decline rows belongs to. A row of this version: its own line (two
+    lines of the same medicine never count each other's). A row of an earlier version: the current line of the same
+    medicine — the one prescribed then or the substitute given (the doctor may amend to it) — at the same position if
+    there are two. So nothing given is counted twice and nothing is given twice after an amendment (clinical review). */
+async function progressAll(tx: Tx, lines: Req[], rows: Disp[]) {
+  const here = new Set(lines.map((l) => l.id));
+  const oldIds = [...new Set(rows.filter((d) => !here.has(d.requestId)).map((d) => d.requestId))];
+  const old = new Map((oldIds.length ? await tx.medicationRequest.findMany({ where: { id: { in: oldIds } } }) : []).map((x) => [x.id, x]));
+  const by = new Map<string, Disp[]>(lines.map((l) => [l.id, []]));
+  for (const d of rows) {
+    let target: string | null = here.has(d.requestId) ? d.requestId : null;
+    const o = target ? undefined : old.get(d.requestId);
+    if (o) {
+      const c = lines.filter((l) => l.medicineKey === o.medicineKey || l.medicineKey === d.medicineKey);
+      target = (c.find((l) => l.position === o.position) ?? c[0])?.id ?? null;
+    }
+    if (target) by.get(target)!.push(d);
+  }
+  return (r: Req) => progress(r, by.get(r.id) ?? []);
+}
+const asMed = (r: Req) => ({ id: r.medicineKey, ingredients: r.ingredients, classes: r.classes, strength: r.strength, form: r.form });
 const isClosed = (st: string) => st === "dispensed" || st === "declined" || st === "partial-declined";
 
 async function billSummary(tx: Tx, encounterId: string) {
@@ -99,7 +120,8 @@ export async function dispenseQueue(tx: Tx, s: SessionData, now: Date): Promise<
     const n = latest.get(e.id);
     if (!n || !n.medications.length) continue;
     const mine = rows.filter((r) => r.encounterId === e.id);
-    const st = n.medications.map((m) => progress(m, mine).status);
+    const P = await progressAll(tx, n.medications, mine);
+    const st = n.medications.map((m) => P(m).status);
     const status = st.every(isClosed) ? "done" : mine.length === 0 ? "to-dispense" : "partial";
     items.push({
       encounter: { ...toVitalsEncounter(e as Parameters<typeof toVitalsEncounter>[0]), practitioner: e.practitionerId ? who(e.practitionerId) : null },
@@ -124,14 +146,15 @@ export async function dispenseView(tx: Tx, s: SessionData, encounterId: string, 
   ]);
   const allergies = allergyRows.map(toAllergyFact);
   // same-generic brands for every line (substitutes), and every batch they could come from
-  const generic = (r: Req) => MEDICINES_SAMPLE.filter((m) => m.id !== r.medicineKey && m.ingredients.length === r.ingredients.length && m.ingredients.every((i) => r.ingredients.includes(i)));
+  const generic = (r: Req) => MEDICINES_SAMPLE.filter((m) => m.id !== r.medicineKey && sameGeneric(asMed(r), m));
   const keys = new Set<string>([...note.medications.map((m) => m.medicineKey), ...note.medications.flatMap((m) => generic(m).map((g) => g.id)), ...rows.map((d) => d.medicineKey)]);
   const batches = await pickable(tx, s, [...keys]);
   const moves = await tx.stockMove.findMany({ where: { refType: "dispense", refId: { in: rows.map((d) => d.id) } } });
   const batchById = new Map((await tx.stockBatch.findMany({ where: { id: { in: moves.map((m) => m.batchId) } } })).map((b) => [b.id, b]));
   const who = await people(tx, [e.practitionerId, ...rows.map((d) => d.byId)]);
+  const P = await progressAll(tx, note.medications, rows);
   const lines: DispenseLine[] = note.medications.map((r) => {
-    const p = progress(r, rows);
+    const p = P(r);
     const own = batches.filter((b) => b.medicineKey === r.medicineKey);
     const pick = fefoPick(own.map(asLike), p.declinedRow ? 0 : p.remaining, today);
     const byId = new Map(own.map((b) => [b.id, b]));
@@ -151,9 +174,9 @@ export async function dispenseView(tx: Tx, s: SessionData, encounterId: string, 
       substitutes: generic(r).map((g) => ({
         medicine: medRef(g.id),
         available: batches.filter((b) => b.medicineKey === g.id && batchState(asLike(b), today) === "usable").reduce((a, b) => a + b.qtyOnHand, 0),
-        allergy: substitutionBlockers({ prescribed: { id: r.medicineKey, ingredients: r.ingredients, classes: r.classes }, substitute: g, reason: "x".repeat(10), allergies }).includes("allergy"),
+        allergy: substitutionBlockers({ prescribed: asMed(r), substitute: g, reason: "x".repeat(10), allergies }).includes("allergy"),
       })),
-      label: { bn: doseLabel(r.dose, r.meal as Meal, r.days, "bn"), en: doseLabel(r.dose, r.meal as Meal, r.days, "en") },
+      label: (() => { const bn = doseLabel(r.dose, r.meal as Meal, r.days, "bn"), en = doseLabel(r.dose, r.meal as Meal, r.days, "en"); return bn && en ? { bn, en } : null; })(),
     };
   });
   return {
@@ -198,7 +221,7 @@ export async function dispense(tx: Tx, s: SessionData, encounterId: string, req:
   for (const [i, l] of req.lines.entries()) {
     const r = note.medications.find((m) => m.id === l.requestId);
     if (!r) throw err(404, "line_not_found", "এই লাইন প্রেসক্রিপশনে নেই", "This line is not on the prescription", { field: `lines.${i}.requestId` });
-    const p = progress(r, [...rows, ...pending]);
+    const p = (await progressAll(tx, note.medications, [...rows, ...pending]))(r);
     if (p.declinedRow) throw err(409, "line_declined", "এই লাইন আগেই ফেরত/বাদ দেওয়া হয়েছে", "This line was declined", { field: `lines.${i}.requestId` });
     if (l.qty > p.remaining) throw err(422, "qty_over_remaining", "প্রেসক্রিপশনের বাকি পরিমাণের বেশি", "More than is left on the prescription", { field: `lines.${i}.qty`, remaining: p.remaining });
     const substitute = l.medicineKey !== r.medicineKey;
@@ -206,7 +229,7 @@ export async function dispense(tx: Tx, s: SessionData, encounterId: string, req:
     if (substitute) {
       const sub = MED.get(l.medicineKey);
       if (!sub) throw err(404, "unknown_medicine", "এই ওষুধ তালিকায় নেই", "This medicine is not on the list", { field: `lines.${i}.medicineKey` });
-      const b = substitutionBlockers({ prescribed: { id: r.medicineKey, ingredients: r.ingredients, classes: r.classes }, substitute: sub, reason, allergies });
+      const b = substitutionBlockers({ prescribed: asMed(r), substitute: sub, reason, allergies });
       if (b.length) {
         const [bn, en] = b.includes("allergy") ? ["রোগীর এই ওষুধে অ্যালার্জি আছে — বদলানো যাবে না", "The patient is allergic to this medicine — it cannot be given"]
           : b.includes("not_same_generic") ? ["একই জেনেরিক নয় — বদলানো যায় না (ডাক্তার সিদ্ধান্ত নেবেন)", "Not the same generic — the doctor decides that"]
@@ -256,7 +279,7 @@ export async function decline(tx: Tx, s: SessionData, encounterId: string, req: 
   const note = await noteFor(tx, e.id, req.compositionId);
   const r = note.medications.find((m) => m.id === req.requestId);
   if (!r) throw err(404, "line_not_found", "এই লাইন প্রেসক্রিপশনে নেই", "This line is not on the prescription", { field: "requestId" });
-  const p = progress(r, await tx.medicationDispense.findMany({ where: { encounterId: e.id } }));
+  const p = (await progressAll(tx, note.medications, await tx.medicationDispense.findMany({ where: { encounterId: e.id } })))(r);
   if (isClosed(p.status)) throw err(409, "line_closed", "এই লাইন আর খোলা নেই", "This line is no longer open", { field: "requestId" });
   const reason = req.reason.trim();
   if (reason.length < 10) throw err(400, "reason_required", "কারণ লিখুন (অন্তত ১০ অক্ষর)", "Write a reason (at least 10 characters)", { field: "reason" });
@@ -342,9 +365,10 @@ export async function addRxPhoto(tx: Tx, s: SessionData, id: string, req: RxPhot
   if (bytes.length > RX_PHOTO_MAX) throw err(413, "too_large", "ছবি ৩ MB-এর বেশি", "The photo is over 3 MB", { field: "dataBase64" });
   if (!MAGIC[req.contentType].every((x, i) => bytes[i] === x)) throw err(400, "not_an_image", "ছবিটি JPEG বা PNG নয়", "The photo is not a JPEG or PNG", { field: "dataBase64" });
   const key = `tenants/${s.tenantId}/rx-photos/${inv.id}/${randomUUID()}.${req.contentType === "image/png" ? "png" : "jpg"}`;
-  await storage.put(key, bytes, req.contentType);
   const n = await tx.invoice.updateMany({ where: { id: inv.id, rev: inv.rev, status: "draft", rxPhotoKey: null }, data: { rxPhotoKey: key, rev: inv.rev + 1 } });
   if (n.count !== 1) throw err(409, "stale", "অন্য কোথাও আগেই বদলানো হয়েছে — আবার খুলুন", "This bill was changed somewhere else first — reopen it");
+  // the file is written last: a refused or stale request stores nothing (security review: no orphan prescription photos)
+  await storage.put(key, bytes, req.contentType);
   return (await tx.invoice.findFirst({ where: { id: inv.id } }))!;
 }
 export async function rxPhoto(tx: Tx, s: SessionData, id: string): Promise<{ bytes: Uint8Array; contentType: string }> {

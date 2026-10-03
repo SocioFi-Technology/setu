@@ -56,7 +56,8 @@ export const DispenseLine = z.object({
   batches: z.array(BatchView),
   /** same-generic brands in stock; `allergy` = the patient is allergic (refused) */
   substitutes: z.array(z.object({ medicine: MedicineRef, available: z.number().int(), allergy: z.boolean() })),
-  label: z.object({ bn: z.string(), en: z.string() }),
+  /** null when the dose cannot be read for a label (never a label without the dose) */
+  label: z.object({ bn: z.string(), en: z.string() }).nullable(),
 });
 export type DispenseLine = z.infer<typeof DispenseLine>;
 export const DispenseView = z.object({

@@ -520,13 +520,17 @@ export async function issueInvoice(tx: Tx, s: SessionData, id: string, rev: numb
   // ADR 0005: the voided bill this one replaces now shows "Replaced by INV/…".
   // Every voided bill of this visit still without a replacement now shows this one (money review: A voided, its
   // replacement B voided too, then C — A must not lose its "Replaced by").
-  if (inv.encounterId) await tx.invoice.updateMany({ where: { encounterId: inv.encounterId, kind: inv.kind, status: "entered_in_error", replacedById: null, id: { not: inv.id } }, data: { replacedById: inv.id } });
+  // only an OPD bill replaces a voided one (a later pharmacy bill holds other medicine, not a re-issue — clinical review)
+  if (inv.encounterId && inv.kind === "opd") await tx.invoice.updateMany({ where: { encounterId: inv.encounterId, kind: "opd", status: "entered_in_error", replacedById: null, id: { not: inv.id } }, data: { replacedById: inv.id } });
   return (await tx.invoice.findFirst({ where: { id: inv.id } }))!;
 }
 
 /* ───── void (ADR 0005: INVOICE markError) ───── */
 export async function voidInvoice(tx: Tx, s: SessionData, id: string, reason: string, now: Date): Promise<Inv> {
   const inv = await invoiceHere(tx, s, id, true);
+  // Medicine already off the shelf is never voided off its bill: returns come with pharmacy session 2 (clinical review).
+  if ((inv.kind === "otc" && inv.status !== "draft") || (await tx.chargeItem.findFirst({ where: { invoiceId: inv.id, source: "dispense" }, select: { id: true } })))
+    throw err(409, "medicine_given", "এই বিলের ওষুধ দেওয়া হয়ে গেছে — বাতিল করা যায় না (ফেরত পরের ধাপে)", "The medicine on this bill has been given — it cannot be voided (returns come later)");
   const pays = await tx.payment.findMany({ where: { invoiceId: inv.id } });
   const b = voidBlockers({ role: s.role, status: dash<InvoiceState>(inv.status), confirmedPaisa: inv.paidPaisa,
     pendingPayments: pays.filter((p) => ["initiated", "link_sent", "waiting_customer"].includes(p.status)).length,

@@ -201,6 +201,37 @@ describe.runIf(db)("P1–P3 dispense against the signed prescription", () => {
   });
 });
 
+describe.runIf(db)("review fixes (clinical, money)", () => {
+  it("another strength is never a substitute; a substitute then amended to is not given twice; given medicine is never voided off its bill", { timeout: 30_000 }, async () => {
+    const MOX: Med = { medicineKey: "moxacil", dose: "1+1+1", meal: "after", days: 7 }; // 21 capsules
+    const { enc, compositionId } = await signedVisit([COMET, MOX]);
+    const v0 = (await get(`/v1/pharmacy/encounters/${enc}`)).json();
+    expect(lineOf(v0, "comet").substitutes.map((x) => x.medicine.key)).not.toContain("comet850");
+    const strength = await post(`/v1/pharmacy/encounters/${enc}/dispense`, { compositionId, lines: [{ requestId: lineOf(v0, "comet").requestId, medicineKey: "comet850", qty: 10, reason: "Comet 500 out of stock today" }] });
+    expect([strength.statusCode, strength.json().code]).toEqual([422, "not_same_generic"]);
+    // Fimoxyl given for Moxacil, then the doctor amends the line to Fimoxyl: the 21 given count against it
+    const sub = await post(`/v1/pharmacy/encounters/${enc}/dispense`, { compositionId, lines: [{ requestId: lineOf(v0, "moxacil").requestId, medicineKey: "fimoxyl", qty: 21, reason: "Moxacil out of stock today" }] });
+    expect(sub.statusCode, sub.body).toBe(200);
+    const am = await post(`/v1/compositions/${compositionId}/amend`, { reason: "Change to the brand the patient received" }, "doctor");
+    expect(am.statusCode, am.body).toBe(201);
+    const v2 = am.json().draft;
+    const saved = await put(`/v1/compositions/${v2.id}`, { rev: 1, ...note([COMET, { ...MOX, medicineKey: "fimoxyl" }]) });
+    expect(saved.statusCode, saved.body).toBe(200);
+    expect((await post(`/v1/compositions/${v2.id}/sign`, { rev: saved.json().rev, pin: "1234", aiReviewed: false, uncodedAllergiesChecked: false }, "doctor")).statusCode).toBe(200);
+    const v = (await get(`/v1/pharmacy/encounters/${enc}`)).json();
+    expect(lineOf(v, "fimoxyl")).toMatchObject({ dispensedQty: 21, remaining: 0, status: "dispensed" });
+    expect(lineOf(v, "comet")).toMatchObject({ dispensedQty: 0, remaining: 60 });
+    const twice = await post(`/v1/pharmacy/encounters/${enc}/dispense`, { compositionId: v2.id, lines: [{ requestId: lineOf(v, "fimoxyl").requestId, medicineKey: "fimoxyl", qty: 1 }] });
+    expect([twice.statusCode, twice.json().code]).toEqual([422, "qty_over_remaining"]);
+    // the owner cannot void the pharmacy bill: the medicine has left the shelf (returns come later)
+    const voided = await post(`/v1/invoices/${sub.json().bill.id}/void`, { reason: "Wrong patient was billed" }, "owner");
+    expect([voided.statusCode, voided.json().code]).toEqual([409, "medicine_given"]);
+  });
+  it("the database refuses a direct batch update by the app role", async () => {
+    await expect(db!.forTenant(T, (tx) => tx.stockBatch.updateMany({ where: { medicineKey: "ace" }, data: { qtyOnHand: 9999 } }), { userId: "u_e2e_pharm" })).rejects.toThrow(/permission denied/);
+  });
+});
+
 describe.runIf(db)("P4 over-the-counter sale", () => {
   it("OTC sells; Rx needs a photo; controlled never; stock moves on issue; walk-in receipt", { timeout: 30_000 }, async () => {
     const c = await post("/v1/pharmacy/otc", { buyerName: `Walk-in ${RUN}`, buyerPhone: "01712345678" });
@@ -225,7 +256,7 @@ describe.runIf(db)("P4 over-the-counter sale", () => {
     expect(photo.json().rxPhoto).toBe(true);
     rev = photo.json().bill.invoice.rev;
     const shown = await get(`/v1/pharmacy/otc/${id}/rx-photo`);
-    expect([shown.statusCode, shown.headers["content-type"]]).toEqual([200, "image/png"]);
+    expect([shown.statusCode, shown.headers["content-type"], shown.headers["x-content-type-options"], shown.headers["content-security-policy"]]).toEqual([200, "image/png", "nosniff", "default-src 'none'"]);
     const mox = await post(`/v1/pharmacy/otc/${id}/lines`, { rev, medicineKey: "moxacil", qty: 15 });
     expect(mox.statusCode, mox.body).toBe(200);
     rev = mox.json().bill.invoice.rev;

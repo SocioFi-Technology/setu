@@ -96,7 +96,8 @@ export async function pharmacyRoutes(app: FastifyInstance) {
     requirePh(req, "otc");
     const { id } = pid.parse(req.params);
     const r = await query(req, async (tx, s) => ({ body: await rxPhoto(tx, s, id), audit: [{ action: "view", entity: "RxPhoto", entityId: id }] }));
-    return reply.header("content-type", r.contentType).header("cache-control", "no-store").send(Buffer.from(r.bytes));
+    return reply.header("content-type", r.contentType).header("cache-control", "no-store").header("x-content-type-options", "nosniff")
+      .header("content-security-policy", "default-src 'none'").header("content-disposition", "inline").send(Buffer.from(r.bytes));
   });
   app.post("/v1/pharmacy/otc/:id/issue", { config: { ownTx: true } }, async (req, reply): Promise<OtcView> => {
     requirePh(req, "otc");

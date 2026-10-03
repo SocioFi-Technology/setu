@@ -741,3 +741,35 @@ Commit after each step, push at the end of each session.
 - **Prices per batch, set at goods received** (cost and MRP); FEFO picks the batch and its price; demo clinics get
   sample batches labelled sample.
 - Stock adjustments and purchase orders above a sample threshold go to the owner / admin (no manager role).
+
+### Decided in the session (defaults — Kamrul to confirm)
+166. **Medicine leaves the shelf when it is dispensed**, while the visit's pharmacy bill is still a draft; a bill that
+     holds given medicine cannot be voided (409 "medicine given") until returns exist (session 2: a `return` move with
+     a reason, owner / admin). Should an unpaid pharmacy bill block the next visit, or only show on the owner's list?
+167. **An OTC sale takes no discount** for now (409 `no_discount_otc`). A visit's pharmacy bill takes one through the
+     cashier's normal discount rules — and while it has one, further dispensing waits ("settle it first"). Keep?
+168. **An OTC sale's stock moves when the bill is issued, before it is paid** (issued-but-unpaid = the buyer may leave
+     with the goods). Should the counter require payment before handing over (issue + pay as one step)?
+169. **Medicine is picked from the counter (and fridge) only**; store stock reaches the counter by a transfer
+     (session 2). Until then a counter shortfall is "not enough stock at the counter".
+170. **A substitute must be the same ingredients, strength and form** (clinical review: Comet 850 is not a substitute
+     for Comet 500). After an amendment, what was given counts against the current line of the same medicine — the one
+     prescribed then or the substitute given. A different strength after an amendment (500 → 850) counts nothing.
+     Clinician to confirm.
+171. **A decline is tied to its line**; after an amendment the matching line keeps it. The doctor is told about
+     substitutes only, not declines — should a decline also notify the doctor?
+172. **The prescription photo for an Rx-only OTC item** is any JPEG / PNG ≤ 3 MB; nothing checks it is a prescription
+     (prescriber, date, quantity), and one photo unlocks every Rx line on that sale. What must the pharmacist check,
+     and how long are photos kept? (Stored through the Storage adapter, local folder in dev — HANDOVER gap 2.)
+173. **Controlled drugs** are refused over the counter; against a prescription they dispense like any line. Does a
+     controlled-drug register entry or a second check need to exist before the pilot?
+174. **The dispense queue lists today's visits only.** A partial dispense continued on a later day — show earlier
+     days' open lines too (e.g. the last 7 days)?
+175. **Expiry against course length:** FEFO can give a 30-day course from a batch expiring tomorrow. Warn when the
+     batch expires before the course ends, or skip such batches?
+176. **Owner revenue now includes pharmacy and OTC bills** (one total). Split revenue by bill kind on the dashboard
+     (a rollup version bump), or keep one figure until the stock tiles (session 2)?
+177. **The pharmacist sees only pharmacy and OTC bills** and may issue, take money (cash / bKash / card) and print
+     receipts on them, and holds a shift; discounts, voids and reconciliation stay with billing / the owner.
+178. **Low stock** on the stock list = fewer than 100 usable at the counter (sample); per-item reorder levels come with
+     purchasing (session 2).
