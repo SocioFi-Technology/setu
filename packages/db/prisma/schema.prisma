@@ -447,6 +447,10 @@ model Observation {
   errorReason      String?
   errorById        String?
   errorAt          DateTime?
+  /// send-back (decision 119): the pathologist returned the verified test to the technologist (verify again)
+  returnedById     String?
+  returnedAt       DateTime?
+  returnReason     String?
   statusAt         DateTime?
   @@index([tenantId, patientId, code, effectiveAt])
   @@index([tenantId, serviceRequestId])
@@ -1001,7 +1005,7 @@ model Specimen {
   doneAt           DateTime?
   rejectedById     String?
   rejectedAt       DateTime?
-  /// @setu/domain REJECT_REASONS; `other` needs rejectNote
+  /// @setu/domain REJECT_REASONS (`other` needs rejectNote) or results-withdrawn (decision 133)
   rejectReason     String?
   rejectNote       String?
   createdAt        DateTime        @default(now())

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ANALYTES_SAMPLE, DELTA_LIMIT_PCT, RANGES_SAMPLE, analytesOf, callbackCheck, correctionCheck, deltaOf, isCritical, labFlag, parseLabValue, patientAgeYears, rangeFor,
   releasePlan, resultEntryCheck, revokeBlockers, samePersonAllowed, smsPlaceholdersOk, specimenNumber, labReportNumber, tubeFor, tubePlan, validateBlockers, verifyBlockers,
-  rejectCheck, type ReleaseTest,
+  rejectCheck, returnBlockers, withdrawBlockers, WITHDRAWN_REASON, type ReleaseTest,
 } from "./lab.js";
 import { COMMUNICATION, LAB_REPORT, RESULT, TransitionError, can, transition } from "./machines.js";
 
@@ -22,6 +22,9 @@ describe("machines (ADR 0006)", () => {
   });
   it("RESULT: a correction marks the old row entered-in-error from any entered state; that is terminal", () => {
     for (const from of ["preliminary", "verified", "final", "amended"] as const) expect(transition("result", RESULT, from, "markError")).toBe("entered-in-error");
+    // decision 119: only a verified result can be sent back, and it goes back to preliminary (verify again)
+    expect(transition("result", RESULT, "verified", "return")).toBe("preliminary");
+    for (const from of ["registered", "preliminary", "final", "amended", "entered-in-error"] as const) expect(can(RESULT, from, "return")).toBe(false);
     expect(can(RESULT, "registered", "markError")).toBe(false);
     for (const ev of ["enter", "verify", "validate", "amend", "markError"] as const) expect(can(RESULT, "entered-in-error", ev)).toBe(false);
   });
@@ -250,10 +253,16 @@ describe("release (decision D3)", () => {
     expect(releasePlan({ tests: [elecWaiting], lastReleased: [], everReleased: [] }).blockers).toEqual(["nothing_validated"]);
     expect(releasePlan({ tests: [cbcFinal], lastReleased: ["hb", "wbc", "plt"], everReleased: ["hb", "wbc", "plt"] }).blockers).toEqual(["nothing_new"]);
   });
-  it("a test is not released while one of its results is under correction", () => {
+  it("a test is not released while one of its results is under correction; the version is Corrected (a released value changed)", () => {
     const cbcCorrecting: ReleaseTest = { orderId: "cbc", revoked: false, analyteCount: 3, results: [r("hb", "entered-in-error"), r("hb2", "preliminary", "hb"), r("wbc", "final"), r("plt", "final")] };
     const p = releasePlan({ tests: [cbcCorrecting, rbsFinal], lastReleased: ["hb", "wbc", "plt"], everReleased: ["hb", "wbc", "plt"] });
-    expect(p).toMatchObject({ orderIds: ["rbs"], pending: 1, status: "preliminary" });
+    expect(p).toMatchObject({ orderIds: ["rbs"], pending: 1, status: "corrected" });
+  });
+  it("decision 133: a withdrawn test (results entered-in-error, no replacement) is pending; later versions are Corrected", () => {
+    const cbcWithdrawn: ReleaseTest = { orderId: "cbc", revoked: false, analyteCount: 3, results: [r("hb", "entered-in-error"), r("wbc", "entered-in-error"), r("plt", "entered-in-error")] };
+    expect(releasePlan({ tests: [cbcWithdrawn, rbsFinal], lastReleased: ["hb", "wbc", "plt"], everReleased: ["hb", "wbc", "plt"] })).toMatchObject({ orderIds: ["rbs"], pending: 1, status: "corrected" });
+    const redone: ReleaseTest = { ...cbcWithdrawn, results: [...cbcWithdrawn.results, r("hb3", "final"), r("wbc3", "final"), r("plt3", "final")] };
+    expect(releasePlan({ tests: [redone, rbsFinal], lastReleased: ["rbs"], everReleased: ["hb", "wbc", "plt", "rbs"] })).toMatchObject({ pending: 0, status: "corrected", blockers: [] });
   });
   it("a version that replaces a released result is Corrected (even if other tests are still pending)", () => {
     const cbcCorrected: ReleaseTest = { orderId: "cbc", revoked: false, analyteCount: 3, results: [r("hb", "entered-in-error"), r("hb2", "final", "hb"), r("wbc", "final"), r("plt", "final")] };
@@ -265,6 +274,28 @@ describe("release (decision D3)", () => {
   it("a correction of a correction still counts as correcting a released result", () => {
     const t: ReleaseTest = { orderId: "rbs", revoked: false, analyteCount: 1, results: [r("a", "entered-in-error"), r("b", "entered-in-error", "a"), r("c", "final", "b")] };
     expect(releasePlan({ tests: [t], lastReleased: ["a"], everReleased: ["a"] }).status).toBe("corrected");
+  });
+});
+
+describe("send-back and withdrawal (decisions 119, 133)", () => {
+  const v = { status: "verified" as const }, p = { status: "preliminary" as const }, e = { status: "entered-in-error" as const }, f = { status: "final" as const };
+  it("only the pathologist returns a test, only when every current result is verified, with a reason of 10+ characters", () => {
+    expect(returnBlockers({ role: "pathologist", results: [v, v, e], reason: "Hb does not fit the film" })).toEqual([]);
+    expect(returnBlockers({ role: "labTech", results: [v], reason: "Hb does not fit the film" })).toEqual(["role"]);
+    expect(returnBlockers({ role: "pathologist", results: [v, p], reason: "Hb does not fit the film" })).toEqual(["not_verified"]);
+    expect(returnBlockers({ role: "pathologist", results: [f], reason: "too short" })).toEqual(["not_verified", "reason_required"]);
+  });
+  it("withdraw: lab technologist or pathologist, a reason, and something to withdraw", () => {
+    expect(withdrawBlockers({ role: "labTech", results: [f, f], reason: "tube belonged to another patient" })).toEqual([]);
+    expect(withdrawBlockers({ role: "pathologist", results: [p], reason: "tube belonged to another patient" })).toEqual([]);
+    expect(withdrawBlockers({ role: "doctor", results: [f], reason: "tube belonged to another patient" })).toEqual(["role"]);
+    expect(withdrawBlockers({ role: "labTech", results: [e], reason: "short" })).toEqual(["nothing_to_withdraw", "reason_required"]);
+  });
+  it("after a withdrawal the test needs a new tube (recollect) even though the order is complete; tests on that tube with results keep them", () => {
+    const orders = [{ id: "o1", testCode: "cbc", status: "complete" as const, hasResults: false }, { id: "o2", testCode: "hba1c", status: "complete" as const, hasResults: true }];
+    const p2 = tubePlan(orders, [{ id: "s1", tube: "edta", status: "rejected", orderIds: ["o1", "o2"] }]);
+    expect(p2.tubes).toEqual([{ tube: "edta", orderIds: ["o1"], specimenId: null, recollect: true }]);
+    expect(WITHDRAWN_REASON).toBe("results-withdrawn");
   });
 });
 

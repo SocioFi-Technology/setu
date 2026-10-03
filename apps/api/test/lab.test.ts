@@ -335,6 +335,56 @@ describe.runIf(db)("release in versions (D3), corrections (D4), the doctor's inb
   });
 });
 
+describe.runIf(db)("send-back (decision 119) and withdraw results (decision 133)", () => {
+  it("the pathologist returns a verified test with a reason; it waits as 'Returned' and must be verified again before validation", async () => {
+    const { enc } = await signedVisit(undefined, ["rbs", "elec"]);
+    await toInProcess(enc);
+    await enter(enc, "rbs");
+    let v = await view(enc);
+    ok(await verify(enc, idsOf(v, ["rbs"], "preliminary")));
+    const rbs = order(await view(enc), "rbs").id;
+    expect((await post(`/v1/lab/orders/${rbs}/return`, { reason: "recheck" }, "path")).json().code).toBe("reason_required");
+    expect((await post(`/v1/lab/orders/${rbs}/return`, { reason: "value does not fit the clinical note" }, "tech")).statusCode).toBe(403);
+    v = ok<View>(await post(`/v1/lab/orders/${rbs}/return`, { reason: "value does not fit the clinical note" }, "path"));
+    const r = current(v, "rbs")[0]! as unknown as { status: string; verifiedBy: unknown; returned: { reason: string } };
+    expect(r).toMatchObject({ status: "preliminary", verifiedBy: null, returned: { reason: "value does not fit the clinical note" } });
+    expect((order(v, "rbs") as unknown as { returned: { reason: string } }).returned.reason).toBe("value does not fit the clinical note");
+    const w = ok<{ items: { encounter: { id: string }; returned: { reason: string }[] }[] }>(await get("/v1/lab/worklist?stage=result"));
+    expect(w.items.find((i) => i.encounter.id === enc)!.returned).toEqual([expect.objectContaining({ reason: "value does not fit the clinical note" })]);
+    expect((await post(`/v1/lab/orders/${rbs}/return`, { reason: "value does not fit the clinical note" }, "path")).json().code).toBe("not_verified");
+    expect((await validate(enc, idsOf(v, ["rbs"], "preliminary"))).statusCode).toBe(422);
+    ok(await verify(enc, idsOf(v, ["rbs"], "preliminary")));
+    const done = ok<View>(await validate(enc, idsOf(await view(enc), ["rbs"], "verified")));
+    expect(current(done, "rbs")[0]!.status).toBe("final");
+  });
+  it("withdrawing released results: entered-in-error with no replacement, the tube rejected, a new tube and the recollection SMS, the doctor told, the released version says withdrawn", async () => {
+    const { enc } = await signedVisit(undefined, ["rbs", "elec"]);
+    await toInProcess(enc);
+    await validated(enc, ["rbs"]);
+    const v1 = ok<View>(await release(enc), 201);
+    const rbs = order(v1, "rbs").id;
+    expect((await post(`/v1/lab/orders/${rbs}/withdraw`, { reason: "short" })).json().code).toBe("reason_required");
+    expect((await post(`/v1/lab/orders/${rbs}/withdraw`, { reason: "tube belonged to another patient" }, "admin")).statusCode).toBe(403);
+    const w = ok<View>(await post(`/v1/lab/orders/${rbs}/withdraw`, { reason: "tube belonged to another patient" }));
+    expect(order(w, "rbs").results.map((r) => r.status)).toEqual(["entered-in-error"]);
+    expect((order(w, "rbs") as unknown as { withdrawn: { reason: string } }).withdrawn.reason).toBe("tube belonged to another patient");
+    expect(w.specimens.find((x) => x.tube === "fluoride")).toMatchObject({ status: "rejected" });
+    expect(w.tubes).toEqual([{ tube: "fluoride", orderIds: [rbs], specimenId: null, recollect: true }]);
+    expect(w.communications.find((c) => c.kind === "recollect")).toMatchObject({ channel: "sms", status: "completed" });
+    expect(w.communications.find((c) => c.kind === "results-withdrawn")).toMatchObject({ channel: "doctor-inbox", recipient: expect.objectContaining({ id: "u_e2e_doctor" }) });
+    const rep = ok<{ tests: { testCode: string; withdrawn: boolean; results: { withdrawn: boolean; underCorrection: boolean }[] }[] }>(await get(`/v1/lab/reports/${v1.reports[0]!.id}`, "path"));
+    expect(rep.tests.find((t) => t.testCode === "rbs")).toMatchObject({ withdrawn: true, results: [{ withdrawn: true, underCorrection: true }] });
+    expect((await post(`/v1/lab/orders/${rbs}/withdraw`, { reason: "tube belonged to another patient" })).json().code).toBe("nothing_to_withdraw");
+    // the next version (electrolytes) is Corrected: a released value was taken back
+    await validated(enc, ["elec"]);
+    const v2 = ok<View>(await release(enc), 201);
+    expect(v2.reports.map((r) => [r.status, r.pendingCount])).toEqual([["superseded", 1], ["corrected", 1]]);
+    // the database rejects a finished tube only for a withdrawal
+    const plain = v2.specimens.find((x) => x.tube === "plain")!;
+    await expect(inTenant((tx) => tx.specimen.update({ where: { id: plain.id }, data: { status: "rejected", rejectedById: "u_e2e_labtech", rejectedAt: new Date(), rejectReason: "haemolysed" } }))).rejects.toThrow();
+  });
+});
+
 describe.runIf(db)("A11 delivery per channel, retry with the same message id", () => {
   it("SMS (fixed text) and patient app for the current version; a failed SMS is retried and delivered once; a superseded version is not sent", async () => {
     const { enc } = await signedVisit(undefined, ["rbs"]);

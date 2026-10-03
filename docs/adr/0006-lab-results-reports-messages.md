@@ -75,3 +75,28 @@ it carried need a new tube (a new row) and the patient gets the recollection SMS
 - Pre-pilot (clinician): the sample reference ranges, critical thresholds and the 20% delta rule
   (`packages/domain/src/lab.ts`) are labelled "pending clinician sign-off".
 - Phase 2: a real SMS gateway behind `Messenger`; sending moves to a worker after commit if the gateway is slow.
+
+## Addendum (03/10/2026, Kamrul's decisions 119 and 133)
+### RESULT gains `return` (send-back)
+```
+verified ──return(reason ≥10, pathologist)──▶ preliminary
+```
+The pathologist returns a verified test (all its current results together) to the technologist with a reason. The
+verification record is cleared (who verified is kept in the audit log and Provenance), the return is recorded on each
+result (who, when, why) and the technologist's worklist shows "Returned — <reason>". The test must be verified again —
+by anyone allowed — before it can be validated; the same-person rule then applies to the new verifier.
+
+### Withdraw results (no replacement value) and SPECIMEN `done → rejected`
+A lab technologist or pathologist withdraws a test's results with a reason (≥10): every current result of the test is
+marked entered-in-error with that reason and no new row; the tube it was measured in is rejected with the reason
+`results-withdrawn` (SPECIMEN gains `done ──reject──▶ rejected`; a rejection from collected / received / in-process
+was already possible), so the test needs a new tube and the patient gets the recollection SMS. Other tests on that tube
+keep their results; tests on it that had none need the new tube too. If any withdrawn result had been released, the
+ordering doctor's inbox gets a correction notice and every released version shows the test as "withdrawn — do not act
+on it". The ORDER stays where it is (a complete order is not reopened; the lab's own state comes from its results).
+
+### A released report that loses a value is "Corrected"
+Every version released after a released result was corrected or withdrawn is `corrected` (it differs from what the
+doctor already saw), whether or not other tests are still pending — replacing the narrower rule above ("when it
+replaces a released result").
+

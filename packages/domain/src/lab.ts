@@ -22,13 +22,15 @@ export const tubeFor = (testCode: string): TubeKind | null => TEST_TUBE_SAMPLE[t
 export const REJECT_REASONS = ["haemolysed", "clotted", "insufficient", "label-mismatch", "wrong-container", "other"] as const;
 export type RejectReason = (typeof REJECT_REASONS)[number];
 export const REJECT_NOTE_MIN = 10;
+/** The reason recorded on a tube rejected because its test's results were withdrawn (not offered on the reject form). */
+export const WITHDRAWN_REASON = "results-withdrawn";
 export function rejectCheck(i: { reason: RejectReason; note?: string | null }): ("reason_invalid" | "note_required")[] {
   if (!(REJECT_REASONS as readonly string[]).includes(i.reason)) return ["reason_invalid"];
   if (i.reason === "other" && (i.note ?? "").trim().length < REJECT_NOTE_MIN) return ["note_required"];
   return [];
 }
 
-export interface PlanOrder { id: string; testCode: string; status: OrderState }
+export interface PlanOrder { id: string; testCode: string; status: OrderState; /** current (not entered-in-error) results exist */ hasResults?: boolean }
 export interface PlanSpecimen { id: string; tube: TubeKind; status: SpecimenState; orderIds: string[] }
 export interface TubeNeed { tube: TubeKind; orderIds: string[]; /** a printed label (pending tube) for exactly these tests */ specimenId: string | null; recollect: boolean }
 export type CollectionStatus = "none" | "pending" | "partial" | "collected" | "rejected";
@@ -36,16 +38,17 @@ const PRE_COLLECT: OrderState[] = ["active", "accepted", "partially-accepted"];
 const LIVE: SpecimenState[] = ["collected", "received", "in-process", "done"];
 
 /** Which tubes a visit still needs. An order needs a tube while it is placed but not collected, or when every tube it
-    was collected in was rejected (recollect). Tests sharing a tube kind share one tube. */
+    was collected in was rejected and it has no current results (recollect — also after its results were withdrawn).
+    Tests sharing a tube kind share one tube. */
 export function tubePlan(orders: PlanOrder[], specimens: PlanSpecimen[]): { tubes: TubeNeed[]; status: CollectionStatus } {
   const live = specimens.filter((s) => LIVE.includes(s.status));
   const covered = new Set(live.flatMap((s) => s.orderIds));
   const needs = new Map<TubeKind, { orderIds: string[]; recollect: boolean }>();
   for (const o of orders) {
     const tube = tubeFor(o.testCode);
-    if (!tube || covered.has(o.id)) continue;
+    if (!tube || covered.has(o.id) || o.hasResults) continue;
     const recollect = !PRE_COLLECT.includes(o.status);
-    if (recollect && !["in-progress", "partially-complete"].includes(o.status)) continue; // revoked, declined, complete
+    if (recollect && !["in-progress", "partially-complete", "complete"].includes(o.status)) continue; // revoked, declined, draft
     const n = needs.get(tube) ?? { orderIds: [], recollect: false };
     n.orderIds.push(o.id);
     n.recollect ||= recollect;
@@ -185,7 +188,7 @@ export function deltaOf(value: number, prev: number | null | undefined, a: { del
 
 /* ───── roles, verify, call-back, validate (A10) ───── */
 export const LAB_ROLES = {
-  collect: ["labTech"], enter: ["labTech"], correct: ["labTech"], verify: ["labTech", "pathologist"], validate: ["pathologist"],
+  collect: ["labTech"], enter: ["labTech"], correct: ["labTech"], verify: ["labTech", "pathologist"], validate: ["pathologist"], return: ["pathologist"], withdraw: ["labTech", "pathologist"],
   callback: ["labTech", "pathologist"], release: ["labTech", "pathologist"], deliver: ["labTech", "admin"],
 } as const satisfies Record<string, readonly string[]>;
 export const labRoleCan = (action: keyof typeof LAB_ROLES, role: string) => (LAB_ROLES[action] as readonly string[]).includes(role);
@@ -252,6 +255,26 @@ export function correctionCheck(i: { status: ResultState; oldValue: number; newV
   return out;
 }
 
+/* ───── send-back and withdrawal (decisions 119, 133; ADR 0006 addendum) ───── */
+export const RETURN_REASON_MIN = 10, WITHDRAW_REASON_MIN = 10;
+/** The pathologist returns a verified test: every current result of it verified, a reason of 10+ characters. */
+export function returnBlockers(i: { role: string; results: { status: ResultState }[]; reason: string }): ("role" | "not_verified" | "reason_required")[] {
+  if (i.role !== "pathologist") return ["role"];
+  const out: ("not_verified" | "reason_required")[] = [];
+  const cur = i.results.filter((r) => r.status !== "entered-in-error");
+  if (!cur.length || cur.some((r) => r.status !== "verified")) out.push("not_verified");
+  if (i.reason.trim().length < RETURN_REASON_MIN) out.push("reason_required");
+  return out;
+}
+/** Withdraw a test's results (no replacement value): lab technologist or pathologist, a reason, current results exist. */
+export function withdrawBlockers(i: { role: string; results: { status: ResultState }[]; reason: string }): ("role" | "nothing_to_withdraw" | "reason_required")[] {
+  if (i.role !== "labTech" && i.role !== "pathologist") return ["role"];
+  const out: ("nothing_to_withdraw" | "reason_required")[] = [];
+  if (!i.results.some((r) => r.status !== "entered-in-error" && r.status !== "registered")) out.push("nothing_to_withdraw");
+  if (i.reason.trim().length < WITHDRAW_REASON_MIN) out.push("reason_required");
+  return out;
+}
+
 /* ───── release (decision D3) ───── */
 export interface ReleaseTest { orderId: string; revoked: boolean; analyteCount: number; results: { id: string; status: ResultState; replacesId: string | null }[] }
 export type ReleaseStatus = "preliminary" | "final" | "corrected";
@@ -266,15 +289,11 @@ export function releasePlan(i: { tests: ReleaseTest[]; lastReleased: string[]; e
     return t.analyteCount > 0 && cur.length === t.analyteCount && cur.every((r) => r.status === "final");
   });
   const observationIds = ready.flatMap((t) => t.results.filter((r) => r.status === "final").map((r) => r.id));
-  const byId = new Map(i.tests.flatMap((t) => t.results).map((r) => [r.id, r]));
   const ever = new Set(i.everReleased);
-  const replacesReleased = (id: string) => {
-    let r = byId.get(id), guard = 0;
-    while (r?.replacesId && guard++ < 50) { if (ever.has(r.replacesId)) return true; r = byId.get(r.replacesId); }
-    return false;
-  };
+  // ADR 0006 addendum: once a released result was corrected or withdrawn, every later version is "corrected".
+  const changedAfterRelease = i.tests.some((t) => t.results.some((r) => r.status === "entered-in-error" && ever.has(r.id)));
   const pending = tests.length - ready.length;
-  const status: ReleaseStatus = observationIds.some(replacesReleased) ? "corrected" : pending > 0 ? "preliminary" : "final";
+  const status: ReleaseStatus = changedAfterRelease ? "corrected" : pending > 0 ? "preliminary" : "final";
   const last = new Set(i.lastReleased);
   const blockers: ("nothing_validated" | "nothing_new")[] = !observationIds.length ? ["nothing_validated"]
     : observationIds.length === last.size && observationIds.every((x) => last.has(x)) ? ["nothing_new"] : [];

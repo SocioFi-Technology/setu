@@ -5,7 +5,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
-  CallbackRequest, CorrectRequest, DevFailNextRequest, LabelsRequest, LabWorklistQuery, ReleaseRequest, ResultEntryRequest, RetryRequest, RevokeRequest, SendRequest,
+  CallbackRequest, CorrectRequest, DevFailNextRequest, ReturnRequest, WithdrawRequest, LabelsRequest, LabWorklistQuery, ReleaseRequest, ResultEntryRequest, RetryRequest, RevokeRequest, SendRequest,
   SpecimenRejectRequest, SpecimenStepRequest, ValidateRequest, VerifyRequest, type LabReportView, type LabVisitView, type LabWorklist, type RevokeResponse,
 } from "@setu/contracts";
 import { authorize } from "@setu/domain";
@@ -15,7 +15,7 @@ import { config } from "../config.js";
 import { forbidden } from "../errors.js";
 import {
   collectSpecimen, correctResult, dispatchSms, enterResults, labReportView, labVisitView, labWorklist, logCallback, printLabels, receiveSpecimen, rejectSpecimen, releaseReport,
-  retryMessage, revokeOrder, sendReport, startSpecimen, validateResults, verifyResults, viewAudit,
+  retryMessage, returnTest, revokeOrder, sendReport, startSpecimen, validateResults, verifyResults, viewAudit, withdrawTest,
 } from "../modules/lab.js";
 import type { Tx } from "@setu/db";
 import { requireSession, type SessionData } from "../plugins/session.js";
@@ -120,6 +120,20 @@ export async function labRoutes(app: FastifyInstance) {
     const { id } = pid.parse(req.params);
     const body = CorrectRequest.parse(req.body);
     return labWrite(req, reply, "lab-correct", (tx, s, now) => correctResult(tx, s, id, body, now), { status: 201 });
+  });
+
+  /* ── send-back (decision 119) and withdraw results (decision 133) ── */
+  app.post("/v1/lab/orders/:id/return", { config: { ownTx: true } }, async (req, reply) => {
+    requireAny(req, ["lab", "verify"]);
+    const { id } = pid.parse(req.params);
+    const body = ReturnRequest.parse(req.body);
+    return labWrite(req, reply, "lab-return", (tx, s, now) => returnTest(tx, s, id, body.reason, now));
+  });
+  app.post("/v1/lab/orders/:id/withdraw", { config: { ownTx: true } }, async (req, reply) => {
+    requireAny(req, ["lab", "result"], ["lab", "verify"]);
+    const { id } = pid.parse(req.params);
+    const body = WithdrawRequest.parse(req.body);
+    return labWrite(req, reply, "lab-withdraw", (tx, s, now) => withdrawTest(tx, s, id, body.reason, now));
   });
 
   /* ── A10: verify, call-back, validate, release ── */

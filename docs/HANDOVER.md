@@ -345,8 +345,8 @@ security and clinical-safety reviews and the hands-on test as the E2E lab techno
 12. **Pre-pilot clinical content (decisions D2, D3 of 02/10/2026):**
     - **Lab (slice A8–A11, D1/D2):** a clinician signs off the sample analytes, adult ranges, critical thresholds and the
       20% delta rule in `packages/domain/src/lab.ts`, adds men's ranges for Hb and creatinine, children's ranges, the
-      impossible-value limits, and result templates for the tests that have none (lipid profile, urine R/E and C/S,
-      TSH, SGPT).
+      impossible-value limits, and result templates for lipid profile, urine R/E, urine C/S, TSH and SGPT (decision
+      116: until then those tests cannot be entered and keep a visit's report preliminary).
     - ICD-11: a clinician verifies the 10 seeded codes against the WHO ICD-11 browser; production source = WHO ICD-11
       API or a local extract.
     - Medicines: a licensed drug database with DGDA numbers + clinician-approved allergy/interaction rules; the demo

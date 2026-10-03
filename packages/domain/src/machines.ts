@@ -56,7 +56,8 @@ export const SPECIMEN: Table<SpecimenState, SpecimenEvent> = {
   collected: { receive: "received", reject: "rejected" },
   received: { process: "in-process", reject: "rejected" },
   "in-process": { finish: "done", reject: "rejected" },
-  done: {},
+  /* ADR 0006 addendum: withdrawing a test's results rejects the tube it was measured in (reason results-withdrawn). */
+  done: { reject: "rejected" },
   rejected: {},
 };
 
@@ -65,11 +66,12 @@ export const SPECIMEN: Table<SpecimenState, SpecimenEvent> = {
    @setu/domain lab.ts validateBlockers and the route, not here. A correction never edits a row: the old one is marked
    entered-in-error and a new row starts again at preliminary. `amend` stays from the domain model, unused by the lab. */
 export type ResultState = "registered" | "preliminary" | "verified" | "final" | "amended" | "entered-in-error";
-export type ResultEvent = "enter" | "verify" | "validate" | "amend" | "markError";
+export type ResultEvent = "enter" | "verify" | "validate" | "return" | "amend" | "markError";
 export const RESULT: Table<ResultState, ResultEvent> = {
   registered: { enter: "preliminary" },
   preliminary: { verify: "verified", markError: "entered-in-error" },
-  verified: { validate: "final", markError: "entered-in-error" },
+  /* ADR 0006 addendum (decision 119): the pathologist sends a verified test back to the technologist. */
+  verified: { validate: "final", return: "preliminary", markError: "entered-in-error" },
   final: { amend: "amended", markError: "entered-in-error" },
   amended: { amend: "amended", markError: "entered-in-error" },
   "entered-in-error": {},

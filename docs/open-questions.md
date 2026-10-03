@@ -569,3 +569,26 @@ Plan decisions (all as recommended unless noted):
      entered (wrong patient's tube), a result can only be corrected to a new value; there is no "entered in error, no
      result" for a whole test yet. Needs a decision (proposal: mark the test's results entered-in-error with a reason and
      ask for a new tube, which notifies the doctor if released).
+
+### Decisions of 03/10/2026 (Kamrul) on items 114–133
+- All accepted as recorded, with these:
+- 116: correct as is; result templates for lipid profile, urine R/E, urine C/S, TSH and SGPT are on the pre-pilot
+  clinician list.
+- 119: **send-back** — the pathologist can return a verified test to the technologist with a reason (≥10 characters):
+  RESULT `return` (verified → preliminary, ADR 0006 addendum), audited, shown on the technologist's worklist as
+  "Returned — <reason>"; validating a returned test needs verify again.
+- 133: **withdraw results** — on a test, marks all its current results entered-in-error with a reason (≥10), no
+  replacement value; a new tube is required (recollection with SMS); the doctor gets a correction notice if any of them
+  had been released; the released version marks the test "withdrawn — do not act on it". Lab technologist or
+  pathologist, audited.
+
+## Slice A8–A11 session 2 (lab screens, journey spec, reviews, hands-on) — 03/10/2026
+
+### Decided by Kamrul (03/10/2026, before the session)
+- Run `pnpm e2e` first (51 green on the journey servers :4100 / :3300).
+- Hands-on as technologist 01799000005 and pathologist 01799000006: collect with label print; reject a tube and see
+  the recollection SMS in the fake messenger; critical potassium typed twice; validate blocked without a call-back,
+  still blocked after a no-answer attempt, validated after a reached call-back with read-back; release PRELIMINARY with
+  one test pending; correct a released value (doctor's inbox notice, "do not act on it" on v1); pathologist send-back;
+  withdraw a test's results; retry a failed SMS; cancel an order from the signed note and see the bill line drop.
+

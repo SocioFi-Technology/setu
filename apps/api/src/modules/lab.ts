@@ -20,7 +20,7 @@ import type { Tx } from "@setu/db";
 import {
   COMMUNICATION, LAB_REPORT, ORDER, RESULT, SMS_TEMPLATES, SPECIMEN, analytesOf, callbackCheck, correctionCheck, deltaOf, dhakaDay, isCritical, labFlag, labReportNumber,
   labRoleCan, parseLabValue, patientAgeYears, rangeFor, rejectCheck, releasePlan, resultEntryCheck, revokeBlockers, samePersonAllowed, specimenNumber, transition, tubeFor, tubePlan,
-  validateBlockers, verifyBlockers, type AnalyteDef, type LabFlag, type OrderState, type RangeDef, type ResultState, type SpecimenState, type TubeKind,
+  WITHDRAWN_REASON, returnBlockers, validateBlockers, verifyBlockers, withdrawBlockers, type AnalyteDef, type LabFlag, type OrderState, type RangeDef, type ResultState, type SpecimenState, type TubeKind,
 } from "@setu/domain";
 import { fill, t } from "@setu/i18n";
 import { messenger } from "../adapters/messaging/index.js";
@@ -54,7 +54,7 @@ type Comm = NonNullable<Awaited<ReturnType<Tx["communication"]["findFirst"]>>>;
 type Callback = NonNullable<Awaited<ReturnType<Tx["criticalCallback"]["findFirst"]>>>;
 type EncP = NonNullable<Awaited<ReturnType<Tx["encounter"]["findFirst"]>>> & { patient: NonNullable<Awaited<ReturnType<Tx["patient"]["findFirst"]>>> };
 
-type LabAction = "collect" | "enter" | "correct" | "verify" | "validate" | "callback" | "release" | "deliver";
+type LabAction = "collect" | "enter" | "correct" | "verify" | "validate" | "return" | "withdraw" | "callback" | "release" | "deliver";
 const forbiddenRole = () => err(403, "forbidden", "এই কাজটি আপনার ভূমিকায় নেই", "Your role cannot do this", { reason: "role", canRequest: false });
 const stale = () => err(409, "stale", "অন্য কেউ আগেই বদলেছেন — আবার দেখুন", "Someone else changed this first — refresh");
 export function requireLabRole(s: SessionData, action: LabAction) { if (!labRoleCan(action, s.role)) throw forbiddenRole(); }
@@ -107,7 +107,7 @@ async function loadBundle(tx: Tx, s: SessionData, encounterIds: string[], withPr
   const userIds = new Set<string>();
   for (const o of orders) { userIds.add(o.orderedById); if (o.revokedById) userIds.add(o.revokedById); }
   for (const x of specimens) for (const u of [x.collectedById, x.rejectedById]) if (u) userIds.add(u);
-  for (const x of obs) for (const u of [x.recordedById, x.verifiedById, x.validatedById, x.errorById]) if (u) userIds.add(u);
+  for (const x of obs) for (const u of [x.recordedById, x.verifiedById, x.validatedById, x.errorById, x.returnedById]) if (u) userIds.add(u);
   for (const c of callbacks) userIds.add(c.callerId);
   for (const r of reports) userIds.add(r.releasedById);
   for (const c of comms) if (c.recipientUserId) userIds.add(c.recipientUserId);
@@ -135,7 +135,7 @@ function visitOf(b: Bundle, e: EncP, now: Date): Visit {
   const reports = b.reports.filter((r) => r.encounterId === e.id);
   const current = reports.find((r) => r.status !== "superseded") ?? null;
   const everReleased = new Set(reports.flatMap((r) => r.results.map((x) => x.observationId)));
-  const tubes = tubePlan(orders.map((o) => ({ id: o.id, testCode: o.testCode, status: dash<OrderState>(o.status) })),
+  const tubes = tubePlan(orders.map((o) => ({ id: o.id, testCode: o.testCode, status: dash<OrderState>(o.status), hasResults: obs.some((x) => x.serviceRequestId === o.id && x.status !== "entered_in_error") })),
     specimens.map((x) => ({ id: x.id, tube: x.tube as TubeKind, status: dash<SpecimenState>(x.status), orderIds: x.orders.map((y) => y.serviceRequestId) })));
   const plan = releasePlan({
     tests: orders.map((o) => ({
@@ -174,7 +174,21 @@ function resultOf(b: Bundle, v: Visit, o: Obs): LabResult {
       via: c.via as "phone", calledAt: c.calledAt.toISOString(), readBack: c.readBack, caller: personOf(b, c.callerId)!, recordedAt: c.recordedAt.toISOString(),
     })),
     released: v.everReleased.has(o.id),
+    returned: o.returnedById ? { by: personOf(b, o.returnedById)!, at: iso(o.returnedAt)!, reason: o.returnReason ?? "" } : null,
+    withdrawn: o.status === "entered_in_error" && !replacedBy,
   };
+}
+/** "Returned — <reason>" while the test waits for verification again (decision 119). */
+function returnedOf(b: Bundle, v: Visit, orderId: string) {
+  const r = v.obs.find((x) => x.serviceRequestId === orderId && x.status === "preliminary" && x.returnedById);
+  return r ? { by: personOf(b, r.returnedById)!, at: iso(r.returnedAt)!, reason: r.returnReason ?? "" } : null;
+}
+/** The test's results were withdrawn and it has none now (decision 133). */
+function withdrawnOf(b: Bundle, v: Visit, orderId: string) {
+  const rows = v.obs.filter((x) => x.serviceRequestId === orderId);
+  if (!rows.length || rows.some(isCurrent)) return null;
+  const last = [...rows].reverse().find((x) => !v.obs.some((y) => y.replacesId === x.id) && x.errorById);
+  return last ? { by: personOf(b, last.errorById)!, at: iso(last.errorAt)!, reason: last.errorReason ?? "" } : null;
 }
 
 function orderOf(b: Bundle, v: Visit, o: Order): LabOrder {
@@ -189,6 +203,8 @@ function orderOf(b: Bundle, v: Visit, o: Order): LabOrder {
     }),
     results: v.obs.filter((x) => x.serviceRequestId === o.id).map((x) => resultOf(b, v, x)),
     revoke: o.status === "revoked" && o.revokedById ? { by: personOf(b, o.revokedById)!, at: iso(o.revokedAt)!, reason: o.revokeReason ?? "" } : null,
+    returned: returnedOf(b, v, o.id),
+    withdrawn: withdrawnOf(b, v, o.id),
   };
 }
 
@@ -270,9 +286,10 @@ export async function labWorklist(tx: Tx, s: SessionData, stage: LabWorklist["st
     };
     const inLab = v.specimens.some((x) => ["collected", "received", "in_process"].includes(x.status));
     const deliveryFailed = v.comms.filter((c) => c.status === "failed").length;
+    const returned = v.orders.map((o) => ({ o, r: returnedOf(b, v, o.id) })).filter((x) => x.r).map((x) => ({ orderId: x.o.id, nameEn: x.o.nameEn, reason: x.r!.reason }));
     const want = stage === "collect" ? counts.tubesNeeded > 0 || v.specimens.some((x) => x.status === "pending")
       : stage === "accession" ? inLab
-      : stage === "result" ? counts.toEnter > 0
+      : stage === "result" ? counts.toEnter > 0 || returned.length > 0
       : stage === "verify" ? counts.toVerify + counts.toValidate + counts.releasable > 0
       : Boolean(v.current);
     if (!want) continue;
@@ -280,7 +297,7 @@ export async function labWorklist(tx: Tx, s: SessionData, stage: LabWorklist["st
     const priority = v.orders.filter((o) => o.status !== "revoked").reduce<"routine" | "urgent" | "stat">((p, o) => (PRIORITY_RANK[o.priority] > PRIORITY_RANK[p] ? o.priority : p), "routine");
     const { phone: _phone, ...patient } = patientOf(v);
     items.push({
-      encounter: encounterOf(e), patient, priority, collection: v.tubes.status, counts, deliveryFailed,
+      encounter: encounterOf(e), patient, priority, collection: v.tubes.status, counts, deliveryFailed, returned,
       tests: v.orders.map((o) => ({ orderId: o.id, testCode: o.testCode, nameEn: o.nameEn, status: dash<OrderState>(o.status) })),
       report: v.current ? { id: v.current.id, number: v.current.number, version: v.current.version, status: dash<"preliminary">(v.current.status), pendingCount: v.current.pendingCount, testCount: v.current.testCount } : null,
       bill: inv ? { number: inv.number, status: dash(inv.status) } : null,
@@ -564,6 +581,71 @@ export async function correctResult(tx: Tx, s: SessionData, observationId: strin
   return { encounterId: v.e.id, audit };
 }
 
+/* ───── send-back (decision 119) and withdrawal (decision 133), ADR 0006 addendum ───── */
+async function orderVisit(tx: Tx, s: SessionData, orderId: string, now: Date) {
+  const o0 = await tx.serviceRequest.findFirst({ where: { id: orderId, organizationId: s.organizationId, group: "lab" }, select: { encounterId: true } });
+  if (!o0) throw notFound();
+  const { b, v } = await visitFor(tx, s, o0.encounterId, now);
+  const o = v.orders.find((x) => x.id === orderId);
+  if (!o) throw notFound();
+  return { b, v, o };
+}
+const reasonErr = () => err(400, "reason_required", "কারণ লিখুন (অন্তত ১০ অক্ষর)", "Give a reason (at least 10 characters)", { field: "reason" });
+
+/** The pathologist sends a verified test back to the technologist: RESULT return (verified → preliminary) for every
+    current result of the test; the verification is cleared, the return recorded; it must be verified again. */
+export async function returnTest(tx: Tx, s: SessionData, orderId: string, reason: string, now: Date) {
+  requireLabRole(s, "return");
+  const { v, o } = await orderVisit(tx, s, orderId, now);
+  const rows = v.obs.filter((x) => x.serviceRequestId === o.id && isCurrent(x));
+  const bad = returnBlockers({ role: s.role, results: rows.map((x) => ({ status: dash<ResultState>(x.status) })), reason });
+  if (bad.includes("not_verified")) throw err(409, "not_verified", "শুধু যাচাই করা (অনুমোদন বাকি) পরীক্ষা ফেরত পাঠানো যায়", "Only a verified test that is not yet validated can be sent back");
+  if (bad.includes("reason_required")) throw reasonErr();
+  for (const x of rows) {
+    const to = transition("RESULT", RESULT, dash<ResultState>(x.status), "return");
+    const u = await tx.observation.updateMany({ where: { id: x.id, status: x.status }, data: { status: undash<DbObsStatus>(to) as "preliminary", verifiedById: null, verifiedAt: null, returnedById: s.userId, returnedAt: now, returnReason: reason.trim(), statusAt: now } });
+    if (u.count !== 1) throw stale();
+  }
+  await tx.provenance.create({ data: provenance(s, "ServiceRequest", o.id, "lab-return", now, { reason: reason.trim(), observations: rows.map((x) => x.id), verifiedBy: [...new Set(rows.map((x) => x.verifiedById))] }) });
+  return { encounterId: v.e.id, audit: [{ action: "update", entity: "Observation", entityId: rows[0]!.id, patientId: v.e.patientId, detail: { event: "return", orderId: o.id, testCode: o.testCode, reason: reason.trim(), observations: rows.map((x) => x.id), verifiedBy: [...new Set(rows.map((x) => x.verifiedById))] } }] as AuditEntry[] };
+}
+
+/** Withdraw a test's results (no replacement value): every current result → entered-in-error with the reason; the tube
+    it was measured in is rejected (results-withdrawn) so a new tube is needed and the patient gets the recollection
+    SMS; the ordering doctor gets a notice if any of them had been released. */
+export async function withdrawTest(tx: Tx, s: SessionData, orderId: string, reason: string, now: Date) {
+  requireLabRole(s, "withdraw");
+  const { v, o } = await orderVisit(tx, s, orderId, now);
+  const rows = v.obs.filter((x) => x.serviceRequestId === o.id && isCurrent(x));
+  const bad = withdrawBlockers({ role: s.role, results: rows.map((x) => ({ status: dash<ResultState>(x.status) })), reason });
+  if (bad.includes("nothing_to_withdraw")) throw err(409, "nothing_to_withdraw", "এই পরীক্ষার কোনো ফলাফল নেই", "This test has no results to withdraw");
+  if (bad.includes("reason_required")) throw reasonErr();
+  const audit: AuditEntry[] = [];
+  for (const x of rows) {
+    const to = transition("RESULT", RESULT, dash<ResultState>(x.status), "markError");
+    const u = await tx.observation.updateMany({ where: { id: x.id, status: x.status }, data: { status: undash<DbObsStatus>(to) as "entered_in_error", errorReason: reason.trim(), errorById: s.userId, errorAt: now, statusAt: now } });
+    if (u.count !== 1) throw stale();
+  }
+  audit.push({ action: "update", entity: "Observation", entityId: rows[0]!.id, patientId: v.e.patientId, detail: { event: "withdraw", orderId: o.id, testCode: o.testCode, reason: reason.trim(), observations: rows.map((x) => x.id) } });
+  const dispatch: string[] = [];
+  const sp = liveSpecimen(v, o.id);
+  if (sp) {
+    const from = dash<SpecimenState>(sp.status);
+    const to = transition("SPECIMEN", SPECIMEN, from, "reject");
+    const u = await tx.specimen.updateMany({ where: { id: sp.id, status: sp.status }, data: { status: undash<DbSpecimen>(to), statusAt: now, rejectedById: s.userId, rejectedAt: now, rejectReason: WITHDRAWN_REASON, rejectNote: reason.trim() } });
+    if (u.count !== 1) throw stale();
+    audit.push({ action: "update", entity: "Specimen", entityId: sp.id, patientId: v.e.patientId, detail: { event: "reject", from, to, reason: WITHDRAWN_REASON, number: sp.number } });
+    const smsId = await queueSms(tx, s, v, "recollect", { specimenId: sp.id });
+    if (smsId) dispatch.push(smsId);
+  }
+  await tx.provenance.create({ data: provenance(s, "ServiceRequest", o.id, "lab-withdraw", now, { reason: reason.trim(), observations: rows.map((x) => x.id), specimen: sp?.number ?? null }) });
+  if (rows.some((x) => v.everReleased.has(x.id))) {
+    const cid = await deliverInApp(tx, s, target(v), { kind: "results-withdrawn", channel: "doctor_inbox", recipientUserId: o.orderedById, serviceRequestId: o.id, reportId: v.current?.id ?? null }, now);
+    audit.push({ action: "create", entity: "Communication", entityId: cid, patientId: v.e.patientId, detail: { kind: "results-withdrawn", to: o.orderedById } });
+  }
+  return { encounterId: v.e.id, audit, dispatch };
+}
+
 /* ───── A10: verify, call-back, validate ───── */
 async function checkPin(tx: Tx, s: SessionData, pin: string) {
   const u = await tx.user.findFirst({ where: { id: s.userId }, select: { pinHash: true } });
@@ -740,10 +822,10 @@ export async function labReportView(tx: Tx, s: SessionData, reportId: string, no
   const v = visitOf(b, e, now);
   const r = v.reports.find((x) => x.id === reportId)!;
   const inThis = new Set(r.results.map((x) => x.observationId));
-  const tests = v.orders.filter((o) => r.results.some((x) => x.serviceRequestId === o.id)).map((o) => ({
-    orderId: o.id, testCode: o.testCode, nameEn: o.nameEn, nameBn: o.nameBn,
-    results: v.obs.filter((x) => inThis.has(x.id) && x.serviceRequestId === o.id).map((x) => ({ ...resultOf(b, v, x), underCorrection: x.status === "entered_in_error" })),
-  }));
+  const tests = v.orders.filter((o) => r.results.some((x) => x.serviceRequestId === o.id)).map((o) => {
+    const results = v.obs.filter((x) => inThis.has(x.id) && x.serviceRequestId === o.id).map((x) => ({ ...resultOf(b, v, x), underCorrection: x.status === "entered_in_error" }));
+    return { orderId: o.id, testCode: o.testCode, nameEn: o.nameEn, nameBn: o.nameBn, withdrawn: results.length > 0 && results.every((x) => x.withdrawn), results };
+  });
   const pendingTests = v.orders.filter((o) => o.status !== "revoked" && !r.results.some((x) => x.serviceRequestId === o.id)).map((o) => ({ orderId: o.id, nameEn: o.nameEn, nameBn: o.nameBn }));
   const { phone: _p, ...patient } = patientOf(v);
   return { report: reportSummary(b, r), encounter: encounterOf(e), patient, tests, pendingTests, deliveries: v.comms.filter((c) => c.reportId === r.id).map((c) => commOf(b, v, c)) };

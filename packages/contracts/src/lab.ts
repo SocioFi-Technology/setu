@@ -9,12 +9,15 @@ import { Interpretation } from "./vitals.js";
 export const TubeKind = z.enum(["edta", "fluoride", "plain", "urine"]);
 export const SpecimenStatus = z.enum(["pending", "collected", "received", "in-process", "done", "rejected"]);
 export const CollectionStatus = z.enum(["none", "pending", "partial", "collected", "rejected"]);
-export const RejectReason = z.enum(["haemolysed", "clotted", "insufficient", "label-mismatch", "wrong-container", "other"]);
+/** reasons offered on the reject form */
+export const UserRejectReason = z.enum(["haemolysed", "clotted", "insufficient", "label-mismatch", "wrong-container", "other"]);
+/** + results-withdrawn: the tube of a test whose results were withdrawn (decision 133) */
+export const RejectReason = z.enum(["haemolysed", "clotted", "insufficient", "label-mismatch", "wrong-container", "other", "results-withdrawn"]);
 export const ResultStatus = z.enum(["preliminary", "verified", "final", "amended", "entered-in-error"]);
 export const LabReportStatus = z.enum(["preliminary", "final", "corrected", "superseded"]);
 export const CommunicationStatus = z.enum(["preparation", "in-progress", "completed", "failed"]);
 export const CommunicationChannel = z.enum(["sms", "patient-app", "doctor-inbox"]);
-export const CommunicationKind = z.enum(["recollect", "report-ready", "report-app", "report-inbox", "correction-notice", "order-cancelled"]);
+export const CommunicationKind = z.enum(["recollect", "report-ready", "report-app", "report-inbox", "correction-notice", "results-withdrawn", "order-cancelled"]);
 export const CallbackRecipient = z.enum(["ordering-doctor", "duty-doctor", "patient"]);
 export const CallbackVia = z.enum(["phone", "app", "in-person"]);
 export const CallbackOutcome = z.enum(["reached", "no-answer"]);
@@ -48,6 +51,10 @@ export const LabResult = z.object({
   callbacks: z.array(CriticalCallbackItem),
   /** in any released report version (a correction then notifies the doctor) */
   released: z.boolean(),
+  /** decision 119: sent back by the pathologist (shown while it waits for verification again) */
+  returned: z.object({ by: Person, at: z.string(), reason: z.string() }).nullable(),
+  /** decision 133: entered-in-error with no replacement value (the test's results were withdrawn) */
+  withdrawn: z.boolean(),
 });
 export type LabResult = z.infer<typeof LabResult>;
 export const LabTemplateRow = z.object({
@@ -65,6 +72,10 @@ export const LabOrder = z.object({
   /** every result row, current and replaced, oldest first */
   results: z.array(LabResult),
   revoke: z.object({ by: Person, at: z.string(), reason: z.string() }).nullable(),
+  /** "Returned — <reason>": the test waits for verification again (decision 119) */
+  returned: z.object({ by: Person, at: z.string(), reason: z.string() }).nullable(),
+  /** the test's results were withdrawn and it has none now (decision 133): a new tube is needed */
+  withdrawn: z.object({ by: Person, at: z.string(), reason: z.string() }).nullable(),
 });
 export type LabOrder = z.infer<typeof LabOrder>;
 export const SpecimenItem = z.object({
@@ -118,6 +129,7 @@ export const LabWorklistItem = z.object({
   counts: z.object({ tubesNeeded: z.number().int(), toEnter: z.number().int(), toVerify: z.number().int(), toValidate: z.number().int(), criticalOpen: z.number().int(), releasable: z.number().int() }),
   report: LabReportSummary.pick({ id: true, number: true, version: true, status: true, pendingCount: true, testCount: true }).nullable(),
   deliveryFailed: z.number().int(),
+  returned: z.array(z.object({ orderId: z.string(), nameEn: z.string(), reason: z.string() })),
   bill: z.object({ number: z.string().nullable(), status: z.string() }).nullable(),
 });
 export const LabWorklist = z.object({ stage: LabStage, items: z.array(LabWorklistItem) });
@@ -130,6 +142,8 @@ export const LabReportView = z.object({
   patient: LabPatient.omit({ phone: true }),
   tests: z.array(z.object({
     orderId: z.string(), testCode: z.string(), nameEn: z.string(), nameBn: z.string(),
+    /** every result of this test in this version was withdrawn later: "withdrawn — do not act on it" (decision 133) */
+    withdrawn: z.boolean(),
     /** results as released; `underCorrection` = later marked entered-in-error (do not act on it) */
     results: z.array(LabResult.extend({ underCorrection: z.boolean() })),
   })),
@@ -144,7 +158,7 @@ export type LabelsRequest = z.infer<typeof LabelsRequest>;
 /** collect / receive / start: when it happened on the device (offline steps keep their real time; decision D8) */
 export const SpecimenStepRequest = z.object({ at: When });
 export type SpecimenStepRequest = z.infer<typeof SpecimenStepRequest>;
-export const SpecimenRejectRequest = z.object({ reason: RejectReason, note: z.string().max(300).optional(), at: When });
+export const SpecimenRejectRequest = z.object({ reason: UserRejectReason, note: z.string().max(300).optional(), at: When });
 export type SpecimenRejectRequest = z.infer<typeof SpecimenRejectRequest>;
 export const ResultEntryRequest = z.object({
   entries: z.array(z.object({ analyteCode: z.string().min(1).max(40), value: z.string().max(20), confirm: z.string().max(20).optional() })).min(1).max(30),
@@ -167,6 +181,11 @@ export const SendRequest = z.object({ channel: z.enum(["sms", "patient-app"]) })
 export type SendRequest = z.infer<typeof SendRequest>;
 export const RetryRequest = z.object({}).strict();
 export const RevokeRequest = z.object({ reason: z.string().max(300) });
+/** decision 119 (pathologist) and decision 133 (lab technologist or pathologist): a reason of at least 10 characters */
+export const ReturnRequest = z.object({ reason: z.string().max(300) });
+export type ReturnRequest = z.infer<typeof ReturnRequest>;
+export const WithdrawRequest = z.object({ reason: z.string().max(300) });
+export type WithdrawRequest = z.infer<typeof WithdrawRequest>;
 export type RevokeRequest = z.infer<typeof RevokeRequest>;
 export const RevokeResponse = z.object({
   order: z.object({ id: z.string(), status: OrderStatus, revoke: z.object({ by: Person, at: z.string(), reason: z.string() }) }),
