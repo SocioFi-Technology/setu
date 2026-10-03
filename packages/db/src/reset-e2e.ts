@@ -1,7 +1,7 @@
 /* `pnpm db:reset-e2e`: puts the E2E Test Clinic's walkthrough family back to its seeded state (no links, seeded
    identity confidence, no open reviews) before a journey run. Touches only tenant t_e2e; never the demo clinic.
    Patients and visits the tests create stay in t_e2e, out of the demo clinic's queue. */
-import { ALLERGY, APPROVAL, ENCOUNTER, transition, type EncounterState } from "@setu/domain";
+import { ALLERGY, APPROVAL, ENCOUNTER, transition, type EncounterState, SHIFT } from "@setu/domain";
 import { owner as db } from "./owner.ts";
 
 const T = "t_e2e";
@@ -75,6 +75,28 @@ for (const t of cases) {
   const u = await db.task.updateMany({ where: { id: t.id, tenantId: T, status: "requested" }, data: { status, decidedById: RECONCILE_BY, decidedAt: now, decisionNote: "test run", detail: { ...((t.detail ?? {}) as object), resolution } } });
   if (u.count) await db.auditEvent.create({ data: { tenantId: T, userId: RECONCILE_BY, role: "owner", at: now, action: "update", entity: "Task", entityId: t.id, detail: { route: "pnpm db:reset-e2e", event: "reject", resolution: "resolved", note: "test run", e2eReset: true } } });
 }
+/* ADR 0008: shifts left unfinished by earlier automated runs are counted (as matching) and approved as the E2E owner
+   with the note "e2e reset: test run" — through the same SHIFT steps and append-only rows; nothing is deleted. */
+const unfinished = await db.shift.findMany({ where: { tenantId: T, status: { not: "approved" } } });
+for (const sh of unfinished) {
+  let latest = sh.latestCountId;
+  if (sh.status === "open") {
+    const [cash] = await db.$queryRaw<{ paisa: bigint | null }[]>`SELECT sum("amountPaisa") AS paisa FROM "Payment" WHERE "tenantId" = ${T} AND "organizationId" = ${sh.organizationId}
+      AND "createdById" = ${sh.cashierId} AND "status" = 'confirmed' AND "method" = 'cash' AND "confirmedAt" >= ${sh.openedAt} AND "confirmedAt" <= ${now}`;
+    const cashIn = Number(cash?.paisa ?? 0), expected = sh.openingFloatPaisa + cashIn;
+    const n = await db.shiftCount.count({ where: { shiftId: sh.id } });
+    const c = await db.shiftCount.create({ data: { tenantId: T, shiftId: sh.id, countNo: n + 1, counts: {}, countedPaisa: expected, openingFloatPaisa: sh.openingFloatPaisa, cashInPaisa: cashIn,
+      expectedCashPaisa: expected, variancePaisa: 0, digitalSystem: {}, digitalSettlement: {}, reason: "e2e reset: test run", windowFrom: sh.openedAt, windowTo: now, countedById: sh.cashierId, countedAt: now } });
+    await db.shift.update({ where: { id: sh.id }, data: { status: transition("shift", SHIFT, "open", "count"), latestCountId: c.id, statusAt: now } });
+    await db.shift.update({ where: { id: sh.id }, data: { status: transition("shift", SHIFT, "counted", "close"), statusAt: now } });
+    latest = c.id;
+  } else if (sh.status === "counted") {
+    await db.shift.update({ where: { id: sh.id }, data: { status: transition("shift", SHIFT, "counted", "close"), statusAt: now } });
+  }
+  await db.shiftReview.create({ data: { tenantId: T, shiftId: sh.id, countId: latest!, decision: "approve", note: "e2e reset: test run", byId: RECONCILE_BY, at: now } });
+  await db.shift.update({ where: { id: sh.id }, data: { status: transition("shift", SHIFT, "closed", "approve"), statusAt: now } });
+  await db.auditEvent.create({ data: { tenantId: T, userId: RECONCILE_BY, role: "owner", at: now, action: "approve", entity: "Shift", entityId: sh.id, detail: { route: "pnpm db:reset-e2e", note: "e2e reset: test run", e2eReset: true } } });
+}
 if (audit.length) await db.auditEvent.createMany({ data: audit.map((a) => ({ tenantId: T, userId: RESET_BY, role: "admin" as const, at: now, ...a, detail: { route: "pnpm db:reset-e2e", ...a.detail } })) });
 await db.$disconnect();
-console.log(`E2E Test Clinic reset: walkthrough family restored, ${n.count} open review(s) closed, ${undone.length} undone override(s) marked reviewed, ${extra.length} test allerg(ies) marked entered-in-error, ${restored} seeded allerg(ies) recorded again, ${open.length} leftover visit(s) closed, ${cases.length} reconciliation case(s) resolved "test run"`);
+console.log(`E2E Test Clinic reset: walkthrough family restored, ${n.count} open review(s) closed, ${undone.length} undone override(s) marked reviewed, ${extra.length} test allerg(ies) marked entered-in-error, ${restored} seeded allerg(ies) recorded again, ${open.length} leftover visit(s) closed, ${cases.length} reconciliation case(s) resolved "test run", ${unfinished.length} unfinished shift(s) approved "test run"`);
