@@ -535,7 +535,9 @@ hands-on as the pharmacist.
   owner screens 12.3 s (Approvals with the kind filter, Purchase, the receipt, the order — mostly dev-server page loads),
   the pharmacist's own work about 3.6 s, page loads between steps 2.5 s. Signing in once per role (Playwright
   storageState) would save about 10 s per journey if the suite grows slow.
-- **Tests:** domain 258, api 215, `pnpm typecheck` 13/13, Playwright 79 (a full run green; journey P + shell green twice after the last fix — P5 had hit the 30 s default test timeout under load, now 120 s).
+- **Tests (slice closed 04/10/2026):** domain 258, api 217, `pnpm typecheck` 13/13, **Playwright 79 green twice in a row**. The
+  last intermittent P5 failure was a real bug: the goods-receipt form's defaults, set after the order loaded, replaced a
+  batch number already typed when the order loaded a second time (React runs effects twice in development) — fixed.
 
 ## How to run the journeys on this PC
 - Playwright's Chromium is installed (02/10/2026): plain `pnpm e2e` runs the journeys against `pnpm dev` (staff :3000,
