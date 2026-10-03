@@ -4,7 +4,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { CountShiftRequest, DashboardQuery, DrillQuery, OpenShiftRequest, ReviewShiftRequest, ShiftListQuery, type DashboardView, type DrillView, type MyShiftResponse, type ShiftList, type ShiftView } from "@setu/contracts";
-import { authorize } from "@setu/domain";
+import { authorize, holdsShift } from "@setu/domain";
 import { command, query } from "../command.js";
 import { config } from "../config.js";
 import { err, forbidden } from "../errors.js";
@@ -18,30 +18,36 @@ function requireScreen(req: FastifyRequest, mod: string, screen: string) {
   if (!d.allowed) throw forbidden(d.reason === "plan" ? "plan" : d.reason === "role" ? "role" : "unknown");
   return s;
 }
+/** ADR 0008 + 0009: the drawer shift — billing's cashier, or the pharmacist who takes money at the counter. */
+function requireShift(req: FastifyRequest) {
+  const s = requireSession(req);
+  if (!holdsShift(s.role, s.plan)) return requireScreen(req, "bill", "shift"); // the same 403 (role or plan) as before
+  return s;
+}
 const pid = z.object({ id: z.string().min(1).max(64) });
 
 export async function ownerRoutes(app: FastifyInstance) {
   /* ── shift close (bill/shift) ── */
   app.get("/v1/shifts/mine", async (req): Promise<MyShiftResponse> => {
-    requireScreen(req, "bill", "shift");
+    requireShift(req);
     return query(req, async (tx, s) => {
       const r = await myShift(tx, s, new Date());
       return { body: r, audit: [{ action: "view", entity: "Shift", entityId: r.shift?.id, detail: { purpose: "my-shift" } }] };
     });
   });
   app.post("/v1/shifts", { config: { ownTx: true } }, async (req, reply): Promise<ShiftView> => {
-    requireScreen(req, "bill", "shift");
+    requireShift(req);
     const body = OpenShiftRequest.parse(req.body ?? {});
     return command(req, reply, async (tx, s) => { const r = await openShift(tx, s, body.openingFloatPaisa, new Date()); return { status: 201, body: r.view, audit: r.audit }; });
   });
   app.post("/v1/shifts/:id/count", { config: { ownTx: true } }, async (req, reply): Promise<ShiftView> => {
-    requireScreen(req, "bill", "shift");
+    requireShift(req);
     const { id } = pid.parse(req.params);
     const body = CountShiftRequest.parse(req.body ?? {});
     return command(req, reply, async (tx, s) => { const r = await countShift(tx, s, id, body, new Date()); return { status: 200, body: r.view, audit: r.audit }; });
   });
   app.get("/v1/shifts", async (req): Promise<ShiftList> => {
-    const s0 = requireScreen(req, "bill", "shift");
+    const s0 = requireShift(req);
     if (s0.role !== "owner" && s0.role !== "admin") throw forbidden("role");
     const q = ShiftListQuery.parse(req.query);
     return query(req, async (tx, s) => {
@@ -50,12 +56,12 @@ export async function ownerRoutes(app: FastifyInstance) {
     });
   });
   app.get("/v1/shifts/:id", async (req): Promise<ShiftView> => {
-    requireScreen(req, "bill", "shift");
+    requireShift(req);
     const { id } = pid.parse(req.params);
     return query(req, async (tx, s) => ({ body: await shiftView(tx, s, id, new Date()), audit: [{ action: "view", entity: "Shift", entityId: id }] }));
   });
   app.post("/v1/shifts/:id/review", { config: { ownTx: true } }, async (req, reply): Promise<ShiftView> => {
-    requireScreen(req, "bill", "shift");
+    requireShift(req);
     const { id } = pid.parse(req.params);
     const body = ReviewShiftRequest.parse(req.body ?? {});
     return command(req, reply, async (tx, s) => { const r = await reviewShift(tx, s, id, body, new Date()); return { status: 200, body: r.view, audit: r.audit }; });

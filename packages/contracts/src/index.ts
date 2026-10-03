@@ -8,3 +8,4 @@ export * from "./billing.js";
 export * from "./lab.js";
 export * from "./doctor.js";
 export * from "./owner.js";
+export * from "./pharmacy.js";

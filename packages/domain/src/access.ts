@@ -32,6 +32,17 @@ export function authorize(role: Role, plan: Plan, moduleKey: string, screenKey: 
   return { allowed: true };
 }
 
+export type BillKind = "opd" | "pharmacy" | "otc";
+/** ADR 0009: which bills this role may open and take money on. Billing (bill/opd) sees every kind; the pharmacist
+    (pharmacy screens) sees only the pharmacy and over-the-counter bills — never an OPD bill. */
+export function billKindsFor(role: Role, plan: Plan): BillKind[] {
+  if (authorize(role, plan, "bill", "opd").allowed) return ["opd", "pharmacy", "otc"];
+  if (authorize(role, plan, "ph", "otc").allowed) return ["pharmacy", "otc"];
+  return [];
+}
+/** ADR 0008 + 0009: who holds a drawer shift — billing's shift screen, or the pharmacist who takes money at the counter. */
+export const holdsShift = (role: Role, plan: Plan) => authorize(role, plan, "bill", "shift").allowed || authorize(role, plan, "ph", "otc").allowed;
+
 export interface CapabilityScreen { key: string; name_bn: string; name_en: string; icon: string; allowed: boolean; reason?: Denial; needs?: Plan; needsPatient: boolean; badge?: string }
 export interface Capability { key: string; name_bn: string; name_en: string; icon: string; plan: Plan; locked?: Denial; screens: CapabilityScreen[] }
 

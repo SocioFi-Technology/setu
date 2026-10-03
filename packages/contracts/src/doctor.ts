@@ -9,7 +9,7 @@ import { Interpretation } from "./vitals.js";
 
 const Person = z.object({ id: z.string(), nameBn: z.string(), nameEn: z.string() });
 
-export const InboxKind = z.enum(["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital"]);
+export const InboxKind = z.enum(["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital", "substitution-notice"]);
 export const InboxSeverity = z.enum(["critical", "abnormal", "normal", "notice"]);
 export const InboxResult = z.object({
   code: z.string(), nameEn: z.string(), nameBn: z.string(), value: z.number(), unit: z.string(), decimals: z.number().int(),
@@ -34,6 +34,12 @@ export const InboxItem = z.object({
   test: z.object({ nameEn: z.string(), nameBn: z.string() }).nullable(),
   /** critical-vital: the reading */
   vital: z.object({ code: z.string(), value: z.number(), unit: z.string(), flag: Interpretation.nullable() }).nullable(),
+  /** substitution-notice (ADR 0009): what was prescribed, what the pharmacist gave instead and why */
+  substitution: z.object({
+    prescribed: z.object({ brand: z.string(), generic: z.string(), strength: z.string() }),
+    given: z.object({ brand: z.string(), generic: z.string(), strength: z.string() }),
+    qty: z.number().int(), reason: z.string(), by: Person, at: z.string(),
+  }).nullable(),
   acknowledged: z.object({
     at: z.string(), notifyPatient: z.boolean(),
     /** the "report reviewed" SMS: its delivery status ("Not yet synced" never appears here — this is the server's record) */

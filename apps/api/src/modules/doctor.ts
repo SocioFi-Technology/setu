@@ -6,7 +6,7 @@
 import { randomUUID } from "node:crypto";
 import type { AckRequest, InboxItem, InboxView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
-import { INBOX_ITEM, ackBlockers, inboxSeverity, isOpenItem, patientAgeYears, sortInbox, transition, type InboxKind, type Interpretation } from "@setu/domain";
+import { INBOX_ITEM, MEDICINES_SAMPLE, ackBlockers, inboxSeverity, isOpenItem, patientAgeYears, sortInbox, transition, type InboxKind, type Interpretation } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
@@ -15,7 +15,7 @@ import { smsPhone, smsText } from "./lab.js";
 
 const dash = <T extends string>(s: string) => s.replace(/_/g, "-") as T;
 type RangeLabel = "adult" | "adult-female" | "adult-male";
-const INBOX_KINDS: InboxKind[] = ["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital"];
+const INBOX_KINDS: InboxKind[] = ["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital", "substitution-notice"];
 const MAX_ITEMS = 200;
 
 function requireDoctor(s: SessionData) {
@@ -41,6 +41,13 @@ async function toItems(tx: Tx, s: SessionData, rows: Row[], now: Date): Promise<
     tx.observation.findMany({ where: { id: { in: ids("observationId") } } }),
     tx.organization.findFirst({ where: { id: s.organizationId }, select: { name: true } }),
   ]);
+  // substitution notices (ADR 0009): the dispense, the line the doctor wrote and who gave what
+  const dispenses = await tx.medicationDispense.findMany({ where: { id: { in: ids("dispenseId") } } });
+  const [prescribedRows, dispensers] = await Promise.all([
+    tx.medicationRequest.findMany({ where: { id: { in: dispenses.map((d) => d.requestId) } }, select: { id: true, brand: true, generic: true, strength: true } }),
+    tx.user.findMany({ where: { id: { in: dispenses.map((d) => d.byId) } }, select: { id: true, nameBn: true, nameEn: true } }),
+  ]);
+  const D = new Map(dispenses.map((d) => [d.id, d])), MR = new Map(prescribedRows.map((m) => [m.id, m])), U = new Map(dispensers.map((u) => [u.id, u]));
   const reportObsIds = reports.flatMap((r) => r.results.map((x) => x.observationId));
   const [reportObs, analytes, smsRows] = await Promise.all([
     tx.observation.findMany({ where: { id: { in: reportObsIds } } }),
@@ -81,6 +88,15 @@ async function toItems(tx: Tx, s: SessionData, rows: Row[], now: Date): Promise<
       report: r ? { id: r.id, number: r.number, version: r.version, status: r.status, superseded, testCount: r.testCount, pendingCount: r.pendingCount, results } : null,
       test: order ? { nameEn: order.nameEn, nameBn: order.nameBn } : null,
       vital: vObs ? { code: vObs.code, value: vObs.value, unit: vObs.unit, flag: (vObs.interpretation ?? null) as Interpretation | null } : null,
+      substitution: (() => {
+        const d = kind === "substitution-notice" && c.dispenseId ? D.get(c.dispenseId) : undefined;
+        const pr = d ? MR.get(d.requestId) : undefined;
+        if (!d || !pr) return null;
+        const g = MEDICINES_SAMPLE.find((m) => m.id === d.medicineKey);
+        const by = U.get(d.byId);
+        return { prescribed: { brand: pr.brand, generic: pr.generic, strength: pr.strength }, given: { brand: g?.brand ?? d.medicineKey, generic: g?.generic ?? "", strength: g?.strength ?? "" },
+          qty: d.qty, reason: d.reason ?? "", by: { id: d.byId, nameBn: by?.nameBn ?? "", nameEn: by?.nameEn ?? "" }, at: d.at.toISOString() };
+      })(),
       acknowledged: c.ack ? { at: c.ack.ackedAt.toISOString(), notifyPatient: c.ack.notifyPatient, sms: sms ? { id: sms.id, status: dash(sms.status), lastError: sms.lastError } : null } : null,
       canNotify: kind === "report-inbox" && !superseded && !correctionPending && hasMobile && !c.ack,
       correctionPending,

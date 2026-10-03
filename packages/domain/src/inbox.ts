@@ -3,7 +3,8 @@
    The screen and the API use the same order and the same acknowledge rules. */
 import type { Interpretation } from "./vitals.js";
 
-export type InboxKind = "report-inbox" | "correction-notice" | "results-withdrawn" | "order-cancelled" | "critical-vital";
+/** substitution-notice (ADR 0009): the pharmacist gave a same-generic substitute for one of the doctor's lines. */
+export type InboxKind = "report-inbox" | "correction-notice" | "results-withdrawn" | "order-cancelled" | "critical-vital" | "substitution-notice";
 export type InboxSeverity = "critical" | "abnormal" | "normal" | "notice";
 const RANK: Record<InboxSeverity, number> = { critical: 0, abnormal: 1, normal: 2, notice: 3 };
 

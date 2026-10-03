@@ -21,6 +21,10 @@ export const ApiError = z.object({
   /** Blind count (422 reason_required / 409 variance_changed, ADR 0008): the variance the server found, revealed only
       after the count was submitted. */
   amountPaisa: z.number().int().optional(),
+  /** Pharmacy (ADR 0009): 409 stock_short — how many tablets / capsules are missing; 422 qty_over_remaining — how many
+      are left on the prescription line. */
+  shortfall: z.number().int().optional(),
+  remaining: z.number().int().optional(),
 });
 export type ApiError = z.infer<typeof ApiError>;
 

@@ -1245,6 +1245,8 @@ model Communication {
   specimenId       String?
   serviceRequestId String?
   observationId    String?
+  /// substitution-notice (ADR 0009): the dispense it is about
+  dispenseId       String?
   status           CommunicationStatus  @default(preparation)
   attempts         Int                  @default(0)
   lastError        String?

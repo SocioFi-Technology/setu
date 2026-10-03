@@ -22,10 +22,12 @@ import {
 import { createReceipt, printPdf, printReceipt, receiptList, receiptView } from "../modules/receipts.js";
 import { requireSession } from "../plugins/session.js";
 
-function requireBill(req: FastifyRequest, screen: "opd" | "pay" | "receipt" | "approvals" | "reconcile") {
+/** `pharmacy`: the route also serves the pharmacist (ph/otc) — on pharmacy and OTC bills only; invoiceHere hides every
+    other bill from them (ADR 0009). */
+function requireBill(req: FastifyRequest, screen: "opd" | "pay" | "receipt" | "approvals" | "reconcile", pharmacy = false) {
   const s = requireSession(req);
   const d = authorize(s.role, s.plan, "bill", screen);
-  if (!d.allowed) throw forbidden(d.reason ?? "unknown");
+  if (!d.allowed && !(pharmacy && authorize(s.role, s.plan, "ph", "otc").allowed)) throw forbidden(d.reason ?? "unknown");
   return s;
 }
 type SessionRole = ReturnType<typeof requireSession>["role"];
@@ -77,7 +79,7 @@ export async function billingRoutes(app: FastifyInstance) {
     return query(req, async (tx, s) => ({ body: await chargeDefinitions(tx, s, q), audit: [] }));
   });
   app.get("/v1/invoices/:id", async (req): Promise<InvoiceView> => {
-    requireBill(req, "opd");
+    requireBill(req, "opd", true);
     const { id } = req.params as { id: string };
     return query(req, async (tx, s) => {
       const inv = await invoiceHere(tx, s, id);
@@ -148,7 +150,7 @@ export async function billingRoutes(app: FastifyInstance) {
     });
   });
   app.post("/v1/invoices/:id/issue", { config: { ownTx: true } }, async (req, reply): Promise<InvoiceView> => {
-    requireBill(req, "opd");
+    requireBill(req, "opd", true);
     const { id } = req.params as { id: string };
     const { rev } = RevRequest.parse(req.body);
     return command(req, reply, async (tx, s) => {
@@ -236,7 +238,7 @@ export async function billingRoutes(app: FastifyInstance) {
 
   /* ── payments ── */
   app.post("/v1/invoices/:id/payments", { config: { ownTx: true } }, async (req, reply): Promise<PaymentResponse> => {
-    requireBill(req, "pay");
+    requireBill(req, "pay", true);
     const { id } = req.params as { id: string };
     const body = NewPaymentRequest.parse(req.body);
     return command(req, reply, async (tx, s) => {
@@ -248,7 +250,7 @@ export async function billingRoutes(app: FastifyInstance) {
     });
   });
   app.post("/v1/payments/:id/retry", { config: { ownTx: true } }, async (req, reply): Promise<PaymentResponse> => {
-    requireBill(req, "pay");
+    requireBill(req, "pay", true);
     const { id } = req.params as { id: string };
     return command(req, reply, async (tx, s) => {
       const r = await retryPayment(tx, s, id, new Date());
@@ -257,7 +259,7 @@ export async function billingRoutes(app: FastifyInstance) {
     });
   });
   app.post("/v1/payments/:id/cancel", { config: { ownTx: true } }, async (req, reply): Promise<PaymentResponse> => {
-    requireBill(req, "pay");
+    requireBill(req, "pay", true);
     const { id } = req.params as { id: string };
     return command(req, reply, async (tx, s) => {
       const r = await cancelPayment(tx, s, id, new Date());
@@ -266,7 +268,7 @@ export async function billingRoutes(app: FastifyInstance) {
     });
   });
   app.post("/v1/payments/:id/verify-trx", { config: { ownTx: true } }, async (req, reply): Promise<PaymentResponse> => {
-    requireBill(req, "pay");
+    requireBill(req, "pay", true);
     const { id } = req.params as { id: string };
     const { trxId } = VerifyTrxRequest.parse(req.body);
     return command(req, reply, async (tx, s) => {
@@ -278,7 +280,7 @@ export async function billingRoutes(app: FastifyInstance) {
 
   /* ── receipts (cashier, owner, admin) ── */
   app.get("/v1/invoices/:id/receipts", async (req): Promise<ReceiptList> => {
-    requireBill(req, "receipt");
+    requireBill(req, "receipt", true);
     const { id } = req.params as { id: string };
     return query(req, async (tx, s) => {
       const r = await receiptList(tx, s, id);
@@ -286,7 +288,7 @@ export async function billingRoutes(app: FastifyInstance) {
     });
   });
   app.post("/v1/invoices/:id/receipts", { config: { ownTx: true } }, async (req, reply): Promise<ReceiptView> => {
-    requireBill(req, "receipt");
+    requireBill(req, "receipt", true);
     const { id } = req.params as { id: string };
     return command(req, reply, async (tx, s) => {
       const r = await createReceipt(tx, s, id, new Date());
@@ -294,7 +296,7 @@ export async function billingRoutes(app: FastifyInstance) {
     });
   });
   app.get("/v1/receipts/:id", async (req): Promise<ReceiptView> => {
-    requireBill(req, "receipt");
+    requireBill(req, "receipt", true);
     const { id } = req.params as { id: string };
     return query(req, async (tx, s) => {
       const r = await tx.receipt.findFirst({ where: { id, organizationId: s.organizationId } });
@@ -304,7 +306,7 @@ export async function billingRoutes(app: FastifyInstance) {
     });
   });
   app.post("/v1/receipts/:id/print", { config: { ownTx: true } }, async (req, reply): Promise<PrintResponse> => {
-    requireBill(req, "receipt");
+    requireBill(req, "receipt", true);
     const { id } = req.params as { id: string };
     const body = PrintRequest.parse(req.body ?? {});
     return command(req, reply, async (tx, s) => {
@@ -317,7 +319,7 @@ export async function billingRoutes(app: FastifyInstance) {
     }, { txTimeoutMs: 30_000 });
   });
   app.get("/v1/receipts/:id/prints/:printId/pdf", async (req, reply) => {
-    requireBill(req, "receipt");
+    requireBill(req, "receipt", true);
     const { id, printId } = req.params as { id: string; printId: string };
     const r = await query(req, async (tx, s) => {
       const x = await printPdf(tx, s, id, printId);
@@ -354,7 +356,7 @@ export async function billingRoutes(app: FastifyInstance) {
   /* ── dev and tests only: play the customer's side of the fake provider (never with a real provider or in production) ── */
   if (fakeProvider() && config.fakePaymentsDevRoute) {
     app.post("/v1/dev/fake-payments/:id/:kind", async (req) => {
-      requireBill(req, "pay");
+      requireBill(req, "pay", true);
       const { id, kind } = z.object({ id: z.string(), kind: FakeProviderEventKind }).parse(req.params);
       const o = z.object({ deliver: z.boolean().default(true), amountPaisa: z.number().int().positive().optional() }).parse(req.body ?? {});
       const s0 = requireSession(req);

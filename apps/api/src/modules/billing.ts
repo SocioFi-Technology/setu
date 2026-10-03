@@ -18,7 +18,7 @@
 import type { ApprovalItem, ApprovalList, BillingWorklist, ChargeDefinitionList, DiscountRequest, InvoiceView, NewPaymentRequest, PaymentView, ProviderCallbackResponse, ReconcileItem, ReconcileList } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
-  APPROVAL, INVOICE, PAYMENT, approvalBlockers, billTotals, checkNewPayment, decideProviderEvent, dhakaDay, discountDecision, discountLimit, discountToPaisa,
+  APPROVAL, INVOICE, PAYMENT, approvalBlockers, billKindsFor, type Plan, type Role, billTotals, checkNewPayment, decideProviderEvent, dhakaDay, discountDecision, discountLimit, discountToPaisa,
   invoiceEventAfterConfirm, isWallet, issueBlockers, notBilledBlockers, paidBy, paymentSummary, reconcileApplyBlockers, syncOrderLines, transition, voidBlockers, type BillingSettings, type DiscountCategory, type InvoiceState,
   type PaymentMethod, type PaymentRow, type PaymentState, type ProviderEventKind,
 } from "@setu/domain";
@@ -40,7 +40,8 @@ const APPROVAL_KINDS = [DISCOUNT_TASK, BILL_ELSEWHERE_TASK];
 const OPEN_BILL = { notIn: ["cancelled", "entered_in_error"] as ("cancelled" | "entered_in_error")[] };
 /** Visits whose orders are billed: placed and not revoked or declined. */
 const BILLED_ORDER_STATES = ["active", "centre_chosen", "accepted", "partially_accepted", "in_progress", "partially_complete", "complete"] as const;
-const WRITE_ROLES = ["cashier", "owner", "admin"];
+/** the pharmacist writes pharmacy and OTC bills only — invoiceHere hides every other kind from them (ADR 0009) */
+const WRITE_ROLES = ["cashier", "owner", "admin", "pharmacist"];
 
 const stale = () => err(409, "stale", "অন্য কোথাও আগেই বদলানো হয়েছে — আবার খুলুন", "This bill was changed somewhere else first — reopen it");
 const notDraft = () => err(409, "not_draft", "ইস্যু করা বিল বদলানো যায় না", "An issued bill cannot be changed");
@@ -78,7 +79,7 @@ export async function invoiceHere(tx: Tx, s: SessionData, id: string, lock = fal
   if (lock) await tx.$queryRaw`SELECT 1 FROM "Invoice" WHERE "id" = ${id} FOR UPDATE`;
   const branch = await branchOf(tx, s);
   const inv = await tx.invoice.findFirst({ where: { id, organizationId: s.organizationId, branchId: branch.id } });
-  if (!inv) throw notFound();
+  if (!inv || !billKindsFor(s.role as Role, s.plan as Plan).includes(inv.kind)) throw notFound();
   return inv;
 }
 /** Any approval still requested on the bill (discount or "Not billed here"): lines are locked and Issue is refused. */
@@ -217,7 +218,7 @@ export async function chargeDefinitions(tx: Tx, s: SessionData, q: string): Prom
 /* ───── draft bill ───── */
 /** Re-run the line maths (domain billTotals) for the stored lines and discount, and store the result. Unpriced lines
     count as 0 here; they block issuing. */
-async function recompute(tx: Tx, inv: Inv, discountPaisa: number, patch: Partial<Inv> = {}): Promise<Inv> {
+export async function recompute(tx: Tx, inv: Inv, discountPaisa: number, patch: Partial<Inv> = {}): Promise<Inv> {
   const lines = await tx.chargeItem.findMany({ where: { invoiceId: inv.id }, orderBy: { position: "asc" } });
   const t = billTotals(lines.map((l) => ({ key: l.id, unitPaisa: l.unitPaisa ?? 0, qty: l.qty, vatRateBp: l.vatRateBp })), discountPaisa);
   for (const l of t.lines) {
@@ -319,7 +320,7 @@ export async function refreshDraftOrders(tx: Tx, s: SessionData, encounterId: st
   return { invoiceId: inv0.id, removed: r.sync.removed, added: r.sync.added, waits: d.remove.length + d.add.length > 0 };
 }
 
-async function editableDraft(tx: Tx, s: SessionData, id: string, rev: number): Promise<Inv> {
+export async function editableDraft(tx: Tx, s: SessionData, id: string, rev: number): Promise<Inv> {
   requireWriter(s);
   const inv = await invoiceHere(tx, s, id, true);
   if (inv.status !== "draft") throw notDraft();
@@ -329,7 +330,7 @@ async function editableDraft(tx: Tx, s: SessionData, id: string, rev: number): P
 }
 
 /** A desk line's amounts before any discount (lines change only while there is none), from the domain line maths. */
-function lineAmounts(unitPaisa: number, qty: number, vatRateBp: number) {
+export function lineAmounts(unitPaisa: number, qty: number, vatRateBp: number) {
   const l = billTotals([{ key: "line", unitPaisa, qty, vatRateBp }], 0).lines[0]!;
   return { qty, grossPaisa: l.grossPaisa, discountPaisa: 0, netPaisa: l.netPaisa, vatPaisa: l.vatPaisa, totalPaisa: l.totalPaisa };
 }
@@ -497,10 +498,12 @@ export async function decideApproval(tx: Tx, s: SessionData, taskId: string, dec
 }
 
 /* ───── issue ───── */
-export async function issueInvoice(tx: Tx, s: SessionData, id: string, rev: number, now: Date): Promise<Inv> {
+/** `sale`: called by the OTC issue after the stock moves (an OTC bill is never issued from the billing route). */
+export async function issueInvoice(tx: Tx, s: SessionData, id: string, rev: number, now: Date, sale = false): Promise<Inv> {
   requireWriter(s);
   const inv = await invoiceHere(tx, s, id, true);
   if (inv.status !== "draft") throw notDraft();
+  if (inv.kind === "otc" && !sale) throw err(409, "issue_as_sale", "কাউন্টার বিক্রি ফার্মেসি থেকে সম্পন্ন করুন", "Complete an over-the-counter sale from the pharmacy");
   if (inv.rev !== rev) throw stale();
   const lines = await tx.chargeItem.findMany({ where: { invoiceId: inv.id }, select: { unitPaisa: true, notBilledTaskId: true } });
   const od = await ordersDiff(tx, inv);

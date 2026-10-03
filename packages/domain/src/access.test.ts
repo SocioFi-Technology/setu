@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authorize, capabilities, defaultScreen, MODULES } from "./access.js";
+import { authorize, billKindsFor, capabilities, defaultScreen, holdsShift, MODULES } from "./access.js";
 
 describe("authorize (walkthrough cases)", () => {
   it("receptionist home shows no clinical screens", () => {
@@ -64,3 +64,15 @@ describe("doc — the doctor app at phone width (slice A12–A13, sitemap 68–7
   });
 });
 
+
+describe("bill kinds by role (ADR 0009)", () => {
+  it("billing sees every bill; the pharmacist only pharmacy and OTC bills; others none", () => {
+    expect(billKindsFor("cashier", "clinic")).toEqual(["opd", "pharmacy", "otc"]);
+    expect(billKindsFor("owner", "clinic")).toEqual(["opd", "pharmacy", "otc"]);
+    expect(billKindsFor("pharmacist", "clinic")).toEqual(["pharmacy", "otc"]);
+    expect(billKindsFor("doctor", "clinic")).toEqual([]);
+    expect(holdsShift("pharmacist", "clinic")).toBe(true);
+    expect(holdsShift("cashier", "clinic")).toBe(true);
+    expect(holdsShift("nurse", "clinic")).toBe(false);
+  });
+});

@@ -86,7 +86,8 @@ async function toCompositionView(tx: Tx, c: Comp): Promise<CompositionView> {
     tx.composition.findMany({ where: { encounterId: c.encounterId, kind: KIND, version: { lte: c.version } }, select: { id: true, version: true } }),
   ]);
   const versionOf = new Map(chain.map((x) => [x.id, x.version]));
-  const orders = await tx.serviceRequest.findMany({ where: { compositionId: { in: chain.map((x) => x.id) } }, orderBy: { createdAt: "asc" } });
+  // one save writes its orders together (same createdAt): the cuid keeps the order they were written in
+  const orders = await tx.serviceRequest.findMany({ where: { compositionId: { in: chain.map((x) => x.id) } }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
   const who = await people(tx, [c.authorId, c.signedById]);
   const reg = c.signedById ? await tx.practitioner.findFirst({ where: { userId: c.signedById }, select: { regBody: true, regNo: true, regVerified: true } }) : null;
   return {
