@@ -819,3 +819,15 @@ Commit after each step, push at the end of each session.
 - **194 → one approval queue**: the owner's Approvals screen lists every kind with a kind filter; Pharmacy's tab is the
   pre-filtered view; nothing approvable in one place and invisible in the other.
 - Pre-pilot (pharmacist): verify the uploaded photo is a prescription — HANDOVER gap 12.
+
+## Phase 2 slice 3 — admin, session 1 — 04/10/2026
+
+### Decided by Kamrul (04/10/2026, before the session)
+- **Scope:** onboarding + go-live checklist, users & roles, masters (price list with versions, approval limits, dose-label
+  page), audit log with export. Not in this slice: print template designer, subscription, integrations, real SMS / bKash.
+- **New users get a one-time password** shown once to the admin; at first sign-in the user sets their own password and
+  PIN. An SMS invite replaces it when the real gateway lands.
+- **No Manager role yet** — owner / admin stay the approvers; a Manager comes later with a role-matrix ADR.
+- **A price change applies to bills created after it takes effect**; drafts and issued bills keep the price they were
+  made with (a draft shows "price changed since").
+- **Two sessions:** 1) backend; 2) the four screens, journey spec, reviews, hands-on.
