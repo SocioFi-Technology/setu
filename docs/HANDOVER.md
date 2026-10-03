@@ -571,7 +571,7 @@ change applies to bills made after it, two sessions. **Session 2:** `adm/wizard`
   doctor's; unpriced consultation lines; the same service merged at the old price; VAT-only changes unseen; a link
   retry by a switched-off method; filters overwriting each other; approver limit 0; pending users counted as approvers;
   stale plan; colliding service codes). Open: questions 195–200.
-- **Tests:** domain 266, api 226 (+15 `admin.test.ts`), `pnpm typecheck` 13/13. Playwright: see the commit.
+- **Tests:** domain 266, api 226 (+15 `admin.test.ts`), `pnpm typecheck` 13/13, Playwright 79 green twice in a row (no screen changed; the per-request session check runs under every journey).
 
 ## How to run the journeys on this PC
 - Playwright's Chromium is installed (02/10/2026): plain `pnpm e2e` runs the journeys against `pnpm dev` (staff :3000,
