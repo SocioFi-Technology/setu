@@ -592,3 +592,8 @@ Plan decisions (all as recommended unless noted):
   one test pending; correct a released value (doctor's inbox notice, "do not act on it" on v1); pathologist send-back;
   withdraw a test's results; retry a failed SMS; cancel an order from the signed note and see the bill line drop.
 
+### From the hands-on test of session 2 (03/10/2026)
+134. **Nav badge counts are sample numbers.** The badges in the side menu (Verification "4", Serial board "6",
+     Approvals "3", …) come from `access-matrix.json`, copied from the prototype, so they do not match the real
+     worklists (in Bangla "4" shows as "৪", which reads like an 8). Proposal: hide a badge until its module has a live
+     count, and add live counts slice by slice (lab: tests waiting for verify / validate / call-back).

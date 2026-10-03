@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 session 1 of 2 done; next A8–A11 session 2)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; next A12–A13)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -308,9 +308,47 @@ security and clinical-safety reviews and the hands-on test as the E2E lab techno
   migrations from `prisma migrate diff … --script` and apply with `pnpm --filter @setu/db migrate:deploy` (see
   `packages/db/prisma/migrations/README.md`).
 
+## Done (slice A8–A11, session 2 of 2, 03/10/2026) — lab screens, journey spec, reviews, hands-on ✅
+Slice A8–A11 is **done**. Kamrul's decisions on 114–133 and the session's hands-on list: open questions "Slice A8–A11
+session 2".
+- **Send-back and withdraw** (decisions 119, 133; ADR 0006 addendum): RESULT `return` (verified → preliminary,
+  pathologist, reason ≥10); withdraw results = entered-in-error with no replacement, the tube rejected as
+  results-withdrawn (SPECIMEN done → rejected), new tube + recollection SMS, doctor told if released; migration
+  `lab_return_withdraw`; `POST /v1/lab/orders/:id/return` and `/withdraw`.
+- **Screens** (`apps/staff/modules/lab/`, strings `locales/app/labApp.json`): `lab/collect`, `lab/accession`,
+  `lab/result`, `lab/verify`, `lab/report`, `lab/delivery` (see commit `be30326`); `cons/signed` gets "Cancel test"
+  before collection (the draft bill drops the line).
+- **Reviews:** clinical safety (3 high, 6 medium, 6 low) and security (0 high, 4 medium, 6 low) — all fixed in commit
+  `40e6d06` (migrations `lab_review_fixes` + `lab_review_fixes_order_guard`).
+- **Hands-on test (03/10/2026, on the Linux machine)** in the E2E clinic, patient "Walkthrough c71l" visit A-067 (CBC,
+  RBS, S. Electrolytes signed by the E2E doctor), driven in the browser with a screenshot per step (`e2e/walk-lab.mjs`,
+  untracked helper): labels printed (3) with the on-screen confirmation; EDTA collected → "Partial"; fluoride rejected
+  as haemolysed → Recollect + recollection SMS delivered; new fluoride tube labelled and collected; accession receive +
+  start for all three; K 6.9 typed twice → "HH · Critical high", Na/Cl Normal, RBS 11.2 "H · High"; technical verify
+  with PIN; as pathologist 01799000006 validation locked "log the call-back first", still locked after a no-answer
+  attempt, unlocked after reached + read-back; validated; release preview "PRELIMINARY — 1 of 3 tests pending" (CBC);
+  released → report LR/26/0008 v1 with the call-back legend; delivery: forced SMS failure → retried → delivered "2
+  attempts", patient app delivered, doctor's inbox recorded; correction of the released RBS 11.2 → 12.1 (old value
+  struck "Entered in error", new value "To verify"); Bangla + Bangla digits and tablet 1024 px checked.
+  Found and fixed: the recollection SMS line on `lab/collect` showed the raw phone (01913652797) and wrapped its "·" onto
+  its own line — now `L.phone` like Delivery. Noted, not fixed: the nav badge counts (e.g. Verification "4", shown as
+  "৪" in Bangla) are fixed sample numbers from the prototype, not live counts (gap 5, open question 134).
+  The send-back, withdraw and cancel-from-the-signed-note items of the list are covered by the journey spec (green).
+- **Tests:** domain 189, api 165, contracts 2, i18n 3; `pnpm typecheck` 13/13; Playwright **61** (51 + 10 `a8-a11`),
+  green on 03/10/2026 on the Linux machine (`--workers=2`, see below).
+
 ## How to run the journeys on this PC
 - Playwright's Chromium is installed (02/10/2026): plain `pnpm e2e` runs the journeys against `pnpm dev` (staff :3000,
   api :4000). The installed-Chrome route still works: `cd e2e` then `CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" pnpm exec playwright test -c pw.local.config.ts`.
+- **Linux machine (razer-kamrul, from 03/10/2026):** the repo now also runs at `~/Desktop/Setu Health APP/setu`. Other
+  projects hold 5432 / 6379 / 9000 / 3000 / 3001, so Setu has its own containers `setu-postgres` (127.0.0.1:5442,
+  volume `setu_pgdata`) and `setu-redis` (6390); the local `.env` points there and `API_PORT=4100` (the Windows `.env`
+  is kept as `.env.bak-windows`). A fresh database: `pnpm --filter @setu/db migrate:deploy`, set the `setu_app`
+  password (`ALTER ROLE setu_app PASSWORD '…'` from `DATABASE_URL_APP`), `pnpm db:seed`. Start: `cd apps/api` then
+  `API_PORT=4100 pnpm exec tsx watch src/server.ts`; `cd apps/staff` then `API_URL=http://localhost:4100 pnpm exec next
+  dev -p 3300` (patient app on 3301). Journeys: `STAFF_URL=http://localhost:3300 pnpm e2e --workers=2` — the default
+  worker count got headless Chromium OOM-killed (15 GB shared with other projects). `node_modules` copied from Windows
+  do not work on Linux: delete them and `pnpm install --frozen-lockfile`. Screenshot helper: `e2e/shot.mjs` (untracked).
 - Older dev servers were holding ports 3000/3001/3100 on 02/10/2026 (the one on 3100 had crashed). A journey server can
   now run beside them with its own build folder: `cd apps/staff` then `NEXT_DIST_DIR=.next-e2e pnpm exec next dev -p 3200`,
   and `STAFF_URL=http://localhost:3200` for Playwright. Next rewrites `apps/staff/tsconfig.json` and `next-env.d.ts`
@@ -368,9 +406,8 @@ security and clinical-safety reviews and the hands-on test as the E2E lab techno
 2. ~~`/slice A4-A5`~~ — done 02–03/10/2026 (three sessions). Kamrul to confirm open questions 68–82.
 3. ~~`/slice A6-A7`~~ — done 03/10/2026 (two sessions) + ~~billing follow-ups~~ done 03/10/2026 (ADR 0005). Kamrul to
    confirm open questions 107–113. Refunds (and voiding a bill that holds money) are a later slice.
-4. `/slice A8-A11` — lab: session 1 (backend) done 03/10/2026; **session 2 next** (screens, journey spec, reviews,
-   hands-on test). Kamrul to confirm open questions 114–133.
-5. `/slice A12-A13` — doctor app layout, printing; run all of Journey A.
+4. ~~`/slice A8-A11`~~ — done 03/10/2026 (two sessions). Kamrul to confirm open question 134.
+5. **Next:** `/slice A12-A13` — doctor app layout, printing; run all of Journey A.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

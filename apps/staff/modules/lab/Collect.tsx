@@ -147,7 +147,7 @@ function CollectVisit({ encounterId }: { encounterId: string }) {
             <b>{T("recollect_sms")}</b>
             {recollectSms.length === 0 ? <span className="t-small t-muted">{T("recollect_sms_none")}</span> : recollectSms.map((c) => (
               <span key={c.id} className="t-small" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                <Pill tone={COMM_TONE[c.status] ?? "neu"} icon="message-square">{T(`cs_${c.status}`)}</Pill><span className="num">{c.toPhone}</span> · {F.dateTime(c.completedAt ?? c.createdAt)}
+                <Pill tone={COMM_TONE[c.status] ?? "neu"} icon="message-square">{T(`cs_${c.status}`)}</Pill><span className="num">{c.toPhone ? L.phone(c.toPhone.slice(1)) : "—"} · {F.dateTime(c.completedAt ?? c.createdAt)}</span>
               </span>
             ))}
             {!v.patient.phone && <Callout tone="warn" icon="phone-off">{T("no_mobile_tell")}</Callout>}
