@@ -7,6 +7,7 @@ import { ENCOUNTER, assessVitals, bpComponents, dhakaDay, format, transition, ty
 import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
 import { branchOf, notFound } from "./frontdesk.js";
+import { deliverInApp } from "./lab.js";
 
 const dash = <T extends string>(s: string) => s.replace(/_/g, "-") as T;
 type DbEncounterStatus = "planned" | "arrived" | "triaged" | "in_progress" | "finished" | "cancelled" | "entered_in_error";
@@ -129,6 +130,11 @@ export async function recordVitals(tx: Tx, s: SessionData, encounterId: string, 
   });
   if (a.bmi !== null) rows.push({ ...base, code: "bmi", unit: "kg/m2", value: a.bmi, method: "calculated", interpretation: null });
   await tx.observation.createMany({ data: rows });
+  // Decision 47 / ADR 0007: a critical reading reaches the inbox of the visit's doctor (one item per critical value).
+  if (e.practitionerId) {
+    const crit = await tx.observation.findMany({ where: { batchId, interpretation: { in: ["HH", "LL"] } }, select: { id: true } });
+    for (const o of crit) await deliverInApp(tx, s, { patientId: e.patientId, encounterId: e.id }, { kind: "critical-vital", channel: "doctor_inbox", recipientUserId: e.practitionerId, observationId: o.id }, now);
+  }
   await tx.provenance.create({ data: {
     tenantId: s.tenantId, targetType: "Observation", targetId: batchId, activity: "record-vitals", agentId: s.userId, onBehalfOf: s.organizationId,
     source: "provider_verified", detail: { encounterId: e.id, role: s.role, deviceLabel: req.deviceLabel ?? null, outOfRange: a.outOfRange, critical: a.critical, confirmed: req.confirmed ?? [] } as object,

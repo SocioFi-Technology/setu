@@ -153,6 +153,62 @@
    ]
   },
   {
+   "key": "doc",
+   "name_bn": "ডাক্তার অ্যাপ",
+   "name_en": "Doctor app",
+   "icon": "smartphone",
+   "plan": "clinic",
+   "roles": [
+    "doctor"
+   ],
+   "screens": [
+    {
+     "key": "home",
+     "name_bn": "হোম",
+     "name_en": "Doctor home",
+     "icon": "house",
+     "roles": [
+      "doctor"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "queue",
+     "name_bn": "সিরিয়াল",
+     "name_en": "Queue",
+     "icon": "ticket",
+     "roles": [
+      "doctor"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
+     "key": "consult",
+     "name_bn": "দ্রুত পরামর্শ",
+     "name_en": "Quick consult",
+     "icon": "stethoscope",
+     "roles": [
+      "doctor"
+     ],
+     "plan": "clinic",
+     "needsPatient": true
+    },
+    {
+     "key": "inbox",
+     "name_bn": "রিপোর্ট ইনবক্স",
+     "name_en": "Results inbox",
+     "icon": "file-text",
+     "roles": [
+      "doctor"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    }
+   ]
+  },
+  {
    "key": "bill",
    "name_bn": "বিলিং ও অর্থ",
    "name_en": "Billing & finance",

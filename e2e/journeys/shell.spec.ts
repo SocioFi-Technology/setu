@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
    plan locks show as in the prototype, and the three page states work. Runs against `pnpm dev` (demo users). */
 const ROLES: [string, string, string[]][] = [
   ["01711000001", "receptionist", ["fd", "bill", "ipd", "net"]],
-  ["01711000002", "doctor", ["cons", "ipd", "er", "net"]],
+  ["01711000002", "doctor", ["cons", "doc", "ipd", "er", "net"]],
   ["01711000004", "nurse", ["fd", "ipd", "nur", "er"]],
   ["01711000005", "labTech", ["lab", "net"]],
   ["01711000006", "pathologist", ["lab"]],

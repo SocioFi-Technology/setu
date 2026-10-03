@@ -54,3 +54,13 @@ describe("bill/reconcile (ADR 0005: beyond the design handoff — the prototype 
     }
   });
 });
+
+describe("doc — the doctor app at phone width (slice A12–A13, sitemap 68–74)", () => {
+  it("doctors only, on every plan; home, queue, quick consult (with a patient) and the results inbox", () => {
+    for (const plan of ["clinic", "lite", "pro"] as const) {
+      for (const screen of ["home", "queue", "consult", "inbox"]) expect(authorize("doctor", plan, "doc", screen).allowed).toBe(true);
+      for (const role of ["receptionist", "nurse", "labTech", "pathologist", "cashier", "owner", "admin"] as const) expect(authorize(role, plan, "doc", "inbox").allowed).toBe(false);
+    }
+  });
+});
+

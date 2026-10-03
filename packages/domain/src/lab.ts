@@ -320,5 +320,5 @@ export function revokeBlockers(i: { orderStatus: OrderState; role: string; userI
 /* ───── messages ───── */
 /** i18n keys (labApp) of the SMS templates. Only `{facility}` may be filled in: never a value, a test, a diagnosis or a
     name (CLAUDE.md rule; checked by a test against the real strings). */
-export const SMS_TEMPLATES = { "report-ready": "sms_report_ready", recollect: "sms_recollect" } as const;
+export const SMS_TEMPLATES = { "report-ready": "sms_report_ready", recollect: "sms_recollect", "report-reviewed": "sms_report_reviewed" } as const;
 export const smsPlaceholdersOk = (template: string) => [...template.matchAll(/\{(\w+)\}/g)].every((m) => m[1] === "facility");

@@ -347,12 +347,12 @@ async function facilityNames(tx: Tx, s: SessionData) {
   return { en: o?.name ?? "", bn: o?.nameBn ?? o?.name ?? "" };
 }
 /** The fixed SMS text (bn, then en): the facility's name is the only thing filled in (CLAUDE.md, ADR 0006). */
-async function smsText(tx: Tx, s: SessionData, kind: keyof typeof SMS_TEMPLATES) {
+export async function smsText(tx: Tx, s: SessionData, kind: keyof typeof SMS_TEMPLATES) {
   const f = await facilityNames(tx, s), key = SMS_TEMPLATES[kind];
   return { templateKey: key, text: `${fill(t("bn", "labApp", key), { facility: f.bn })}\n${fill(t("en", "labApp", key), { facility: f.en })}` };
 }
 const target = (v: Visit) => ({ patientId: v.e.patientId, encounterId: v.e.id });
-const smsPhone = (phone: string | null | undefined) => (phone && /^1[3-9]\d{8}$/.test(phone) ? `0${phone}` : null);
+export const smsPhone = (phone: string | null | undefined) => (phone && /^1[3-9]\d{8}$/.test(phone) ? `0${phone}` : null);
 /** An SMS row in preparation; sent by dispatchSms after the write commits. */
 async function queueSms(tx: Tx, s: SessionData, v: Visit, kind: "recollect" | "report-ready", refs: { reportId?: string; specimenId?: string }) {
   const to = smsPhone(v.e.patient.phone);
@@ -365,7 +365,7 @@ async function queueSms(tx: Tx, s: SessionData, v: Visit, kind: "recollect" | "r
   return c.id;
 }
 /** An in-app delivery (doctor's inbox, patient app): written and completed at once, through the COMMUNICATION steps. */
-async function deliverInApp(tx: Tx, s: SessionData, to: { patientId: string; encounterId: string }, data: { kind: string; channel: "doctor_inbox" | "patient_app"; recipientUserId?: string | null; reportId?: string | null; serviceRequestId?: string | null; observationId?: string | null }, now: Date) {
+export async function deliverInApp(tx: Tx, s: SessionData, to: { patientId: string; encounterId: string }, data: { kind: string; channel: "doctor_inbox" | "patient_app"; recipientUserId?: string | null; reportId?: string | null; serviceRequestId?: string | null; observationId?: string | null }, now: Date) {
   const id = `com_${randomUUID()}`;
   await tx.communication.create({ data: {
     id, tenantId: s.tenantId, organizationId: s.organizationId, patientId: to.patientId, encounterId: to.encounterId, kind: data.kind, channel: data.channel,
