@@ -188,6 +188,8 @@ export type ProviderCallbackResponse = z.infer<typeof ProviderCallbackResponse>;
 /** ADR 0011: where the patient's return lands (the staff app's public /pay/result page; no patient details). */
 export const PayResultOutcome = z.enum(["paid", "not-paid", "ended", "expired", "pending", "unknown"]);
 export type PayResultOutcome = z.infer<typeof PayResultOutcome>;
+export const PayResultView = z.object({ outcome: PayResultOutcome, trxId: z.string().nullable(), amountPaisa: Paisa.nullable(), facilityEn: z.string().nullable(), facilityBn: z.string().nullable() });
+export type PayResultView = z.infer<typeof PayResultView>;
 export const FakeProviderEventKind = z.enum(["opened", "confirmed", "failed"]);
 
 /* ── receipts (session 2). A receipt is an immutable copy of what is printed; prints are logged (copy 0 = original,

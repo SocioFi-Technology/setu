@@ -20,6 +20,8 @@ export interface LinkRequest {
 /** `signature`: what an execute gateway returned at create; the patient's return must carry the same. */
 export interface PaymentLink { providerRef: string; url: string; expiresAt: Date; signature?: string | null }
 export interface ProviderStatus { providerRef: string; status: "pending" | "opened" | "confirmed" | "failed"; trxId: string | null; amountPaisa: number }
+/** `settled`: the gateway's answer decides the payment (Completed, or it refused this execute); otherwise ask again later. */
+export interface ExecuteAnswer { status: ProviderStatus | null; settled: boolean }
 export interface ProviderWebhook { eventId: string; providerRef: string; kind: ProviderEventKind; trxId: string | null; amountPaisa: number | null }
 
 export class InvalidSignature extends Error { constructor() { super("invalid provider signature"); } }
@@ -38,8 +40,8 @@ export interface PaymentProvider {
   /** Checks the signature over the raw body and returns the event; throws InvalidSignature. */
   parseWebhook(headers: Record<string, string | string[] | undefined>, rawBody: string): ProviderWebhook;
   /** Execute gateways only: move the money for this link, once. Never throws for a gateway answer: an error, a timeout
-      or "already completed" is followed by a query, and the result is what the gateway then reports (null: unknown). */
-  execute(providerRef: string): Promise<ProviderStatus | null>;
+      or "already completed" is followed by a query; `settled` says whether that answer decides the payment. */
+  execute(providerRef: string): Promise<ExecuteAnswer>;
   /** Refunds come with the refunds screen (not in slice A6–A7). */
   refund(providerRef: string, amountPaisa: number): Promise<never>;
 }

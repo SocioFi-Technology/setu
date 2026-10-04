@@ -59,22 +59,29 @@ export async function receiptVerifyLookup(code: string): Promise<{ facilityEn: s
 
 /* ── ADR 0011: wallet gateways ── */
 export interface GatewayTokenRow { idToken: string; idExpiresAt: Date; refreshToken: string; refreshExpiresAt: Date }
-const toToken = (h: { idToken: string; idExpiresAt: string; refreshToken: string; refreshExpiresAt: string } | null): GatewayTokenRow | null =>
-  h ? { idToken: h.idToken, idExpiresAt: utc(h.idExpiresAt), refreshToken: h.refreshToken, refreshExpiresAt: utc(h.refreshExpiresAt) } : null;
+/** The stored token (if any) and every grant / refresh attempt still on record (failed ones too). */
+export interface GatewayTokenState { token: GatewayTokenRow | null; renewals: Date[] }
+type RawToken = { idToken: string | null; idExpiresAt: string | null; refreshToken: string | null; refreshExpiresAt: string | null; renewals: string[] | null } | null;
 const utc = (s: string) => new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : `${s}Z`);
+const toState = (h: RawToken): GatewayTokenState => ({
+  token: h && h.idToken && h.idExpiresAt && h.refreshToken && h.refreshExpiresAt ? { idToken: h.idToken, idExpiresAt: utc(h.idExpiresAt), refreshToken: h.refreshToken, refreshExpiresAt: utc(h.refreshExpiresAt) } : null,
+  renewals: (h?.renewals ?? []).map(utc),
+});
 
 /** The gateway's shared token, renewed by at most one API process at a time: under a transaction-scoped advisory lock
-    `renew` sees the stored token (or null) and returns a new one to store, or null to keep it. */
-export async function withGatewayToken(provider: string, renew: (current: GatewayTokenRow | null) => Promise<GatewayTokenRow | null>): Promise<GatewayTokenRow | null> {
+    `renew` sees the stored state and returns the state to store (or null to keep it). What it returns is stored even
+    when it carries an error, so a failed renewal still counts against the gateway's limit. */
+export async function withGatewayToken<R extends GatewayTokenState>(provider: string, renew: (current: GatewayTokenState) => Promise<R | null>): Promise<GatewayTokenState | R> {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"gateway-token:" + provider}::text))`;
-    const rows = await tx.$queryRaw<{ hit: Parameters<typeof toToken>[0] }[]>`SELECT gateway_token_get(${provider}::text) AS hit`;
-    const current = toToken(rows[0]?.hit ?? null);
+    const rows = await tx.$queryRaw<{ hit: RawToken }[]>`SELECT gateway_token_get(${provider}::text) AS hit`;
+    const current = toState(rows[0]?.hit ?? null);
     const next = await renew(current);
     if (!next) return current;
-    await tx.$executeRaw`SELECT gateway_token_put(${provider}::text, ${next.idToken}::text, ${next.idExpiresAt}::timestamptz, ${next.refreshToken}::text, ${next.refreshExpiresAt}::timestamptz)`;
+    const t = next.token;
+    await tx.$executeRaw`SELECT gateway_token_put(${provider}::text, ${t?.idToken ?? null}::text, ${t?.idExpiresAt ?? null}::timestamptz, ${t?.refreshToken ?? null}::text, ${t?.refreshExpiresAt ?? null}::timestamptz, ${next.renewals}::timestamptz[])`;
     return next;
-  }, { timeout: 45_000, maxWait: 45_000 });
+  }, { timeout: 150_000, maxWait: 150_000 }); // a refused refresh, then a grant: two 30 s calls, with room (review)
 }
 
 /** The public short link: which tenant and payment a link code belongs to. SECURITY DEFINER; nothing else. */

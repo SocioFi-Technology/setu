@@ -163,14 +163,26 @@ function PayView({ id }: { id: string }) {
                 {p.reference && <span className="t-small">{B("pay_ref", { ref: p.reference })}</span>}
                 {p.status === "confirmed" && p.trxId && <span className="t-small" data-testid="trx">{B("pay_confirmed_by", { trx: p.trxId })}</span>}
                 {p.status === "failed" && p.failReason === "cancelled-by-cashier" && <span className="t-small">{B("pay_cancelled")}</span>}
-                {waiting && <span className="t-small" role="status">{B("pay_waiting", { last4: p.phoneLast4 ?? "—", at: M.time(p.linkExpiresAt) })}</span>}
+                {waiting && p.executing && <span className="t-small" role="status" data-testid="executing">{B("pay_executing")}</span>}
+                {waiting && !p.executing && <span className="t-small" role="status">{p.gateway === "execute" ? B("pay_waiting_bkash", { at: M.time(p.linkExpiresAt) }) : B("pay_waiting", { last4: p.phoneLast4 ?? "—", at: M.time(p.linkExpiresAt) })}</span>}
+                {waiting && !p.executing && p.payUrl && (
+                  // ADR 0011: bKash sends the patient nothing — they scan this QR (or open the short link) on their phone
+                  <span style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }} data-testid="pay-link">
+                    <img src={`/api/v1/payments/${p.id}/qr.svg?k=${encodeURIComponent(p.payUrl)}`} alt={B("pay_scan")} width={150} height={150} style={{ background: "#fff", padding: 6, borderRadius: 8, border: "1px solid var(--border-subtle)" }} data-testid="pay-qr" />
+                    <span style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                      <span className="t-small">{B("pay_scan")}</span>
+                      <a className="num t-small" href={p.payUrl} target="_blank" rel="noreferrer" data-testid="pay-url" style={{ wordBreak: "break-all" }}>{p.payUrl}</a>
+                      <span><Button size="sm" icon="copy" onClick={() => { void navigator.clipboard?.writeText(p.payUrl!).then(() => toast(B("pay_copied"), "check")).catch(() => undefined); }}>{B("pay_copy_link")}</Button></span>
+                    </span>
+                  </span>
+                )}
                 {p.status === "failed" && (
                   <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <span className="t-small">{B("pay_failed")}</span>
+                    <span className="t-small" data-testid="fail-reason">{B(p.failReason === "gateway-error" ? "pay_gateway_error" : p.failReason === "not-paid" ? "pay_not_paid" : p.failReason === "amount-mismatch" ? "pay_amount_mismatch" : "pay_failed")}</span>
                     <Button size="sm" icon="send" disabled={busy || !s.online} onClick={() => act(() => api.retry(p.id))}>{B("pay_retry")}</Button>
                   </span>
                 )}
-                {waiting && (
+                {waiting && !p.executing && (
                   <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                     <label className="field t-small">{B("pay_trx")}{" "}
                       <input className="input num" name={`trx-${p.id}`} style={{ width: 200 }} value={trx[p.id] ?? ""} onChange={(e) => setTrx((x) => ({ ...x, [p.id]: e.target.value.toUpperCase() }))} />
@@ -179,7 +191,7 @@ function PayView({ id }: { id: string }) {
                     <Button size="sm" variant="ghost" icon="x" data-testid="cancel-link" disabled={busy || !s.online || v.reconciling} onClick={() => act(() => api.cancel(p.id))}>{B("pay_cancel")}</Button>
                   </span>
                 )}
-                {waiting && FAKE_GATEWAY && (
+                {waiting && FAKE_GATEWAY && p.gateway === "callback" && (
                   <span style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", padding: 8, border: "1px dashed var(--border-subtle)", borderRadius: 8 }} data-testid="fake-gateway">
                     <span className="t-small t-muted">{B("fake_title")}</span>
                     <Button size="sm" onClick={() => act(() => api.fake(p.id, "confirmed"))}>{B("fake_pay")}</Button>

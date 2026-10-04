@@ -7,8 +7,9 @@ import type { PaymentState } from "./machines.js";
 
 /** Our window for paying a link (bKash keeps a paymentId 24 h; a counter waits minutes, not a day). */
 export const LINK_WINDOW_MINUTES = 30;
-/** The sweep fails a payment left without a link, or resolves an unanswered execute, after this long. */
-export const STUCK_MINUTES = 2;
+/** The sweep fails a payment left without a link, or resolves an unanswered execute, after this long — longer than the
+    worst case of a token renewal plus a create / execute (review: never decide while a call may still be in flight). */
+export const STUCK_MINUTES = 5;
 /** Our short link code: 10 characters with no look-alikes (0/O, 1/I/L). */
 export const LINK_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 export const LINK_CODE_LENGTH = 10;

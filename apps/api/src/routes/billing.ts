@@ -16,7 +16,7 @@ import { command, query } from "../command.js";
 import { config } from "../config.js";
 import { err, forbidden } from "../errors.js";
 import {
-  addDeskLine, addPayment, attachLink, payLinkTarget, returnFromGateway, approvalList, billingWorklist, cancelPayment, chargeDefinitions, createInvoice, decideApproval, decideReconcile, reconcileList, refreshOrders, requestNotBilled, voidInvoice, handleProviderEvent, invoiceView, removeDiscount, removeLine,
+  addDeskLine, addPayment, attachLink, payLinkTarget, payResult, returnFromGateway, approvalList, billingWorklist, cancelPayment, chargeDefinitions, createInvoice, decideApproval, decideReconcile, reconcileList, refreshOrders, requestNotBilled, voidInvoice, handleProviderEvent, invoiceView, removeDiscount, removeLine,
   invoiceHere, issueInvoice, requestDiscount, retryPayment, setLineQty, verifyTrx,
 } from "../modules/billing.js";
 import { createReceipt, printPdf, printReceipt, receiptList, receiptView } from "../modules/receipts.js";
@@ -40,7 +40,9 @@ export function clientKey(req: FastifyRequest): string {
   const fromProxy = /^(::1|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::ffff:127\.)/.test(req.ip);
   const xff = req.headers["x-forwarded-for"];
   const first = (Array.isArray(xff) ? xff[0] : xff)?.split(",")[0]?.trim();
-  return fromProxy && first ? first : req.ip;
+  // the right-most entry is the one our proxy added (security review, bKash slice): a caller can prepend anything
+  const last = (Array.isArray(xff) ? xff.at(-1) : xff)?.split(",").at(-1)?.trim();
+  return fromProxy && (last || first) ? (last || first)! : req.ip;
 }
 const isUnique = (e: unknown) => typeof e === "object" && e !== null && (e as { code?: string }).code === "P2002";
 
@@ -67,10 +69,19 @@ async function processCallback(req: FastifyRequest, payments: PaymentProvider, e
   }
 }
 
+/** ADR 0011: the patient's result page — only an outcome word and our own link code travel in the URL. */
+function resultUrl(outcome: string, code: string | null): string {
+  const to = new URL(`${config.publicAppUrl}/pay/result`);
+  to.searchParams.set("o", outcome);
+  if (code) to.searchParams.set("c", code);
+  return to.toString();
+}
+
 /** ADR 0011: after the payment committed as `initiated`, make its wallet link, then answer with the bill as it is now. */
 async function withLink(body: PaymentResponse, s: ReturnType<typeof requireSession>): Promise<PaymentResponse> {
   if (body.payment.status !== "initiated") return body;
-  await attachLink(s.tenantId, body.payment.id, new Date());
+  // the payment is committed: whatever happens here, answer with it (money review) — the sweep fails a link never made
+  try { await attachLink(s.tenantId, body.payment.id, new Date()); } catch (e) { console.error(`payment ${body.payment.id}: link not made`, e); return body; }
   const { forTenant } = await import("@setu/db");
   return forTenant(s.tenantId, async (tx) => {
     const p = await tx.payment.findFirst({ where: { id: body.payment.id }, select: { invoiceId: true } });
@@ -378,13 +389,7 @@ export async function billingRoutes(app: FastifyInstance) {
     const r = p && p.flow === "execute" && q.success
       ? await returnFromGateway(p, { ref: q.data.paymentID, status: q.data.status, signature: q.data.signature ?? null }, new Date(), req.ip)
       : { outcome: "unknown" as const, trxId: null, amountPaisa: null, facilityEn: null, facilityBn: null };
-    const to = new URL(`${config.publicAppUrl}/pay/result`);
-    to.searchParams.set("o", r.outcome);
-    if (r.trxId) to.searchParams.set("trx", r.trxId);
-    if (r.amountPaisa) to.searchParams.set("a", String(r.amountPaisa));
-    if (r.facilityEn) to.searchParams.set("f", r.facilityEn);
-    if (r.facilityBn) to.searchParams.set("fb", r.facilityBn);
-    return reply.header("cache-control", "no-store").redirect(to.toString(), 303);
+    return reply.header("cache-control", "no-store").redirect(resultUrl(r.outcome, r.code ?? null), 303);
   });
   app.get("/v1/pay/:code", publicLimit, async (req, reply) => {
     if (!config.dbEnabled) throw err(503, "db_off", "ডাটাবেস চালু নেই", "The database is not running");
@@ -393,11 +398,15 @@ export async function billingRoutes(app: FastifyInstance) {
     const r = isLinkCode(code) ? await payLinkTarget(code, new Date()) : { url: null, outcome: "unknown" as const, facilityEn: null, facilityBn: null };
     reply.header("cache-control", "no-store");
     if (r.url) return reply.redirect(r.url, 302);
-    const to = new URL(`${config.publicAppUrl}/pay/result`);
-    to.searchParams.set("o", r.outcome);
-    if (r.facilityEn) to.searchParams.set("f", r.facilityEn);
-    if (r.facilityBn) to.searchParams.set("fb", r.facilityBn);
-    return reply.redirect(to.toString(), 303);
+    return reply.redirect(resultUrl(r.outcome, r.url === null && r.outcome !== "unknown" ? code : null), 303);
+  });
+  /* the result page asks the server (by the link code) — the facility, amount and TrxID never ride in the URL */
+  app.get("/v1/pay/:code/result", publicLimit, async (req, reply) => {
+    if (!config.dbEnabled) throw err(503, "db_off", "ডাটাবেস চালু নেই", "The database is not running");
+    const code = String((req.params as { code: string }).code ?? "").toUpperCase();
+    const { isLinkCode } = await import("@setu/domain");
+    reply.header("cache-control", "no-store");
+    return isLinkCode(code) ? payResult(code, new Date()) : { outcome: "unknown", trxId: null, amountPaisa: null, facilityEn: null, facilityBn: null };
   });
   /* the cashier's QR of the short link (the patient scans it with their phone) */
   app.get("/v1/payments/:id/qr.svg", async (req, reply) => {

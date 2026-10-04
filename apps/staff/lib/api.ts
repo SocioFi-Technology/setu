@@ -5,7 +5,7 @@ import type {
   CountShiftRequest, DashboardView, DrillView, MyShiftResponse, ShiftList, ShiftView,
   AckResponse, DocPrintRequest, DocPrintResponse, DocPrintView, InboxView, LrVerifyResponse, RxVerifyResponse,
   CallbackRequest, LabReportView, LabVisitView, LabWorklist, ResultEntryRequest, RevokeResponse, SpecimenRejectRequest,
-  ApprovalDecisionResponse, ApprovalList, ReconcileDecisionResponse, ReconcileList, BillingWorklist, ChargeDefinitionList, DiscountRequest, DiscountResponse, InvoiceView, NewPaymentRequest, PaymentResponse, PrintRequest, PrintResponse, ReceiptList, ReceiptView, VerifyResponse,
+  ApprovalDecisionResponse, ApprovalList, ReconcileDecisionResponse, ReconcileList, BillingWorklist, ChargeDefinitionList, DiscountRequest, DiscountResponse, InvoiceView, NewPaymentRequest, PaymentResponse, PrintRequest, PrintResponse, ReceiptList, ReceiptView, VerifyResponse, PayResultView,
   AiDraftResponse, AllergyOptions, AllergyView, CompositionView, ConsultationView, ConsultWorklist, Icd11Search, MedicineSearch, RecordAllergyRequest, SaveDraftRequest, SignRequest, TestList,
   ApiError, Capabilities, VitalsBatchRequest, VitalsBatchResponse, VitalsView, VitalsWorklist, CreateVisitResponse, MatchDecisionResponse, MatchPreviewResponse, Me, PatientMatches, PatientSearchResponse, QueueItem, QueueResponse, RegisterResponse, RegistrationInput, ReviewOutcomeResponse, ReviewQueueResponse,
 } from "@setu/contracts";
@@ -126,6 +126,8 @@ export const bill = {
   receipt: (id: string) => call<ReceiptView>("GET", `/v1/receipts/${enc(id)}`),
   print: (id: string, body: PrintRequest, key: string) => call<PrintResponse>("POST", `/v1/receipts/${enc(id)}/print`, body, key),
   verify: (code: string) => call<VerifyResponse>("GET", `/v1/verify/rc/${enc(code)}`),
+  /** ADR 0011: the patient's payment result page (no login) */
+  payResult: (code: string) => call<PayResultView>("GET", `/v1/pay/${enc(code)}/result`),
 };
 
 /* Lab (slice A8–A11, ADR 0006). Collect / receive / start / reject go through the outbox when offline (decision D8):

@@ -2,6 +2,7 @@
    Prints the .env settings that point an API at it. Not part of the API build that runs in production. */
 import { BkashSandboxStandIn, STANDIN_CREDENTIALS } from "../adapters/payments/bkash-standin.js";
 
+if (process.env.NODE_ENV === "production") throw new Error("the bKash stand-in is for dev and tests only");
 const port = Number(process.env.BKASH_STANDIN_PORT ?? 4199);
 const s = new BkashSandboxStandIn();
 const api = await s.start({ port, host: process.env.BKASH_STANDIN_HOST ?? "127.0.0.1" });

@@ -19,7 +19,7 @@ import type { ApprovalItem, ApprovalList, BillingWorklist, ChargeDefinitionList,
 import type { Tx } from "@setu/db";
 import {
   APPROVAL, INVOICE, PAYMENT, approvalBlockers, billKindsFor, type Plan, type Role, billTotals, checkNewPayment, decideProviderEvent, dhakaDay, discountDecision, discountLimit, discountToPaisa,
-  LINK_CODE_ALPHABET, LINK_CODE_LENGTH, answerOutcome, decideReturn, invoiceEventAfterConfirm, isWallet, type ReturnStatus, issueBlockers, notBilledBlockers, paidBy, paymentSummary, reconcileApplyBlockers, syncOrderLines, transition, voidBlockers, type BillingSettings, type DiscountCategory, type InvoiceState,
+  LINK_CODE_ALPHABET, STUCK_MINUTES, LINK_CODE_LENGTH, answerOutcome, decideReturn, invoiceEventAfterConfirm, isWallet, type ReturnStatus, issueBlockers, notBilledBlockers, paidBy, paymentSummary, reconcileApplyBlockers, syncOrderLines, transition, voidBlockers, type BillingSettings, type DiscountCategory, type InvoiceState,
   type PaymentMethod, type PaymentRow, type PaymentState, type ProviderEventKind,
 } from "@setu/domain";
 import { randomBytes } from "node:crypto";
@@ -61,7 +61,7 @@ interface ReconcileDetail { providerRef: string | null; trxId: string | null; am
 
 /** A wallet payment's own gateway (the one that made its link); 503 when this API no longer runs it. */
 export function providerOf(p: { provider: string | null; method: string }): PaymentProvider {
-  const pr = p.provider ? providerByName(p.provider) : providerFor(p.method as "bkash" | "nagad");
+  const pr = p.provider ? providerByName(p.provider) : isWallet(p.method as PaymentMethod) ? providerFor(p.method as "bkash" | "nagad") : null;
   if (!pr) throw err(503, "gateway_off", "এই পেমেন্টের গেটওয়ে এখন চালু নেই", "This payment's gateway is not running on this server");
   return pr;
 }
@@ -728,6 +728,8 @@ export async function addPayment(tx: Tx, s: SessionData, invoiceId: string, req:
     throw err(check.code === "amount_over_open" ? 409 : 400, check.code, bn, en, { field });
   }
   const wallet = isWallet(req.method);
+  const gateway = wallet ? providerFor(req.method as "bkash" | "nagad") : null;
+  if (wallet && !gateway) throw err(422, "method_unavailable", "এই পেমেন্ট মাধ্যম এখনো চালু করা হয়নি — নগদ বা কার্ডে নিন", "This payment method is not connected yet — take cash or card", { field: "method" });
   let phone: string | null = null;
   if (wallet) {
     // A walk-in OTC buyer has no patient record — the phone they gave at the counter.
@@ -737,7 +739,7 @@ export async function addPayment(tx: Tx, s: SessionData, invoiceId: string, req:
   const created = await tx.payment.create({ data: {
     tenantId: s.tenantId, organizationId: s.organizationId, invoiceId: inv.id, patientId: inv.patientId, method: req.method, status: "initiated", amountPaisa: req.amountPaisa,
     tenderedPaisa: req.method === "cash" ? req.tenderedPaisa! : null, changePaisa: req.method === "cash" ? check.changePaisa : null,
-    reference: req.method === "card" || req.method === "bank" ? req.reference!.trim() : null, provider: wallet ? providerFor(req.method as "bkash" | "nagad").name : null,
+    reference: req.method === "card" || req.method === "bank" ? req.reference!.trim() : null, provider: gateway?.name ?? null,
     phone: wallet ? phone : null, createdById: s.userId, createdAt: now, statusAt: now,
   } });
   // a wallet payment stays `initiated` here; the route makes its link after this transaction commits (attachLink)
@@ -793,6 +795,16 @@ export async function verifyTrx(tx: Tx, s: SessionData, paymentId: string, trxId
     if (open && (open.detail as unknown as ReconcileDetail).providerRef === st.providerRef) return { inv, payment: p, outcome: "earlier-link" };
     await tx.task.create({ data: {
       tenantId: s.tenantId, kind: RECONCILE_TASK, status: "requested", focusId: p.id, reason: "TrxID paid on an earlier, replaced payment link", requestedById: s.userId, requestedAt: now,
+      detail: { providerRef: st.providerRef, trxId: st.trxId, amountPaisa: st.amountPaisa, paymentAmountPaisa: p.amountPaisa, invoiceId: inv.id } as object,
+    } });
+    return { inv, payment: p, outcome: "earlier-link" };
+  }
+  // money review H2: the gateway completed this payment's own link after we had failed it — never lost, never applied
+  // silently: the owner reconciles it (the cashier must not take the money again)
+  if (st && st.status === "confirmed" && p.status === "failed" && st.providerRef === p.providerRef) {
+    const open = await tx.task.findFirst({ where: { kind: RECONCILE_TASK, focusId: p.id, status: "requested" } });
+    if (!open) await tx.task.create({ data: {
+      tenantId: s.tenantId, kind: RECONCILE_TASK, status: "requested", focusId: p.id, reason: "TrxID paid on a payment marked failed", requestedById: s.userId, requestedAt: now,
       detail: { providerRef: st.providerRef, trxId: st.trxId, amountPaisa: st.amountPaisa, paymentAmountPaisa: p.amountPaisa, invoiceId: inv.id } as object,
     } });
     return { inv, payment: p, outcome: "earlier-link" };
@@ -890,7 +902,7 @@ export async function handleProviderEvent(tx: Tx, provider: PaymentProvider, ten
 
 /* ───── ADR 0011: execute gateways (bKash) — the patient's return, the short link, the sweep ───── */
 type Outcome = import("@setu/contracts").PayResultOutcome;
-export interface ReturnResult { outcome: Outcome; trxId: string | null; amountPaisa: number | null; facilityEn: string | null; facilityBn: string | null }
+export interface ReturnResult { outcome: Outcome; trxId: string | null; amountPaisa: number | null; facilityEn: string | null; facilityBn: string | null; code?: string | null }
 
 async function facilityOf(tx: Tx, organizationId: string) {
   const o = await tx.organization.findFirst({ where: { id: organizationId }, select: { name: true, nameBn: true } });
@@ -900,9 +912,10 @@ function audit(tx: Tx, tenantId: string, p: Pay, provider: PaymentProvider, deta
   return tx.auditEvent.create({ data: { tenantId, organizationId: p.organizationId, userId: null, role: null, action, entity: "Payment", entityId: p.id, patientId: p.patientId, ip, detail: { actor: `provider:${provider.name}`, ...detail } as object } });
 }
 
-/** Apply what the gateway said after our execute (or a query) to a claimed payment, once (ProviderEvent
-    `execute:<ref>`). `afterExecute`: the paymentId is spent, so anything but Completed fails the payment. */
-async function applyAnswer(tenantId: string, provider: PaymentProvider, paymentId: string, ref: string, st: ProviderStatus | null, afterExecute: boolean, now: Date, ip: string | null): Promise<ReturnResult> {
+/** Apply what the gateway said to a claimed payment, once (ProviderEvent `execute:<ref>`). `settled`: the answer decides
+    it — anything but Completed fails the payment; unsettled (a timeout, no answer), only Completed is applied and the
+    claim stays for the sweep (money review: never fail a payment the gateway may have completed). */
+async function applyAnswer(tenantId: string, provider: PaymentProvider, paymentId: string, ref: string, st: ProviderStatus | null, settled: boolean, now: Date, ip: string | null): Promise<ReturnResult> {
   const { forTenant } = await import("@setu/db");
   return forTenant(tenantId, async (tx) => {
     const p0 = (await tx.payment.findFirst({ where: { id: paymentId } }))!;
@@ -910,10 +923,22 @@ async function applyAnswer(tenantId: string, provider: PaymentProvider, paymentI
     const p = (await tx.payment.findFirst({ where: { id: paymentId } }))!;
     const inv = (await tx.invoice.findFirst({ where: { id: p.invoiceId } }))!;
     const fac = await facilityOf(tx, p.organizationId);
-    const result = (outcome: Outcome, trxId: string | null = null): ReturnResult => ({ outcome, trxId, amountPaisa: p.amountPaisa, ...fac });
-    if (p.status === "confirmed") return result("paid", p.trxId);
-    if (p.providerRef !== ref || !PENDING_DB.includes(p.status)) return result("ended");
-    const a = answerOutcome(st ? { transactionStatus: st.status === "confirmed" ? "Completed" : "Initiated", amountPaisa: st.amountPaisa, trxId: st.trxId } : null, p.amountPaisa, afterExecute);
+    const result = (outcome: Outcome, trxId: string | null = null): ReturnResult => ({ outcome, trxId, amountPaisa: p.amountPaisa, ...fac, code: p.linkCode });
+    if (p.status === "confirmed" && p.providerRef === ref) return result("paid", p.trxId);
+    if (p.providerRef !== ref || !PENDING_DB.includes(p.status)) {
+      // security review: bKash completed money on a payment we no longer wait for — never lost: the owner reconciles it
+      if (st?.status === "confirmed" && st.trxId && !(await tx.providerEvent.findUnique({ where: { provider_eventId: { provider: provider.name, eventId: `execute:${ref}` } } }))) {
+        await tx.task.create({ data: { tenantId, kind: RECONCILE_TASK, status: "requested", focusId: p.id, reason: "money completed by the provider on a payment no longer waiting", requestedById: `provider:${provider.name}`, requestedAt: now,
+          detail: { providerRef: ref, trxId: st.trxId, amountPaisa: st.amountPaisa, paymentAmountPaisa: p.amountPaisa, invoiceId: inv.id } as object } });
+        await tx.providerEvent.create({ data: { tenantId, provider: provider.name, eventId: `execute:${ref}`, providerRef: ref, kind: "confirmed", paymentId: p.id, outcome: "refused", reason: "late-confirm", trxId: st.trxId, amountPaisa: st.amountPaisa, receivedAt: now } });
+        await audit(tx, tenantId, p, provider, { kind: "confirmed", outcome: "refused", reason: "late-confirm", trxId: st.trxId }, ip);
+        return result("paid", st.trxId);
+      }
+      return result(p.status === "confirmed" ? "paid" : "ended", p.status === "confirmed" ? p.trxId : null);
+    }
+    // decided once: a later return or sweep finds the event and changes nothing (money review M2)
+    if (await tx.providerEvent.findUnique({ where: { provider_eventId: { provider: provider.name, eventId: `execute:${ref}` } } })) return result("pending");
+    const a = answerOutcome(st ? { transactionStatus: st.status === "confirmed" ? "Completed" : "Initiated", amountPaisa: st.amountPaisa, trxId: st.trxId } : null, p.amountPaisa, settled);
     if (a.outcome === "pending") return result("pending");
     const kind = a.outcome === "confirm" ? "confirmed" : "failed";
     const event = { tenantId, provider: provider.name, eventId: `execute:${ref}`, providerRef: ref, kind, paymentId: p.id, trxId: st?.trxId ?? null, amountPaisa: st?.amountPaisa ?? null, receivedAt: now };
@@ -922,6 +947,7 @@ async function applyAnswer(tenantId: string, provider: PaymentProvider, paymentI
       await tx.task.create({ data: { tenantId, kind: RECONCILE_TASK, status: "requested", focusId: p.id, reason: "money taken on a bill that takes no payments", requestedById: `provider:${provider.name}`, requestedAt: now,
         detail: { providerRef: ref, trxId: a.trxId, amountPaisa: st!.amountPaisa, paymentAmountPaisa: p.amountPaisa, invoiceId: inv.id } as object } });
       await tx.providerEvent.create({ data: { ...event, outcome: "refused", reason: "bill-not-payable" } });
+      await tx.payment.update({ where: { id: p.id }, data: { executeClaimedAt: null } });
       await audit(tx, tenantId, p, provider, { kind, outcome: "refused", reason: "bill-not-payable", trxId: a.trxId }, ip);
       return result("paid", a.trxId);
     }
@@ -932,11 +958,16 @@ async function applyAnswer(tenantId: string, provider: PaymentProvider, paymentI
       return result("paid", a.trxId);
     }
     if (a.outcome === "mismatch") {
+      // money moved, but not the amount asked: the payment stays pending (its amount reserved) and the owner reconciles
       await tx.task.create({ data: { tenantId, kind: RECONCILE_TASK, status: "requested", focusId: p.id, reason: "amount reported by the provider differs from the payment", requestedById: `provider:${provider.name}`, requestedAt: now,
         detail: { providerRef: ref, trxId: st?.trxId ?? null, amountPaisa: st?.amountPaisa ?? null, paymentAmountPaisa: p.amountPaisa, invoiceId: inv.id } as object } });
+      await tx.payment.update({ where: { id: p.id }, data: { executeClaimedAt: null } });
+      await tx.providerEvent.create({ data: { ...event, outcome: "refused", reason: "amount-mismatch" } });
+      await audit(tx, tenantId, p, provider, { kind, outcome: "refused", reason: "amount-mismatch", trxId: st?.trxId ?? null }, ip);
+      return result("pending");
     }
     const status = undash<"failed">(transition("PAYMENT", PAYMENT, dash<PaymentState>(p.status), "fail"));
-    await tx.payment.update({ where: { id: p.id }, data: { status, failReason: a.outcome === "mismatch" ? "amount-mismatch" : "not-paid", statusAt: now } });
+    await tx.payment.update({ where: { id: p.id }, data: { status, failReason: "not-paid", statusAt: now } });
     await tx.providerEvent.create({ data: { ...event, outcome: "applied", reason: a.outcome } });
     await audit(tx, tenantId, p, provider, { kind, outcome: "applied", reason: a.outcome, to: "failed" }, ip, "update");
     return result("not-paid");
@@ -969,16 +1000,16 @@ export async function returnFromGateway(provider: PaymentProvider, q: { ref: str
     return { action: d.action, reason: d.action === "refuse" ? d.reason : null, p, fac };
   });
   if (!step) return none;
-  const base = { trxId: null, amountPaisa: step.p.amountPaisa, ...step.fac };
+  const base = { trxId: null, amountPaisa: step.p.amountPaisa, ...step.fac, code: step.p.providerRef === q.ref ? step.p.linkCode : null };
   if (step.action === "refuse") {
     const outcome: Outcome = step.reason === "already-paid" ? "paid" : step.reason === "expired" ? "expired" : step.reason === "signature" ? "unknown" : "ended";
     return { ...base, outcome, trxId: step.reason === "already-paid" ? step.p.trxId : null };
   }
   if (step.action === "execute") {
-    let st: ProviderStatus | null = null;
-    try { st = await provider.execute(q.ref); }
-    catch { return { ...base, outcome: "pending" }; } // e.g. the token: the sweep asks again in a minute
-    return applyAnswer(hit.tenantId, provider, step.p.id, q.ref, st, true, now, ip);
+    let ans: Awaited<ReturnType<PaymentProvider["execute"]>>;
+    try { ans = await provider.execute(q.ref); }
+    catch { return { ...base, outcome: "pending" }; } // e.g. the token: the claim stays, the sweep asks again
+    return applyAnswer(hit.tenantId, provider, step.p.id, q.ref, ans.status, ans.settled, now, ip);
   }
   // query: a failure / cancel, or a repeat while an execute is claimed
   let st: ProviderStatus | null = null;
@@ -989,6 +1020,22 @@ export async function returnFromGateway(provider: PaymentProvider, q: { ref: str
   }
   // failure / cancel: the patient did not pay on this link → PAYMENT fail (Completed would be applied)
   return applyAnswer(hit.tenantId, provider, step.p.id, q.ref, st, true, now, ip);
+}
+
+/** `GET /v1/pay/:code/result`: what the patient's result page shows — from the server, never from the URL. */
+export async function payResult(code: string, now: Date): Promise<{ outcome: Outcome; trxId: string | null; amountPaisa: number | null; facilityEn: string | null; facilityBn: string | null }> {
+  const { forTenant, paymentLinkLookup } = await import("@setu/db");
+  const hit = await paymentLinkLookup(code);
+  if (!hit) return { outcome: "unknown", trxId: null, amountPaisa: null, facilityEn: null, facilityBn: null };
+  return forTenant(hit.tenantId, async (tx) => {
+    const p = (await tx.payment.findFirst({ where: { id: hit.paymentId } }))!;
+    const base = { trxId: null, amountPaisa: p.amountPaisa, ...(await facilityOf(tx, p.organizationId)) };
+    if (p.status === "confirmed") return { ...base, outcome: "paid" as const, trxId: p.trxId };
+    if (p.status === "failed") return { ...base, outcome: "not-paid" as const };
+    if (p.executeClaimedAt) return { ...base, outcome: "pending" as const };
+    if (p.linkExpiresAt && p.linkExpiresAt.getTime() < now.getTime()) return { ...base, outcome: "expired" as const };
+    return { ...base, outcome: "pending" as const };
+  });
 }
 
 /** `GET /v1/pay/:code`: where the short link goes — the gateway's page while the payment waits on this link, else
@@ -1009,7 +1056,7 @@ export async function payLinkTarget(code: string, now: Date): Promise<{ url: str
 
 /** Every minute (ADR 0011): a wallet payment left `initiated` without a link (the API stopped between the commit and
     the gateway) is failed; an execute claimed and never answered is settled by asking the gateway. */
-export async function sweepPayments(now: Date, stuckMinutes = 2): Promise<{ failed: number; settled: number }> {
+export async function sweepPayments(now: Date, stuckMinutes = STUCK_MINUTES): Promise<{ failed: number; settled: number }> {
   const { forTenant, paymentSweepTargets } = await import("@setu/db");
   let failed = 0, settled = 0;
   for (const t of await paymentSweepTargets(new Date(now.getTime() - stuckMinutes * 60_000))) {
@@ -1026,8 +1073,10 @@ export async function sweepPayments(now: Date, stuckMinutes = 2): Promise<{ fail
       });
       if (!p?.executeClaimedAt || !p.providerRef) continue;
       const provider = providerOf(p);
-      const st = await provider.verify({ providerRef: p.providerRef });
-      const r = await applyAnswer(t.tenantId, provider, p.id, p.providerRef, st, true, now, null);
+      // past the worst case of one execute: Completed confirms; bKash's Initiated means it was never executed (docs);
+      // no answer decides nothing
+      const st = await provider.verify({ providerRef: p.providerRef }).catch(() => null);
+      const r = await applyAnswer(t.tenantId, provider, p.id, p.providerRef, st, st !== null, now, null);
       if (r.outcome === "paid" || r.outcome === "not-paid") settled++;
     } catch (e) { console.error(`payments sweep ${t.tenantId}/${t.paymentId} failed`, e); }
   }

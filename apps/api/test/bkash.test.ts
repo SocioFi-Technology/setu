@@ -29,6 +29,8 @@ type Who = keyof typeof USERS;
 beforeAll(async () => {
   app = await buildApp();
   if (!db) return;
+  // a fresh stand-in knows no earlier token and no earlier renewals: start this run's shared token record empty
+  await db.prisma.$executeRaw`SELECT gateway_token_put('bkash', NULL, NULL, NULL, NULL, '{}'::timestamptz[])`;
   for (const [k, phone] of Object.entries(USERS)) {
     const r = await app.inject({ method: "POST", url: "/v1/auth/login", payload: { identifier: phone, password: "setu1234" } });
     const c = r.headers["set-cookie"]; cookies[k] = Array.isArray(c) ? c[0]! : (c as string);
@@ -78,6 +80,9 @@ async function returnWith(paymentId: string, status: "success" | "failure" | "ca
   expect(to.origin + to.pathname).toBe("https://setu.test/pay/result");
   return Object.fromEntries(to.searchParams);
 }
+const creds = { appKey: STANDIN_CREDENTIALS.appKey, appSecret: STANDIN_CREDENTIALS.appSecret, username: STANDIN_CREDENTIALS.username, password: STANDIN_CREDENTIALS.password };
+/** another API process: its own provider, the same stored token */
+const outside = () => new BkashProvider({ baseUrl: apiUrl, ...creds, callbackUrl: "https://setu.test/x" }, async (renew) => db!.withGatewayToken("bkash", renew));
 const executes = (ref: string) => standIn.calls.filter((c) => c.path === "payment/execute" && c.body.paymentId === ref).length;
 
 describe.runIf(db)("ADR 0011 bKash tokenized checkout", () => {
@@ -106,8 +111,11 @@ describe.runIf(db)("ADR 0011 bKash tokenized checkout", () => {
     standIn.authorise(p.providerRef!);
     const r = await returnWith(payment.id, "success");
     expect(r.o).toBe("paid");
-    expect(r.trx).toMatch(/^TRX/);
-    expect(Number(r.a)).toBe(bill.total);
+    expect(Object.keys(r).sort()).toEqual(["c", "o"]); // nothing else rides in the URL
+    const shown = (await get(`/v1/pay/${r.c}/result`, null)).json();
+    expect(shown).toMatchObject({ outcome: "paid", amountPaisa: bill.total, facilityEn: expect.any(String) });
+    expect(shown.trxId).toMatch(/^TRX/);
+    r.trx = shown.trxId;
     const after = (await row(payment.id))!;
     expect(after).toMatchObject({ status: "confirmed", trxId: r.trx, confirmedById: null });
     expect((await inTenant((tx) => tx.invoice.findFirst({ where: { id: bill.id } })))!.status).toBe("balanced");
@@ -179,7 +187,7 @@ describe.runIf(db)("ADR 0011 bKash tokenized checkout", () => {
   it("while an execute is under way the cashier cannot cancel; one never answered is settled by the sweep", async () => {
     const { payment } = await bkashPayment();
     const p = (await row(payment.id))!;
-    await inTenant((tx) => tx.payment.update({ where: { id: p.id }, data: { executeClaimedAt: new Date(Date.now() - 5 * 60_000) } }));
+    await inTenant((tx) => tx.payment.update({ where: { id: p.id }, data: { executeClaimedAt: new Date(Date.now() - 6 * 60_000) } }));
     const c = await post(`/v1/payments/${payment.id}/cancel`);
     expect(c.statusCode).toBe(409);
     expect(c.json().code).toBe("executing");
@@ -194,20 +202,43 @@ describe.runIf(db)("ADR 0011 bKash tokenized checkout", () => {
     expect(payment).toMatchObject({ status: "failed", failReason: "gateway-error", payUrl: null });
     const second = await post(`/v1/invoices/${bill.id}/payments`, { method: "cash", amountPaisa: bill.total, tenderedPaisa: bill.total });
     expect(second.statusCode, second.body).toBe(201);
-    // the API stopped between the commit and the gateway: initiated, no link, 3 minutes old
+    // the API stopped between the commit and the gateway: initiated, no link, 6 minutes old
     const b2 = await issuedBill();
     const pat = (await inTenant((tx) => tx.invoice.findFirst({ where: { id: b2.id }, select: { patientId: true } })))!.patientId;
-    const stuck = await inTenant((tx) => tx.payment.create({ data: { tenantId: "t_e2e", organizationId: "o_e2e", invoiceId: b2.id, patientId: pat, method: "bkash", status: "initiated", amountPaisa: b2.total, provider: "bkash", phone: "1712345678", createdById: "u_e2e_cashier", statusAt: new Date(Date.now() - 3 * 60_000) } }));
+    const stuck = await inTenant((tx) => tx.payment.create({ data: { tenantId: "t_e2e", organizationId: "o_e2e", invoiceId: b2.id, patientId: pat, method: "bkash", status: "initiated", amountPaisa: b2.total, provider: "bkash", phone: "1712345678", createdById: "u_e2e_cashier", statusAt: new Date(Date.now() - 6 * 60_000) } }));
     await sweepPayments(new Date());
     expect((await row(stuck.id))!).toMatchObject({ status: "failed", failReason: "gateway-error" });
+  });
+
+  it("money review: bKash completing a payment we had failed is never lost — the TrxID check opens the owner's reconciliation", async () => {
+    const { payment } = await bkashPayment();
+    expect((await returnWith(payment.id, "cancel")).o).toBe("not-paid");
+    const p = (await row(payment.id))!;
+    // somehow executed at bKash anyway (e.g. an execute in flight when it was failed)
+    standIn.authorise(p.providerRef!);
+    const ans = await outside().execute(p.providerRef!);
+    expect(ans.status?.status).toBe("confirmed");
+    const r = await post(`/v1/payments/${payment.id}/verify-trx`, { trxId: ans.status!.trxId });
+    expect(r.statusCode, r.body).toBe(200);
+    expect(r.json().notice).toBe("paid-on-earlier-link");
+    expect(await inTenant((tx) => tx.task.count({ where: { kind: "payment-reconciliation", focusId: payment.id, status: "requested" } }))).toBe(1);
+  });
+
+  it("money review: past two renewals an hour the provider refuses locally instead of calling bKash", async () => {
+    const calls = () => standIn.calls.filter((c) => c.path.startsWith("auth/")).length;
+    const before = calls();
+    const now = new Date();
+    const p = new BkashProvider({ baseUrl: apiUrl, ...creds, callbackUrl: "https://setu.test/x" },
+      async (renew) => { const out = await renew({ token: null, renewals: [now, now] }); return out ?? { token: null, renewals: [] }; });
+    await expect(p.createLink({ method: "bkash", amountPaisa: 100, reference: "r", invoiceNumber: "I", phone: "1712345678", attempt: 1 })).rejects.toThrow(/renewal limit/);
+    expect(calls()).toBe(before);
   });
 
   it("one token for every process: a restarted provider reuses the stored token; a refused token is renewed once", async () => {
     const grants = () => standIn.calls.filter((c) => c.path.startsWith("auth/")).length;
     const before = grants();
     expect(before).toBeLessThanOrEqual(2); // this whole file: one grant (plus one renewal if a stored token was stale)
-    const fresh = new BkashProvider({ baseUrl: apiUrl, appKey: STANDIN_CREDENTIALS.appKey, appSecret: STANDIN_CREDENTIALS.appSecret, username: STANDIN_CREDENTIALS.username, password: STANDIN_CREDENTIALS.password, callbackUrl: "https://setu.test/x" },
-      async (renew) => db!.withGatewayToken("bkash", renew));
+    const fresh = outside();
     const link = await fresh.createLink({ method: "bkash", amountPaisa: 12_345, reference: "ref-token-test", invoiceNumber: "INV/T", phone: "1712345678", attempt: 1 });
     expect(link.providerRef).toMatch(/^TR0011/);
     expect(grants()).toBe(before);
