@@ -10,7 +10,7 @@ import type { UserCredentialResponse, UserList, UserView } from "@setu/contracts
 import { Button, Callout, Card, Dialog, PageState, Pill, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
 import { adm } from "../../lib/api";
 import { useSession } from "../../lib/session";
-import { useA, useErr, useFmt } from "./common";
+import { renewKey, useA, useErr, useFmt } from "./common";
 
 const ROLES = ["receptionist", "doctor", "nurse", "labTech", "pathologist", "pharmacist", "cashier", "admin", "owner"] as const;
 const NEEDS_REG: Record<string, "BMDC" | "BNMC"> = { doctor: "BMDC", pathologist: "BMDC", nurse: "BNMC" };
@@ -60,7 +60,7 @@ export function AdmUsers() {
         {credential && <Credential c={credential} onClose={() => setCredential(null)} />}
       </Dialog>
       <Dialog open={!!open} onClose={() => setOpen(null)} label={open ? F.name(open) : ""} width={560}>
-        {open && <Manage u={open} onChanged={changed} onCredential={(c) => { setOpen(null); setCredential(c); void load(); }} onError={(e) => toast(E(e), "triangle-alert")} />}
+        {open && <Manage key={`${open.id}:${open.active}:${open.role}`} u={open} onChanged={changed} onCredential={(c) => { setOpen(null); setCredential(c); void load(); }} onError={(e) => toast(E(e), "triangle-alert")} />}
       </Dialog>
     </div>
   );
@@ -88,7 +88,7 @@ function AddUser({ onDone }: { onDone: (c: UserCredentialResponse) => Promise<vo
     <form style={{ display: "flex", flexDirection: "column", gap: 10 }} onSubmit={async (e) => {
       e.preventDefault(); if (!ok || busy) return; setBusy(true); setError(null);
       try { const c = await adm.createUser({ nameBn: v.nameBn.trim(), nameEn: v.nameEn.trim(), phone: v.phone.trim(), role: v.role as UserView["role"], ...(reg ? { regNo: v.regNo.trim() } : {}) }, key); setKey(crypto.randomUUID()); await onDone(c); }
-      catch (x) { setError(E(x)); } finally { setBusy(false); }
+      catch (x) { if (renewKey(x)) setKey(crypto.randomUUID()); setError(E(x)); } finally { setBusy(false); }
     }}>
       <TextField label={A("name_bn")} value={v.nameBn} onChange={(e) => setV({ ...v, nameBn: e.target.value })} data-testid="new-name-bn" />
       <TextField label={A("name_en")} value={v.nameEn} onChange={(e) => setV({ ...v, nameEn: e.target.value })} data-testid="new-name-en" />
@@ -127,11 +127,14 @@ function Manage({ u, onChanged, onCredential, onError }: { u: UserView; onChange
   const s = useSession(); const A = useA(); const F = useFmt();
   const [role, setRole] = useState<string>(u.role); const [why, setWhy] = useState(""); const [offWhy, setOffWhy] = useState(""); const [regNo, setRegNo] = useState(u.registration?.number ?? "");
   const [busy, setBusy] = useState(false);
-  const keys = useState(() => ({ role: crypto.randomUUID(), off: crypto.randomUUID(), on: crypto.randomUUID(), reset: crypto.randomUUID() }))[0];
+  const keys = useState(() => ({ role: crypto.randomUUID(), off: crypto.randomUUID(), on: crypto.randomUUID(), reset: crypto.randomUUID(), verify: crypto.randomUUID() }))[0];
   const self = u.id === s.me?.userId;
+  // an admin never changes an owner (only an owner does — the server refuses it): say so instead of offering it
+  const ownerOnly = u.role === "owner" && s.me?.role !== "owner";
+  const locked = self || ownerOnly;
   const run = async <T,>(f: () => Promise<T>, after: (x: T) => Promise<void> | void, renew?: keyof typeof keys) => {
     if (busy) return; setBusy(true);
-    try { const x = await f(); if (renew) keys[renew] = crypto.randomUUID(); await after(x); } catch (e) { onError(e); } finally { setBusy(false); }
+    try { const x = await f(); if (renew) keys[renew] = crypto.randomUUID(); await after(x); } catch (e) { if (renew && renewKey(e)) keys[renew] = crypto.randomUUID(); onError(e); } finally { setBusy(false); }
   };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }} data-testid="manage-user" data-user={u.id}>
@@ -140,6 +143,7 @@ function Manage({ u, onChanged, onCredential, onError }: { u: UserView; onChange
         {u.deactivated && <span className="t-small t-secondary">{A("off_why", { at: F.dateTime(u.deactivated.at), reason: u.deactivated.reason })}</span>}
       </span>
       {self && <Callout tone="info" icon="info">{A("self_note")}</Callout>}
+      {ownerOnly && <Callout tone="info" icon="lock">{A("owner_only_note")}</Callout>}
 
       <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <b>{A("change_role")}</b>
@@ -148,7 +152,7 @@ function Manage({ u, onChanged, onCredential, onError }: { u: UserView; onChange
             {ROLES.filter((r) => r !== "owner" || s.me?.role === "owner").map((r) => <option key={r} value={r}>{A(`role_${r}`)}</option>)}
           </SelectField>
           <TextField label={A("reason_optional")} value={why} onChange={(e) => setWhy(e.target.value)} />
-          <Button icon="shuffle" data-testid="role-save" disabled={self || busy || !s.online || role === u.role || !u.active} onClick={() => void run(() => adm.role(u.id, role, why.trim(), keys.role), (x) => onChanged(x), "role")}>{A("save")}</Button>
+          <Button icon="shuffle" data-testid="role-save" disabled={locked || busy || !s.online || role === u.role || !u.active} onClick={() => void run(() => adm.role(u.id, role, why.trim(), keys.role), (x) => onChanged(x), "role")}>{A("save")}</Button>
         </div>
         <span className="t-small t-muted">{A("role_signs_out")}</span>
       </section>
@@ -158,7 +162,7 @@ function Manage({ u, onChanged, onCredential, onError }: { u: UserView; onChange
           <b>{A("registration")}</b> <RegPill r={u.registration} />
           <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
             <TextField label={A("reg_no", { body: u.registration.body })} value={regNo} onChange={(e) => setRegNo(e.target.value)} data-testid="reg-no" />
-            <Button icon="badge-check" data-testid="reg-verify" disabled={busy || !s.online || !regNo.trim()} onClick={() => void run(() => adm.verify(u.id, regNo.trim()), (x) => onChanged(x))}>{A("verify")}</Button>
+            <Button icon="badge-check" data-testid="reg-verify" disabled={ownerOnly || busy || !s.online || !regNo.trim()} onClick={() => void run(() => adm.verify(u.id, regNo.trim(), keys.verify), (x) => onChanged(x), "verify")}>{A("verify")}</Button>
           </div>
           <span className="t-small t-muted">{A("reg_signed_note")}</span>
         </section>
@@ -166,7 +170,7 @@ function Manage({ u, onChanged, onCredential, onError }: { u: UserView; onChange
 
       <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <b>{A("password")}</b>
-        <span><Button icon="key-round" data-testid="reset-password" disabled={self || busy || !s.online || !u.active} onClick={() => void run(() => adm.resetPassword(u.id, keys.reset), (c) => onCredential(c), "reset")}>{A("reset_password")}</Button></span>
+        <span><Button icon="key-round" data-testid="reset-password" disabled={locked || busy || !s.online || !u.active} onClick={() => void run(() => adm.resetPassword(u.id, keys.reset), (c) => onCredential(c), "reset")}>{A("reset_password")}</Button></span>
         <span className="t-small t-muted">{A("reset_note")}</span>
       </section>
 
@@ -175,10 +179,10 @@ function Manage({ u, onChanged, onCredential, onError }: { u: UserView; onChange
         {u.active ? (
           <>
             <TextArea label={A("off_reason")} hint={A("reason_hint")} value={offWhy} onChange={(e) => setOffWhy(e.target.value)} data-testid="off-reason" />
-            <span><Button variant="danger" icon="user-x" data-testid="deactivate" disabled={self || busy || !s.online || offWhy.trim().length < 10} onClick={() => void run(() => adm.deactivate(u.id, offWhy.trim(), keys.off), (x) => onChanged(x), "off")}>{A("switch_off")}</Button></span>
+            <span><Button variant="danger" icon="user-x" data-testid="deactivate" disabled={locked || busy || !s.online || offWhy.trim().length < 10} onClick={() => void run(() => adm.deactivate(u.id, offWhy.trim(), keys.off), (x) => onChanged(x), "off")}>{A("switch_off")}</Button></span>
             <span className="t-small t-muted">{A("off_note")}</span>
           </>
-        ) : <span><Button icon="user-check" data-testid="reactivate" disabled={self || busy || !s.online} onClick={() => void run(() => adm.reactivate(u.id, keys.on), (x) => onChanged(x), "on")}>{A("switch_on")}</Button></span>}
+        ) : <span><Button icon="user-check" data-testid="reactivate" disabled={locked || busy || !s.online} onClick={() => void run(() => adm.reactivate(u.id, keys.on), (x) => onChanged(x), "on")}>{A("switch_on")}</Button></span>}
       </section>
     </div>
   );

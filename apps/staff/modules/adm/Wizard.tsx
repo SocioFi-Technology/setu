@@ -10,14 +10,15 @@ import type { FacilityView } from "@setu/contracts";
 import { Button, Callout, Card, PageState, Pill, SelectField, TextField, useToast } from "@setu/ui";
 import { adm } from "../../lib/api";
 import { useSession } from "../../lib/session";
-import { useA, useErr, useFmt } from "./common";
+import { renewKey, useA, useErr, useFmt } from "./common";
 
 const METHODS = ["cash", "card", "bank", "bkash", "nagad"] as const;
 
 export function AdmWizard() {
   const s = useSession(); const A = useA(); const F = useFmt(); const E = useErr(); const router = useRouter(); const toast = useToast();
   const [f, setF] = useState<FacilityView | null>(null); const [failed, setFailed] = useState(false); const [busy, setBusy] = useState(false);
-  const [goKey, setGoKey] = useState(() => crypto.randomUUID()); const [setKey, setSetKey] = useState(() => crypto.randomUUID());
+  // one key per kind of write, renewed after the server answers it (success or refusal) — a retry after a lost answer replays
+  const [keys] = useState(() => ({ org: crypto.randomUUID(), branch: crypto.randomUUID(), ward: crypto.randomUUID(), prints: crypto.randomUUID(), sms: crypto.randomUUID(), live: crypto.randomUUID() }));
   const [org, setOrg] = useState({ name: "", nameBn: "", address: "", licenceNo: "" });
   const [branch, setBranch] = useState({ name: "", nameBn: "" }); const [ward, setWard] = useState({ name: "", beds: "4" });
   const [prints, setPrints] = useState<{ receiptFormat: "a5" | "thermal"; rxFormat: "a5" | "a4"; paymentMethods: string[] }>({ receiptFormat: "a5", rxFormat: "a5", paymentMethods: [] });
@@ -36,7 +37,14 @@ export function AdmWizard() {
   }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <PageState icon="building-2" title={A("error_generic")} />;
   if (!f) return <div aria-busy="true" className="t-muted">{A("loading")}</div>;
-  const run = async (fn: () => Promise<FacilityView>, ok?: string) => { if (busy) return false; setBusy(true); try { show(await fn()); if (ok) toast(ok, "check"); return true; } catch (e) { toast(E(e), "triangle-alert"); return false; } finally { setBusy(false); } };
+  /** a write: the answer updates the checklist and lists; `refill` re-reads only that step's own form (typing in the
+      other steps is kept — screen review) */
+  const run = async (k: keyof typeof keys, fn: (key: string) => Promise<FacilityView>, ok?: string, refill?: (x: FacilityView) => void) => {
+    if (busy) return false; setBusy(true);
+    try { const x = await fn(keys[k]); keys[k] = crypto.randomUUID(); setF(x); refill?.(x); if (ok) toast(ok, "check"); return true; }
+    catch (e) { if (renewKey(e)) keys[k] = crypto.randomUUID(); toast(E(e), "triangle-alert"); return false; }
+    finally { setBusy(false); }
+  };
   const done = (item: string) => f.checklist.find((c) => c.item === item)?.done ?? false;
   const required = f.checklist.filter((c) => c.required);
   const left = required.filter((c) => !c.done);
@@ -56,7 +64,7 @@ export function AdmWizard() {
         {live
           ? <Pill tone="ok" icon="radio">{A("status_live")}</Pill>
           : <Button variant="primary" icon="rocket" data-testid="go-live" disabled={!s.online || busy || left.length > 0}
-              onClick={async () => { const ok = await run(() => adm.goLive(goKey), A("went_live")); if (ok) setGoKey(crypto.randomUUID()); }}>{left.length ? A("complete_first") : A("go_live")}</Button>}
+              onClick={() => void run("live", (k) => adm.goLive(k), A("went_live"))}>{left.length ? A("complete_first") : A("go_live")}</Button>}
       </Card>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
@@ -75,7 +83,7 @@ export function AdmWizard() {
             <TextField label={A("org_address")} value={org.address} onChange={(e) => setOrg({ ...org, address: e.target.value })} data-testid="org-address" />
             <TextField label={A("org_licence")} hint={A("org_licence_hint")} value={org.licenceNo} onChange={(e) => setOrg({ ...org, licenceNo: e.target.value })} data-testid="org-licence" />
           </div>
-          <span><Button icon="save" data-testid="org-save" disabled={!s.online || busy || org.name.trim().length < 2} onClick={() => void run(() => adm.updateFacility({ name: org.name.trim(), nameBn: org.nameBn.trim() || undefined, address: org.address.trim() || undefined, licenceNo: org.licenceNo.trim() || undefined }), A("saved"))}>{A("save")}</Button></span>
+          <span><Button icon="save" data-testid="org-save" disabled={!s.online || busy || org.name.trim().length < 2} onClick={() => void run("org", (k) => adm.updateFacility({ name: org.name.trim(), nameBn: org.nameBn.trim() || undefined, address: org.address.trim() || undefined, licenceNo: org.licenceNo.trim() || undefined }, k), A("saved"), (x) => setOrg({ name: x.name, nameBn: x.nameBn ?? "", address: x.address ?? "", licenceNo: x.licenceNo ?? "" }))}>{A("save")}</Button></span>
         </Card>
 
         <Card id="step-branch" style={{ display: "flex", flexDirection: "column", gap: 10, padding: 16 }} data-testid="step-branch">
@@ -84,7 +92,7 @@ export function AdmWizard() {
           <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
             <TextField label={A("branch_name_en")} value={branch.name} onChange={(e) => setBranch({ ...branch, name: e.target.value })} data-testid="branch-name" />
             <TextField label={A("branch_name_bn")} value={branch.nameBn} onChange={(e) => setBranch({ ...branch, nameBn: e.target.value })} />
-            <Button icon="plus" data-testid="branch-add" disabled={!s.online || busy || branch.name.trim().length < 2} onClick={async () => { if (await run(() => adm.addBranch({ name: branch.name.trim(), nameBn: branch.nameBn.trim() || undefined }))) setBranch({ name: "", nameBn: "" }); }}>{A("add")}</Button>
+            <Button icon="plus" data-testid="branch-add" disabled={!s.online || busy || branch.name.trim().length < 2} onClick={async () => { if (await run("branch", (k) => adm.addBranch({ name: branch.name.trim(), nameBn: branch.nameBn.trim() || undefined }, k))) setBranch({ name: "", nameBn: "" }); }}>{A("add")}</Button>
           </div>
         </Card>
 
@@ -96,7 +104,7 @@ export function AdmWizard() {
             <TextField label={A("ward_name")} value={ward.name} onChange={(e) => setWard({ ...ward, name: e.target.value })} data-testid="ward-name" />
             <TextField label={A("ward_beds")} inputMode="numeric" value={ward.beds} onChange={(e) => setWard({ ...ward, beds: e.target.value })} data-testid="ward-beds" />
             <Button icon="plus" data-testid="ward-add" disabled={!s.online || busy || !ward.name.trim() || !/^\d+$/.test(ward.beds) || Number(ward.beds) < 1 || Number(ward.beds) > 100 || f.branches.length === 0}
-              onClick={async () => { if (await run(() => adm.addWard({ name: ward.name.trim(), beds: Number(ward.beds) }))) setWard({ name: "", beds: "4" }); }}>{A("add")}</Button>
+              onClick={async () => { if (await run("ward", (k) => adm.addWard({ name: ward.name.trim(), beds: Number(ward.beds) }, k))) setWard({ name: "", beds: "4" }); }}>{A("add")}</Button>
           </div>
           {f.branches.length === 0 && <span className="t-small t-muted">{A("branch_first")}</span>}
         </Card>
@@ -133,7 +141,8 @@ export function AdmWizard() {
             ))}
           </fieldset>
           <span><Button icon="save" data-testid="prints-save" disabled={!s.online || busy || prints.paymentMethods.length === 0}
-            onClick={async () => { const x = f.settings; const ok = await run(() => adm.settings({ cashierLimitPaisa: x.cashierLimitPaisa, cashierLimitBp: x.cashierLimitBp, approverLimitPaisa: x.approverLimitPaisa, labelWidthMm: x.labelWidthMm, labelHeightMm: x.labelHeightMm, receiptFormat: prints.receiptFormat, rxFormat: prints.rxFormat, paymentMethods: prints.paymentMethods as FacilityView["settings"]["paymentMethods"] }, setKey), A("saved")); if (ok) setSetKey(crypto.randomUUID()); }}>{A("save")}</Button></span>
+            onClick={() => { const x = f.settings; void run("prints", (k) => adm.settings({ cashierLimitPaisa: x.cashierLimitPaisa, cashierLimitBp: x.cashierLimitBp, approverLimitPaisa: x.approverLimitPaisa, labelWidthMm: x.labelWidthMm, labelHeightMm: x.labelHeightMm, receiptFormat: prints.receiptFormat, rxFormat: prints.rxFormat, paymentMethods: prints.paymentMethods as FacilityView["settings"]["paymentMethods"] }, k), A("saved"),
+              (y) => setPrints({ receiptFormat: y.settings.receiptFormat ?? "a5", rxFormat: y.settings.rxFormat ?? "a5", paymentMethods: y.settings.paymentMethods })); }}>{A("save")}</Button></span>
           {prints.paymentMethods.length === 0 && <span className="t-small t-muted">{A("method_needed")}</span>}
         </Card>
 
@@ -142,7 +151,7 @@ export function AdmWizard() {
           {f.sms.testedAt && <span className="t-small">{A("sms_ok", { phone: F.n(f.sms.phone ?? ""), at: F.dateTime(f.sms.testedAt) })}</span>}
           <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
             <TextField label={A("sms_phone")} inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} data-testid="sms-phone" error={phone && !/^01[3-9]\d{8}$/.test(phone.trim()) ? A("phone_invalid") : undefined} />
-            <Button icon="send" data-testid="sms-send" disabled={!s.online || busy || !/^01[3-9]\d{8}$/.test(phone.trim())} onClick={() => void run(() => adm.smsTest(phone.trim()), A("sms_sent"))}>{A("sms_send")}</Button>
+            <Button icon="send" data-testid="sms-send" disabled={!s.online || busy || !/^01[3-9]\d{8}$/.test(phone.trim())} onClick={() => void run("sms", (k) => adm.smsTest(phone.trim(), k), A("sms_sent"))}>{A("sms_send")}</Button>
           </div>
         </Card>
       </div>

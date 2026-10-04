@@ -340,11 +340,11 @@ function auditWhere(s: SessionData, q: AuditQuery) {
   if (q.flagged === "1") and.push({ OR: [{ action: { in: [...FLAGGED_ACTIONS] as string[] } }, ...FLAGGED_EVENTS.map((e) => ({ detail: { path: ["event"], equals: e } }))] });
   return { AND: and };
 }
-/** One line for a person reading the log (never a clinical value — the detail stays in the record). */
-function summary(e: { action: string; entity: string; detail: unknown }): string {
+/** The detail a person reading the log needs beside the action and the record (which the screen names in its own
+    language): the event, purpose, kind, reason or note as written — never a clinical value. */
+function summary(e: { detail: unknown }): string {
   const d = (e.detail ?? {}) as Record<string, unknown>;
-  const bits = [d.event, d.purpose, d.kind, d.reason, d.note].filter((x): x is string => typeof x === "string" && x.length > 0);
-  return [`${e.action} ${e.entity}`, ...bits].join(" · ").slice(0, 200);
+  return [d.event, d.purpose, d.kind, d.reason, d.note].filter((x): x is string => typeof x === "string" && x.length > 0).join(" · ").slice(0, 200);
 }
 async function auditRows(tx: Tx, s: SessionData, q: AuditQuery, take: number) {
   const cursor = q.before ? await tx.auditEvent.findFirst({ where: { id: q.before }, select: { at: true, id: true } }) : null;

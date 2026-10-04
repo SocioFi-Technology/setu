@@ -62,6 +62,7 @@ test.describe("Journey G — admin", () => {
     doctorOtp = (await page.getByTestId("otp").textContent())!.trim();
     await expect(page.getByTestId("credential")).toContainText("never shown again");
     await page.getByTestId("otp-done").click();
+    await expect(page.locator("body")).not.toContainText(doctorOtp); // shown once — gone when the dialog closes
     const row = page.locator(`[data-testid="user-list"] tr[data-phone="${doctorPhone}"]`);
     await expect(row).toContainText("First sign-in pending");
     await expect(row.locator("[data-reg]")).toHaveAttribute("data-reg", "unverified");
@@ -137,13 +138,13 @@ test.describe("Journey G — admin", () => {
     await page.getByTestId("add-price-tk").fill("200");
     await page.getByTestId("add-price-save").click();
     const row = page.locator('[data-testid="price-list"] tr').filter({ hasText: `Dressing ${RUN}` });
-    await expect(row).toContainText("200");
+    await expect(row.locator("td").nth(2)).toHaveText("৳ 200");
     await row.getByTestId("change-price").click();
     await page.getByTestId("new-price").fill("250");
     await expect(page.getByTestId("price-save")).toBeDisabled(); // needs a reason
     await page.getByTestId("price-reason").fill("Dressing material costs more");
     await page.getByTestId("price-save").click();
-    await expect(row).toContainText("250");
+    await expect(row.locator("td").nth(2)).toHaveText("৳ 250");
     await row.getByTestId("price-history").click();
     await expect(page.getByTestId("history-table").locator("tbody tr")).toHaveCount(2);
     await page.keyboard.press("Escape");
@@ -174,6 +175,8 @@ test.describe("Journey G — admin", () => {
     await expect(table.locator('tr[data-flagged="0"]')).toHaveCount(0);
     await page.getByTestId("f-action").selectOption("price-change");
     await expect(table.locator("tbody tr").first()).toHaveAttribute("data-action", "price-change");
+    await expect(table.locator('tbody tr:not([data-action="price-change"])')).toHaveCount(0);
+    await expect(table.locator("tbody tr").first()).toContainText("Price changed"); // the action in the reader's language
     await expect(page.getByTestId("audit-csv")).toHaveAttribute("href", /audit\.csv\?.*flagged=1.*action=price-change|audit\.csv\?.*action=price-change.*flagged=1/);
   });
 

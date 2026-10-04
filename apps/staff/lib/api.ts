@@ -9,7 +9,7 @@ import type {
   AiDraftResponse, AllergyOptions, AllergyView, CompositionView, ConsultationView, ConsultWorklist, Icd11Search, MedicineSearch, RecordAllergyRequest, SaveDraftRequest, SignRequest, TestList,
   ApiError, Capabilities, VitalsBatchRequest, VitalsBatchResponse, VitalsView, VitalsWorklist, CreateVisitResponse, MatchDecisionResponse, MatchPreviewResponse, Me, PatientMatches, PatientSearchResponse, QueueItem, QueueResponse, RegisterResponse, RegistrationInput, ReviewOutcomeResponse, ReviewQueueResponse,
 } from "@setu/contracts";
-import { enqueue, flush } from "./outbox";
+import { clearDraftsForOwner, clearRefusedForOwner, enqueue, flush } from "./outbox";
 export class ApiFailure extends Error { constructor(public status: number, public body: ApiError) { super(body.message_en); } }
 /** ADR 0010: the server said this session has ended (switched off, role or password changed) — the sign-in page says why. */
 let sessionEnded = false;
@@ -27,6 +27,8 @@ async function call<T>(method: string, path: string, body?: unknown, idemKey?: s
     // ADR 0010: switched off, the role changed or the password reset — this session has ended: back to sign-in, saying why
     if (r.status === 401 && e.code === "session_ended") sessionEnded = true;
     if (r.status === 401 && e.code === "session_ended" && typeof location !== "undefined" && location.pathname !== "/login") {
+      // the same clean-up as signing out: nothing of this user's left on a shared device (screen review)
+      clearRefusedForOwner(); clearDraftsForOwner();
       fetch("/api/v1/auth/logout", { method: "POST", credentials: "include" }).catch(() => {}).finally(() => { location.href = "/login?ended=1"; });
     }
     throw new ApiFailure(r.status, e);
@@ -245,15 +247,14 @@ export const purch = {
 };
 
 /* Admin (phase 2 slice 3, ADR 0010): owner / admin. Every write needs the server; a one-time password comes back once. */
-const kk = () => crypto.randomUUID();
 const qs = (q: Record<string, string | undefined>) => Object.entries(q).filter(([, v]) => v).map(([k2, v]) => `${k2}=${encodeURIComponent(v!)}`).join("&");
 export const adm = {
   facility: () => call<FacilityView>("GET", "/v1/admin/facility"),
-  updateFacility: (body: FacilityUpdate) => call<FacilityView>("POST", "/v1/admin/facility", body, kk()),
-  addBranch: (body: { name: string; nameBn?: string }) => call<FacilityView>("POST", "/v1/admin/branches", body, kk()),
-  addWard: (body: { name: string; nameBn?: string; beds: number; bedClass?: string }) => call<FacilityView>("POST", "/v1/admin/wards", body, kk()),
+  updateFacility: (body: FacilityUpdate, key: string) => call<FacilityView>("POST", "/v1/admin/facility", body, key),
+  addBranch: (body: { name: string; nameBn?: string }, key: string) => call<FacilityView>("POST", "/v1/admin/branches", body, key),
+  addWard: (body: { name: string; nameBn?: string; beds: number; bedClass?: string }, key: string) => call<FacilityView>("POST", "/v1/admin/wards", body, key),
   settings: (body: SettingsUpdate, key: string) => call<FacilityView>("POST", "/v1/admin/settings", body, key),
-  smsTest: (phone: string) => call<FacilityView>("POST", "/v1/admin/sms-test", { phone }, kk()),
+  smsTest: (phone: string, key: string) => call<FacilityView>("POST", "/v1/admin/sms-test", { phone }, key),
   goLive: (key: string) => call<FacilityView>("POST", "/v1/admin/go-live", {}, key),
   users: () => call<UserList>("GET", "/v1/admin/users"),
   createUser: (body: UserCreate, key: string) => call<UserCredentialResponse>("POST", "/v1/admin/users", body, key),
@@ -261,7 +262,7 @@ export const adm = {
   deactivate: (id: string, reason: string, key: string) => call<UserView>("POST", `/v1/admin/users/${enc(id)}/deactivate`, { reason }, key),
   reactivate: (id: string, key: string) => call<UserView>("POST", `/v1/admin/users/${enc(id)}/reactivate`, {}, key),
   resetPassword: (id: string, key: string) => call<UserCredentialResponse>("POST", `/v1/admin/users/${enc(id)}/reset-password`, {}, key),
-  verify: (id: string, regNo: string) => call<UserView>("POST", `/v1/admin/users/${enc(id)}/verify-registration`, regNo ? { regNo } : {}, kk()),
+  verify: (id: string, regNo: string, key: string) => call<UserView>("POST", `/v1/admin/users/${enc(id)}/verify-registration`, regNo ? { regNo } : {}, key),
   prices: () => call<PriceList>("GET", "/v1/admin/prices"),
   addPrice: (body: PriceCreate, key: string) => call<PriceList>("POST", "/v1/admin/prices", body, key),
   changePrice: (id: string, body: { unitPaisa: number; vatRateBp: number; reason: string }, key: string) => call<PriceList>("POST", `/v1/admin/prices/${enc(id)}`, body, key),

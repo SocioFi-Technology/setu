@@ -28,13 +28,24 @@ export function useErr() {
   const s = useSession(); const A = useA();
   return (e: unknown) => (e instanceof ApiFailure ? s.L(e.body.message_bn, e.body.message_en) : A("error_generic"));
 }
-/** A write's Idempotency-Key is kept after a network failure or a server error and renewed only after a refusal. */
+/** A write's Idempotency-Key is kept after a network failure or a server error (a retry replays) and renewed after a
+    refusal (4xx — nothing was stored, incl. 422 idempotency_key_reused after the form changed). */
 export const renewKey = (e: unknown) => e instanceof ApiFailure && e.status < 500;
-/** taka typed in a box → paisa (whole paisa only), or null */
+const digits = (v: string) => v.trim().replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d)));
+/** taka typed in a box → paisa (whole paisa only), or null; Bangla digits and normal thousands grouping (1,250 or
+    1,00,000) are accepted; at most ৳1 crore (the paisa range Postgres integers hold — @setu/domain MAX_PAISA) */
 export function takaToPaisa(v: string): number | null {
-  const t = v.trim().replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d))).replace(/,/g, "");
-  if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
-  const [a, b = ""] = t.split(".");
-  return Number(a) * 100 + Number((b + "00").slice(0, 2));
+  const t = digits(v);
+  if (!/^(\d+|\d{1,3}(,\d{2,3})+)(\.\d{1,2})?$/.test(t)) return null;
+  const [a, b = ""] = t.replace(/,/g, "").split(".");
+  const p = Number(a) * 100 + Number((b + "00").slice(0, 2));
+  return Number.isSafeInteger(p) && p <= 1_000_000_000 ? p : null;
+}
+/** a percent typed in a box (Bangla digits too) → basis points (0–100%), or null */
+export function pctToBp(v: string): number | null {
+  const t = digits(v);
+  if (!/^\d{1,3}(\.\d{1,2})?$/.test(t)) return null;
+  const bp = Math.round(Number(t) * 100);
+  return bp >= 0 && bp <= 10_000 ? bp : null;
 }
 export const paisaToInput = (p: number) => (p % 100 === 0 ? String(p / 100) : (p / 100).toFixed(2));

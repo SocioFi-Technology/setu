@@ -9,7 +9,7 @@ import type { FacilityView, PriceHistory, PriceItem, PriceList } from "@setu/con
 import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast } from "@setu/ui";
 import { adm } from "../../lib/api";
 import { useSession } from "../../lib/session";
-import { paisaToInput, takaToPaisa, useA, useErr, useFmt } from "./common";
+import { paisaToInput, pctToBp, renewKey, takaToPaisa, useA, useErr, useFmt } from "./common";
 
 type Tab = "prices" | "limits";
 type KindFilter = "all" | "consultation" | "test" | "service";
@@ -86,9 +86,9 @@ function ChangePrice({ i, onDone, onError }: { i: PriceItem; onDone: (l: PriceLi
   const s = useSession(); const A = useA(); const F = useFmt();
   const [price, setPrice] = useState(paisaToInput(i.unitPaisa)); const [vat, setVat] = useState(String(i.vatRateBp / 100)); const [reason, setReason] = useState(""); const [offReason, setOffReason] = useState("");
   const [busy, setBusy] = useState(false); const [keys] = useState(() => ({ price: crypto.randomUUID(), active: crypto.randomUUID() }));
-  const p = takaToPaisa(price); const v = /^\d+(\.\d{1,2})?$/.test(vat.trim()) ? Math.round(Number(vat) * 100) : null;
+  const p = takaToPaisa(price); const v = pctToBp(vat);
   const changed = p !== null && v !== null && (p !== i.unitPaisa || v !== i.vatRateBp);
-  const go = async (f: () => Promise<PriceList>, renew: "price" | "active") => { setBusy(true); try { const l = await f(); keys[renew] = crypto.randomUUID(); await onDone(l); } catch (e) { onError(e); } finally { setBusy(false); } };
+  const go = async (f: () => Promise<PriceList>, renew: "price" | "active") => { setBusy(true); try { const l = await f(); keys[renew] = crypto.randomUUID(); await onDone(l); } catch (e) { if (renewKey(e)) keys[renew] = crypto.randomUUID(); onError(e); } finally { setBusy(false); } };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }} data-testid="change-dialog" data-code={i.code}>
       <b>{s.lang === "bn" ? i.nameBn : i.nameEn}</b>
@@ -138,7 +138,7 @@ function AddPrice({ list, onDone, onError }: { list: PriceList; onDone: (l: Pric
   const [ref, setRef] = useState(""); const [nameEn, setNameEn] = useState(""); const [nameBn, setNameBn] = useState(""); const [price, setPrice] = useState(""); const [vat, setVat] = useState("0");
   const [busy, setBusy] = useState(false); const [key, setKey] = useState(() => crypto.randomUUID());
   useEffect(() => { setRef(kind === "consultation" ? list.doctorsWithoutFee[0]?.id ?? "" : kind === "test" ? unpricedTests[0]?.code ?? "" : ""); }, [kind]); // eslint-disable-line react-hooks/exhaustive-deps
-  const p = takaToPaisa(price); const v = /^\d+(\.\d{1,2})?$/.test(vat.trim()) ? Math.round(Number(vat) * 100) : null;
+  const p = takaToPaisa(price); const v = pctToBp(vat);
   const ok = p !== null && v !== null && (kind === "service" ? nameEn.trim().length >= 2 && nameBn.trim().length >= 1 : Boolean(ref));
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -162,21 +162,22 @@ function AddPrice({ list, onDone, onError }: { list: PriceList; onDone: (l: Pric
         <TextField label={A("vat_pct")} inputMode="decimal" value={vat} onChange={(e) => setVat(e.target.value)} />
       </div>
       <span><Button variant="primary" icon="plus" data-testid="add-price-save" disabled={busy || !s.online || !ok}
-        onClick={async () => { setBusy(true); try { const l = await adm.addPrice({ kind, ...(kind !== "service" ? { ref } : { nameEn: nameEn.trim(), nameBn: nameBn.trim() }), unitPaisa: p!, vatRateBp: v! }, key); setKey(crypto.randomUUID()); await onDone(l); } catch (e) { onError(e); } finally { setBusy(false); } }}>{A("add")}</Button></span>
+        onClick={async () => { setBusy(true); try { const l = await adm.addPrice({ kind, ...(kind !== "service" ? { ref } : { nameEn: nameEn.trim(), nameBn: nameBn.trim() }), unitPaisa: p!, vatRateBp: v! }, key); setKey(crypto.randomUUID()); await onDone(l); } catch (e) { if (renewKey(e)) setKey(crypto.randomUUID()); onError(e); } finally { setBusy(false); } }}>{A("add")}</Button></span>
     </div>
   );
 }
 
 function Limits() {
   const s = useSession(); const A = useA(); const F = useFmt(); const E = useErr(); const toast = useToast();
-  const [f, setF] = useState<FacilityView | null>(null);
+  const [f, setF] = useState<FacilityView | null>(null); const [failed, setFailed] = useState(false);
   const [v, setV] = useState({ cashier: "", pct: "", approver: "", w: "", h: "", reason: "" });
   const [busy, setBusy] = useState(false); const [key, setKey] = useState(() => crypto.randomUUID());
   const show = (x: FacilityView) => { setF(x); setV({ cashier: paisaToInput(x.settings.cashierLimitPaisa), pct: String(x.settings.cashierLimitBp / 100), approver: paisaToInput(x.settings.approverLimitPaisa), w: String(x.settings.labelWidthMm), h: String(x.settings.labelHeightMm), reason: "" }); };
   // a re-run effect (React runs it twice in development) ignores the earlier answer — it must never reset what was typed
-  useEffect(() => { let stale = false; adm.facility().then((x) => { if (!stale) show(x); }).catch(() => undefined); return () => { stale = true; }; }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { let stale = false; adm.facility().then((x) => { if (!stale) show(x); }).catch(() => { if (!stale) setFailed(true); }); return () => { stale = true; }; }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  if (failed) return <PageState icon="sliders-horizontal" title={A("error_generic")} />;
   if (!f) return <div aria-busy="true" className="t-muted">{A("loading")}</div>;
-  const cashier = takaToPaisa(v.cashier), approver = takaToPaisa(v.approver), pct = /^\d+(\.\d{1,2})?$/.test(v.pct.trim()) ? Math.round(Number(v.pct) * 100) : null;
+  const cashier = takaToPaisa(v.cashier), approver = takaToPaisa(v.approver), pct = pctToBp(v.pct);
   const w = /^\d+$/.test(v.w) ? Number(v.w) : null, h = /^\d+$/.test(v.h) ? Number(v.h) : null;
   const limitsChanged = cashier !== f.settings.cashierLimitPaisa || pct !== f.settings.cashierLimitBp || approver !== f.settings.approverLimitPaisa;
   const ok = cashier !== null && approver !== null && pct !== null && w !== null && h !== null && (!limitsChanged || v.reason.trim().length >= 10);
@@ -200,7 +201,7 @@ function Limits() {
         onClick={async () => {
           setBusy(true);
           try { show(await adm.settings({ cashierLimitPaisa: cashier!, cashierLimitBp: pct!, approverLimitPaisa: approver!, labelWidthMm: w!, labelHeightMm: h!, receiptFormat: f.settings.receiptFormat ?? "a5", rxFormat: f.settings.rxFormat ?? "a5", paymentMethods: f.settings.paymentMethods, ...(limitsChanged ? { reason: v.reason.trim() } : {}) }, key)); setKey(crypto.randomUUID()); toast(A("saved"), "check"); }
-          catch (e) { toast(E(e), "triangle-alert"); } finally { setBusy(false); }
+          catch (e) { if (renewKey(e)) setKey(crypto.randomUUID()); toast(E(e), "triangle-alert"); } finally { setBusy(false); }
         }}>{A("save")}</Button></span>
     </Card>
   );
