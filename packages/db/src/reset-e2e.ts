@@ -125,6 +125,8 @@ const openGrns = await db.goodsReceipt.updateMany({ where: { tenantId: T, status
 /* ADR 0010: the E2E setup facility goes back into setup so the onboarding journey runs again — details, branches,
    wards and the price list cleared; users the tests created there are switched off and lose their role (their audit
    and price history stay). */
+// the E2E Test Clinic's money settings back to the seeded values (a test that stopped halfway must not change billing's)
+await db.organization.update({ where: { id: "o_e2e" }, data: { cashierDiscountLimitPaisa: 50_000, cashierDiscountLimitBp: 500, approverLimitPaisa: 1_000_000, paymentMethods: ["cash", "card", "bank", "bkash", "nagad"], labelWidthMm: 50, labelHeightMm: 30 } });
 const NEW = "o_e2e_new", NEW_ADMIN = "u_e2e_newadmin";
 await db.organization.update({ where: { id: NEW }, data: { status: "setup", liveAt: null, address: null, licenceNo: null, receiptFormat: null, rxFormat: null, paymentMethods: [], smsTestedAt: null, smsTestPhone: null } });
 for (const kind of ["bed", "room", "ward", "department", "branch"] as const) await db.location.deleteMany({ where: { organizationId: NEW, kind } });

@@ -22,6 +22,10 @@ import { FrontDeskQueue } from "./fd/Queue";
 import { FrontDeskRegister } from "./fd/Register";
 import { FrontDeskSearch } from "./fd/Search";
 import { FrontDeskVitals } from "./fd/Vitals";
+import { AdmAudit } from "./adm/Audit";
+import { AdmMasters } from "./adm/Masters";
+import { AdmUsers } from "./adm/Users";
+import { AdmWizard } from "./adm/Wizard";
 import { LabAccession } from "./lab/Accession";
 import { PhCount } from "./ph/Count";
 import { PhDispense } from "./ph/Dispense";
@@ -78,6 +82,11 @@ const SCREENS: Record<string, ComponentType> = {
   "ph/pay": BillPay,
   "ph/receipt": BillReceipt,
   "ph/shift": BillShift,
+  // phase 2 slice 3: admin (ADR 0010)
+  "adm/wizard": AdmWizard,
+  "adm/users": AdmUsers,
+  "adm/masters": AdmMasters,
+  "adm/audit": AdmAudit,
 };
 const SLICE: Record<string, string> = { fd: "A1–A3", cons: "A4–A5", bill: "A6–A7", lab: "A8–A11", doc: "A12–A13", ph: "phase 2", own: "C1–C4", adm: "phase 2", er: "B1–B2", ipd: "B3–B4", nur: "B5–B6", net: "E1–E4" };
 

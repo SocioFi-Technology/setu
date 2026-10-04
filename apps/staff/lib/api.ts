@@ -1,4 +1,5 @@
 import type {
+  FacilityView, FacilityUpdate, SettingsUpdate, UserList, UserView, UserCreate, UserCredentialResponse, PriceList, PriceCreate, PriceHistory, AuditPage, AuditQuery,
   DispenseQueue, DispenseRequest, DispenseView, OtcCreateRequest, OtcView, RxPhotoRequest, StockList, SupplierList, SupplierLedger, SupplierPaymentRequest,
   PurchaseOrderList, PurchaseOrderView, GoodsReceiptView, GrnLineRequest, StockCountView, CountList, PharmacyApprovals, TransferRequest,
   CountShiftRequest, DashboardView, DrillView, MyShiftResponse, ShiftList, ShiftView,
@@ -10,6 +11,9 @@ import type {
 } from "@setu/contracts";
 import { enqueue, flush } from "./outbox";
 export class ApiFailure extends Error { constructor(public status: number, public body: ApiError) { super(body.message_en); } }
+/** ADR 0010: the server said this session has ended (switched off, role or password changed) — the sign-in page says why. */
+let sessionEnded = false;
+export const wasSessionEnded = () => sessionEnded;
 
 async function call<T>(method: string, path: string, body?: unknown, idemKey?: string): Promise<T> {
   const r = await fetch("/api" + path, {
@@ -18,7 +22,15 @@ async function call<T>(method: string, path: string, body?: unknown, idemKey?: s
     headers: { ...(body === undefined ? {} : { "content-type": "application/json" }), ...(idemKey ? { "idempotency-key": idemKey } : {}) },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  if (!r.ok) { let e: ApiError = { code: "http_" + r.status, message_bn: "সার্ভারে সমস্যা", message_en: r.statusText }; try { e = await r.json(); } catch {} throw new ApiFailure(r.status, e); }
+  if (!r.ok) {
+    let e: ApiError = { code: "http_" + r.status, message_bn: "সার্ভারে সমস্যা", message_en: r.statusText }; try { e = await r.json(); } catch {}
+    // ADR 0010: switched off, the role changed or the password reset — this session has ended: back to sign-in, saying why
+    if (r.status === 401 && e.code === "session_ended") sessionEnded = true;
+    if (r.status === 401 && e.code === "session_ended" && typeof location !== "undefined" && location.pathname !== "/login") {
+      fetch("/api/v1/auth/logout", { method: "POST", credentials: "include" }).catch(() => {}).finally(() => { location.href = "/login?ended=1"; });
+    }
+    throw new ApiFailure(r.status, e);
+  }
   return r.json() as Promise<T>;
 }
 /** A write: online it goes straight to the server; offline (or when the network drops) it waits in the outbox with the
@@ -181,6 +193,8 @@ export const api = {
   me: () => call<Me>("GET", "/v1/me"),
   capabilities: () => call<Capabilities>("GET", "/v1/me/capabilities"),
   pinVerify: (pin: string) => call<{ ok: boolean; triesLeft?: number; lockedUntil?: string }>("POST", "/v1/auth/pin/verify", { pin }),
+  /** ADR 0010: the first sign-in with a one-time password sets the user's own password and PIN */
+  firstSignIn: (password: string, pin: string) => call<Me>("POST", "/v1/auth/first-sign-in", { password, pin }),
 };
 
 /* Pharmacy (phase 2 slice 2, ADR 0009). Dispensing, sales, purchasing and counts move stock and money, so they need the
@@ -228,4 +242,32 @@ export const purch = {
   submitCount: (id: string, rev: number, key: string) => call<StockCountView>("POST", `/v1/pharmacy/counts/${enc(id)}/submit`, { rev }, key),
   decideCount: (id: string, decision: "approve" | "reject", note: string, key: string) => call<StockCountView>("POST", `/v1/pharmacy/counts/${enc(id)}/decision`, note ? { decision, note } : { decision }, key),
   approvals: (status: "requested" | "approved" | "rejected" = "requested") => call<PharmacyApprovals>("GET", `/v1/pharmacy/approvals?status=${status}`),
+};
+
+/* Admin (phase 2 slice 3, ADR 0010): owner / admin. Every write needs the server; a one-time password comes back once. */
+const kk = () => crypto.randomUUID();
+const qs = (q: Record<string, string | undefined>) => Object.entries(q).filter(([, v]) => v).map(([k2, v]) => `${k2}=${encodeURIComponent(v!)}`).join("&");
+export const adm = {
+  facility: () => call<FacilityView>("GET", "/v1/admin/facility"),
+  updateFacility: (body: FacilityUpdate) => call<FacilityView>("POST", "/v1/admin/facility", body, kk()),
+  addBranch: (body: { name: string; nameBn?: string }) => call<FacilityView>("POST", "/v1/admin/branches", body, kk()),
+  addWard: (body: { name: string; nameBn?: string; beds: number; bedClass?: string }) => call<FacilityView>("POST", "/v1/admin/wards", body, kk()),
+  settings: (body: SettingsUpdate, key: string) => call<FacilityView>("POST", "/v1/admin/settings", body, key),
+  smsTest: (phone: string) => call<FacilityView>("POST", "/v1/admin/sms-test", { phone }, kk()),
+  goLive: (key: string) => call<FacilityView>("POST", "/v1/admin/go-live", {}, key),
+  users: () => call<UserList>("GET", "/v1/admin/users"),
+  createUser: (body: UserCreate, key: string) => call<UserCredentialResponse>("POST", "/v1/admin/users", body, key),
+  role: (id: string, role: string, reason: string, key: string) => call<UserView>("POST", `/v1/admin/users/${enc(id)}/role`, reason ? { role, reason } : { role }, key),
+  deactivate: (id: string, reason: string, key: string) => call<UserView>("POST", `/v1/admin/users/${enc(id)}/deactivate`, { reason }, key),
+  reactivate: (id: string, key: string) => call<UserView>("POST", `/v1/admin/users/${enc(id)}/reactivate`, {}, key),
+  resetPassword: (id: string, key: string) => call<UserCredentialResponse>("POST", `/v1/admin/users/${enc(id)}/reset-password`, {}, key),
+  verify: (id: string, regNo: string) => call<UserView>("POST", `/v1/admin/users/${enc(id)}/verify-registration`, regNo ? { regNo } : {}, kk()),
+  prices: () => call<PriceList>("GET", "/v1/admin/prices"),
+  addPrice: (body: PriceCreate, key: string) => call<PriceList>("POST", "/v1/admin/prices", body, key),
+  changePrice: (id: string, body: { unitPaisa: number; vatRateBp: number; reason: string }, key: string) => call<PriceList>("POST", `/v1/admin/prices/${enc(id)}`, body, key),
+  priceActive: (id: string, active: boolean, reason: string, key: string) => call<PriceList>("POST", `/v1/admin/prices/${enc(id)}/active`, { active, reason }, key),
+  priceHistory: (id: string) => call<PriceHistory>("GET", `/v1/admin/prices/${enc(id)}/history`),
+  audit: (q: AuditQuery) => call<AuditPage>("GET", "/v1/admin/audit?" + qs(q as Record<string, string | undefined>)),
+  /** a browser URL (same origin, through the /api proxy) — the download is itself audited */
+  auditCsvHref: (q: AuditQuery) => "/api/v1/admin/audit.csv?" + qs({ ...q, before: undefined } as Record<string, string | undefined>),
 };

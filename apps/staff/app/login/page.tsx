@@ -25,6 +25,7 @@ export default function Login() {
           <Segmented value={s.lang} onChange={s.setLang} options={[{ value: "bn", label: "বাং" }, { value: "en", label: "EN" }]} label="Language" />
         </div>
         <div><h1 className="t-h2">{L("স্টাফ লগইন", "Staff sign in")}</h1><p className="t-small t-muted" style={{ margin: "4px 0 0" }}>{L("আপনার প্রতিষ্ঠানের দেওয়া ফোন নম্বর বা ইমেইল", "The phone number or email your facility gave you")}</p></div>
+        {q.get("ended") && <div className="callout callout-warn" data-testid="session-ended">{L("আপনার সেশন শেষ হয়েছে (অ্যাকাউন্ট বন্ধ, ভূমিকা বা পাসওয়ার্ড বদলেছে) — আবার লগইন করুন", "Your session has ended (account switched off, role or password changed) — sign in again")}</div>}
         <TextField label={L("ফোন বা ইমেইল", "Phone or email")} name="identifier" autoComplete="username" value={id} onChange={(e) => setId(e.target.value)} required autoFocus />
         <TextField label={L("পাসওয়ার্ড", "Password")} name="password" type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required error={err ?? undefined} />
         <Button variant="primary" size="lg" type="submit" disabled={busy} icon="log-in">{busy ? L("লগইন হচ্ছে…", "Signing in…") : L("লগইন", "Sign in")}</Button>
