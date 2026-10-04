@@ -9,6 +9,7 @@ export interface FakeAttempt { messageId: string; to: string; text: string; tena
 
 export class FakeMessenger implements Messenger {
   readonly name = "fake";
+  readonly confirmsDelivery = true;
   private attempts: FakeAttempt[] = [];
   private delivered = new Map<string, string>();
   private failures = new Map<string, string[]>();

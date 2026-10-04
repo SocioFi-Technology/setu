@@ -22,7 +22,8 @@ export const FacilityView = z.object({
     receiptFormat: z.enum(["a5", "thermal"]).nullable(), rxFormat: z.enum(["a5", "a4"]).nullable(),
     paymentMethods: z.array(PaymentMethodKey),
   }),
-  sms: z.object({ testedAt: z.string().nullable(), phone: z.string().nullable() }),
+  /** ADR 0012: sentAt without testedAt = the gateway accepted the test SMS and the admin has not confirmed it arrived */
+  sms: z.object({ testedAt: z.string().nullable(), phone: z.string().nullable(), sentAt: z.string().nullable(), awaitingConfirm: z.boolean() }),
 });
 export type FacilityView = z.infer<typeof FacilityView>;
 export const FacilityUpdate = z.object({ name: z.string().trim().min(2).max(120), nameBn: z.string().trim().max(120).optional(), address: z.string().trim().max(300).optional(), licenceNo: z.string().trim().max(60).optional() });

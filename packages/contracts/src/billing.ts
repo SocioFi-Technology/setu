@@ -69,6 +69,10 @@ export const PaymentView = z.object({
   gateway: z.enum(["callback", "execute"]).nullable(),
   /** an execute is under way (the patient came back): wait, do not cancel */
   executing: z.boolean(),
+  /** ADR 0012: the latest SMS that carried this payment's link (null: none — no patient mobile, or not a wallet) */
+  linkSms: z.object({ status: z.enum(["preparation", "in-progress", "completed", "failed"]), deliveryConfirmed: z.boolean(), lastError: z.string().nullable(), toLast4: z.string().nullable(), at: z.string() }).nullable(),
+  /** a link SMS can be sent (a waiting link and a patient mobile number) */
+  canSms: z.boolean(),
 });
 export type PaymentView = z.infer<typeof PaymentView>;
 export const PaymentSummaryView = z.object({ totalPaisa: Paisa, confirmedPaisa: Paisa, pendingPaisa: Paisa, duePaisa: Paisa, openPaisa: Paisa });

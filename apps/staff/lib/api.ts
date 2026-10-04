@@ -113,6 +113,8 @@ export const bill = {
   pay: (id: string, body: NewPaymentRequest, key: string) => write<PaymentResponse>("POST", `/v1/invoices/${enc(id)}/payments`, body, "payment", key),
   cancel: (paymentId: string) => call<PaymentResponse>("POST", `/v1/payments/${enc(paymentId)}/cancel`, {}, crypto.randomUUID()),
   retry: (paymentId: string) => call<PaymentResponse>("POST", `/v1/payments/${enc(paymentId)}/retry`, {}, crypto.randomUUID()),
+  /** ADR 0012: a new SMS with the current payment link */
+  sendSms: (paymentId: string) => call<PaymentResponse>("POST", `/v1/payments/${enc(paymentId)}/send-sms`, {}, crypto.randomUUID()),
   verifyTrx: (paymentId: string, trxId: string) => call<PaymentResponse>("POST", `/v1/payments/${enc(paymentId)}/verify-trx`, { trxId }, crypto.randomUUID()),
   /** dev and tests only: the fake gateway plays the customer (the API refuses it with a real provider or in production) */
   fake: (paymentId: string, kind: "opened" | "confirmed" | "failed", deliver = true) => call<{ delivered: boolean; trxId?: string; outcome?: string }>("POST", `/v1/dev/fake-payments/${enc(paymentId)}/${kind}`, { deliver }),
@@ -257,6 +259,7 @@ export const adm = {
   addWard: (body: { name: string; nameBn?: string; beds: number; bedClass?: string }, key: string) => call<FacilityView>("POST", "/v1/admin/wards", body, key),
   settings: (body: SettingsUpdate, key: string) => call<FacilityView>("POST", "/v1/admin/settings", body, key),
   smsTest: (phone: string, key: string) => call<FacilityView>("POST", "/v1/admin/sms-test", { phone }, key),
+  smsConfirm: (key: string) => call<FacilityView>("POST", "/v1/admin/sms-test/confirm", {}, key),
   goLive: (key: string) => call<FacilityView>("POST", "/v1/admin/go-live", {}, key),
   users: () => call<UserList>("GET", "/v1/admin/users"),
   createUser: (body: UserCreate, key: string) => call<UserCredentialResponse>("POST", "/v1/admin/users", body, key),

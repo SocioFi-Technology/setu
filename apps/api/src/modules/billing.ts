@@ -19,10 +19,10 @@ import type { ApprovalItem, ApprovalList, BillingWorklist, ChargeDefinitionList,
 import type { Tx } from "@setu/db";
 import {
   APPROVAL, INVOICE, PAYMENT, approvalBlockers, billKindsFor, type Plan, type Role, billTotals, checkNewPayment, decideProviderEvent, dhakaDay, discountDecision, discountLimit, discountToPaisa,
-  LINK_CODE_ALPHABET, STUCK_MINUTES, LINK_CODE_LENGTH, answerOutcome, decideReturn, invoiceEventAfterConfirm, isWallet, type ReturnStatus, issueBlockers, notBilledBlockers, paidBy, paymentSummary, reconcileApplyBlockers, syncOrderLines, transition, voidBlockers, type BillingSettings, type DiscountCategory, type InvoiceState,
+  LINK_CODE_ALPHABET, STUCK_MINUTES, walletAmount, LINK_CODE_LENGTH, answerOutcome, decideReturn, invoiceEventAfterConfirm, isWallet, type ReturnStatus, issueBlockers, notBilledBlockers, paidBy, paymentSummary, reconcileApplyBlockers, syncOrderLines, transition, voidBlockers, type BillingSettings, type DiscountCategory, type InvoiceState,
   type PaymentMethod, type PaymentRow, type PaymentState, type ProviderEventKind,
 } from "@setu/domain";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { GatewayError, providerByName, providerFor, type PaymentProvider, type ProviderStatus, type ProviderWebhook } from "../adapters/payments/index.js";
 import { config } from "../config.js";
 import type { AuditEntry } from "../command.js";
@@ -179,7 +179,13 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
     }),
     ordersChanged,
     reconciling,
-    payments: pays.map((p) => toPaymentView(p, who)),
+    payments: await (async () => {
+      // ADR 0012: the latest link SMS per payment
+      const sms = pays.length ? await tx.communication.findMany({ where: { paymentId: { in: pays.map((p) => p.id) }, kind: "payment-link" }, orderBy: { createdAt: "asc" } }) : [];
+      const last = new Map(sms.map((c) => [c.paymentId!, c] as const));
+      const phone = inv.patientId ? (await tx.patient.findFirst({ where: { id: inv.patientId }, select: { phone: true } }))?.phone ?? null : null;
+      return pays.map((p) => toPaymentView(p, who, last.get(p.id) ?? null, !!smsPhone(phone)));
+    })(),
     summary: paymentSummary(inv.totalPaisa, rows),
     paidBy: paidBy(rows),
     seller: { nameEn: org.name, nameBn: org.nameBn, vatBin: org.vatBin, vatBinSample: org.vatBinSample },
@@ -195,7 +201,8 @@ function toApprovalView(t: TaskRow, who: (id: string) => { id: string; nameBn: s
     decidedBy: t.decidedById ? who(t.decidedById) : null, decidedAt: iso(t.decidedAt), decisionNote: t.decisionNote,
   };
 }
-function toPaymentView(p: Pay, who: (id: string) => { id: string; nameBn: string; nameEn: string }): PaymentView {
+type Comm = NonNullable<Awaited<ReturnType<Tx["communication"]["findFirst"]>>>;
+function toPaymentView(p: Pay, who: (id: string) => { id: string; nameBn: string; nameEn: string }, sms: Comm | null = null, patientMobile = false): PaymentView {
   return {
     id: p.id, method: p.method as PaymentMethod, status: dash<PaymentState>(p.status), amountPaisa: p.amountPaisa, tenderedPaisa: p.tenderedPaisa, changePaisa: p.changePaisa,
     reference: p.reference, trxId: p.trxId, phoneLast4: p.phone ? p.phone.slice(-4) : null, linkExpiresAt: iso(p.linkExpiresAt), attempt: p.attempt, failReason: p.failReason,
@@ -203,6 +210,8 @@ function toPaymentView(p: Pay, who: (id: string) => { id: string; nameBn: string
     payUrl: p.linkCode && PENDING_DB.includes(p.status) ? `${config.publicAppUrl}/p/${p.linkCode}` : null,
     gateway: p.provider ? providerByName(p.provider)?.flow ?? null : null,
     executing: !!p.executeClaimedAt && PENDING_DB.includes(p.status),
+    linkSms: sms ? { status: dash(sms.status), deliveryConfirmed: sms.deliveryConfirmed, lastError: sms.lastError, toLast4: sms.toPhone ? sms.toPhone.slice(-4) : null, at: (sms.completedAt ?? sms.statusAt).toISOString() } : null,
+    canSms: patientMobile && !!p.linkCode && PENDING_DB.includes(p.status) && !p.executeClaimedAt,
   };
 }
 
@@ -676,7 +685,7 @@ async function confirmPayment(tx: Tx, p: Pay, inv: Inv, by: string | null, trxId
 /** ADR 0011 (open question 90): the wallet link is made after the payment row committed. `attachLink` runs outside any
     transaction: it asks the gateway, then stores the link in its own transaction — or, if the gateway failed, fails the
     payment so its amount is free again. A payment cancelled meanwhile keeps no link (and the new link is cancelled). */
-export async function attachLink(tenantId: string, paymentId: string, now: Date): Promise<"link-sent" | "gateway-error" | "gone"> {
+export async function attachLink(tenantId: string, paymentId: string, now: Date, by: string | null = null): Promise<"link-sent" | "gateway-error" | "gone"> {
   const { forTenant } = await import("@setu/db");
   const p0 = await forTenant(tenantId, async (tx) => {
     const p = await tx.payment.findFirst({ where: { id: paymentId } });
@@ -700,7 +709,10 @@ export async function attachLink(tenantId: string, paymentId: string, now: Date)
       return "gateway-error" as const;
     }
     const status = undash<"link_sent">(transition("PAYMENT", PAYMENT, "initiated", "sendLink"));
-    await tx.payment.update({ where: { id: p.id }, data: { status, providerRef: link.providerRef, linkUrl: link.url, linkExpiresAt: link.expiresAt, providerSignature: link.signature ?? null, linkCode: linkCode(), executeClaimedAt: null, statusAt: now } });
+    const code = linkCode();
+    await tx.payment.update({ where: { id: p.id }, data: { status, providerRef: link.providerRef, linkUrl: link.url, linkExpiresAt: link.expiresAt, providerSignature: link.signature ?? null, linkCode: code, executeClaimedAt: null, statusAt: now } });
+    // ADR 0012: the link goes to the patient by SMS too (queued here, sent after the commit by the route or the sweep)
+    if (by) await queueLinkSms(tx, (await tx.payment.findFirst({ where: { id: p.id } }))!, by);
     return "link-sent" as const;
   });
   if (out === "gone" && link) await provider.cancel(link.providerRef).catch(() => undefined);
@@ -1081,4 +1093,33 @@ export async function sweepPayments(now: Date, stuckMinutes = STUCK_MINUTES): Pr
     } catch (e) { console.error(`payments sweep ${t.tenantId}/${t.paymentId} failed`, e); }
   }
   return { failed, settled };
+}
+
+/* ───── ADR 0012: the payment link by SMS ───── */
+const smsPhone = (phone: string | null | undefined) => (phone && /^1[3-9]\d{8}$/.test(phone) ? `0${phone}` : null);
+/** Queue a payment-link SMS for this payment's current link: facility, bill number, amount and our short link only.
+    Null when there is no patient mobile number (a walk-in buyer gets the QR). */
+export async function queueLinkSms(tx: Tx, p: Pay, by: string): Promise<string | null> {
+  if (!p.linkCode || !p.patientId) return null;
+  const inv = (await tx.invoice.findFirst({ where: { id: p.invoiceId }, select: { number: true, encounterId: true } }))!;
+  const to = smsPhone((await tx.patient.findFirst({ where: { id: p.patientId }, select: { phone: true } }))?.phone);
+  if (!to) return null;
+  const o = await tx.organization.findFirst({ where: { id: p.organizationId }, select: { name: true, nameBn: true } });
+  const { t, fill } = await import("@setu/i18n");
+  const amount = walletAmount(p.amountPaisa).replace(/\.00$/, "");
+  const vars = (facility: string) => ({ facility, number: inv.number ?? "", amount, link: `${config.publicAppUrl}/p/${p.linkCode}` });
+  const text = `${fill(t("bn", "billingApp", "sms_payment_link"), vars(o?.nameBn ?? o?.name ?? ""))}\n${fill(t("en", "billingApp", "sms_payment_link"), vars(o?.name ?? ""))}`;
+  const c = await tx.communication.create({ data: {
+    id: `com_${randomUUID()}`, tenantId: p.tenantId, organizationId: p.organizationId, patientId: p.patientId, encounterId: inv.encounterId ?? null, kind: "payment-link", channel: "sms",
+    toPhone: to, templateKey: "sms_payment_link", text, paymentId: p.id, createdById: by,
+  } });
+  return c.id;
+}
+/** "Send SMS again" for a waiting link: a new message (the gateway cannot recognise a resend of the old one). */
+export async function resendLinkSms(tx: Tx, s: SessionData, paymentId: string): Promise<{ inv: Inv; payment: Pay; smsId: string }> {
+  const { p, inv } = await walletPaymentHere(tx, s, paymentId);
+  if (!PENDING_DB.includes(p.status) || !p.linkCode || p.executeClaimedAt) throw err(409, "not_pending", "এই পেমেন্টের কোনো চালু লিংক নেই", "This payment has no open link");
+  const id = await queueLinkSms(tx, p, s.userId);
+  if (!id) throw err(422, "no_phone", "রোগীর মোবাইল নম্বর নেই — QR দেখান", "The patient has no mobile number — show the QR");
+  return { inv, payment: p, smsId: id };
 }

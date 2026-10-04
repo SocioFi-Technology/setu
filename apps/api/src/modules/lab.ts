@@ -14,6 +14,7 @@
      template (facility + what to do), sent through the Messenger adapter after the write commits;
    - an order is cancelled (ORDER revoke) only before its first tube is collected, with a reason, and the visit's
      draft bill is refreshed (D5, decision 99). */
+import { SMS_MAYBE_SENT, SMS_QUEUED_STUCK_MS, SMS_SENDING_STUCK_MS } from "@setu/domain";
 import { randomUUID } from "node:crypto";
 import type { CallbackRequest, CommunicationItem, CorrectRequest, LabOrder, LabReportView, LabResult, LabVisitView, LabWorklist, ReleaseRequest, ResultEntryRequest, SpecimenRejectRequest, ValidateRequest, VerifyRequest } from "@setu/contracts";
 import type { Tx } from "@setu/db";
@@ -23,7 +24,7 @@ import {
   WITHDRAWN_REASON, decimalsOf, returnBlockers, validateBlockers, verifyBlockers, withdrawBlockers, type AnalyteDef, type LabFlag, type OrderState, type RangeDef, type ResultState, type SpecimenState, type TubeKind,
 } from "@setu/domain";
 import { fill, t } from "@setu/i18n";
-import { messenger } from "../adapters/messaging/index.js";
+import { messenger, type SendResult } from "../adapters/messaging/index.js";
 import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
@@ -86,7 +87,7 @@ async function loadBundle(tx: Tx, s: SessionData, encounterIds: string[], withPr
     tx.observation.findMany({ where: { encounterId: { in: ids }, category: LAB }, orderBy: [{ recordedAt: "asc" }, { id: "asc" }] }),
     tx.criticalCallback.findMany({ where: { encounterId: { in: ids } }, orderBy: { recordedAt: "asc" } }),
     tx.diagnosticReport.findMany({ where: { encounterId: { in: ids } }, include: { results: { select: { observationId: true, serviceRequestId: true } } }, orderBy: { version: "asc" } }) as Promise<Report[]>,
-    tx.communication.findMany({ where: { encounterId: { in: ids } }, orderBy: { createdAt: "asc" } }),
+    tx.communication.findMany({ where: { encounterId: { in: ids }, kind: { not: "payment-link" } }, orderBy: { createdAt: "asc" } }),
     tx.invoice.findMany({ where: { encounterId: { in: ids }, kind: "opd", status: { notIn: ["cancelled", "entered_in_error"] } }, orderBy: { createdAt: "desc" }, select: { encounterId: true, number: true, status: true } }).then((r) => r.flatMap((i) => (i.encounterId ? [{ ...i, encounterId: i.encounterId }] : []))),
     tx.labAnalyte.findMany({ where: { active: true } }),
     tx.labReferenceRange.findMany(),
@@ -216,7 +217,7 @@ function commOf(b: Bundle, v: Visit | null, c: Comm): CommunicationItem {
   return {
     id: c.id, kind: c.kind as CommunicationItem["kind"], channel: dash<CommunicationItem["channel"]>(c.channel), status: dash<CommunicationItem["status"]>(c.status), attempts: c.attempts,
     lastError: c.lastError, toPhone: c.toPhone, recipient: personOf(b, c.recipientUserId), reportId: c.reportId, reportVersion: r?.version ?? null,
-    createdAt: c.createdAt.toISOString(), sentAt: iso(c.sentAt), completedAt: iso(c.completedAt),
+    createdAt: c.createdAt.toISOString(), sentAt: iso(c.sentAt), completedAt: iso(c.completedAt), deliveryConfirmed: c.deliveryConfirmed,
   };
 }
 const reportSummary = (b: Bundle, r: Report) => ({
@@ -380,18 +381,20 @@ export async function deliverInApp(tx: Tx, s: SessionData, to: { patientId: stri
 
 /** Sends queued SMS through the Messenger after the write that queued them committed (security review M3): one short
     transaction claims the message (preparation → in-progress, one attempt), the gateway is called outside any
-    transaction, a second one records the outcome (completed | failed). A message whose send was interrupted stays
-    in-progress and can be retried after a while (retryMessage); the gateway never delivers the same message id twice.
-    Returns each message's new state (the route merges them into its answer). */
+    transaction, a second one records the outcome: completed (delivered — or only "sent" when the gateway cannot confirm
+    delivery, ADR 0012: `deliveryConfirmed` false) | failed. A message whose send was interrupted stays in-progress; the
+    sweep marks it failed after a while ("it may have been sent") and a person retries it. `by`: the session that queued
+    it, or the system (the sweep). Returns each message's new state (the route merges them into its answer). */
 type Sent = Pick<CommunicationItem, "status" | "attempts" | "lastError" | "sentAt" | "completedAt">;
-export async function dispatchSms(s: SessionData, ids: string[], meta: { ip: string; route: string }) {
+export interface SmsActor { tenantId: string; userId: string | null; role: SessionData["role"] | null }
+export async function dispatchSms(by: SmsActor, ids: string[], meta: { ip: string | null; route: string }) {
   const out = new Map<string, Sent>();
   if (!ids.length) return out;
   const { forTenant } = await import("@setu/db");
   for (const id of ids) {
     try {
       const now = new Date();
-      const claimed = await forTenant(s.tenantId, async (tx) => {
+      const claimed = await forTenant(by.tenantId, async (tx) => {
         const c = await tx.communication.findFirst({ where: { id, channel: "sms", status: "preparation" } });
         if (!c || !c.toPhone || !c.text) return null;
         const sending = undash<"in_progress">(transition("COMMUNICATION", COMMUNICATION, "preparation", "send"));
@@ -399,19 +402,41 @@ export async function dispatchSms(s: SessionData, ids: string[], meta: { ip: str
         return n.count === 1 ? c : null;
       });
       if (!claimed) continue;
-      const r = await messenger.sendSms({ messageId: claimed.id, to: claimed.toPhone!, text: claimed.text!, tenantId: s.tenantId })
-        .catch((e: unknown): { status: "failed"; error: string; providerRef: null } => ({ status: "failed", error: e instanceof Error ? e.message.slice(0, 120) : "gateway error", providerRef: null }));
+      const r = await messenger.sendSms({ messageId: claimed.id, to: claimed.toPhone!, text: claimed.text!, tenantId: by.tenantId })
+        .catch((e: unknown): SendResult => ({ status: "failed", error: e instanceof Error ? e.message.slice(0, 120) : "gateway error", providerRef: null, reason: "gateway" }));
       const done = new Date();
-      const next = undash<"completed" | "failed">(transition("COMMUNICATION", COMMUNICATION, "in-progress", r.status === "delivered" ? "deliver" : "fail"));
-      await forTenant(s.tenantId, async (tx) => {
-        await tx.communication.updateMany({ where: { id, status: "in_progress" }, data: { status: next, providerRef: r.providerRef ?? claimed.providerRef, lastError: r.status === "failed" ? r.error : null, completedAt: r.status === "delivered" ? done : null, statusAt: done } });
-        await tx.auditEvent.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, userId: s.userId, role: s.role, action: "send", entity: "Communication", entityId: id, patientId: claimed.patientId, ip: meta.ip,
-          detail: { route: meta.route, channel: "sms", kind: claimed.kind, outcome: r.status, attempt: claimed.attempts + 1, provider: messenger.name } } });
+      const ok = r.status !== "failed";
+      const next = undash<"completed" | "failed">(transition("COMMUNICATION", COMMUNICATION, "in-progress", ok ? "deliver" : "fail"));
+      await forTenant(by.tenantId, async (tx) => {
+        await tx.communication.updateMany({ where: { id, status: "in_progress" }, data: { status: next, providerRef: r.providerRef ?? claimed.providerRef, lastError: r.status === "failed" ? r.error : null,
+          completedAt: ok ? done : null, deliveryConfirmed: r.status === "delivered", statusAt: done } });
+        await tx.auditEvent.create({ data: { tenantId: by.tenantId, organizationId: claimed.organizationId, userId: by.userId, role: by.role, action: "send", entity: "Communication", entityId: id, patientId: claimed.patientId, ip: meta.ip,
+          detail: { route: meta.route, channel: "sms", kind: claimed.kind, outcome: r.status, ...(r.status === "failed" && r.reason ? { reason: r.reason } : {}), attempt: claimed.attempts + 1, provider: messenger.name, ...(by.userId ? {} : { actor: "system:sms-sweep" }) } } });
       });
-      out.set(id, { status: dash(next), attempts: claimed.attempts + 1, lastError: r.status === "failed" ? r.error : null, sentAt: now.toISOString(), completedAt: r.status === "delivered" ? done.toISOString() : null });
-    } catch { /* left queued or in progress: Retry picks it up */ }
+      out.set(id, { status: dash(next), attempts: claimed.attempts + 1, lastError: r.status === "failed" ? r.error : null, sentAt: now.toISOString(), completedAt: ok ? done.toISOString() : null });
+    } catch { /* left queued or in progress: the sweep and Retry pick it up */ }
   }
   return out;
+}
+
+/** Every minute (ADR 0012, open question 124): an SMS queued for more than a minute is sent; one "sending" for more than
+    two (the API stopped mid-send) becomes failed — "it may have been sent" — for a person to retry. Never resent here. */
+export async function sweepSms(now: Date): Promise<{ sent: number; interrupted: number }> {
+  const { forTenant, smsSweepTargets } = await import("@setu/db");
+  let sent = 0, interrupted = 0;
+  for (const t of await smsSweepTargets(new Date(now.getTime() - SMS_QUEUED_STUCK_MS), new Date(now.getTime() - SMS_SENDING_STUCK_MS))) {
+    try {
+      if (t.status === "preparation") { sent += (await dispatchSms({ tenantId: t.tenantId, userId: null, role: null }, [t.communicationId], { ip: null, route: "sweep" })).size; continue; }
+      await forTenant(t.tenantId, async (tx) => {
+        const c = await tx.communication.findFirst({ where: { id: t.communicationId, status: "in_progress" } });
+        if (!c) return;
+        const failed = undash<"failed">(transition("COMMUNICATION", COMMUNICATION, "in-progress", "fail"));
+        const n = await tx.communication.updateMany({ where: { id: c.id, status: "in_progress", attempts: c.attempts }, data: { status: failed, lastError: SMS_MAYBE_SENT, statusAt: now } });
+        if (n.count) { interrupted++; await tx.auditEvent.create({ data: { tenantId: t.tenantId, organizationId: c.organizationId, userId: null, role: null, action: "update", entity: "Communication", entityId: c.id, patientId: c.patientId, detail: { actor: "system:sms-sweep", kind: c.kind, outcome: "interrupted" } } }); }
+      });
+    } catch (e) { console.error(`sms sweep ${t.tenantId}/${t.communicationId} failed`, e); }
+  }
+  return { sent, interrupted };
 }
 /** How long a message may sit queued or in progress before Retry may pick it up again (security review M3). */
 export const STUCK_QUEUED_MS = 60_000, STUCK_SENDING_MS = 120_000;

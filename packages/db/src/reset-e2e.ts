@@ -128,7 +128,7 @@ const openGrns = await db.goodsReceipt.updateMany({ where: { tenantId: T, status
 // the E2E Test Clinic's money settings back to the seeded values (a test that stopped halfway must not change billing's)
 await db.organization.update({ where: { id: "o_e2e" }, data: { cashierDiscountLimitPaisa: 50_000, cashierDiscountLimitBp: 500, approverLimitPaisa: 1_000_000, paymentMethods: ["cash", "card", "bank", "bkash", "nagad"], labelWidthMm: 50, labelHeightMm: 30 } });
 const NEW = "o_e2e_new", NEW_ADMIN = "u_e2e_newadmin";
-await db.organization.update({ where: { id: NEW }, data: { status: "setup", liveAt: null, address: null, licenceNo: null, receiptFormat: null, rxFormat: null, paymentMethods: [], smsTestedAt: null, smsTestPhone: null } });
+await db.organization.update({ where: { id: NEW }, data: { status: "setup", liveAt: null, address: null, licenceNo: null, receiptFormat: null, rxFormat: null, paymentMethods: [], smsTestedAt: null, smsTestSentAt: null, smsTestPhone: null } });
 for (const kind of ["bed", "room", "ward", "department", "branch"] as const) await db.location.deleteMany({ where: { organizationId: NEW, kind } });
 await db.chargeItemDefinition.deleteMany({ where: { organizationId: NEW } });
 const testUsers = (await db.practitionerRole.findMany({ where: { organizationId: NEW, userId: { not: NEW_ADMIN } }, select: { userId: true } })).map((r) => r.userId);

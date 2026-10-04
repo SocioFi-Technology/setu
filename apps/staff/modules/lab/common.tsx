@@ -59,6 +59,8 @@ export function RangeText({ range, unit, decimals }: { range: { low: number; hig
 export const RESULT_TONE: Record<LabResult["status"], Tone> = { preliminary: "draft", verified: "pend", final: "final", amended: "info", "entered-in-error": "off" };
 export const REPORT_TONE: Record<string, Tone> = { preliminary: "warn", final: "final", corrected: "info", superseded: "off" };
 export const COMM_TONE: Record<string, Tone> = { preparation: "pend", "in-progress": "pend", completed: "ok", failed: "bad" };
+/** ADR 0012: an SMS the gateway only accepted is "Sent", never "Delivered" */
+export const csKey = (c: { status: string; channel: string; deliveryConfirmed: boolean }) => (c.status === "completed" && c.channel === "sms" && !c.deliveryConfirmed ? "cs_sent" : `cs_${c.status}`);
 export const SPECIMEN_TONE: Record<string, Tone> = { pending: "neu", collected: "info", received: "info", "in-process": "pend", done: "ok", rejected: "bad" };
 export const COLLECTION_TONE: Record<string, Tone> = { none: "off", pending: "neu", partial: "warn", collected: "ok", rejected: "bad" };
 const TUBE_COLOUR: Record<string, string> = { purple: "#7c3aed", grey: "#9ca3af", red: "#dc2626", none: "transparent" };

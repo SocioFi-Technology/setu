@@ -13,7 +13,7 @@ import { Button, Callout, Card, PageState, Pill, useToast } from "@setu/ui";
 import { lab } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useLabels } from "../fd/common";
-import { COMM_TONE, REPORT_TONE, VisitHead, isLabWriter, useErr, useFmt, useLabVisit, useLb } from "./common";
+import { COMM_TONE, csKey, REPORT_TONE, VisitHead, isLabWriter, useErr, useFmt, useLabVisit, useLb } from "./common";
 import { LabWorklist } from "./Worklist";
 
 export function LabDelivery() {
@@ -75,7 +75,7 @@ function DeliveryVisit({ encounterId }: { encounterId: string }) {
             {[...v.communications].reverse().map((c) => (
               <tr key={c.id} data-event={c.kind} data-status={c.status}>
                 <td>{T(`ck_${c.kind}`)}{c.reportVersion ? ` · v${s.n(c.reportVersion)}` : ""}</td><td>{T(`ch_${c.channel}`)}</td>
-                <td><Pill tone={COMM_TONE[c.status] ?? "neu"}>{c.channel === "doctor-inbox" && c.status === "completed" ? T("cs_inbox_recorded") : T(`cs_${c.status}`)}</Pill>{c.lastError && <div className="t-small">{c.lastError}</div>}{c.attempts > 1 && <div className="t-small t-muted">{T("attempts", { n: c.attempts })}</div>}</td>
+                <td><Pill tone={COMM_TONE[c.status] ?? "neu"}>{c.channel === "doctor-inbox" && c.status === "completed" ? T("cs_inbox_recorded") : T(csKey(c))}</Pill>{c.lastError && <div className="t-small">{c.lastError}</div>}{c.attempts > 1 && <div className="t-small t-muted">{T("attempts", { n: c.attempts })}</div>}</td>
                 <td className="num">{F.dateTime(c.completedAt ?? c.sentAt ?? c.createdAt)}</td><td>{c.recipient ? F.name(c.recipient) : c.toPhone ? L.phone(c.toPhone.slice(1)) : c.channel === "patient-app" ? T("ch_app_to") : "—"}</td>
               </tr>
             ))}
@@ -93,7 +93,7 @@ function Channel({ icon, title, to, c, note, action, data, recordOnly }: { icon:
     <Card style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8, borderColor: c?.status === "failed" ? "var(--danger-border)" : undefined }} data-channel={data} data-status={c?.status ?? "not-sent"}>
       <span style={{ display: "flex", gap: 8, alignItems: "center" }}><b>{title}</b></span>
       <span className="t-small t-muted num">{to}</span>
-      <span>{c ? <Pill tone={COMM_TONE[c.status] ?? "neu"} icon={icon}>{recordOnly && c.status === "completed" ? T("cs_inbox_recorded") : T(`cs_${c.status}`)}</Pill> : <Pill tone="neu" icon={icon}>{T("cs_not_sent")}</Pill>}</span>
+      <span>{c ? <Pill tone={COMM_TONE[c.status] ?? "neu"} icon={icon}>{recordOnly && c.status === "completed" ? T("cs_inbox_recorded") : T(csKey(c))}</Pill> : <Pill tone="neu" icon={icon}>{T("cs_not_sent")}</Pill>}</span>
       {c?.lastError && <span className="t-small" style={{ color: "var(--danger-fg, #b91c1c)" }}>{T("failed_why", { why: c.lastError })}</span>}
       {c && <span className="t-small t-muted">{F.dateTime(c.completedAt ?? c.sentAt ?? c.createdAt)}{c.attempts > 1 ? ` · ${T("attempts", { n: c.attempts })}` : ""}</span>}
       <span className="t-small t-muted">{note}</span>

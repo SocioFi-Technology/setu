@@ -91,6 +91,8 @@ export const CommunicationItem = z.object({
   id: z.string(), kind: CommunicationKind, channel: CommunicationChannel, status: CommunicationStatus, attempts: z.number().int(), lastError: z.string().nullable(),
   toPhone: z.string().nullable(), recipient: Person.nullable(), reportId: z.string().nullable(), reportVersion: z.number().int().nullable(),
   createdAt: z.string(), sentAt: z.string().nullable(), completedAt: z.string().nullable(),
+  /** ADR 0012: false = the SMS gateway only accepted it — shown as "Sent", never "Delivered" */
+  deliveryConfirmed: z.boolean(),
 });
 export type CommunicationItem = z.infer<typeof CommunicationItem>;
 export const ReleasePreview = z.object({

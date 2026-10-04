@@ -172,7 +172,14 @@ function PayView({ id }: { id: string }) {
                     <span style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
                       <span className="t-small">{B("pay_scan")}</span>
                       <a className="num t-small" href={p.payUrl} target="_blank" rel="noreferrer" data-testid="pay-url" style={{ wordBreak: "break-all" }}>{p.payUrl}</a>
-                      <span><Button size="sm" icon="copy" onClick={() => { void navigator.clipboard?.writeText(p.payUrl!).then(() => toast(B("pay_copied"), "check")).catch(() => undefined); }}>{B("pay_copy_link")}</Button></span>
+                      <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <Button size="sm" icon="copy" onClick={() => { void navigator.clipboard?.writeText(p.payUrl!).then(() => toast(B("pay_copied"), "check")).catch(() => undefined); }}>{B("pay_copy_link")}</Button>
+                        {p.canSms && <Button size="sm" icon="send" data-testid="sms-again" disabled={busy || !s.online} onClick={() => act(() => api.sendSms(p.id))}>{B("pay_sms_again")}</Button>}
+                      </span>
+                      {/* ADR 0012: the link SMS — "sent" means the gateway took it, never that the phone has it */}
+                      <span className="t-small" data-testid="link-sms" data-sms-status={p.linkSms?.status ?? "none"}>
+                        {p.linkSms ? B("pay_sms", { last4: p.linkSms.toLast4 ?? "—", status: p.linkSms.status === "completed" ? (p.linkSms.deliveryConfirmed ? B("pay_sms_delivered") : B("pay_sms_sent")) : p.linkSms.status === "failed" ? B("pay_sms_failed", { reason: p.linkSms.lastError ?? "—" }) : B("pay_sms_queued") }) : !p.canSms ? B("pay_sms_none") : null}
+                      </span>
                     </span>
                   </span>
                 )}

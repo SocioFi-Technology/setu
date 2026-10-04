@@ -111,6 +111,8 @@ model Organization {
   /// payment methods this facility takes (cash | card | bank | bkash | nagad)
   paymentMethods            String[]           @default([])
   smsTestedAt               DateTime?
+  /// ADR 0012: a test SMS the gateway accepted (no delivery reports) — done only when the admin confirms it arrived
+  smsTestSentAt   DateTime?
   smsTestPhone              String?
   locations                 Location[]
   practitionerRoles         PractitionerRole[]
@@ -1308,6 +1310,10 @@ model Communication {
   observationId    String?
   /// substitution-notice (ADR 0009): the dispense it is about
   dispenseId       String?
+  /// payment-link (ADR 0012): the payment whose short link it carries
+  paymentId        String?
+  /// completed and confirmed by the gateway as delivered; false = the gateway only accepted it ("Sent", ADR 0012)
+  deliveryConfirmed Boolean            @default(true)
   status           CommunicationStatus  @default(preparation)
   attempts         Int                  @default(0)
   lastError        String?

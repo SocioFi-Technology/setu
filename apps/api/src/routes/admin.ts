@@ -12,7 +12,7 @@ import { command, query } from "../command.js";
 import { forbidden } from "../errors.js";
 import {
   addBranch, addWard, auditCsv, auditPage, changePrice, changeRole, createPrice, createUser, facilityView, goLive, priceHistory, priceList, resetPassword, setActive,
-  setPriceActive, smsTest, updateFacility, updateSettings, userList, verifyRegistration,
+  setPriceActive, smsTest, smsTestConfirm, updateFacility, updateSettings, userList, verifyRegistration,
 } from "../modules/admin.js";
 import { requireSession } from "../plugins/session.js";
 
@@ -31,16 +31,18 @@ export async function adminRoutes(app: FastifyInstance) {
     requireAdm(req, "wizard");
     return query(req, async (tx, s) => ({ body: await facilityView(tx, s), audit: [{ action: "view", entity: "Organization", entityId: s.organizationId }] }));
   });
-  const facilityWrite = (path: string, screen: "wizard" | "masters", run: (tx: Parameters<Parameters<typeof command>[2]>[0], s: Parameters<Parameters<typeof command>[2]>[1], body: unknown) => Promise<import("../command.js").AuditEntry[]>, status = 200) =>
+  const facilityWrite = (path: string, screen: "wizard" | "masters", run: (tx: Parameters<Parameters<typeof command>[2]>[0], s: Parameters<Parameters<typeof command>[2]>[1], body: unknown) => Promise<import("../command.js").AuditEntry[]>, status = 200, txTimeoutMs?: number) =>
     app.post(path, { config: { ownTx: true } }, async (req, reply): Promise<FacilityView> => {
       requireAdm(req, screen);
-      return command(req, reply, async (tx, s) => { const audit = await run(tx, s, req.body ?? {}); return { status, body: await facilityView(tx, s), audit }; });
+      return command(req, reply, async (tx, s) => { const audit = await run(tx, s, req.body ?? {}); return { status, body: await facilityView(tx, s), audit }; }, { txTimeoutMs });
     });
   facilityWrite("/v1/admin/facility", "wizard", (tx, s, b) => updateFacility(tx, s, FacilityUpdate.parse(b)));
   facilityWrite("/v1/admin/branches", "wizard", async (tx, s, b) => { const x = BranchCreate.parse(b); const l = await addBranch(tx, s, x.name, x.nameBn); return [{ action: "create", entity: "Location", entityId: l.id, detail: { kind: "branch", name: x.name } }]; }, 201);
   facilityWrite("/v1/admin/wards", "wizard", async (tx, s, b) => { const x = WardCreate.parse(b); const w = await addWard(tx, s, x); return [{ action: "create", entity: "Location", entityId: w.id, detail: { kind: "ward", name: x.name, beds: x.beds } }]; }, 201);
   facilityWrite("/v1/admin/settings", "masters", (tx, s, b) => updateSettings(tx, s, SettingsUpdate.parse(b)));
-  facilityWrite("/v1/admin/sms-test", "wizard", (tx, s, b) => smsTest(tx, s, SmsTestRequest.parse(b).phone, new Date()));
+  // the gateway answers within its 20 s timeout; the transaction outlasts it
+  facilityWrite("/v1/admin/sms-test", "wizard", (tx, s, b) => smsTest(tx, s, SmsTestRequest.parse(b).phone, new Date()), 200, 30_000);
+  facilityWrite("/v1/admin/sms-test/confirm", "wizard", (tx, s) => smsTestConfirm(tx, s, new Date()));
   facilityWrite("/v1/admin/go-live", "wizard", (tx, s) => goLive(tx, s, new Date()));
 
   /* ── users and roles (adm/users) ── */

@@ -55,6 +55,7 @@
   "sms_preparation": ["পাঠানোর অপেক্ষায়", "waiting to send"],
   "sms_in-progress": ["পাঠানো হচ্ছে", "sending"],
   "sms_completed": ["পৌঁছেছে", "delivered"],
+  "sms_sent": ["পাঠানো হয়েছে", "sent"],
   "sms_failed": ["যায়নি", "not delivered"],
   "seen_pending": ["দেখা হয়েছে — সিঙ্ক হয়নি", "Acknowledged — not yet synced"],
   "seen_pending_tell": ["দেখা হয়েছে — সিঙ্ক হলে রোগীকে জানানো হবে", "Acknowledged — the patient is told once it syncs"],

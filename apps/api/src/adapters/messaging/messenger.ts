@@ -13,10 +13,17 @@ export interface SmsMessage {
   /** whose message it is (the gateway's accounting; the fake keeps each tenant's log and failures apart) */
   tenantId?: string;
 }
-export type SendResult = { status: "delivered"; providerRef: string } | { status: "failed"; error: string; providerRef: string | null };
+/** delivered: the gateway confirmed the phone received it; sent: the gateway accepted it and cannot say more (BulkSMSBD,
+    ADR 0012); failed: `reason` — the number, the facility's setup, the gateway, or no answer (it may have been sent). */
+export type SendResult =
+  | { status: "delivered"; providerRef: string }
+  | { status: "sent"; providerRef: string | null }
+  | { status: "failed"; error: string; providerRef: string | null; reason?: import("@setu/domain").SmsFailure };
 
 export interface Messenger {
   /** stored with the message's attempts */
   readonly name: string;
+  /** false: a "sent" message is never shown as delivered (ADR 0012) */
+  readonly confirmsDelivery: boolean;
   sendSms(m: SmsMessage): Promise<SendResult>;
 }

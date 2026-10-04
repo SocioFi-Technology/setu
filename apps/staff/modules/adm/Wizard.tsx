@@ -18,7 +18,7 @@ export function AdmWizard() {
   const s = useSession(); const A = useA(); const F = useFmt(); const E = useErr(); const router = useRouter(); const toast = useToast();
   const [f, setF] = useState<FacilityView | null>(null); const [failed, setFailed] = useState(false); const [busy, setBusy] = useState(false);
   // one key per kind of write, renewed after the server answers it (success or refusal) — a retry after a lost answer replays
-  const [keys] = useState(() => ({ org: crypto.randomUUID(), branch: crypto.randomUUID(), ward: crypto.randomUUID(), prints: crypto.randomUUID(), sms: crypto.randomUUID(), live: crypto.randomUUID() }));
+  const [keys] = useState(() => ({ org: crypto.randomUUID(), branch: crypto.randomUUID(), ward: crypto.randomUUID(), prints: crypto.randomUUID(), sms: crypto.randomUUID(), smsOk: crypto.randomUUID(), live: crypto.randomUUID() }));
   const [org, setOrg] = useState({ name: "", nameBn: "", address: "", licenceNo: "" });
   const [branch, setBranch] = useState({ name: "", nameBn: "" }); const [ward, setWard] = useState({ name: "", beds: "4" });
   const [prints, setPrints] = useState<{ receiptFormat: "a5" | "thermal"; rxFormat: "a5" | "a4"; paymentMethods: string[] }>({ receiptFormat: "a5", rxFormat: "a5", paymentMethods: [] });
@@ -153,6 +153,13 @@ export function AdmWizard() {
             <TextField label={A("sms_phone")} inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} data-testid="sms-phone" error={phone && !/^01[3-9]\d{8}$/.test(phone.trim()) ? A("phone_invalid") : undefined} />
             <Button icon="send" data-testid="sms-send" disabled={!s.online || busy || !/^01[3-9]\d{8}$/.test(phone.trim())} onClick={() => void run("sms", (k) => adm.smsTest(phone.trim(), k), A("sms_sent"))}>{A("sms_send")}</Button>
           </div>
+          {f.sms.awaitingConfirm && (
+            // ADR 0012: the gateway only says it accepted the message — the admin looks at the phone
+            <Callout tone="info" icon="message-square" data-testid="sms-confirm-box">
+              {A("sms_check_phone", { phone: F.n(f.sms.phone ?? ""), at: F.dateTime(f.sms.sentAt!) })}{" "}
+              <Button size="sm" icon="check" data-testid="sms-arrived" disabled={!s.online || busy} onClick={() => void run("smsOk", (k) => adm.smsConfirm(k), A("sms_confirmed"))}>{A("sms_arrived")}</Button>
+            </Callout>
+          )}
         </Card>
       </div>
     </div>

@@ -283,6 +283,7 @@
   "cs_preparation": ["পাঠানোর অপেক্ষায়", "Queued"],
   "cs_in-progress": ["পাঠানো হচ্ছে…", "Sending…"],
   "cs_completed": ["পৌঁছেছে", "Delivered"],
+  "cs_sent": ["পাঠানো হয়েছে (পৌঁছানো নিশ্চিত নয়)", "Sent (delivery not confirmed)"],
   "cs_failed": ["ব্যর্থ", "Failed"],
   "failed_why": ["ব্যর্থ — {why}", "Failed — {why}"],
   "attempts": ["{n} বার চেষ্টা", "{n} attempts"],

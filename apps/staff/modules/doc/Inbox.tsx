@@ -130,7 +130,7 @@ function InboxCard({ item: x, queued, busy, onAck }: { item: InboxItem; queued: 
       {x.acknowledged ? (
         <span className="t-small" data-testid="acked" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           <Icon name="check" size={14} />{D("seen_at", { at: F.time(x.acknowledged.at) })}
-          {x.acknowledged.sms && <span data-sms-status={x.acknowledged.sms.status}>· {D("seen_told", { status: D(`sms_${x.acknowledged.sms.status}`) })}</span>}
+          {x.acknowledged.sms && <span data-sms-status={x.acknowledged.sms.status}>· {D("seen_told", { status: D(x.acknowledged.sms.status === "completed" && !x.acknowledged.sms.deliveryConfirmed ? "sms_sent" : `sms_${x.acknowledged.sms.status}`) })}</span>}
         </span>
       ) : queued !== undefined ? (
         <span data-testid="acked-pending"><Pill tone="off" icon="cloud-off" wrap>{queued ? D("seen_pending_tell") : D("seen_pending")}</Pill></span>

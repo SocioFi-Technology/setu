@@ -52,7 +52,7 @@ async function toItems(tx: Tx, s: SessionData, rows: Row[], now: Date): Promise<
   const [reportObs, analytes, smsRows] = await Promise.all([
     tx.observation.findMany({ where: { id: { in: reportObsIds } } }),
     tx.labAnalyte.findMany({ select: { code: true, nameEn: true, nameBn: true, decimals: true } }),
-    tx.communication.findMany({ where: { id: { in: rows.map((r) => r.ack?.notifyCommunicationId).filter((x): x is string => !!x) } }, select: { id: true, status: true, lastError: true } }),
+    tx.communication.findMany({ where: { id: { in: rows.map((r) => r.ack?.notifyCommunicationId).filter((x): x is string => !!x) } }, select: { id: true, status: true, lastError: true, deliveryConfirmed: true } }),
   ]);
   const P = new Map(patients.map((p) => [p.id, p])), E = new Map(encounters.map((e) => [e.id, e])), R = new Map(reports.map((r) => [r.id, r]));
   const O = new Map(orders.map((o) => [o.id, o])), V = new Map([...obs, ...reportObs].map((o) => [o.id, o])), A = new Map(analytes.map((a) => [a.code, a])), S = new Map(smsRows.map((m) => [m.id, m]));
@@ -97,7 +97,7 @@ async function toItems(tx: Tx, s: SessionData, rows: Row[], now: Date): Promise<
         return { prescribed: { brand: pr.brand, generic: pr.generic, strength: pr.strength }, given: { brand: g?.brand ?? d.medicineKey, generic: g?.generic ?? "", strength: g?.strength ?? "" },
           qty: d.qty, reason: d.reason ?? "", by: { id: d.byId, nameBn: by?.nameBn ?? "", nameEn: by?.nameEn ?? "" }, at: d.at.toISOString() };
       })(),
-      acknowledged: c.ack ? { at: c.ack.ackedAt.toISOString(), notifyPatient: c.ack.notifyPatient, sms: sms ? { id: sms.id, status: dash(sms.status), lastError: sms.lastError } : null } : null,
+      acknowledged: c.ack ? { at: c.ack.ackedAt.toISOString(), notifyPatient: c.ack.notifyPatient, sms: sms ? { id: sms.id, status: dash(sms.status), lastError: sms.lastError, deliveryConfirmed: sms.deliveryConfirmed } : null } : null,
       canNotify: kind === "report-inbox" && !superseded && !correctionPending && hasMobile && !c.ack,
       correctionPending,
       resolved: kind === "report-inbox" && superseded && !c.ack,

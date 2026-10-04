@@ -16,10 +16,11 @@ import { command, query } from "../command.js";
 import { config } from "../config.js";
 import { err, forbidden } from "../errors.js";
 import {
-  addDeskLine, addPayment, attachLink, payLinkTarget, payResult, returnFromGateway, approvalList, billingWorklist, cancelPayment, chargeDefinitions, createInvoice, decideApproval, decideReconcile, reconcileList, refreshOrders, requestNotBilled, voidInvoice, handleProviderEvent, invoiceView, removeDiscount, removeLine,
+  addDeskLine, addPayment, attachLink, resendLinkSms, payLinkTarget, payResult, returnFromGateway, approvalList, billingWorklist, cancelPayment, chargeDefinitions, createInvoice, decideApproval, decideReconcile, reconcileList, refreshOrders, requestNotBilled, voidInvoice, handleProviderEvent, invoiceView, removeDiscount, removeLine,
   invoiceHere, issueInvoice, requestDiscount, retryPayment, setLineQty, verifyTrx,
 } from "../modules/billing.js";
 import { createReceipt, printPdf, printReceipt, receiptList, receiptView } from "../modules/receipts.js";
+import { dispatchSms } from "../modules/lab.js";
 import { requireSession } from "../plugins/session.js";
 
 /** `pharmacy`: the route also serves the pharmacist (ph/otc) — on pharmacy and OTC bills only; invoiceHere hides every
@@ -77,11 +78,26 @@ function resultUrl(outcome: string, code: string | null): string {
   return to.toString();
 }
 
+/** ADR 0012: send this payment's queued link SMS now (after the commit); anything left is the sweep's. */
+async function sendLinkSms(s: ReturnType<typeof requireSession>, paymentId: string) {
+  const { forTenant } = await import("@setu/db");
+  const ids = await forTenant(s.tenantId, (tx) => tx.communication.findMany({ where: { paymentId, kind: "payment-link", status: "preparation" }, select: { id: true } }), { userId: s.userId });
+  await dispatchSms(s, ids.map((x) => x.id), { ip: null, route: "payment-link" }).catch((e) => console.error(`payment ${paymentId}: link SMS not sent`, e));
+}
+async function freshPayment(s: ReturnType<typeof requireSession>, body: PaymentResponse): Promise<PaymentResponse> {
+  const { forTenant } = await import("@setu/db");
+  return forTenant(s.tenantId, async (tx) => {
+    const view = await invoiceView(tx, s, await invoiceHere(tx, s, body.view.invoice.id));
+    return { ...body, payment: view.payments.find((x) => x.id === body.payment.id)!, view };
+  }, { userId: s.userId });
+}
+
 /** ADR 0011: after the payment committed as `initiated`, make its wallet link, then answer with the bill as it is now. */
 async function withLink(body: PaymentResponse, s: ReturnType<typeof requireSession>): Promise<PaymentResponse> {
   if (body.payment.status !== "initiated") return body;
   // the payment is committed: whatever happens here, answer with it (money review) — the sweep fails a link never made
-  try { await attachLink(s.tenantId, body.payment.id, new Date()); } catch (e) { console.error(`payment ${body.payment.id}: link not made`, e); return body; }
+  try { await attachLink(s.tenantId, body.payment.id, new Date(), s.userId); } catch (e) { console.error(`payment ${body.payment.id}: link not made`, e); return body; }
+  await sendLinkSms(s, body.payment.id);
   const { forTenant } = await import("@setu/db");
   return forTenant(s.tenantId, async (tx) => {
     const p = await tx.payment.findFirst({ where: { id: body.payment.id }, select: { invoiceId: true } });
@@ -283,6 +299,15 @@ export async function billingRoutes(app: FastifyInstance) {
       const view = await invoiceView(tx, s, r.inv);
       return { body: { payment: view.payments.find((p) => p.id === id)!, view }, audit: [{ action: "update", entity: "Payment", entityId: id, patientId: r.inv.patientId, detail: { event: "retry", attempt: r.payment.attempt } }] };
     }, { after: withLink });
+  });
+  app.post("/v1/payments/:id/send-sms", { config: { ownTx: true } }, async (req, reply): Promise<PaymentResponse> => {
+    requireBill(req, "pay", true);
+    const { id } = req.params as { id: string };
+    return command(req, reply, async (tx, s) => {
+      const r = await resendLinkSms(tx, s, id);
+      const view = await invoiceView(tx, s, r.inv);
+      return { body: { payment: view.payments.find((p) => p.id === id)!, view }, audit: [{ action: "create", entity: "Communication", entityId: r.smsId, patientId: r.inv.patientId, detail: { kind: "payment-link", paymentId: id, event: "send-again" } }] };
+    }, { after: async (b, s) => { await sendLinkSms(s, id); return freshPayment(s, b); } });
   });
   app.post("/v1/payments/:id/cancel", { config: { ownTx: true } }, async (req, reply): Promise<PaymentResponse> => {
     requireBill(req, "pay", true);

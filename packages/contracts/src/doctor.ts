@@ -43,7 +43,7 @@ export const InboxItem = z.object({
   acknowledged: z.object({
     at: z.string(), notifyPatient: z.boolean(),
     /** the "report reviewed" SMS: its delivery status ("Not yet synced" never appears here — this is the server's record) */
-    sms: z.object({ id: z.string(), status: CommunicationStatus, lastError: z.string().nullable() }).nullable(),
+    sms: z.object({ id: z.string(), status: CommunicationStatus, lastError: z.string().nullable(), deliveryConfirmed: z.boolean() }).nullable(),
   }).nullable(),
   /** "Seen + tell patient" is offered (a released, current report, nothing under correction, a mobile on record) */
   canNotify: z.boolean(),

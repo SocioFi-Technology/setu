@@ -74,7 +74,7 @@ export async function facilityView(tx: Tx, s: SessionData): Promise<FacilityView
       labelWidthMm: o.labelWidthMm, labelHeightMm: o.labelHeightMm, receiptFormat: o.receiptFormat as "a5" | "thermal" | null, rxFormat: o.rxFormat as "a5" | "a4" | null,
       paymentMethods: o.paymentMethods as FacilityView["settings"]["paymentMethods"],
     },
-    sms: { testedAt: iso(o.smsTestedAt), phone: o.smsTestPhone ? `0${o.smsTestPhone}` : null },
+    sms: { testedAt: iso(o.smsTestedAt), phone: o.smsTestPhone ? `0${o.smsTestPhone}` : null, sentAt: iso(o.smsTestSentAt), awaitingConfirm: smsAwaitingConfirm(o, new Date()) },
   };
 }
 export async function updateFacility(tx: Tx, s: SessionData, req: FacilityUpdate): Promise<AuditEntry[]> {
@@ -111,13 +111,32 @@ export async function updateSettings(tx: Tx, s: SessionData, req: SettingsUpdate
   } });
   return [{ action: "settings-change", entity: "Organization", entityId: o.id, detail: { before, after, reason: reason || null, limitsChanged } }];
 }
-/** A test SMS through the messaging adapter (the go-live check that the sender works). */
+/** ADR 0012: a test SMS the gateway accepted waits up to a day for the admin to confirm it arrived. */
+const SMS_CONFIRM_MS = 24 * 3600_000;
+const smsAwaitingConfirm = (o: { smsTestSentAt: Date | null; smsTestedAt: Date | null }, now: Date) =>
+  !!o.smsTestSentAt && !o.smsTestedAt && now.getTime() - o.smsTestSentAt.getTime() < SMS_CONFIRM_MS;
+/** A test SMS through the messaging adapter (the go-live check that the sender works). Delivered (a gateway that
+    confirms delivery) → done; sent (BulkSMSBD: no delivery reports) → done once the admin confirms it arrived. */
 export async function smsTest(tx: Tx, s: SessionData, phone: string, now: Date): Promise<AuditEntry[]> {
   const o = await org(tx, s);
   const r = await messenger.sendSms({ messageId: `smstest_${o.id}_${now.getTime()}`, to: phone, text: `${o.name}: Setu test message. No action needed.`, tenantId: s.tenantId });
-  if (r.status !== "delivered") throw err(502, "sms_failed", "পরীক্ষার SMS যায়নি — আবার চেষ্টা করুন", "The test SMS was not delivered — try again", { field: "phone" });
-  await tx.organization.update({ where: { id: o.id }, data: { smsTestedAt: now, smsTestPhone: phone.slice(1) } });
-  return [{ action: "create", entity: "SmsTest", entityId: o.id, detail: { provider: messenger.name, providerRef: r.providerRef } }];
+  if (r.status === "failed") {
+    const [bn, en] = r.reason === "setup"
+      ? ["SMS গেটওয়ে নিল না — প্রেরক আইডি, ব্যালান্স ও IP অনুমতি দেখুন", "The SMS gateway refused it — check the sender ID, the balance and the IP whitelist"]
+      : r.reason === "number" ? ["এই নম্বরে SMS যায় না", "This number cannot take an SMS"]
+      : r.reason === "no-answer" ? ["গেটওয়ে উত্তর দেয়নি — SMS হয়তো গেছে; ফোন দেখে আবার চেষ্টা করুন", "The gateway did not answer — it may have been sent; check the phone, then try again"]
+      : ["পরীক্ষার SMS যায়নি — আবার চেষ্টা করুন", "The test SMS was not sent — try again"];
+    throw err(502, "sms_failed", bn, en, { field: "phone", ...(r.reason ? { reason: r.reason } : {}) });
+  }
+  await tx.organization.update({ where: { id: o.id }, data: { smsTestSentAt: now, smsTestedAt: r.status === "delivered" ? now : null, smsTestPhone: phone.slice(1) } });
+  return [{ action: "create", entity: "SmsTest", entityId: o.id, detail: { provider: messenger.name, providerRef: r.providerRef, outcome: r.status } }];
+}
+/** The admin confirms the test SMS arrived (a gateway without delivery reports, ADR 0012). */
+export async function smsTestConfirm(tx: Tx, s: SessionData, now: Date): Promise<AuditEntry[]> {
+  const o = await org(tx, s);
+  if (!smsAwaitingConfirm(o, now)) throw err(409, "nothing_to_confirm", "নিশ্চিত করার মতো কোনো পরীক্ষা SMS নেই — আবার পাঠান", "No test SMS is waiting to be confirmed — send one again");
+  await tx.organization.update({ where: { id: o.id }, data: { smsTestedAt: now } });
+  return [{ action: "update", entity: "SmsTest", entityId: o.id, detail: { event: "confirmed-arrived", sentAt: o.smsTestSentAt!.toISOString() } }];
 }
 export async function goLive(tx: Tx, s: SessionData, now: Date): Promise<AuditEntry[]> {
   await tx.$queryRaw`SELECT 1 FROM "Organization" WHERE "id" = ${s.organizationId} FOR UPDATE`;

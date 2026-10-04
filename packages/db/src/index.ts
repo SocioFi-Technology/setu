@@ -95,3 +95,9 @@ export async function paymentSweepTargets(before: Date): Promise<{ tenantId: str
   const rows = await prisma.$queryRaw<{ tenant_id: string; payment_id: string }[]>`SELECT * FROM payment_sweep_targets(${before}::timestamptz)`;
   return rows.map((r) => ({ tenantId: r.tenant_id, paymentId: r.payment_id }));
 }
+
+/** SMS the sweep must look at (ADR 0012): queued too long (send it) or sending too long (interrupted). */
+export async function smsSweepTargets(queuedBefore: Date, sendingBefore: Date): Promise<{ tenantId: string; communicationId: string; status: string }[]> {
+  const rows = await prisma.$queryRaw<{ tenant_id: string; communication_id: string; status: string }[]>`SELECT * FROM sms_sweep_targets(${queuedBefore}::timestamptz, ${sendingBefore}::timestamptz)`;
+  return rows.map((r) => ({ tenantId: r.tenant_id, communicationId: r.communication_id, status: r.status }));
+}
