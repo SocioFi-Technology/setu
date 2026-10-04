@@ -385,7 +385,7 @@ export async function deliverInApp(tx: Tx, s: SessionData, to: { patientId: stri
     delivery, ADR 0012: `deliveryConfirmed` false) | failed. A message whose send was interrupted stays in-progress; the
     sweep marks it failed after a while ("it may have been sent") and a person retries it. `by`: the session that queued
     it, or the system (the sweep). Returns each message's new state (the route merges them into its answer). */
-type Sent = Pick<CommunicationItem, "status" | "attempts" | "lastError" | "sentAt" | "completedAt">;
+type Sent = Pick<CommunicationItem, "status" | "attempts" | "lastError" | "sentAt" | "completedAt" | "deliveryConfirmed">;
 export interface SmsActor { tenantId: string; userId: string | null; role: SessionData["role"] | null }
 export async function dispatchSms(by: SmsActor, ids: string[], meta: { ip: string | null; route: string }) {
   const out = new Map<string, Sent>();
@@ -414,7 +414,7 @@ export async function dispatchSms(by: SmsActor, ids: string[], meta: { ip: strin
         await tx.auditEvent.create({ data: { tenantId: by.tenantId, organizationId: claimed.organizationId, userId: by.userId, role: by.role, action: "send", entity: "Communication", entityId: id, patientId: claimed.patientId, ip: meta.ip,
           detail: { route: meta.route, channel: "sms", kind: claimed.kind, outcome: r.status, ...(r.status === "failed" && r.reason ? { reason: r.reason } : {}), attempt: claimed.attempts + 1, provider: messenger.name, ...(by.userId ? {} : { actor: "system:sms-sweep" }), ...(n.count ? {} : { late: true }) } } });
       });
-      out.set(id, { status: dash(next), attempts: claimed.attempts + 1, lastError: r.status === "failed" ? r.error : null, sentAt: now.toISOString(), completedAt: ok ? done.toISOString() : null });
+      out.set(id, { status: dash(next), attempts: claimed.attempts + 1, lastError: r.status === "failed" ? r.error : null, sentAt: now.toISOString(), completedAt: ok ? done.toISOString() : null, deliveryConfirmed: r.status === "delivered" });
     } catch { /* left queued or in progress: the sweep and Retry pick it up */ }
   }
   return out;

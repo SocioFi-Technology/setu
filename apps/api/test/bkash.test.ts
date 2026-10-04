@@ -159,7 +159,7 @@ describe.runIf(db)("ADR 0011 bKash tokenized checkout", () => {
     const q = new URLSearchParams({ paymentID: old.providerRef!, status: "success", signature: old.providerSignature! });
     expect((await get(`/v1/payments/return/bkash?${q}`, null)).headers.location).toContain("o=ended");
     expect(executes(old.providerRef!)).toBe(0);
-    expect((await get(`/v1/pay/${old.linkCode}`, null)).headers.location).toContain("o=unknown");
+    expect((await get(`/v1/pay/${old.linkCode}`, null)).headers.location).toContain("o=ended"); // ended, never "not found"
     standIn.authorise(now.providerRef!);
     expect((await returnWith(payment.id, "success")).o).toBe("paid");
   });

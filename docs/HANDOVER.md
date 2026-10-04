@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice session 1 (bKash) done — next: session 2, the SMS gateway)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; next: see Next)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -653,6 +653,43 @@ sandbox credentials arrive, two sessions. **ADR 0011.**
 - **Before real money:** sandbox credentials from bKash → run journey K against `tokenized.sandbox.bka.sh`; check the
   return's `signature`, the `Authorization` form (raw vs Bearer) and the live hostname (open question 207).
 
+## Done (SMS + bKash, session 2 of 2, 04/10/2026) — SMS through BulkSMSBD ✅
+**ADR 0012.** BulkSMSBD (`POST https://bulksmsbd.net/api/smsapi`, key in the body; https works with a valid
+certificate) answers 202 = **accepted** and has **no delivery reports and no client message id**.
+- **"Sent" is not "delivered":** `SendResult` `sent`; `Messenger.confirmsDelivery`; `Communication.deliveryConfirmed`
+  (default false). Lab delivery, the doctor's "Seen + tell", the Pay screen and the admin's test SMS say "Sent
+  (delivery not confirmed)" for BulkSMSBD; FakeMessenger still confirms delivery.
+- **Failures:** the number / the facility's setup (sender id, balance, account, IP whitelist) / the gateway / no answer
+  ("it may have been sent"). We store our own words per code, never the gateway's text.
+- **Stuck messages (open question 124):** `sweepSms` every minute — queued > 1 min sent, sending > 2 min failed "it may
+  have been sent"; never resent by itself; nothing older than 30 min, and no payment link that is no longer the
+  payment's. Retry / "Send again" of a message the patient may already have needs "they may get it twice" accepted
+  (audited); a lab SMS that was only "sent" can be sent again as a new message.
+- **Payment link by SMS:** when a bKash link is made (patient with a mobile number): Bangla + English, then the link
+  once; facility, bill number, amount only. "Send SMS again": five per payment, a minute apart. An earlier attempt's
+  short link says "ended".
+- **Admin's test SMS:** with BulkSMSBD it is done when the admin confirms "it arrived" (24 h); a failed test undoes an
+  earlier one and shows why; five tests an hour per facility; a facility name in an SMS carries no web address.
+- **Stand-in:** `pnpm --filter @setu/api sms:standin` (port 4198, `/inbox` shows what it took, like a phone).
+- **Reviews:** security (fixed: test SMS and "Send again" unlimited — cost and phishing via the facility name; the
+  gateway's raw error text stored; unbounded timeout setting) and controls (fixed: confirm after a failed test; no
+  duplicate warning; no way to resend a "sent" lab SMS; the sweep sending stale messages; old links "not found"; a late
+  result landing on a newer attempt; "not delivered" for a may-have-been-sent message; the payment SMS carrying the
+  link twice). Hands-on found the link twice. Open: questions 213–219.
+- **Tests:** domain 278, api 245 (+6 `sms.test.ts`, +1 lab duplicate-risk retry), `pnpm typecheck` 13/13, journeys K + L
+  4/4 on both stand-ins (`e2e/journeys/l1-l2.spec.ts`). Playwright default suite (84 + 4 skipped stand-in journeys):
+  first run after the review fixes 3 failures — a real bug (the doctor's "Seen + tell" and the lab's recollection SMS
+  showed "sent" for a FakeMessenger SMS that was delivered: the route's merge dropped `deliveryConfirmed`) — fixed; then
+  runs 82/84 (2 failures not identified — the next run overwrote their reports), 84/84, 84/84. If failures recur,
+  keep `test-results` (run with `--output`) before the next run.
+- **Run on the stand-ins:** start both stand-ins, run the API with the printed `BKASH_*` and `BULKSMSBD_*` settings
+  (`PAYMENTS_PROVIDER=bkash SMS_PROVIDER=bulksmsbd`), `DELETE FROM "GatewayToken"`, then
+  `SMS_STANDIN=1 BKASH_STANDIN=1 STAFF_URL=http://localhost:3300 pnpm e2e journeys/k1-k2.spec.ts journeys/l1-l2.spec.ts --project=desktop-1440`;
+  `node e2e/walk-sms.mjs <dir>` for screenshots. Switch the API back to the fakes before the full suite.
+- **Before real SMS:** the BulkSMSBD key and sender id in `.env` (rotate the key that was pasted in chat if it is the
+  real one); whitelist the server's IP; one real test SMS from the admin wizard; ask BulkSMSBD about delivery reports
+  and `type=unicode` for Bangla (question 214).
+
 - Shell specs still sign in as Green Life users; they only read.
 
 ## Known gaps (fix in the slice that touches them, or when listed)
@@ -707,7 +744,7 @@ sandbox credentials arrive, two sessions. **ADR 0011.**
 5. ~~`/slice A12-A13`~~ — done 03/10/2026 (two sessions); **Journey A complete**. Kamrul to confirm open questions
    135–149.
 6. **Phase 2 pilot clinic, split in four slices (Kamrul, 03/10/2026):** ~~`/slice C1-C4`~~ owner dashboard + shift close
-   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → **SMS + bKash** (session 1 — bKash — done 04/10/2026, questions 205–212; **next: session 2** — the BulkSMSBD adapter, delivery reports, the sweep for stuck messages (question 124), the payment link and the admin test SMS through it, journey spec, reviews, hands-on). See open questions "Phase 2 plan".
+   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → ~~SMS + bKash~~ (done 04/10/2026, two sessions; questions 205–219). **The four Phase 2 pilot-clinic slices are done.** Next: Kamrul's call — the pre-pilot hardening (known gaps 3, 4, 10, 12: argon2id, PIN tries in Redis, composite keys, clinical sign-offs), real credentials (bKash sandbox, BulkSMSBD), then the pilot; or Phase 3 per `docs/BUILD-PLAN.md`. See open questions "Phase 2 plan".
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

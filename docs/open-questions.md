@@ -883,3 +883,23 @@ Commit after each step, push at the end of each session.
      first; if only http works, the key crosses the network in clear text. The pasted text contained two API keys —
      if either is the real account key, consider rotating it, and it goes only in `.env`.
 
+## Phase 2 slice 4 — SMS + bKash, session 2 (SMS) — 04/10/2026
+### Decided in the session (defaults — Kamrul to confirm)
+213. **BulkSMSBD cannot confirm delivery**, so every SMS through it shows "Sent (delivery not confirmed)". Ask BulkSMSBD
+     whether delivery reports exist on their side (a report API or a callback); if not, is that acceptable for the
+     pilot, or should gateways that offer delivery reports be compared (to be checked, e.g. SSL Wireless)?
+214. **Bangla text:** we send `type=text` with UTF-8 (the account page shows only `text`; code 1012 says masking SMS must
+     be in Bangla, so Bangla is accepted). Confirm with one real Bangla test SMS, or with BulkSMSBD whether
+     `type=unicode` is needed.
+215. **Every patient SMS is Bangla + English** (Unicode, about 3 SMS parts each — the payment link about 3). Bangla only,
+     or by the facility's language setting, would roughly halve the cost.
+216. **The sender id is a number** until BTRC approves a masking name through BulkSMSBD (about a week). Which name
+     should be applied for — the clinic's, or "Setu"?
+217. **One BulkSMSBD account and balance for the whole deployment** (like bKash, question 208). A low balance stops every
+     facility's SMS (codes 1006 / 1007 show as "the facility's setup"); the balance is not shown in the app yet
+     (`getBalanceApi` exists). Show it to the owner?
+218. **No automatic resend, ever:** a message without an answer from the gateway is "may have been sent" and waits for a
+     person (Retry asks "they may get it twice"). A doctor's "Seen + tell patient" SMS has no Retry yet.
+219. **The admin's test SMS is confirmed by the admin** ("Yes, it arrived") — the only proof possible without delivery
+     reports. Five tests an hour per facility; a payment link at most five SMS per payment, a minute apart.
+

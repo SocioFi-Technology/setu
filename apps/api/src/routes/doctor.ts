@@ -42,6 +42,6 @@ export async function doctorRoutes(app: FastifyInstance) {
     const sent = await dispatchSms(s, out.dispatch, { ip: req.ip, route: req.routeOptions.url ?? "" }).catch((e) => { req.log.error(e); return new Map(); });
     const ack = out.item.acknowledged;
     const m = ack?.sms ? sent.get(ack.sms.id) : undefined;
-    return { item: m && ack?.sms ? { ...out.item, acknowledged: { ...ack, sms: { ...ack.sms, status: m.status, lastError: m.lastError } } } : out.item };
+    return { item: m && ack?.sms ? { ...out.item, acknowledged: { ...ack, sms: { ...ack.sms, status: m.status, lastError: m.lastError, deliveryConfirmed: m.deliveryConfirmed } } } : out.item };
   });
 }

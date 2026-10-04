@@ -116,7 +116,7 @@ test("K2: the patient closes bKash's page → not paid; a new link — the old o
     expect(newUrl).not.toBe(oldUrl);
 
     await p.page.goto(oldUrl);
-    await expect(p.page.locator('[data-screen="pay-result"]')).toHaveAttribute("data-outcome", "unknown"); // the old code is gone
+    await expect(p.page.locator('[data-screen="pay-result"]')).toHaveAttribute("data-outcome", "ended"); // the old link has ended, never "not found"
     await p.page.goto(newUrl);
     await p.page.getByTestId("standin-otp").fill("123456");
     await p.page.getByTestId("standin-pin").fill("12121");
