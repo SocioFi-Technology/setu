@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026) — next: real SMS + bKash sandbox)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice session 1 (bKash) done — next: session 2, the SMS gateway)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -619,6 +619,40 @@ change applies to bills made after it, two sessions. **Session 2:** `adm/wizard`
   the dev server slowed: journey A's public verify page hung loading, P1's dispense list missed its 5 s; both green
   re-run alone, 6/6); 84/84 (6.3 min). Watch for it: if it recurs, restart `next dev` before a run.
 
+## Done (SMS + bKash, session 1 of 2, 04/10/2026) — bKash tokenized checkout ✅
+Kamrul's decisions: SMS through **BulkSMSBD** (session 2), bKash built to the documented API with a local stand-in until
+sandbox credentials arrive, two sessions. **ADR 0011.**
+- **How bKash works (developer.bka.sh v2):** create → bKash gives a page URL (nothing is sent to the patient) → the
+  patient pays on it → bKash sends the patient's browser back to us → **we execute; money moves only there, once per
+  paymentId**. Token grant + refresh at most twice an hour or the merchant is blocked for an hour.
+- **Payment first (open question 90):** the Payment commits `initiated`, the link is made after the commit
+  (`command` `after` hook → `attachLink`); a gateway refusal fails it and frees the amount.
+- **The patient's side (public, no login, no patient details):** short link `<PUBLIC_APP_URL>/p/<code>` (QR on the
+  cashier's screen) → bKash's page; return `GET /v1/payments/return/bkash` → claim once under the bill's lock →
+  execute → `/pay/result?o=…&c=<code>` (the page asks the server by the code; nothing else rides in the URL). A replaced,
+  cancelled or expired link (30 min) is never executed.
+- **Sweep** (every minute, `server.ts`): a link never made, or an execute never answered, after 5 minutes.
+- **Adapters:** `BkashProvider` (token in `GatewayToken`, owner-only, through SECURITY DEFINER functions; renewals
+  counted in the database — failed ones too — and stopped locally at two an hour); `BkashSandboxStandIn`
+  (`pnpm --filter @setu/api bkash:standin`, port 4199, wallet 01770618575 / OTP 123456 / PIN 12121).
+  `PAYMENTS_PROVIDER=bkash` puts bKash on the real adapter; Nagad stays on the fake in dev and is **unavailable in
+  production** (the fake's secret is public).
+- **Staff:** Pay shows the QR, the short link and copy for bKash, "completing" during an execute, why a payment failed;
+  the pay button says "Make payment link" until SMS lands.
+- **Reviews:** security (fixed: Nagad on the fake in production = forgeable "paid"; result page parameters spoofable;
+  rate-limit key from the left of X-Forwarded-For; https / bka.sh checks) and money (fixed: an execute timeout failing a
+  payment bKash completed → double charge; a late Completed dropped silently; the TrxID check on a failed payment;
+  amount mismatch freeing the amount; token renewals able to lock the merchant out; a slow renewal outliving its
+  transaction). Open: questions 205–212.
+- **Tests:** domain 274 (+8 wallet), api 238 (+12 `bkash.test.ts` against the stand-in), `pnpm typecheck` 13/13,
+  Playwright 84 green twice + journey K 2/2 in bKash mode (`e2e/journeys/k1-k2.spec.ts`, skipped in the default run).
+- **Run journey K / the hands-on:** start the stand-in, run the API with `PAYMENTS_PROVIDER=bkash` and the printed
+  `BKASH_*` settings, `DELETE FROM "GatewayToken"` (a new stand-in knows no earlier token), then
+  `BKASH_STANDIN=1 STAFF_URL=http://localhost:3300 pnpm e2e journeys/k1-k2.spec.ts --project=desktop-1440`;
+  `node e2e/walk-bkash.mjs <dir>` for screenshots. Switch the API back to the fake before the full suite.
+- **Before real money:** sandbox credentials from bKash → run journey K against `tokenized.sandbox.bka.sh`; check the
+  return's `signature`, the `Authorization` form (raw vs Bearer) and the live hostname (open question 207).
+
 - Shell specs still sign in as Green Life users; they only read.
 
 ## Known gaps (fix in the slice that touches them, or when listed)
@@ -673,7 +707,7 @@ change applies to bills made after it, two sessions. **Session 2:** `adm/wizard`
 5. ~~`/slice A12-A13`~~ — done 03/10/2026 (two sessions); **Journey A complete**. Kamrul to confirm open questions
    135–149.
 6. **Phase 2 pilot clinic, split in four slices (Kamrul, 03/10/2026):** ~~`/slice C1-C4`~~ owner dashboard + shift close
-   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → **next: real SMS + bKash sandbox**. See open questions "Phase 2 plan".
+   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → **SMS + bKash** (session 1 — bKash — done 04/10/2026, questions 205–212; **next: session 2** — the BulkSMSBD adapter, delivery reports, the sweep for stuck messages (question 124), the payment link and the admin test SMS through it, journey spec, reviews, hands-on). See open questions "Phase 2 plan".
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

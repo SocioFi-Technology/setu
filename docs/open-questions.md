@@ -856,3 +856,30 @@ Commit after each step, push at the end of each session.
 204. **The sign-in page's strings are still inline** (known gap 9) — the session-ended banner follows that page's
      pattern; moving the page to `packages/i18n` is left for the auth hardening pass.
 
+## Phase 2 slice 4 — SMS + bKash, session 1 (bKash) — 04/10/2026
+### Decided by Kamrul (04/10/2026, before the session)
+- SMS gateway: **BulkSMSBD** (session 2). bKash: no sandbox credentials yet — built to the documented API with a local
+  stand-in. Two sessions.
+
+### Decided in the session (defaults — Kamrul to confirm)
+205. **The patient scans a QR on the cashier's screen** (or opens the short link); bKash itself sends nothing. Session 2
+     also texts the short link. Is a QR at the counter acceptable for patients without a smartphone camera? (They pay
+     cash / card, or the link by SMS after session 2.)
+206. **Our link window is 30 minutes** (bKash keeps a paymentId 24 h). A patient who pays after that is not charged and
+     is told to ask at the counter.
+207. **To check with bKash when credentials arrive:** how the return's `signature` is made (we only compare it with the
+     one from create — if create has none, every return would be refused); `Authorization` raw token or `Bearer`; the
+     live hostname (`tokenized.pay.bka.sh`?); whether 9999 on a payment API ever means a bad token.
+208. **One bKash merchant account per deployment** for the pilot (credentials in `.env`). A second clinic needs its own
+     merchant account per facility, or Setu as a bKash aggregator with sub-merchants — a business decision.
+209. **Nagad is unavailable in production** until its own adapter (the fake's signing secret is public). In dev it stays
+     on the fake. Should the pilot clinic's payment methods simply leave Nagad off?
+210. **bKash money confirmed after the cashier's shift was counted** is in no shift's digital totals (money review M3; the
+     "outside a shift" list covers cash only). Add wallet payments to that list, or count a wallet payment in the shift
+     it was started in?
+211. **An execute whose answer is unknown** (timeout, bKash unreachable) keeps the payment "being completed" — the
+     cashier cannot cancel it — until bKash answers or 5 minutes pass. Acceptable at a busy counter?
+212. **BulkSMSBD's API is plain `http://`** with the key in the URL (from the page you pasted) — session 2 tries https
+     first; if only http works, the key crosses the network in clear text. The pasted text contained two API keys —
+     if either is the real account key, consider rotating it, and it goes only in `.env`.
+
