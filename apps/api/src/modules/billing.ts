@@ -19,7 +19,7 @@ import type { ApprovalItem, ApprovalList, BillingWorklist, ChargeDefinitionList,
 import type { Tx } from "@setu/db";
 import {
   APPROVAL, INVOICE, PAYMENT, approvalBlockers, billKindsFor, type Plan, type Role, billTotals, checkNewPayment, decideProviderEvent, dhakaDay, discountDecision, discountLimit, discountToPaisa,
-  LINK_CODE_ALPHABET, STUCK_MINUTES, walletAmount, LINK_CODE_LENGTH, answerOutcome, decideReturn, invoiceEventAfterConfirm, isWallet, type ReturnStatus, issueBlockers, notBilledBlockers, paidBy, paymentSummary, reconcileApplyBlockers, syncOrderLines, transition, voidBlockers, type BillingSettings, type DiscountCategory, type InvoiceState,
+  LINK_CODE_ALPHABET, LINK_SMS_MAX, STUCK_MINUTES, smsSafeName, walletAmount, LINK_CODE_LENGTH, answerOutcome, decideReturn, invoiceEventAfterConfirm, isWallet, type ReturnStatus, issueBlockers, notBilledBlockers, paidBy, paymentSummary, reconcileApplyBlockers, syncOrderLines, transition, voidBlockers, type BillingSettings, type DiscountCategory, type InvoiceState,
   type PaymentMethod, type PaymentRow, type PaymentState, type ProviderEventKind,
 } from "@setu/domain";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -781,7 +781,7 @@ export async function retryPayment(tx: Tx, s: SessionData, paymentId: string, no
   if (p.amountPaisa > paymentSummary(inv.totalPaisa, others).openPaisa) throw err(409, "amount_over_open", "বকেয়ার চেয়ে বেশি (অপেক্ষমাণ পেমেন্টসহ)", "More than is still due (counting pending payments)", { field: "amountPaisa" });
   if (p.providerRef) await providerOf(p).cancel(p.providerRef);
   await tx.payment.update({ where: { id: p.id }, data: { status, attempt: p.attempt + 1, providerRef: null, linkUrl: null, linkExpiresAt: null, failReason: null,
-    linkCode: null, providerSignature: null, executeClaimedAt: null,
+    linkCode: null, providerSignature: null, executeClaimedAt: null, supersededLinkCodes: p.linkCode ? [...p.supersededLinkCodes, p.linkCode] : p.supersededLinkCodes,
     supersededRefs: p.providerRef ? [...p.supersededRefs, p.providerRef] : p.supersededRefs, statusAt: now } });
   // the new link is made after this transaction commits (attachLink)
   return { inv: (await tx.invoice.findFirst({ where: { id: inv.id } }))!, payment: (await tx.payment.findFirst({ where: { id: p.id } }))! };
@@ -1042,6 +1042,7 @@ export async function payResult(code: string, now: Date): Promise<{ outcome: Out
   return forTenant(hit.tenantId, async (tx) => {
     const p = (await tx.payment.findFirst({ where: { id: hit.paymentId } }))!;
     const base = { trxId: null, amountPaisa: p.amountPaisa, ...(await facilityOf(tx, p.organizationId)) };
+    if (hit.superseded) return { ...base, outcome: "ended" as const }; // an earlier attempt's link (review): ended, not "not found"
     if (p.status === "confirmed") return { ...base, outcome: "paid" as const, trxId: p.trxId };
     if (p.status === "failed") return { ...base, outcome: "not-paid" as const };
     if (p.executeClaimedAt) return { ...base, outcome: "pending" as const };
@@ -1059,6 +1060,7 @@ export async function payLinkTarget(code: string, now: Date): Promise<{ url: str
   return forTenant(hit.tenantId, async (tx) => {
     const p = (await tx.payment.findFirst({ where: { id: hit.paymentId } }))!;
     const fac = await facilityOf(tx, p.organizationId);
+    if (hit.superseded) return { url: null, ...fac, outcome: "ended" as const };
     if (p.status === "confirmed") return { url: null, ...fac, outcome: "paid" as const };
     if (!["link_sent", "waiting_customer"].includes(p.status) || !p.linkUrl || p.executeClaimedAt) return { url: null, ...fac, outcome: p.executeClaimedAt ? "pending" as const : "ended" as const };
     if (p.linkExpiresAt && p.linkExpiresAt.getTime() < now.getTime()) return { url: null, ...fac, outcome: "expired" as const };
@@ -1100,15 +1102,17 @@ const smsPhone = (phone: string | null | undefined) => (phone && /^1[3-9]\d{8}$/
 /** Queue a payment-link SMS for this payment's current link: facility, bill number, amount and our short link only.
     Null when there is no patient mobile number (a walk-in buyer gets the QR). */
 export async function queueLinkSms(tx: Tx, p: Pay, by: string): Promise<string | null> {
-  if (!p.linkCode || !p.patientId) return null;
+  // bKash only: the words say bKash (Nagad has no gateway of its own yet)
+  if (!p.linkCode || !p.patientId || p.method !== "bkash") return null;
   const inv = (await tx.invoice.findFirst({ where: { id: p.invoiceId }, select: { number: true, encounterId: true } }))!;
   const to = smsPhone((await tx.patient.findFirst({ where: { id: p.patientId }, select: { phone: true } }))?.phone);
   if (!to) return null;
   const o = await tx.organization.findFirst({ where: { id: p.organizationId }, select: { name: true, nameBn: true } });
   const { t, fill } = await import("@setu/i18n");
   const amount = walletAmount(p.amountPaisa).replace(/\.00$/, "");
-  const vars = (facility: string) => ({ facility, number: inv.number ?? "", amount, link: `${config.publicAppUrl}/p/${p.linkCode}` });
-  const text = `${fill(t("bn", "billingApp", "sms_payment_link"), vars(o?.nameBn ?? o?.name ?? ""))}\n${fill(t("en", "billingApp", "sms_payment_link"), vars(o?.name ?? ""))}`;
+  const vars = (facility: string) => ({ facility, number: inv.number ?? "", amount });
+  // both languages, then the link once (a bilingual SMS is Unicode: every character costs)
+  const text = `${fill(t("bn", "billingApp", "sms_payment_link"), vars(smsSafeName(o?.nameBn ?? o?.name ?? "")))}\n${fill(t("en", "billingApp", "sms_payment_link"), vars(smsSafeName(o?.name ?? "")))}\n${config.publicAppUrl}/p/${p.linkCode}`;
   const c = await tx.communication.create({ data: {
     id: `com_${randomUUID()}`, tenantId: p.tenantId, organizationId: p.organizationId, patientId: p.patientId, encounterId: inv.encounterId ?? null, kind: "payment-link", channel: "sms",
     toPhone: to, templateKey: "sms_payment_link", text, paymentId: p.id, createdById: by,
@@ -1119,6 +1123,10 @@ export async function queueLinkSms(tx: Tx, p: Pay, by: string): Promise<string |
 export async function resendLinkSms(tx: Tx, s: SessionData, paymentId: string): Promise<{ inv: Inv; payment: Pay; smsId: string }> {
   const { p, inv } = await walletPaymentHere(tx, s, paymentId);
   if (!PENDING_DB.includes(p.status) || !p.linkCode || p.executeClaimedAt) throw err(409, "not_pending", "এই পেমেন্টের কোনো চালু লিংক নেই", "This payment has no open link");
+  // cost and the patient's phone (security review): at most LINK_SMS_MAX per payment, a minute apart
+  const sent = await tx.communication.findMany({ where: { paymentId: p.id, kind: "payment-link" }, select: { createdAt: true }, orderBy: { createdAt: "desc" } });
+  if (sent.length >= LINK_SMS_MAX) throw err(429, "sms_limit", "এই পেমেন্টের জন্য আর SMS পাঠানো যাবে না — QR দেখান", "No more SMS for this payment — show the QR");
+  if (sent[0] && Date.now() - sent[0].createdAt.getTime() < config.linkSmsGapMs) throw err(429, "sms_too_soon", "এক মিনিট পরে আবার পাঠান", "Send again in a minute");
   const id = await queueLinkSms(tx, p, s.userId);
   if (!id) throw err(422, "no_phone", "রোগীর মোবাইল নম্বর নেই — QR দেখান", "The patient has no mobile number — show the QR");
   return { inv, payment: p, smsId: id };

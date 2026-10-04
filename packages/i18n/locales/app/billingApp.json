@@ -304,7 +304,7 @@
   "r_not_billed": ["এখানে বিল হয়নি — {reason}", "Not billed here — {reason}"],
   "r_thanks": ["ধন্যবাদ", "Thank you"],
 
-  "sms_payment_link": ["{facility}: বিল {number}, ৳{amount} বিকাশে পরিশোধ করুন: {link}", "{facility}: pay bill {number}, Tk {amount} by bKash: {link}"],
+  "sms_payment_link": ["{facility}: বিল {number}, ৳{amount} বিকাশে পরিশোধ করুন", "{facility}: pay bill {number}, Tk {amount} by bKash"],
   "pay_sms": ["SMS লিংক …{last4}: {status}", "Link SMS to …{last4}: {status}"],
   "pay_sms_sent": ["পাঠানো হয়েছে (পৌঁছানো নিশ্চিত নয়)", "sent (delivery not confirmed)"],
   "pay_sms_delivered": ["পৌঁছেছে", "delivered"],

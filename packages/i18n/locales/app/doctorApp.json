@@ -1,4 +1,5 @@
 {
+  "sms_maybe_sent": ["উত্তর আসেনি — হয়তো গেছে", "no answer — may have been sent"],
   "_about": ["ডাক্তার অ্যাপ (স্লাইস A12–A13), প্রোটোটাইপ Setu Doctor App থেকে", "Doctor app (slice A12–A13), from the prototype Setu Doctor App"],
   "tab_home": ["হোম", "Home"],
   "tab_queue": ["সিরিয়াল", "Queue"],

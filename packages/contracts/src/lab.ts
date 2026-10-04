@@ -184,7 +184,9 @@ export const ReleaseRequest = z.object({ observationIds: Ids });
 export type ReleaseRequest = z.infer<typeof ReleaseRequest>;
 export const SendRequest = z.object({ channel: z.enum(["sms", "patient-app"]) });
 export type SendRequest = z.infer<typeof SendRequest>;
-export const RetryRequest = z.object({}).strict();
+/** `acceptDuplicate`: the message may already have reached the patient (no answer from the gateway, or "sent" without
+    delivery reports) — sending it again is the person's informed choice (ADR 0012). */
+export const RetryRequest = z.object({ acceptDuplicate: z.boolean().optional() }).strict();
 export const RevokeRequest = z.object({ reason: z.string().max(300) });
 /** decision 119 (pathologist) and decision 133 (lab technologist or pathologist): a reason of at least 10 characters */
 export const ReturnRequest = z.object({ reason: z.string().max(300) });

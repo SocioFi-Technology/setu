@@ -4,6 +4,7 @@
    marked "do not act on it", a version replaced by a newer one says so and cannot be acknowledged. "Seen" and "Seen +
    tell patient" (decision D1): online the card says Acknowledged only after the server answers; offline the
    acknowledgement waits in the outbox — "Acknowledged — not yet synced" — and the patient is told only after it syncs. */
+import { SMS_MAYBE_SENT } from "@setu/domain";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { InboxItem, InboxView } from "@setu/contracts";
 import { Button, Callout, Card, Icon, PageState, Pill, useToast } from "@setu/ui";
@@ -130,7 +131,7 @@ function InboxCard({ item: x, queued, busy, onAck }: { item: InboxItem; queued: 
       {x.acknowledged ? (
         <span className="t-small" data-testid="acked" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           <Icon name="check" size={14} />{D("seen_at", { at: F.time(x.acknowledged.at) })}
-          {x.acknowledged.sms && <span data-sms-status={x.acknowledged.sms.status}>· {D("seen_told", { status: D(x.acknowledged.sms.status === "completed" && !x.acknowledged.sms.deliveryConfirmed ? "sms_sent" : `sms_${x.acknowledged.sms.status}`) })}</span>}
+          {x.acknowledged.sms && <span data-sms-status={x.acknowledged.sms.status}>· {D("seen_told", { status: D(x.acknowledged.sms.status === "completed" && !x.acknowledged.sms.deliveryConfirmed ? "sms_sent" : x.acknowledged.sms.status === "failed" && x.acknowledged.sms.lastError === SMS_MAYBE_SENT ? "sms_maybe_sent" : `sms_${x.acknowledged.sms.status}`) })}</span>}
         </span>
       ) : queued !== undefined ? (
         <span data-testid="acked-pending"><Pill tone="off" icon="cloud-off" wrap>{queued ? D("seen_pending_tell") : D("seen_pending")}</Pill></span>

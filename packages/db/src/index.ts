@@ -85,8 +85,8 @@ export async function withGatewayToken<R extends GatewayTokenState>(provider: st
 }
 
 /** The public short link: which tenant and payment a link code belongs to. SECURITY DEFINER; nothing else. */
-export async function paymentLinkLookup(code: string): Promise<{ tenantId: string; paymentId: string } | null> {
-  const rows = await prisma.$queryRaw<{ hit: { tenantId: string; paymentId: string } | null }[]>`SELECT payment_link_lookup(${code}::text) AS hit`;
+export async function paymentLinkLookup(code: string): Promise<{ tenantId: string; paymentId: string; superseded: boolean } | null> {
+  const rows = await prisma.$queryRaw<{ hit: { tenantId: string; paymentId: string; superseded: boolean } | null }[]>`SELECT payment_link_lookup(${code}::text) AS hit`;
   return rows[0]?.hit ?? null;
 }
 

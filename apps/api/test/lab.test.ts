@@ -494,6 +494,27 @@ describe.runIf(db)("A11 delivery per channel, retry with the same message id", (
     const w = ok<{ items: { encounter: { id: string }; report: { status: string } | null }[] }>(await get("/v1/lab/worklist?stage=delivery"));
     expect(w.items.find((i) => i.encounter.id === enc)!.report).toMatchObject({ status: "final" });
   });
+
+  it("ADR 0012: a send that may have gone out (interrupted) is retried only when the person accepts a possible duplicate", async () => {
+    const { enc } = await signedVisit(undefined, ["rbs"]);
+    await toInProcess(enc);
+    await validated(enc, ["rbs"]);
+    const v = ok<View>(await release(enc), 201);
+    const sent = ok<View>(await post(`/v1/lab/reports/${v.reports[0]!.id}/send`, { channel: "sms" }));
+    const first = sent.communications.find((c) => c.kind === "report-ready")!;
+    // an interrupted send: a second message stuck "sending" for 3 minutes
+    const id = `com_stuck_${Date.now()}`;
+    await inTenant(async (tx) => {
+      const c = (await tx.communication.findFirst({ where: { id: first.id } }))!;
+      await tx.communication.create({ data: { id, tenantId: c.tenantId, organizationId: c.organizationId, patientId: c.patientId, encounterId: c.encounterId, kind: "recollect", channel: "sms", toPhone: c.toPhone, templateKey: "sms_recollect", text: "x", createdById: c.createdById } });
+      await tx.communication.update({ where: { id }, data: { status: "in_progress", attempts: 1, sentAt: new Date(Date.now() - 3 * 60_000) } });
+    });
+    expect((await post(`/v1/lab/communications/${id}/retry`, {})).json().code).toBe("confirm_duplicate");
+    const r = ok<View>(await post(`/v1/lab/communications/${id}/retry`, { acceptDuplicate: true }));
+    expect(r.communications.find((c) => c.id === id)).toMatchObject({ status: "completed", attempts: 2 });
+    const audit = await inTenant((tx) => tx.auditEvent.findFirst({ where: { entityId: id, action: "update" }, orderBy: { at: "desc" } }));
+    expect((audit!.detail as { duplicateRiskAccepted?: boolean }).duplicateRiskAccepted).toBe(true);
+  });
 });
 
 describe.runIf(db)("ORDER revoke (D5) and billing's order refresh (decision 99)", () => {

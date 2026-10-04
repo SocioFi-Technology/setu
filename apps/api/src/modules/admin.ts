@@ -14,6 +14,7 @@ import type { Tx } from "@setu/db";
 import {
   FLAGGED_ACTIONS, ONE_TIME_PASSWORD_HOURS, REG_BODY, createUserBlockers, deactivateBlockers, goLiveBlockers, goLiveChecklist, isFlagged, labelPageOk, limitProblems,
   priceChangeProblems, roleChangeBlockers, type GoLiveFacts, type Role, type UserAdminBlocker,
+  smsSafeName,
 } from "@setu/domain";
 import { messenger } from "../adapters/messaging/index.js";
 import { registration } from "../adapters/registration.js";
@@ -74,7 +75,7 @@ export async function facilityView(tx: Tx, s: SessionData): Promise<FacilityView
       labelWidthMm: o.labelWidthMm, labelHeightMm: o.labelHeightMm, receiptFormat: o.receiptFormat as "a5" | "thermal" | null, rxFormat: o.rxFormat as "a5" | "a4" | null,
       paymentMethods: o.paymentMethods as FacilityView["settings"]["paymentMethods"],
     },
-    sms: { testedAt: iso(o.smsTestedAt), phone: o.smsTestPhone ? `0${o.smsTestPhone}` : null, sentAt: iso(o.smsTestSentAt), awaitingConfirm: smsAwaitingConfirm(o, new Date()) },
+    sms: { testedAt: iso(o.smsTestedAt), phone: o.smsTestPhone ? `0${o.smsTestPhone}` : null, sentAt: iso(o.smsTestSentAt), awaitingConfirm: smsAwaitingConfirm(o, new Date()), error: o.smsTestError },
   };
 }
 export async function updateFacility(tx: Tx, s: SessionData, req: FacilityUpdate): Promise<AuditEntry[]> {
@@ -119,16 +120,19 @@ const smsAwaitingConfirm = (o: { smsTestSentAt: Date | null; smsTestedAt: Date |
     confirms delivery) → done; sent (BulkSMSBD: no delivery reports) → done once the admin confirms it arrived. */
 export async function smsTest(tx: Tx, s: SessionData, phone: string, now: Date): Promise<AuditEntry[]> {
   const o = await org(tx, s);
-  const r = await messenger.sendSms({ messageId: `smstest_${o.id}_${now.getTime()}`, to: phone, text: `${o.name}: Setu test message. No action needed.`, tenantId: s.tenantId });
+  const r = await messenger.sendSms({ messageId: `smstest_${o.id}_${now.getTime()}`, to: phone, text: `${smsSafeName(o.name)}: Setu test message. No action needed.`, tenantId: s.tenantId });
   if (r.status === "failed") {
     const [bn, en] = r.reason === "setup"
       ? ["SMS গেটওয়ে নিল না — প্রেরক আইডি, ব্যালান্স ও IP অনুমতি দেখুন", "The SMS gateway refused it — check the sender ID, the balance and the IP whitelist"]
       : r.reason === "number" ? ["এই নম্বরে SMS যায় না", "This number cannot take an SMS"]
       : r.reason === "no-answer" ? ["গেটওয়ে উত্তর দেয়নি — SMS হয়তো গেছে; ফোন দেখে আবার চেষ্টা করুন", "The gateway did not answer — it may have been sent; check the phone, then try again"]
       : ["পরীক্ষার SMS যায়নি — আবার চেষ্টা করুন", "The test SMS was not sent — try again"];
-    throw err(502, "sms_failed", bn, en, { field: "phone", ...(r.reason ? { reason: r.reason } : {}) });
+    // controls review: a failed test undoes any earlier one — go-live needs a sender that works now. Stored (not thrown)
+    // so the failure commits and the checklist shows it.
+    await tx.organization.update({ where: { id: o.id }, data: { smsTestSentAt: null, smsTestedAt: null, smsTestError: `${bn}\n${en}`, smsTestPhone: phone.slice(1) } });
+    return [{ action: "create", entity: "SmsTest", entityId: o.id, detail: { provider: messenger.name, outcome: "failed", reason: r.reason ?? null, error: r.error } }];
   }
-  await tx.organization.update({ where: { id: o.id }, data: { smsTestSentAt: now, smsTestedAt: r.status === "delivered" ? now : null, smsTestPhone: phone.slice(1) } });
+  await tx.organization.update({ where: { id: o.id }, data: { smsTestSentAt: now, smsTestedAt: r.status === "delivered" ? now : null, smsTestError: null, smsTestPhone: phone.slice(1) } });
   return [{ action: "create", entity: "SmsTest", entityId: o.id, detail: { provider: messenger.name, providerRef: r.providerRef, outcome: r.status } }];
 }
 /** The admin confirms the test SMS arrived (a gateway without delivery reports, ADR 0012). */

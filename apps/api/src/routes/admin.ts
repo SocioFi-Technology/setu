@@ -31,8 +31,9 @@ export async function adminRoutes(app: FastifyInstance) {
     requireAdm(req, "wizard");
     return query(req, async (tx, s) => ({ body: await facilityView(tx, s), audit: [{ action: "view", entity: "Organization", entityId: s.organizationId }] }));
   });
-  const facilityWrite = (path: string, screen: "wizard" | "masters", run: (tx: Parameters<Parameters<typeof command>[2]>[0], s: Parameters<Parameters<typeof command>[2]>[1], body: unknown) => Promise<import("../command.js").AuditEntry[]>, status = 200, txTimeoutMs?: number) =>
-    app.post(path, { config: { ownTx: true } }, async (req, reply): Promise<FacilityView> => {
+  const facilityWrite = (path: string, screen: "wizard" | "masters", run: (tx: Parameters<Parameters<typeof command>[2]>[0], s: Parameters<Parameters<typeof command>[2]>[1], body: unknown) => Promise<import("../command.js").AuditEntry[]>, status = 200, txTimeoutMs?: number, limit?: { max: number; timeWindow: string }) =>
+    // limit: per facility (security review: a test SMS costs money and goes to any number)
+    app.post(path, { config: { ownTx: true, ...(limit ? { rateLimit: { ...limit, keyGenerator: (r: import("fastify").FastifyRequest) => `fac:${requireSession(r).organizationId}` } } : {}) } }, async (req, reply): Promise<FacilityView> => {
       requireAdm(req, screen);
       return command(req, reply, async (tx, s) => { const audit = await run(tx, s, req.body ?? {}); return { status, body: await facilityView(tx, s), audit }; }, { txTimeoutMs });
     });
@@ -41,7 +42,7 @@ export async function adminRoutes(app: FastifyInstance) {
   facilityWrite("/v1/admin/wards", "wizard", async (tx, s, b) => { const x = WardCreate.parse(b); const w = await addWard(tx, s, x); return [{ action: "create", entity: "Location", entityId: w.id, detail: { kind: "ward", name: x.name, beds: x.beds } }]; }, 201);
   facilityWrite("/v1/admin/settings", "masters", (tx, s, b) => updateSettings(tx, s, SettingsUpdate.parse(b)));
   // the gateway answers within its 20 s timeout; the transaction outlasts it
-  facilityWrite("/v1/admin/sms-test", "wizard", (tx, s, b) => smsTest(tx, s, SmsTestRequest.parse(b).phone, new Date()), 200, 30_000);
+  facilityWrite("/v1/admin/sms-test", "wizard", (tx, s, b) => smsTest(tx, s, SmsTestRequest.parse(b).phone, new Date()), 200, 30_000, { max: 5, timeWindow: "1 hour" });
   facilityWrite("/v1/admin/sms-test/confirm", "wizard", (tx, s) => smsTestConfirm(tx, s, new Date()));
   facilityWrite("/v1/admin/go-live", "wizard", (tx, s) => goLive(tx, s, new Date()));
 

@@ -16,7 +16,7 @@ function make(name: string): Messenger {
     if (missing.length) throw new Error(`SMS_PROVIDER=bulksmsbd needs ${missing.join(", ")} in .env`);
     const url = process.env.BULKSMSBD_URL || "https://bulksmsbd.net/api/smsapi";
     if (process.env.NODE_ENV === "production" && !/^https:\/\/bulksmsbd\.net\//.test(url)) throw new Error("BULKSMSBD_URL must be https://bulksmsbd.net/… in production (the key is in the request)");
-    return new BulkSmsBdMessenger({ url, apiKey: process.env.BULKSMSBD_API_KEY!, senderId: process.env.BULKSMSBD_SENDER_ID!, timeoutMs: Number(process.env.BULKSMSBD_TIMEOUT_MS ?? 20_000) });
+    return new BulkSmsBdMessenger({ url, apiKey: process.env.BULKSMSBD_API_KEY!, senderId: process.env.BULKSMSBD_SENDER_ID!, timeoutMs: Math.min(60_000, Math.max(1_000, Number(process.env.BULKSMSBD_TIMEOUT_MS) || 20_000)) }); // never 0, never past the sweep's 2 min
   }
   throw new Error(`SMS_PROVIDER=${name} is not available (fake | bulksmsbd)`);
 }

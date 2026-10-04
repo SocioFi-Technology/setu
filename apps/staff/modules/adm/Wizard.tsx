@@ -153,6 +153,7 @@ export function AdmWizard() {
             <TextField label={A("sms_phone")} inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} data-testid="sms-phone" error={phone && !/^01[3-9]\d{8}$/.test(phone.trim()) ? A("phone_invalid") : undefined} />
             <Button icon="send" data-testid="sms-send" disabled={!s.online || busy || !/^01[3-9]\d{8}$/.test(phone.trim())} onClick={() => void run("sms", (k) => adm.smsTest(phone.trim(), k), A("sms_sent"))}>{A("sms_send")}</Button>
           </div>
+          {f.sms.error && <Callout tone="bad" icon="circle-x" data-testid="sms-error">{s.L(f.sms.error.split("\n")[0] ?? "", f.sms.error.split("\n")[1] ?? f.sms.error)}</Callout>}
           {f.sms.awaitingConfirm && (
             // ADR 0012: the gateway only says it accepted the message — the admin looks at the phone
             <Callout tone="info" icon="message-square" data-testid="sms-confirm-box">

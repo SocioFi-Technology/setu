@@ -14,7 +14,7 @@
      template (facility + what to do), sent through the Messenger adapter after the write commits;
    - an order is cancelled (ORDER revoke) only before its first tube is collected, with a reason, and the visit's
      draft bill is refreshed (D5, decision 99). */
-import { SMS_MAYBE_SENT, SMS_QUEUED_STUCK_MS, SMS_SENDING_STUCK_MS } from "@setu/domain";
+import { SMS_MAYBE_SENT, SMS_QUEUED_MAX_MS, SMS_QUEUED_STUCK_MS, SMS_SENDING_STUCK_MS } from "@setu/domain";
 import { randomUUID } from "node:crypto";
 import type { CallbackRequest, CommunicationItem, CorrectRequest, LabOrder, LabReportView, LabResult, LabVisitView, LabWorklist, ReleaseRequest, ResultEntryRequest, SpecimenRejectRequest, ValidateRequest, VerifyRequest } from "@setu/contracts";
 import type { Tx } from "@setu/db";
@@ -375,7 +375,7 @@ export async function deliverInApp(tx: Tx, s: SessionData, to: { patientId: stri
   const sending = undash<"in_progress">(transition("COMMUNICATION", COMMUNICATION, "preparation", "send"));
   await tx.communication.update({ where: { id }, data: { status: sending, attempts: 1, sentAt: now, statusAt: now } });
   const done = undash<"completed">(transition("COMMUNICATION", COMMUNICATION, "in-progress", "deliver"));
-  await tx.communication.update({ where: { id }, data: { status: done, completedAt: now, statusAt: now } });
+  await tx.communication.update({ where: { id }, data: { status: done, completedAt: now, deliveryConfirmed: true, statusAt: now } });
   return id;
 }
 
@@ -408,15 +408,30 @@ export async function dispatchSms(by: SmsActor, ids: string[], meta: { ip: strin
       const ok = r.status !== "failed";
       const next = undash<"completed" | "failed">(transition("COMMUNICATION", COMMUNICATION, "in-progress", ok ? "deliver" : "fail"));
       await forTenant(by.tenantId, async (tx) => {
-        await tx.communication.updateMany({ where: { id, status: "in_progress" }, data: { status: next, providerRef: r.providerRef ?? claimed.providerRef, lastError: r.status === "failed" ? r.error : null,
+        // only onto this attempt: the sweep may have given up on it meanwhile (and someone retried) — review, SMS slice
+        const n = await tx.communication.updateMany({ where: { id, status: "in_progress", attempts: claimed.attempts + 1 }, data: { status: next, providerRef: r.providerRef ?? claimed.providerRef, lastError: r.status === "failed" ? r.error : null,
           completedAt: ok ? done : null, deliveryConfirmed: r.status === "delivered", statusAt: done } });
         await tx.auditEvent.create({ data: { tenantId: by.tenantId, organizationId: claimed.organizationId, userId: by.userId, role: by.role, action: "send", entity: "Communication", entityId: id, patientId: claimed.patientId, ip: meta.ip,
-          detail: { route: meta.route, channel: "sms", kind: claimed.kind, outcome: r.status, ...(r.status === "failed" && r.reason ? { reason: r.reason } : {}), attempt: claimed.attempts + 1, provider: messenger.name, ...(by.userId ? {} : { actor: "system:sms-sweep" }) } } });
+          detail: { route: meta.route, channel: "sms", kind: claimed.kind, outcome: r.status, ...(r.status === "failed" && r.reason ? { reason: r.reason } : {}), attempt: claimed.attempts + 1, provider: messenger.name, ...(by.userId ? {} : { actor: "system:sms-sweep" }), ...(n.count ? {} : { late: true }) } } });
       });
       out.set(id, { status: dash(next), attempts: claimed.attempts + 1, lastError: r.status === "failed" ? r.error : null, sentAt: now.toISOString(), completedAt: ok ? done.toISOString() : null });
     } catch { /* left queued or in progress: the sweep and Retry pick it up */ }
   }
   return out;
+}
+
+/** A queued SMS that is no longer worth sending: failed with the reason (COMMUNICATION allows failing only from
+    in-progress, so the row passes through it — the attempt is counted and the reason says it never reached the gateway). */
+async function giveUp(tenantId: string, id: string, why: string, now: Date) {
+  const { forTenant } = await import("@setu/db");
+  await forTenant(tenantId, async (tx) => {
+    const c = await tx.communication.findFirst({ where: { id, status: "preparation" } });
+    if (!c) return;
+    const n = await tx.communication.updateMany({ where: { id, status: "preparation" }, data: { status: "in_progress", attempts: c.attempts + 1, statusAt: now } });
+    if (!n.count) return;
+    await tx.communication.update({ where: { id }, data: { status: "failed", lastError: why, statusAt: now } });
+    await tx.auditEvent.create({ data: { tenantId, organizationId: c.organizationId, userId: null, role: null, action: "update", entity: "Communication", entityId: id, patientId: c.patientId, detail: { actor: "system:sms-sweep", kind: c.kind, outcome: "not-sent", reason: why } } });
+  });
 }
 
 /** Every minute (ADR 0012, open question 124): an SMS queued for more than a minute is sent; one "sending" for more than
@@ -426,7 +441,23 @@ export async function sweepSms(now: Date): Promise<{ sent: number; interrupted: 
   let sent = 0, interrupted = 0;
   for (const t of await smsSweepTargets(new Date(now.getTime() - SMS_QUEUED_STUCK_MS), new Date(now.getTime() - SMS_SENDING_STUCK_MS))) {
     try {
-      if (t.status === "preparation") { sent += (await dispatchSms({ tenantId: t.tenantId, userId: null, role: null }, [t.communicationId], { ip: null, route: "sweep" })).size; continue; }
+      if (t.status === "preparation") {
+        // never send what no longer makes sense (review): too old, or a payment link that is no longer the payment's
+        const why = await forTenant(t.tenantId, async (tx) => {
+          const c = await tx.communication.findFirst({ where: { id: t.communicationId, status: "preparation" } });
+          if (!c) return "gone";
+          if (now.getTime() - c.createdAt.getTime() > SMS_QUEUED_MAX_MS) return "not sent — too old";
+          if (c.kind === "payment-link" && c.paymentId) {
+            const p = await tx.payment.findFirst({ where: { id: c.paymentId }, select: { status: true, linkCode: true, executeClaimedAt: true } });
+            if (!p || !["link_sent", "waiting_customer"].includes(p.status) || p.executeClaimedAt || !p.linkCode || !(c.text ?? "").endsWith(`/p/${p.linkCode}`)) return "not sent — the payment link has changed";
+          }
+          return null;
+        });
+        if (why === "gone") continue;
+        if (why) { await giveUp(t.tenantId, t.communicationId, why, now); continue; }
+        sent += (await dispatchSms({ tenantId: t.tenantId, userId: null, role: null }, [t.communicationId], { ip: null, route: "sweep" })).size;
+        continue;
+      }
       await forTenant(t.tenantId, async (tx) => {
         const c = await tx.communication.findFirst({ where: { id: t.communicationId, status: "in_progress" } });
         if (!c) return;
@@ -861,7 +892,7 @@ export async function sendReport(tx: Tx, s: SessionData, reportId: string, chann
   const id = await deliverInApp(tx, s, target(v), { kind, channel: "patient_app", reportId: r.id }, now);
   return { encounterId: v.e.id, dispatch: [] as string[], audit: [{ action: "create", entity: "Communication", entityId: id, patientId: v.e.patientId, detail: { kind, channel, reportId: r.id, version: r.version } }] as AuditEntry[] };
 }
-export async function retryMessage(tx: Tx, s: SessionData, communicationId: string, now: Date) {
+export async function retryMessage(tx: Tx, s: SessionData, communicationId: string, now: Date, acceptDuplicate = false) {
   requireLabRole(s, "deliver");
   const c0 = await tx.communication.findFirst({ where: { id: communicationId, organizationId: s.organizationId } });
   if (!c0 || !c0.encounterId) throw notFound();
@@ -871,16 +902,30 @@ export async function retryMessage(tx: Tx, s: SessionData, communicationId: stri
   if (c.reportId && v.reports.find((x) => x.id === c.reportId)?.status === "superseded")
     throw err(409, "superseded", "এই সংস্করণ বদলে গেছে — নতুন সংস্করণ পাঠান", "This version was replaced — send the new version");
   if (c.channel !== "sms") throw err(409, "not_retryable", "এই মাধ্যম আবার পাঠানো যায় না", "This channel cannot be retried");
+  // ADR 0012: the patient may already have it — never sent again without the person saying so
+  const mayHaveIt = (c.status === "completed" && !c.deliveryConfirmed) || c.status === "in_progress" || (c.status === "failed" && c.lastError === SMS_MAYBE_SENT);
+  if (mayHaveIt && !acceptDuplicate) throw err(409, "confirm_duplicate", "রোগী হয়তো এই SMS আগেই পেয়েছেন — আবার পাঠালে দুবার পেতে পারেন", "The patient may already have this SMS — sending again may give it twice");
+  const audit = (event: string, id: string) => [{ action: "update", entity: "Communication", entityId: id, patientId: v.e.patientId, detail: { event, kind: c.kind, attempts: c.attempts, ...(mayHaveIt ? { duplicateRiskAccepted: true } : {}) } }] as AuditEntry[];
+  if (c.status === "completed") {
+    // "Sent" without a delivery report: a new message with the same words (a gateway cannot recognise a resend)
+    if (c.deliveryConfirmed) throw err(409, "invalid_transition", "এই SMS পৌঁছেছে", "This SMS was delivered");
+    const to = smsPhone(v.e.patient.phone);
+    if (!to) throw err(422, "no_phone", "রোগীর মোবাইল নম্বর নেই", "The patient has no mobile number");
+    const id = `com_${randomUUID()}`;
+    await tx.communication.create({ data: { id, tenantId: s.tenantId, organizationId: s.organizationId, patientId: c.patientId, encounterId: c.encounterId, kind: c.kind, channel: "sms",
+      toPhone: to, templateKey: c.templateKey, text: c.text, reportId: c.reportId, specimenId: c.specimenId, createdById: s.userId } });
+    return { encounterId: v.e.id, dispatch: [id], audit: audit("send-again", id) };
+  }
   // A failed message is re-queued (same id). One that was queued or in progress for too long (the send was
-  // interrupted) is sent again too: in progress → failed ("no answer from the gateway") → re-queued.
+  // interrupted) is sent again too: in progress → failed ("it may have been sent") → re-queued.
   const age = now.getTime() - (c.sentAt ?? c.createdAt).getTime();
   if (c.status === "preparation") { if (age < STUCK_QUEUED_MS) throw err(409, "still_sending", "পাঠানো হচ্ছে — একটু পরে দেখুন", "Still sending — check again shortly"); }
   else {
-    let from = dash<"failed" | "in-progress" | "completed">(c.status);
+    let from = dash<"failed" | "in-progress">(c.status);
     if (from === "in-progress") {
       if (age < STUCK_SENDING_MS) throw err(409, "still_sending", "পাঠানো হচ্ছে — একটু পরে দেখুন", "Still sending — check again shortly");
       const failed = transition("COMMUNICATION", COMMUNICATION, "in-progress", "fail");
-      const f = await tx.communication.updateMany({ where: { id: c.id, status: c.status }, data: { status: undash(failed) as "failed", lastError: "no answer from the gateway", statusAt: now } });
+      const f = await tx.communication.updateMany({ where: { id: c.id, status: c.status }, data: { status: undash(failed) as "failed", lastError: SMS_MAYBE_SENT, statusAt: now } });
       if (f.count !== 1) throw stale();
       from = "failed";
     }
@@ -888,7 +933,7 @@ export async function retryMessage(tx: Tx, s: SessionData, communicationId: stri
     const u = await tx.communication.updateMany({ where: { id: c.id, status: undash(from) as "failed" }, data: { status: undash(to) as "preparation", statusAt: now } });
     if (u.count !== 1) throw stale();
   }
-  return { encounterId: v.e.id, dispatch: [c.id], audit: [{ action: "update", entity: "Communication", entityId: c.id, patientId: v.e.patientId, detail: { event: "retry", kind: c.kind, attempts: c.attempts } }] as AuditEntry[] };
+  return { encounterId: v.e.id, dispatch: [c.id], audit: audit("retry", c.id) };
 }
 
 /** One released version as released (D3), with results later put under correction marked. */

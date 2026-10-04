@@ -153,7 +153,8 @@ export const lab = {
   withdraw: (orderId: string, reason: string, key: string) => call<LabVisitView>("POST", `/v1/lab/orders/${enc(orderId)}/withdraw`, { reason }, key),
   release: (encounterId: string, observationIds: string[], key: string) => call<LabVisitView>("POST", `/v1/lab/visits/${enc(encounterId)}/release`, { observationIds }, key),
   send: (reportId: string, channel: "sms" | "patient-app", key: string) => call<LabVisitView>("POST", `/v1/lab/reports/${enc(reportId)}/send`, { channel }, key),
-  retry: (communicationId: string, key: string) => call<LabVisitView>("POST", `/v1/lab/communications/${enc(communicationId)}/retry`, {}, key),
+  /** acceptDuplicate: the person accepted that the patient may get it twice (ADR 0012) */
+  retry: (communicationId: string, key: string, acceptDuplicate = false) => call<LabVisitView>("POST", `/v1/lab/communications/${enc(communicationId)}/retry`, acceptDuplicate ? { acceptDuplicate } : {}, key),
   revoke: (orderId: string, reason: string, key: string) => call<RevokeResponse>("POST", `/v1/orders/${enc(orderId)}/revoke`, { reason }, key),
   /** dev and tests only: the fake SMS gateway fails the next send (the API refuses it with a real gateway or in production) */
   failNextSms: () => call<{ failing: number }>("POST", "/v1/dev/fake-messenger/fail-next", { n: 1 }),

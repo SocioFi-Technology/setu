@@ -18,6 +18,8 @@ export const config = {
       (<origin>/p/<code>), bKash's return (<origin>/api/v1/payments/return/bkash) and the result page (<origin>/pay/result). */
   publicAppUrl: (process.env.PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/+$/, ""),
   get publicApiUrl() { return `${this.publicAppUrl}/api`; },
+  /** ADR 0012: the gap between two payment-link SMS for one payment (tests shorten it; never below 1 s) */
+  linkSmsGapMs: Math.max(1_000, Number(process.env.LINK_SMS_GAP_MS) || 60_000),
   /** The fake gateway's "play the customer" route (dev and tests only). Off unless FAKE_PAYMENTS_DEV_ROUTE=1, and never
       in production (security review A6–A7: a cashier must not be able to mark a payment paid without money). */
   fakePaymentsDevRoute: process.env.FAKE_PAYMENTS_DEV_ROUTE === "1" && process.env.NODE_ENV !== "production",

@@ -2,6 +2,7 @@
 /* Shared by the lab screens (slice A8–A11): strings, names and times, flags as text + icon (never colour alone), the
    range with its label ("adult female range", decision D1), the patient banner, the visit loader, reason dialogs.
    Every rule (flags, delta, what may be verified / validated / released) comes from @setu/domain or the server. */
+import { SMS_MAYBE_SENT } from "@setu/domain";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { LabResult, LabVisitView } from "@setu/contracts";
 import { TUBES, format, labRoleCan, type LabFlag, type TubeKind } from "@setu/domain";
@@ -60,7 +61,10 @@ export const RESULT_TONE: Record<LabResult["status"], Tone> = { preliminary: "dr
 export const REPORT_TONE: Record<string, Tone> = { preliminary: "warn", final: "final", corrected: "info", superseded: "off" };
 export const COMM_TONE: Record<string, Tone> = { preparation: "pend", "in-progress": "pend", completed: "ok", failed: "bad" };
 /** ADR 0012: an SMS the gateway only accepted is "Sent", never "Delivered" */
-export const csKey = (c: { status: string; channel: string; deliveryConfirmed: boolean }) => (c.status === "completed" && c.channel === "sms" && !c.deliveryConfirmed ? "cs_sent" : `cs_${c.status}`);
+export const csKey = (c: { status: string; channel: string; deliveryConfirmed: boolean; lastError?: string | null }) =>
+  c.status === "completed" && c.channel === "sms" && !c.deliveryConfirmed ? "cs_sent" : c.status === "failed" && c.lastError === SMS_MAYBE_SENT ? "cs_maybe_sent" : `cs_${c.status}`;
+/** "Sent" without a delivery report is not the green of "Delivered" (controls review) */
+export const commTone = (c: { status: string; channel: string; deliveryConfirmed: boolean }): Tone => (c.status === "completed" && c.channel === "sms" && !c.deliveryConfirmed ? "info" : COMM_TONE[c.status] ?? "neu");
 export const SPECIMEN_TONE: Record<string, Tone> = { pending: "neu", collected: "info", received: "info", "in-process": "pend", done: "ok", rejected: "bad" };
 export const COLLECTION_TONE: Record<string, Tone> = { none: "off", pending: "neu", partial: "warn", collected: "ok", rejected: "bad" };
 const TUBE_COLOUR: Record<string, string> = { purple: "#7c3aed", grey: "#9ca3af", red: "#dc2626", none: "transparent" };

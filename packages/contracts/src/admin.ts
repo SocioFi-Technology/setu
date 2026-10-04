@@ -23,7 +23,7 @@ export const FacilityView = z.object({
     paymentMethods: z.array(PaymentMethodKey),
   }),
   /** ADR 0012: sentAt without testedAt = the gateway accepted the test SMS and the admin has not confirmed it arrived */
-  sms: z.object({ testedAt: z.string().nullable(), phone: z.string().nullable(), sentAt: z.string().nullable(), awaitingConfirm: z.boolean() }),
+  sms: z.object({ testedAt: z.string().nullable(), phone: z.string().nullable(), sentAt: z.string().nullable(), awaitingConfirm: z.boolean(), error: z.string().nullable() }),
 });
 export type FacilityView = z.infer<typeof FacilityView>;
 export const FacilityUpdate = z.object({ name: z.string().trim().min(2).max(120), nameBn: z.string().trim().max(120).optional(), address: z.string().trim().max(300).optional(), licenceNo: z.string().trim().max(60).optional() });

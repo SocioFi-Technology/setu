@@ -6,6 +6,7 @@
    "available in the app" until Journey D), and the doctor's inbox (sent automatically on every release, decision D6).
    Each channel shows its own status; a failed SMS is retried with the same message id, so it is never delivered twice.
    A superseded version is not sent: the screen says to send the new one. Sending needs a connection. */
+import { SMS_MAYBE_SENT } from "@setu/domain";
 import { useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { CommunicationItem, LabVisitView } from "@setu/contracts";
@@ -13,7 +14,7 @@ import { Button, Callout, Card, PageState, Pill, useToast } from "@setu/ui";
 import { lab } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useLabels } from "../fd/common";
-import { COMM_TONE, csKey, REPORT_TONE, VisitHead, isLabWriter, useErr, useFmt, useLabVisit, useLb } from "./common";
+import { commTone, csKey, REPORT_TONE, VisitHead, isLabWriter, useErr, useFmt, useLabVisit, useLb } from "./common";
 import { LabWorklist } from "./Worklist";
 
 export function LabDelivery() {
@@ -54,7 +55,13 @@ function DeliveryVisit({ encounterId }: { encounterId: string }) {
           <Channel icon="message-square" title={T("ch_sms")} to={v.patient.phone ? L.phone(v.patient.phone) : T("no_mobile")} c={sms} data="sms"
             note={T("sms_no_results")}
             action={writer && s.online && (!sms ? <Button variant="primary" icon="send" data-testid="send-sms" disabled={!!busy || !v.patient.phone} onClick={() => void act("sms", () => lab.send(cur.id, "sms", key("sms")))}>{T("send")}</Button>
-              : sms.status === "failed" || stuck(sms) ? <Button variant="primary" icon="rotate-ccw" data-testid="retry-sms" disabled={!!busy} onClick={() => void act(`retry:${sms.id}`, () => lab.retry(sms.id, key(`retry:${sms.id}`)))}>{T("retry")}</Button> : null)} />
+              : sms.status === "failed" || stuck(sms) || (sms.status === "completed" && !sms.deliveryConfirmed) ? (() => {
+                // ADR 0012: the patient may already have it (no answer from the gateway, or "sent" without a delivery report)
+                const mayHaveIt = (sms.status === "completed" && !sms.deliveryConfirmed) || sms.status === "in-progress" || sms.lastError === SMS_MAYBE_SENT;
+                const again = sms.status === "completed";
+                return <Button variant={again ? "default" : "primary"} icon="rotate-ccw" data-testid={again ? "send-sms-again" : "retry-sms"} disabled={!!busy}
+                  onClick={() => { if (mayHaveIt && !window.confirm(T("dup_warn"))) return; void act(`retry:${sms.id}`, () => lab.retry(sms.id, key(`retry:${sms.id}`), mayHaveIt)); }}>{T(again ? "send_again" : "retry")}</Button>;
+              })() : null)} />
           <Channel icon="smartphone" title={T("ch_app")} to={T("ch_app_to")} c={app} data="app" note={T("ch_app_note")}
             action={writer && s.online && !app && <Button variant="primary" icon="send" data-testid="send-app" disabled={!!busy} onClick={() => void act("app", () => lab.send(cur.id, "patient-app", key("app")))}>{T("send")}</Button>} />
           <Channel icon="inbox" title={T("ch_inbox")} to={inbox?.recipient ? F.name(inbox.recipient) : "—"} c={inbox} data="inbox" note={T("ch_inbox_note")} action={null} recordOnly />
@@ -75,7 +82,7 @@ function DeliveryVisit({ encounterId }: { encounterId: string }) {
             {[...v.communications].reverse().map((c) => (
               <tr key={c.id} data-event={c.kind} data-status={c.status}>
                 <td>{T(`ck_${c.kind}`)}{c.reportVersion ? ` · v${s.n(c.reportVersion)}` : ""}</td><td>{T(`ch_${c.channel}`)}</td>
-                <td><Pill tone={COMM_TONE[c.status] ?? "neu"}>{c.channel === "doctor-inbox" && c.status === "completed" ? T("cs_inbox_recorded") : T(csKey(c))}</Pill>{c.lastError && <div className="t-small">{c.lastError}</div>}{c.attempts > 1 && <div className="t-small t-muted">{T("attempts", { n: c.attempts })}</div>}</td>
+                <td><Pill tone={commTone(c)}>{c.channel === "doctor-inbox" && c.status === "completed" ? T("cs_inbox_recorded") : T(csKey(c))}</Pill>{c.lastError && <div className="t-small">{c.lastError}</div>}{c.attempts > 1 && <div className="t-small t-muted">{T("attempts", { n: c.attempts })}</div>}</td>
                 <td className="num">{F.dateTime(c.completedAt ?? c.sentAt ?? c.createdAt)}</td><td>{c.recipient ? F.name(c.recipient) : c.toPhone ? L.phone(c.toPhone.slice(1)) : c.channel === "patient-app" ? T("ch_app_to") : "—"}</td>
               </tr>
             ))}
@@ -93,7 +100,7 @@ function Channel({ icon, title, to, c, note, action, data, recordOnly }: { icon:
     <Card style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8, borderColor: c?.status === "failed" ? "var(--danger-border)" : undefined }} data-channel={data} data-status={c?.status ?? "not-sent"}>
       <span style={{ display: "flex", gap: 8, alignItems: "center" }}><b>{title}</b></span>
       <span className="t-small t-muted num">{to}</span>
-      <span>{c ? <Pill tone={COMM_TONE[c.status] ?? "neu"} icon={icon}>{recordOnly && c.status === "completed" ? T("cs_inbox_recorded") : T(csKey(c))}</Pill> : <Pill tone="neu" icon={icon}>{T("cs_not_sent")}</Pill>}</span>
+      <span>{c ? <Pill tone={commTone(c)} icon={icon}>{recordOnly && c.status === "completed" ? T("cs_inbox_recorded") : T(csKey(c))}</Pill> : <Pill tone="neu" icon={icon}>{T("cs_not_sent")}</Pill>}</span>
       {c?.lastError && <span className="t-small" style={{ color: "var(--danger-fg, #b91c1c)" }}>{T("failed_why", { why: c.lastError })}</span>}
       {c && <span className="t-small t-muted">{F.dateTime(c.completedAt ?? c.sentAt ?? c.createdAt)}{c.attempts > 1 ? ` · ${T("attempts", { n: c.attempts })}` : ""}</span>}
       <span className="t-small t-muted">{note}</span>

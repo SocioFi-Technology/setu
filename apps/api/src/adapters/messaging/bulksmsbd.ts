@@ -3,7 +3,7 @@
    "sent"; BulkSMSBD has no delivery reports and no client message id, so nothing here can say "delivered" or
    recognise a resend. A timeout or a broken answer is "no answer — it may have been sent": never resent by us. The
    key travels in the POST body only, never in a URL or a log line. */
-import { SMS_MAYBE_SENT, bulkSmsNumber, bulkSmsOutcome } from "@setu/domain";
+import { SMS_MAYBE_SENT, bulkSmsCodeText, bulkSmsNumber, bulkSmsOutcome } from "@setu/domain";
 import type { Messenger, SendResult, SmsMessage } from "./messenger.js";
 
 export interface BulkSmsBdConfig { url: string; apiKey: string; senderId: string; timeoutMs?: number }
@@ -33,7 +33,7 @@ export class BulkSmsBdMessenger implements Messenger {
     const o = bulkSmsOutcome(j.response_code);
     const ref = j.message_id !== undefined && j.message_id !== null ? String(j.message_id).slice(0, 80) : null;
     if (o.status === "sent") return { status: "sent", providerRef: ref };
-    const said = typeof j.error_message === "string" ? j.error_message : Array.isArray(j.error_message) ? j.error_message.join("; ") : "";
-    return { status: "failed", error: `BulkSMSBD ${String(j.response_code)}: ${said}`.slice(0, 160), providerRef: null, reason: o.reason };
+    // our own words for the code (the gateway's text can name account details); the raw text stays out of the database
+    return { status: "failed", error: bulkSmsCodeText(j.response_code), providerRef: null, reason: o.reason };
   }
 }

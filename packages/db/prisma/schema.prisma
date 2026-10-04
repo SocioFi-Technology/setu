@@ -113,6 +113,8 @@ model Organization {
   smsTestedAt               DateTime?
   /// ADR 0012: a test SMS the gateway accepted (no delivery reports) — done only when the admin confirms it arrived
   smsTestSentAt   DateTime?
+  /// the last test SMS failed (why); a failure clears sent / tested — go-live needs a test that works now
+  smsTestError    String?
   smsTestPhone              String?
   locations                 Location[]
   practitionerRoles         PractitionerRole[]
@@ -1005,6 +1007,8 @@ model Payment {
   linkExpiresAt  DateTime?
   /// our short link (/v1/pay/<code>) to the current link; a new one on each attempt (ADR 0011)
   linkCode       String?       @unique
+  /// earlier attempts' short links: they lead to "this link has ended", never to "not found"
+  supersededLinkCodes String[] @default([])
   /// what the gateway returned at create; the patient's return must carry the same (bKash, ADR 0011)
   providerSignature String?
   /// the one execute for the current attempt was claimed (bKash: money moves at execute, once)
@@ -1313,7 +1317,7 @@ model Communication {
   /// payment-link (ADR 0012): the payment whose short link it carries
   paymentId        String?
   /// completed and confirmed by the gateway as delivered; false = the gateway only accepted it ("Sent", ADR 0012)
-  deliveryConfirmed Boolean            @default(true)
+  deliveryConfirmed Boolean            @default(false)
   status           CommunicationStatus  @default(preparation)
   attempts         Int                  @default(0)
   lastError        String?

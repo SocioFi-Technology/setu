@@ -174,8 +174,8 @@ export async function labRoutes(app: FastifyInstance) {
   app.post("/v1/lab/communications/:id/retry", { config: { ownTx: true } }, async (req, reply) => {
     requireAny(req, ["lab", "delivery"]);
     const { id } = pid.parse(req.params);
-    RetryRequest.parse(req.body ?? {});
-    return labWrite(req, reply, "lab-retry", (tx, s, now) => retryMessage(tx, s, id, now));
+    const body = RetryRequest.parse(req.body ?? {});
+    return labWrite(req, reply, "lab-retry", (tx, s, now) => retryMessage(tx, s, id, now, body.acceptDuplicate === true));
   });
 
   /* ── ORDER revoke (D5): the ordering doctor, the lab technologist or the pathologist ── */
