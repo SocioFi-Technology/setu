@@ -845,3 +845,14 @@ Commit after each step, push at the end of each session.
      cannot reset, re-register, change or switch off someone who also works elsewhere — the owner does it. Keep?
 200. **A facility in setup is not blocked** from clinical work or payments in this slice (the screens will say "in
      setup"); a setup facility takes no payment until it chooses its methods. Should setup block registration?
+
+## Phase 2 slice 3 — admin, session 2 — 04/10/2026
+### Decided in the session (defaults — Kamrul to confirm)
+201. **The one-time password is shown once** (with a copy button) and never again; a lost one means "Reset password",
+     which makes a new one and ends the user's sessions. Should it also go to the user by SMS once SMS is real?
+202. **An ended session clears that user's drafts on the device** (consultation drafts, refused writes) before signing
+     out, so a switched-off user's notes never sync later. A half-written note is lost — acceptable?
+203. **The audit log opens on Flags only** (the owner's usual question is "anything unusual?"); untick for every event.
+204. **The sign-in page's strings are still inline** (known gap 9) — the session-ended banner follows that page's
+     pattern; moving the page to `packages/i18n` is left for the auth hardening pass.
+

@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin session 1 of 2 done — next: admin session 2, the screens)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026) — next: real SMS + bKash sandbox)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -597,6 +597,28 @@ change applies to bills made after it, two sessions. **Session 2:** `adm/wizard`
   restart it.
 - API contract test files run one at a time (`apps/api/vitest.config.ts`): they share the E2E family.
 - **Tests never touch the demo clinic.** The API contract tests and the Playwright journeys that create patients or visits sign in to the seeded **E2E Test Clinic** (`t_e2e`, users 01799000001 receptionist / …02 doctor / …09 owner / …10 admin, prefix `E2E-`, same walkthrough family). Playwright's `e2e/global-setup.ts` runs `pnpm db:reset-e2e` (restores the family, closes open reviews) and warms the dev server. The cross-tenant fixtures in the Hospital Lite demo are deleted after each API run. Green Life (`t_greenlife`) stays at its 8 seeded patients and an empty queue; the test patients made before 02/10/2026 evening were removed.
+## Done (admin, session 2 of 2, 04/10/2026) — the four admin screens, first sign-in, journey G ✅
+- **Screens (ported from `docs/prototype/Setu Admin.dc.html`, `adminApp` i18n namespace bn + en):** `adm/wizard`
+  (go-live checklist beside each step — details, branch, wards with beds, doctors → Users, fees → Masters, print
+  formats and payment methods, a test SMS; Go live refused until complete), `adm/users` (role, status, BMDC / BNMC,
+  last sign-in; add → one-time password shown once; change role, verify, reset, switch off with a reason / back on;
+  an owner's account is shown locked to an admin), `adm/masters` (price list, change with a reason, switch off,
+  history, add; approval limits with a reason; dose-label page size), `adm/audit` (this facility's events, filters
+  that combine, Flags, actions and records in the reader's language, load more, CSV of the filtered log).
+- **First sign-in:** a one-time-password session shows only "set your password and PIN". **An ended session**
+  (switched off, role or password changed) clears that user's local drafts, signs out, and the sign-in page says why.
+- **Screen review fixes:** an Idempotency-Key per wizard step and per managed user (renewed after success or a 4xx,
+  kept after a network error); a slow audit answer never overwrites newer filters; taka input parsed strictly (≤ ৳1
+  crore); percentages to basis points without float drift; a failed load shows an error, not an empty list; the audit
+  summary shows only the detail bits, never raw JSON.
+- **Journey G** (`e2e/journeys/g1-g4.spec.ts`): G1 onboarding → go live, G2 first sign-in → switched off → session
+  ends, G3 price and limit changes with reasons (checked after reload), G4 flagged audit + CSV link, 1024 px.
+- **Hands-on (`e2e/walk-admin.mjs`, Bangla):** Green Life Uttara onboarded up to a complete checklist — **Go live is
+  left for Kamrul** (`01711000011` / setu1234 / PIN 2580; a live facility never goes back to setup).
+- **Tests:** domain 266, api 226, `pnpm typecheck` 13/13, Playwright 84. Full runs: 84/84 (6.4 min); 82/84 (9.5 min —
+  the dev server slowed: journey A's public verify page hung loading, P1's dispense list missed its 5 s; both green
+  re-run alone, 6/6); 84/84 (6.3 min). Watch for it: if it recurs, restart `next dev` before a run.
+
 - Shell specs still sign in as Green Life users; they only read.
 
 ## Known gaps (fix in the slice that touches them, or when listed)
@@ -651,7 +673,7 @@ change applies to bills made after it, two sessions. **Session 2:** `adm/wizard`
 5. ~~`/slice A12-A13`~~ — done 03/10/2026 (two sessions); **Journey A complete**. Kamrul to confirm open questions
    135–149.
 6. **Phase 2 pilot clinic, split in four slices (Kamrul, 03/10/2026):** ~~`/slice C1-C4`~~ owner dashboard + shift close
-   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → **admin** (session 1 done 04/10/2026, questions 195–200; **next: session 2** — the screens) → real SMS + bKash sandbox. See open questions "Phase 2 plan".
+   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → **next: real SMS + bKash sandbox**. See open questions "Phase 2 plan".
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating
