@@ -37,8 +37,10 @@ export async function assertLiveSession(tx: Tx, s: SessionData) {
     throw err(401, "session_ended", "আপনার সেশন শেষ — আবার লগইন করুন", "Your session has ended — sign in again");
 }
 
+/** `after`: work that must not run inside the transaction (a payment gateway call, ADR 0011), run once after the commit
+    of a fresh request — never on a replay; its answer is what the caller gets (the stored replay keeps the committed one). */
 /** `redact`: what the idempotency record keeps of the answer (a one-time password is never stored — a replay leaves it out). */
-export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (tx: Tx, s: SessionData) => Promise<CommandResult<T>>, opts: { hashOmit?: string[]; txTimeoutMs?: number; redact?: (body: T) => T } = {}): Promise<T> {
+export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (tx: Tx, s: SessionData) => Promise<CommandResult<T>>, opts: { hashOmit?: string[]; txTimeoutMs?: number; redact?: (body: T) => T; after?: (body: T, s: SessionData) => Promise<T> } = {}): Promise<T> {
   const s = requireSession(req);
   req.txManaged = true;
   const key = req.headers["idempotency-key"];
@@ -64,7 +66,7 @@ export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (
   };
   const send = (out: { replayed: boolean; status: number; body: T }) => { if (out.replayed) reply.header("Idempotent-Replay", "true"); reply.code(out.status); return out.body; };
   try {
-    return send(await forTenant(s.tenantId, async (tx) => {
+    const out = await forTenant(s.tenantId, async (tx) => {
       await assertLiveSession(tx, s); // before a replay too: a signed-out user replays nothing
       const hit = await find(tx);
       if (hit) return answer(tx, hit);
@@ -73,7 +75,9 @@ export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (
       await writeAudit(tx, req, s, r.audit);
       await tx.idempotencyKey.create({ data: { tenantId: s.tenantId, key, route, statusCode: status, response: { hash, body: opts.redact ? opts.redact(r.body) : r.body } as object } });
       return { replayed: false as const, status, body: r.body };
-    }, { timeoutMs: opts.txTimeoutMs, userId: s.userId }));
+    }, { timeoutMs: opts.txTimeoutMs, userId: s.userId });
+    if (!out.replayed && opts.after) out.body = await opts.after(out.body, s);
+    return send(out);
   } catch (e) {
     // Two requests with the same key raced: the loser rolls back entirely and answers with the winner's response.
     if (!isUniqueViolation(e)) throw e;

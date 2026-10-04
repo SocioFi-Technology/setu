@@ -11,12 +11,12 @@ import {
 } from "@setu/contracts";
 import { authorize } from "@setu/domain";
 import { z } from "zod";
-import { fakeProvider, InvalidSignature, payments, providerByName, type ProviderWebhook } from "../adapters/payments/index.js";
+import { fakeProvider, InvalidSignature, providerByName, type PaymentProvider, type ProviderWebhook } from "../adapters/payments/index.js";
 import { command, query } from "../command.js";
 import { config } from "../config.js";
 import { err, forbidden } from "../errors.js";
 import {
-  addDeskLine, addPayment, approvalList, billingWorklist, cancelPayment, chargeDefinitions, createInvoice, decideApproval, decideReconcile, reconcileList, refreshOrders, requestNotBilled, voidInvoice, handleProviderEvent, invoiceView, removeDiscount, removeLine,
+  addDeskLine, addPayment, attachLink, payLinkTarget, returnFromGateway, approvalList, billingWorklist, cancelPayment, chargeDefinitions, createInvoice, decideApproval, decideReconcile, reconcileList, refreshOrders, requestNotBilled, voidInvoice, handleProviderEvent, invoiceView, removeDiscount, removeLine,
   invoiceHere, issueInvoice, requestDiscount, retryPayment, setLineQty, verifyTrx,
 } from "../modules/billing.js";
 import { createReceipt, printPdf, printReceipt, receiptList, receiptView } from "../modules/receipts.js";
@@ -46,14 +46,14 @@ const isUnique = (e: unknown) => typeof e === "object" && e !== null && (e as { 
 
 /** Handle one verified provider event under the payment's tenant. A second delivery of the same event racing the
     first loses on the unique (provider, eventId) and answers noop. */
-async function processCallback(req: FastifyRequest, ev: ProviderWebhook, actor: { userId: string; role: SessionRole } | null = null): Promise<ProviderCallbackResponse> {
+async function processCallback(req: FastifyRequest, payments: PaymentProvider, ev: ProviderWebhook, actor: { userId: string; role: SessionRole } | null = null): Promise<ProviderCallbackResponse> {
   if (!config.dbEnabled) throw err(503, "db_off", "ডাটাবেস চালু নেই", "The database is not running");
   const { forTenant, paymentRefLookup } = await import("@setu/db");
   const hit = await paymentRefLookup(payments.name, ev.providerRef);
   if (!hit) throw err(404, "unknown_reference", "অজানা রেফারেন্স", "Unknown reference");
   try {
     return await forTenant(hit.tenantId, async (tx) => {
-      const r = await handleProviderEvent(tx, hit.tenantId, hit.paymentId, hit.superseded, ev, new Date());
+      const r = await handleProviderEvent(tx, payments, hit.tenantId, hit.paymentId, hit.superseded, ev, new Date());
       const paidAt = (await tx.payment.findFirst({ where: { id: hit.paymentId }, select: { organizationId: true } }))?.organizationId ?? null;
       for (const a of r.audit) await tx.auditEvent.create({ data: {
         tenantId: hit.tenantId, organizationId: paidAt, userId: actor?.userId ?? null, role: actor?.role ?? null, action: a.action, entity: a.entity, entityId: a.entityId, patientId: a.patientId, ip: req.ip,
@@ -65,6 +65,18 @@ async function processCallback(req: FastifyRequest, ev: ProviderWebhook, actor: 
     if (isUnique(e)) return { outcome: "noop", reason: "repeat" };
     throw e;
   }
+}
+
+/** ADR 0011: after the payment committed as `initiated`, make its wallet link, then answer with the bill as it is now. */
+async function withLink(body: PaymentResponse, s: ReturnType<typeof requireSession>): Promise<PaymentResponse> {
+  if (body.payment.status !== "initiated") return body;
+  await attachLink(s.tenantId, body.payment.id, new Date());
+  const { forTenant } = await import("@setu/db");
+  return forTenant(s.tenantId, async (tx) => {
+    const p = await tx.payment.findFirst({ where: { id: body.payment.id }, select: { invoiceId: true } });
+    const view = await invoiceView(tx, s, await invoiceHere(tx, s, p!.invoiceId));
+    return { ...body, payment: view.payments.find((x) => x.id === body.payment.id)!, view };
+  }, { userId: s.userId });
 }
 
 export async function billingRoutes(app: FastifyInstance) {
@@ -250,7 +262,7 @@ export async function billingRoutes(app: FastifyInstance) {
       return { status: 201, body: { payment: view.payments.find((p) => p.id === r.payment.id)!, view }, audit: [
         { action: "create", entity: "Payment", entityId: r.payment.id, patientId: r.inv.patientId, detail: { method: body.method, amountPaisa: body.amountPaisa, status: r.payment.status, invoiceStatus: r.inv.status } },
       ] };
-    });
+    }, { after: withLink });
   });
   app.post("/v1/payments/:id/retry", { config: { ownTx: true } }, async (req, reply): Promise<PaymentResponse> => {
     requireBill(req, "pay", true);
@@ -259,7 +271,7 @@ export async function billingRoutes(app: FastifyInstance) {
       const r = await retryPayment(tx, s, id, new Date());
       const view = await invoiceView(tx, s, r.inv);
       return { body: { payment: view.payments.find((p) => p.id === id)!, view }, audit: [{ action: "update", entity: "Payment", entityId: id, patientId: r.inv.patientId, detail: { event: "retry", attempt: r.payment.attempt } }] };
-    });
+    }, { after: withLink });
   });
   app.post("/v1/payments/:id/cancel", { config: { ownTx: true } }, async (req, reply): Promise<PaymentResponse> => {
     requireBill(req, "pay", true);
@@ -348,12 +360,59 @@ export async function billingRoutes(app: FastifyInstance) {
     sub.post("/v1/payments/callback/:provider", async (req): Promise<ProviderCallbackResponse> => {
       const { provider } = req.params as { provider: string };
       const p = providerByName(provider);
-      if (!p) throw err(404, "unknown_provider", "অজানা প্রদানকারী", "Unknown provider");
+      if (!p || p.flow !== "callback") throw err(404, "unknown_provider", "অজানা প্রদানকারী", "Unknown provider");
       let ev: ProviderWebhook;
       try { ev = p.parseWebhook(req.headers, typeof req.body === "string" ? req.body : ""); }
       catch (e) { if (e instanceof InvalidSignature || e instanceof SyntaxError) throw err(401, "invalid_signature", "স্বাক্ষর মেলেনি", "Invalid signature"); throw e; }
-      return processCallback(req, ev);
+      return processCallback(req, p, ev);
     });
+  });
+
+  /* ── ADR 0011: the patient's side of an execute gateway (bKash) — no session, rate-limited, no patient details ── */
+  const publicLimit = { config: { rateLimit: { max: 30, timeWindow: "1 minute", keyGenerator: clientKey } } };
+  const ReturnQuery = z.object({ paymentID: z.string().min(1).max(100), status: z.enum(["success", "failure", "cancel"]), signature: z.string().max(200).optional() });
+  app.get("/v1/payments/return/:provider", publicLimit, async (req, reply) => {
+    if (!config.dbEnabled) throw err(503, "db_off", "ডাটাবেস চালু নেই", "The database is not running");
+    const p = providerByName((req.params as { provider: string }).provider);
+    const q = ReturnQuery.safeParse(req.query);
+    const r = p && p.flow === "execute" && q.success
+      ? await returnFromGateway(p, { ref: q.data.paymentID, status: q.data.status, signature: q.data.signature ?? null }, new Date(), req.ip)
+      : { outcome: "unknown" as const, trxId: null, amountPaisa: null, facilityEn: null, facilityBn: null };
+    const to = new URL(`${config.publicAppUrl}/pay/result`);
+    to.searchParams.set("o", r.outcome);
+    if (r.trxId) to.searchParams.set("trx", r.trxId);
+    if (r.amountPaisa) to.searchParams.set("a", String(r.amountPaisa));
+    if (r.facilityEn) to.searchParams.set("f", r.facilityEn);
+    if (r.facilityBn) to.searchParams.set("fb", r.facilityBn);
+    return reply.header("cache-control", "no-store").redirect(to.toString(), 303);
+  });
+  app.get("/v1/pay/:code", publicLimit, async (req, reply) => {
+    if (!config.dbEnabled) throw err(503, "db_off", "ডাটাবেস চালু নেই", "The database is not running");
+    const code = String((req.params as { code: string }).code ?? "").toUpperCase();
+    const { isLinkCode } = await import("@setu/domain");
+    const r = isLinkCode(code) ? await payLinkTarget(code, new Date()) : { url: null, outcome: "unknown" as const, facilityEn: null, facilityBn: null };
+    reply.header("cache-control", "no-store");
+    if (r.url) return reply.redirect(r.url, 302);
+    const to = new URL(`${config.publicAppUrl}/pay/result`);
+    to.searchParams.set("o", r.outcome);
+    if (r.facilityEn) to.searchParams.set("f", r.facilityEn);
+    if (r.facilityBn) to.searchParams.set("fb", r.facilityBn);
+    return reply.redirect(to.toString(), 303);
+  });
+  /* the cashier's QR of the short link (the patient scans it with their phone) */
+  app.get("/v1/payments/:id/qr.svg", async (req, reply) => {
+    requireBill(req, "pay", true);
+    const { id } = req.params as { id: string };
+    const url = await query(req, async (tx, s) => {
+      const p = await tx.payment.findFirst({ where: { id, organizationId: s.organizationId } });
+      if (!p) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
+      const inv = await invoiceHere(tx, s, p.invoiceId);
+      const v = (await invoiceView(tx, s, inv)).payments.find((x) => x.id === id);
+      return { body: v?.payUrl ?? null, audit: [] };
+    });
+    if (!url) throw err(404, "no_link", "এই পেমেন্টের কোনো চালু লিংক নেই", "This payment has no open link");
+    const { qrSvg } = await import("../receipts/template.js");
+    return reply.header("content-type", "image/svg+xml").header("cache-control", "no-store").send(qrSvg(url));
   });
 
   /* ── dev and tests only: play the customer's side of the fake provider (never with a real provider or in production) ── */
@@ -364,16 +423,16 @@ export async function billingRoutes(app: FastifyInstance) {
       const o = z.object({ deliver: z.boolean().default(true), amountPaisa: z.number().int().positive().optional() }).parse(req.body ?? {});
       const s0 = requireSession(req);
       const ref = await query(req, async (tx, s) => {
-        const p = await tx.payment.findFirst({ where: { id, organizationId: s.organizationId }, select: { providerRef: true, invoiceId: true } });
+        const p = await tx.payment.findFirst({ where: { id, organizationId: s.organizationId }, select: { providerRef: true, invoiceId: true, provider: true } });
         if (p) await invoiceHere(tx, s, p.invoiceId); // this facility and branch only
-        return { body: p?.providerRef ?? null, audit: [] };
+        return { body: p?.provider === fakeProvider()!.name ? p.providerRef ?? null : null, audit: [] }; // the fake's own payments only
       });
       if (!ref) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
       const cb = fakeProvider()!.simulate(ref, kind, { deliver: o.deliver, amountPaisa: o.amountPaisa });
       // A "lost" callback: nothing reaches the API; the TrxID is what the patient would read on their phone.
       if (!cb) return { delivered: false, trxId: (await fakeProvider()!.verify({ providerRef: ref }))?.trxId ?? null };
       const ev = fakeProvider()!.parseWebhook(cb.headers, cb.body);
-      return { delivered: true, trxId: cb.trxId, ...(await processCallback(req, ev, { userId: s0.userId, role: s0.role })) };
+      return { delivered: true, trxId: cb.trxId, ...(await processCallback(req, fakeProvider()!, ev, { userId: s0.userId, role: s0.role })) };
     });
   }
 }

@@ -14,6 +14,10 @@ export const config = {
   version: process.env.npm_package_version ?? "0.0.1",
   /** What a receipt's QR opens: the staff app's public page /verify/rc/<code> (no login, no patient details). */
   verifyBaseUrl: (process.env.VERIFY_BASE_URL ?? "http://localhost:3000/verify/rc").replace(/\/+$/, ""),
+  /** ADR 0011: the staff app's public origin. The patient's phone reaches us through it: the short payment link
+      (<origin>/p/<code>), bKash's return (<origin>/api/v1/payments/return/bkash) and the result page (<origin>/pay/result). */
+  publicAppUrl: (process.env.PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/+$/, ""),
+  get publicApiUrl() { return `${this.publicAppUrl}/api`; },
   /** The fake gateway's "play the customer" route (dev and tests only). Off unless FAKE_PAYMENTS_DEV_ROUTE=1, and never
       in production (security review A6–A7: a cashier must not be able to mark a payment paid without money). */
   fakePaymentsDevRoute: process.env.FAKE_PAYMENTS_DEV_ROUTE === "1" && process.env.NODE_ENV !== "production",
@@ -31,5 +35,6 @@ if (process.env.DATABASE_URL && !process.env.DATABASE_URL_APP)
   throw new Error("DATABASE_URL_APP is missing from .env. Add it from .env.example and run `pnpm db:migrate` (the API connects as setu_app, never as the owner).");
 
 /* The fake gateway is for dev and tests: a production API refuses to start with it (or with its published secret). */
+if (process.env.NODE_ENV === "production" && !/^https:\/\//.test(config.publicAppUrl)) throw new Error("PUBLIC_APP_URL must be https in production (payment links and bKash's return use it)");
 if (process.env.NODE_ENV === "production" && config.adapters.payments === "fake") throw new Error("PAYMENTS_PROVIDER=fake is not allowed in production");
 if (process.env.NODE_ENV === "production" && config.adapters.sms === "fake") throw new Error("SMS_PROVIDER=fake is not allowed in production");

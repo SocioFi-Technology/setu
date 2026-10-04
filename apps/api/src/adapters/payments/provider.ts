@@ -1,7 +1,8 @@
 /* Wallet payments behind an interface (CLAUDE.md: external services sit in adapters with a Fake* in dev and tests).
-   bKash and Nagad adapters come with the sandbox in phase 2 and implement the same interface, chosen by
-   PAYMENTS_PROVIDER. The API never trusts a callback by itself: it checks the signature (parseWebhook), records the
-   event once, and asks the provider (verify) before it confirms money. */
+   Two kinds of gateway (ADR 0011): a "callback" gateway (FakeProvider) reports money in a signed callback; an "execute"
+   gateway (bKash tokenized checkout) sends the patient back to us and moves the money only when we call `execute`,
+   once per link. The API never trusts a callback or a redirect by itself: it records the event once and asks the
+   provider (verify / execute) before it confirms money. */
 import type { ProviderEventKind } from "@setu/domain";
 
 export interface LinkRequest {
@@ -13,16 +14,22 @@ export interface LinkRequest {
   invoiceNumber: string;
   /** Bangladesh mobile, 10 digits after +880 */
   phone: string;
+  /** which attempt of the payment this link is (a new merchant invoice number per attempt) */
+  attempt: number;
 }
-export interface PaymentLink { providerRef: string; url: string; expiresAt: Date }
+/** `signature`: what an execute gateway returned at create; the patient's return must carry the same. */
+export interface PaymentLink { providerRef: string; url: string; expiresAt: Date; signature?: string | null }
 export interface ProviderStatus { providerRef: string; status: "pending" | "opened" | "confirmed" | "failed"; trxId: string | null; amountPaisa: number }
 export interface ProviderWebhook { eventId: string; providerRef: string; kind: ProviderEventKind; trxId: string | null; amountPaisa: number | null }
 
 export class InvalidSignature extends Error { constructor() { super("invalid provider signature"); } }
+/** The gateway could not be reached or refused the request (`code`: the gateway's own code, for the log). */
+export class GatewayError extends Error { constructor(readonly code: string, message: string) { super(message); } }
 
 export interface PaymentProvider {
   /** stored on Payment.provider */
   readonly name: string;
+  readonly flow: "callback" | "execute";
   createLink(req: LinkRequest): Promise<PaymentLink>;
   /** What the provider says happened, by its reference or by a TrxID the cashier typed; null = unknown to it. */
   verify(q: { providerRef: string } | { trxId: string }): Promise<ProviderStatus | null>;
@@ -30,6 +37,9 @@ export interface PaymentProvider {
   cancel(providerRef: string): Promise<void>;
   /** Checks the signature over the raw body and returns the event; throws InvalidSignature. */
   parseWebhook(headers: Record<string, string | string[] | undefined>, rawBody: string): ProviderWebhook;
+  /** Execute gateways only: move the money for this link, once. Never throws for a gateway answer: an error, a timeout
+      or "already completed" is followed by a query, and the result is what the gateway then reports (null: unknown). */
+  execute(providerRef: string): Promise<ProviderStatus | null>;
   /** Refunds come with the refunds screen (not in slice A6–A7). */
   refund(providerRef: string, amountPaisa: number): Promise<never>;
 }

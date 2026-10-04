@@ -56,3 +56,35 @@ export async function receiptVerifyLookup(code: string): Promise<{ facilityEn: s
   // verify page showed the UTC clock as Dhaka time).
   return hit ? { ...hit, createdAt: /[zZ]|[+-]\d\d:?\d\d$/.test(hit.createdAt) ? hit.createdAt : `${hit.createdAt}Z` } : null;
 }
+
+/* ── ADR 0011: wallet gateways ── */
+export interface GatewayTokenRow { idToken: string; idExpiresAt: Date; refreshToken: string; refreshExpiresAt: Date }
+const toToken = (h: { idToken: string; idExpiresAt: string; refreshToken: string; refreshExpiresAt: string } | null): GatewayTokenRow | null =>
+  h ? { idToken: h.idToken, idExpiresAt: utc(h.idExpiresAt), refreshToken: h.refreshToken, refreshExpiresAt: utc(h.refreshExpiresAt) } : null;
+const utc = (s: string) => new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : `${s}Z`);
+
+/** The gateway's shared token, renewed by at most one API process at a time: under a transaction-scoped advisory lock
+    `renew` sees the stored token (or null) and returns a new one to store, or null to keep it. */
+export async function withGatewayToken(provider: string, renew: (current: GatewayTokenRow | null) => Promise<GatewayTokenRow | null>): Promise<GatewayTokenRow | null> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"gateway-token:" + provider}::text))`;
+    const rows = await tx.$queryRaw<{ hit: Parameters<typeof toToken>[0] }[]>`SELECT gateway_token_get(${provider}::text) AS hit`;
+    const current = toToken(rows[0]?.hit ?? null);
+    const next = await renew(current);
+    if (!next) return current;
+    await tx.$executeRaw`SELECT gateway_token_put(${provider}::text, ${next.idToken}::text, ${next.idExpiresAt}::timestamptz, ${next.refreshToken}::text, ${next.refreshExpiresAt}::timestamptz)`;
+    return next;
+  }, { timeout: 45_000, maxWait: 45_000 });
+}
+
+/** The public short link: which tenant and payment a link code belongs to. SECURITY DEFINER; nothing else. */
+export async function paymentLinkLookup(code: string): Promise<{ tenantId: string; paymentId: string } | null> {
+  const rows = await prisma.$queryRaw<{ hit: { tenantId: string; paymentId: string } | null }[]>`SELECT payment_link_lookup(${code}::text) AS hit`;
+  return rows[0]?.hit ?? null;
+}
+
+/** Wallet payments the sweep must look at (left without a link, or an execute claimed and never answered). */
+export async function paymentSweepTargets(before: Date): Promise<{ tenantId: string; paymentId: string }[]> {
+  const rows = await prisma.$queryRaw<{ tenant_id: string; payment_id: string }[]>`SELECT * FROM payment_sweep_targets(${before}::timestamptz)`;
+  return rows.map((r) => ({ tenantId: r.tenant_id, paymentId: r.payment_id }));
+}

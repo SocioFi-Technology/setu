@@ -1001,6 +1001,12 @@ model Payment {
   supersededRefs String[]      @default([])
   linkUrl        String?
   linkExpiresAt  DateTime?
+  /// our short link (/v1/pay/<code>) to the current link; a new one on each attempt (ADR 0011)
+  linkCode       String?       @unique
+  /// what the gateway returned at create; the patient's return must carry the same (bKash, ADR 0011)
+  providerSignature String?
+  /// the one execute for the current attempt was claimed (bKash: money moves at execute, once)
+  executeClaimedAt DateTime?
   /// the number the payment link went to
   phone          String?
   trxId          String?
@@ -1705,4 +1711,15 @@ model StockCountLine {
   countedAt  DateTime?
 
   @@unique([countId, batchId])
+}
+
+/// A gateway's access token, shared by every API process (bKash allows two grants / refreshes an hour, ADR 0011). Not
+/// a tenant table: one merchant account per deployment for the pilot. Reachable only through gateway_token_get / _put.
+model GatewayToken {
+  provider         String   @id
+  idToken          String
+  idExpiresAt      DateTime
+  refreshToken     String
+  refreshExpiresAt DateTime
+  updatedAt        DateTime
 }

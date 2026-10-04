@@ -63,6 +63,12 @@ export const PaymentView = z.object({
   /** wallets: last 4 digits of the number the link went to */
   phoneLast4: z.string().nullable(), linkExpiresAt: z.string().nullable(), attempt: z.number().int(), failReason: z.string().nullable(),
   createdBy: Person, createdAt: z.string(), confirmedAt: z.string().nullable(),
+  /** ADR 0011: the short link the patient opens (and its QR) while the payment waits; null otherwise */
+  payUrl: z.string().nullable(),
+  /** callback: the gateway reports the money; execute: we complete it when the patient comes back (bKash) */
+  gateway: z.enum(["callback", "execute"]).nullable(),
+  /** an execute is under way (the patient came back): wait, do not cancel */
+  executing: z.boolean(),
 });
 export type PaymentView = z.infer<typeof PaymentView>;
 export const PaymentSummaryView = z.object({ totalPaisa: Paisa, confirmedPaisa: Paisa, pendingPaisa: Paisa, duePaisa: Paisa, openPaisa: Paisa });
@@ -179,6 +185,9 @@ export type PaymentResponse = z.infer<typeof PaymentResponse>;
     and not applied. */
 export const ProviderCallbackResponse = z.object({ outcome: z.enum(["applied", "noop", "refused"]), reason: z.string().optional() });
 export type ProviderCallbackResponse = z.infer<typeof ProviderCallbackResponse>;
+/** ADR 0011: where the patient's return lands (the staff app's public /pay/result page; no patient details). */
+export const PayResultOutcome = z.enum(["paid", "not-paid", "ended", "expired", "pending", "unknown"]);
+export type PayResultOutcome = z.infer<typeof PayResultOutcome>;
 export const FakeProviderEventKind = z.enum(["opened", "confirmed", "failed"]);
 
 /* ── receipts (session 2). A receipt is an immutable copy of what is printed; prints are logged (copy 0 = original,

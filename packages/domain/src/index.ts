@@ -18,3 +18,4 @@ export * from "./kpi.js";
 export * from "./pharmacy.js";
 export * from "./purchasing.js";
 export * from "./admin.js";
+export * from "./wallet.js";

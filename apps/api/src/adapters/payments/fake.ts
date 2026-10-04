@@ -15,6 +15,7 @@ interface FakeLink { providerRef: string; amountPaisa: number; reference: string
 
 export class FakeProvider implements PaymentProvider {
   readonly name = "fake";
+  readonly flow = "callback" as const;
   private links = new Map<string, FakeLink>();
   constructor(private secret: string) {}
 
@@ -43,6 +44,8 @@ export class FakeProvider implements PaymentProvider {
     if (typeof b.eventId !== "string" || typeof b.providerRef !== "string" || !["opened", "confirmed", "failed"].includes(b.kind as string)) throw new InvalidSignature();
     return { eventId: b.eventId, providerRef: b.providerRef, kind: b.kind as ProviderEventKind, trxId: b.trxId ?? null, amountPaisa: b.amountPaisa ?? null };
   }
+
+  async execute(): Promise<never> { throw new Error("the fake gateway reports payments by callback; nothing to execute"); }
 
   async refund(): Promise<never> { throw new Error("refunds are not part of slice A6–A7"); }
 

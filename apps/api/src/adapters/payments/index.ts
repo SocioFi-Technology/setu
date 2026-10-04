@@ -1,21 +1,42 @@
-/* The wallet provider for this process, chosen by PAYMENTS_PROVIDER (.env). Only `fake` exists until the bKash / Nagad
-   sandboxes (phase 2); any other value stops the API at start rather than taking payments it cannot confirm. */
+/* The wallet providers for this process (ADR 0011). PAYMENTS_PROVIDER=fake: every wallet on FakeProvider (dev, tests).
+   PAYMENTS_PROVIDER=bkash: bKash on BkashProvider (BKASH_* in .env), Nagad still on the fake until its slice. Anything
+   else, or bKash without its settings, stops the API at start rather than taking payments it cannot confirm. */
 import { config } from "../../config.js";
+import { BkashProvider, type TokenStore } from "./bkash.js";
 import { FakeProvider } from "./fake.js";
 import type { PaymentProvider } from "./provider.js";
 
 export * from "./provider.js";
 export { FakeProvider, FAKE_SIGNATURE_HEADER } from "./fake.js";
+export { BkashProvider } from "./bkash.js";
 
 const fakeSecret = process.env.FAKE_PAYMENTS_SECRET ?? "dev-only-fake-payments-secret";
+const fake = new FakeProvider(fakeSecret);
 
-function make(name: string): PaymentProvider {
-  if (name === "fake") return new FakeProvider(fakeSecret);
-  throw new Error(`PAYMENTS_PROVIDER=${name} is not available yet (only "fake" until the bKash / Nagad sandboxes)`);
+const dbTokenStore: TokenStore = async (renew) => (await import("@setu/db")).withGatewayToken("bkash", renew);
+
+function bkash(): BkashProvider {
+  const need = ["BKASH_BASE_URL", "BKASH_APP_KEY", "BKASH_APP_SECRET", "BKASH_USERNAME", "BKASH_PASSWORD"] as const;
+  const missing = need.filter((k) => !process.env[k]);
+  if (missing.length) throw new Error(`PAYMENTS_PROVIDER=bkash needs ${missing.join(", ")} in .env`);
+  return new BkashProvider({
+    baseUrl: process.env.BKASH_BASE_URL!, appKey: process.env.BKASH_APP_KEY!, appSecret: process.env.BKASH_APP_SECRET!,
+    username: process.env.BKASH_USERNAME!, password: process.env.BKASH_PASSWORD!, callbackUrl: `${config.publicApiUrl}/v1/payments/return/bkash`,
+    timeoutMs: Number(process.env.BKASH_TIMEOUT_MS ?? 30_000),
+  }, dbTokenStore);
 }
 
-export const payments: PaymentProvider = make(config.adapters.payments);
-/** Providers that may post callbacks to /v1/payments/callback/:provider. */
-export const providerByName = (name: string): PaymentProvider | null => (name === payments.name ? payments : null);
-/** The dev/test helper that plays the customer's side; null when the real provider is configured. */
-export const fakeProvider = (): FakeProvider | null => (payments instanceof FakeProvider ? payments : null);
+function make(name: string): { bkash: PaymentProvider; nagad: PaymentProvider } {
+  if (name === "fake") return { bkash: fake, nagad: fake };
+  if (name === "bkash") return { bkash: bkash(), nagad: fake };
+  throw new Error(`PAYMENTS_PROVIDER=${name} is not available (fake | bkash)`);
+}
+
+const byMethod = make(config.adapters.payments);
+/** The provider that takes this wallet method's new payments. */
+export const providerFor = (method: "bkash" | "nagad"): PaymentProvider => byMethod[method];
+/** A payment's own provider, by the name stored on it. */
+export const providerByName = (name: string | null | undefined): PaymentProvider | null =>
+  name ? [byMethod.bkash, byMethod.nagad].find((p) => p.name === name) ?? null : null;
+/** The dev/test helper that plays the customer's side of the fake; null when no wallet uses it. */
+export const fakeProvider = (): FakeProvider | null => fake;

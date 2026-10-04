@@ -19,10 +19,12 @@ import type { ApprovalItem, ApprovalList, BillingWorklist, ChargeDefinitionList,
 import type { Tx } from "@setu/db";
 import {
   APPROVAL, INVOICE, PAYMENT, approvalBlockers, billKindsFor, type Plan, type Role, billTotals, checkNewPayment, decideProviderEvent, dhakaDay, discountDecision, discountLimit, discountToPaisa,
-  invoiceEventAfterConfirm, isWallet, issueBlockers, notBilledBlockers, paidBy, paymentSummary, reconcileApplyBlockers, syncOrderLines, transition, voidBlockers, type BillingSettings, type DiscountCategory, type InvoiceState,
+  LINK_CODE_ALPHABET, LINK_CODE_LENGTH, answerOutcome, decideReturn, invoiceEventAfterConfirm, isWallet, type ReturnStatus, issueBlockers, notBilledBlockers, paidBy, paymentSummary, reconcileApplyBlockers, syncOrderLines, transition, voidBlockers, type BillingSettings, type DiscountCategory, type InvoiceState,
   type PaymentMethod, type PaymentRow, type PaymentState, type ProviderEventKind,
 } from "@setu/domain";
-import { payments as provider, type ProviderWebhook } from "../adapters/payments/index.js";
+import { randomBytes } from "node:crypto";
+import { GatewayError, providerByName, providerFor, type PaymentProvider, type ProviderStatus, type ProviderWebhook } from "../adapters/payments/index.js";
+import { config } from "../config.js";
 import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
@@ -56,6 +58,15 @@ type TaskRow = NonNullable<Awaited<ReturnType<Tx["task"]["findFirst"]>>>;
 interface DiscountDetail { amountPaisa: number; category: DiscountCategory; reason: string; subtotalPaisa: number; limitPaisa: number; invoiceRev: number }
 interface NotBilledDetail { lineId: string; reason: string; invoiceRev: number }
 interface ReconcileDetail { providerRef: string | null; trxId: string | null; amountPaisa: number | null; paymentAmountPaisa: number; invoiceId: string; resolution?: { action: "applied" | "resolved"; note: string | null; by: string; at: string } }
+
+/** A wallet payment's own gateway (the one that made its link); 503 when this API no longer runs it. */
+export function providerOf(p: { provider: string | null; method: string }): PaymentProvider {
+  const pr = p.provider ? providerByName(p.provider) : providerFor(p.method as "bkash" | "nagad");
+  if (!pr) throw err(503, "gateway_off", "এই পেমেন্টের গেটওয়ে এখন চালু নেই", "This payment's gateway is not running on this server");
+  return pr;
+}
+const linkCode = () => Array.from(randomBytes(LINK_CODE_LENGTH), (b) => LINK_CODE_ALPHABET[b % LINK_CODE_ALPHABET.length]).join("");
+const PENDING_DB = ["initiated", "link_sent", "waiting_customer"];
 
 export function requireWriter(s: SessionData) { if (!WRITE_ROLES.includes(s.role)) throw readOnlyRole(); }
 
@@ -189,6 +200,9 @@ function toPaymentView(p: Pay, who: (id: string) => { id: string; nameBn: string
     id: p.id, method: p.method as PaymentMethod, status: dash<PaymentState>(p.status), amountPaisa: p.amountPaisa, tenderedPaisa: p.tenderedPaisa, changePaisa: p.changePaisa,
     reference: p.reference, trxId: p.trxId, phoneLast4: p.phone ? p.phone.slice(-4) : null, linkExpiresAt: iso(p.linkExpiresAt), attempt: p.attempt, failReason: p.failReason,
     createdBy: who(p.createdById), createdAt: p.createdAt.toISOString(), confirmedAt: iso(p.confirmedAt),
+    payUrl: p.linkCode && PENDING_DB.includes(p.status) ? `${config.publicAppUrl}/p/${p.linkCode}` : null,
+    gateway: p.provider ? providerByName(p.provider)?.flow ?? null : null,
+    executing: !!p.executeClaimedAt && PENDING_DB.includes(p.status),
   };
 }
 
@@ -628,6 +642,7 @@ export async function decideReconcile(tx: Tx, s: SessionData, taskId: string, ac
   const next = transition("APPROVAL", APPROVAL, t.status, action === "apply" ? "approve" : "reject");
   if (action === "resolve" && (note ?? "").trim().length < 10) throw err(400, "note_required", "নোট লিখুন (অন্তত ১০ অক্ষর)", "Write a note (at least 10 characters)", { field: "note" });
   if (action === "apply") {
+    const provider = providerOf(p);
     const live = d.providerRef ? await provider.verify({ providerRef: d.providerRef }) : null;
     const b = reconcileApplyBlockers({
       task: { providerRef: d.providerRef ?? "", trxId: d.trxId, amountPaisa: d.amountPaisa, invoiceId: d.invoiceId },
@@ -658,10 +673,38 @@ async function confirmPayment(tx: Tx, p: Pay, inv: Inv, by: string | null, trxId
   await tx.invoice.update({ where: { id: inv.id }, data: { paidPaisa: s.confirmedPaisa, status: next, statusAt: now } });
 }
 
-async function sendLink(tx: Tx, p: Pay, inv: Inv, phone: string) {
-  const link = await provider.createLink({ method: p.method as "bkash" | "nagad", amountPaisa: p.amountPaisa, reference: p.id, invoiceNumber: inv.number ?? "", phone });
-  const status = undash<"link_sent">(transition("PAYMENT", PAYMENT, dash<PaymentState>(p.status), "sendLink"));
-  await tx.payment.update({ where: { id: p.id }, data: { status, providerRef: link.providerRef, linkUrl: link.url, linkExpiresAt: link.expiresAt, phone, statusAt: new Date() } });
+/** ADR 0011 (open question 90): the wallet link is made after the payment row committed. `attachLink` runs outside any
+    transaction: it asks the gateway, then stores the link in its own transaction — or, if the gateway failed, fails the
+    payment so its amount is free again. A payment cancelled meanwhile keeps no link (and the new link is cancelled). */
+export async function attachLink(tenantId: string, paymentId: string, now: Date): Promise<"link-sent" | "gateway-error" | "gone"> {
+  const { forTenant } = await import("@setu/db");
+  const p0 = await forTenant(tenantId, async (tx) => {
+    const p = await tx.payment.findFirst({ where: { id: paymentId } });
+    if (!p || p.status !== "initiated" || p.providerRef) return null;
+    const inv = await tx.invoice.findFirst({ where: { id: p.invoiceId }, select: { number: true } });
+    return { p, number: inv?.number ?? "" };
+  });
+  if (!p0) return "gone";
+  const { p } = p0;
+  const provider = providerOf(p);
+  let link: Awaited<ReturnType<PaymentProvider["createLink"]>> | null = null, why = "";
+  try { link = await provider.createLink({ method: p.method as "bkash" | "nagad", amountPaisa: p.amountPaisa, reference: p.id, invoiceNumber: p0.number, phone: p.phone!, attempt: p.attempt }); }
+  catch (e) { if (!(e instanceof GatewayError)) throw e; why = e.message; }
+  const out = await forTenant(tenantId, async (tx) => {
+    await tx.$queryRaw`SELECT 1 FROM "Invoice" WHERE "id" = ${p.invoiceId} FOR UPDATE`;
+    const cur = await tx.payment.findFirst({ where: { id: p.id } });
+    if (!cur || cur.status !== "initiated" || cur.attempt !== p.attempt || cur.providerRef) return "gone" as const;
+    if (!link) {
+      await tx.payment.updateMany({ where: { id: p.id, status: "initiated", attempt: p.attempt }, data: { status: "failed", failReason: "gateway-error", statusAt: now } });
+      await tx.auditEvent.create({ data: { tenantId, organizationId: cur.organizationId, userId: null, role: null, action: "provider-event", entity: "Payment", entityId: p.id, patientId: cur.patientId, detail: { actor: `provider:${provider.name}`, kind: "create-link", outcome: "gateway-error", error: why.slice(0, 200) } } });
+      return "gateway-error" as const;
+    }
+    const status = undash<"link_sent">(transition("PAYMENT", PAYMENT, "initiated", "sendLink"));
+    await tx.payment.update({ where: { id: p.id }, data: { status, providerRef: link.providerRef, linkUrl: link.url, linkExpiresAt: link.expiresAt, providerSignature: link.signature ?? null, linkCode: linkCode(), executeClaimedAt: null, statusAt: now } });
+    return "link-sent" as const;
+  });
+  if (out === "gone" && link) await provider.cancel(link.providerRef).catch(() => undefined);
+  return out;
 }
 
 export async function addPayment(tx: Tx, s: SessionData, invoiceId: string, req: NewPaymentRequest, now: Date): Promise<{ inv: Inv; payment: Pay }> {
@@ -694,10 +737,11 @@ export async function addPayment(tx: Tx, s: SessionData, invoiceId: string, req:
   const created = await tx.payment.create({ data: {
     tenantId: s.tenantId, organizationId: s.organizationId, invoiceId: inv.id, patientId: inv.patientId, method: req.method, status: "initiated", amountPaisa: req.amountPaisa,
     tenderedPaisa: req.method === "cash" ? req.tenderedPaisa! : null, changePaisa: req.method === "cash" ? check.changePaisa : null,
-    reference: req.method === "card" || req.method === "bank" ? req.reference!.trim() : null, provider: wallet ? provider.name : null, createdById: s.userId, createdAt: now, statusAt: now,
+    reference: req.method === "card" || req.method === "bank" ? req.reference!.trim() : null, provider: wallet ? providerFor(req.method as "bkash" | "nagad").name : null,
+    phone: wallet ? phone : null, createdById: s.userId, createdAt: now, statusAt: now,
   } });
-  if (wallet) await sendLink(tx, created, inv, phone!);
-  else await confirmPayment(tx, created, inv, s.userId, null, now);
+  // a wallet payment stays `initiated` here; the route makes its link after this transaction commits (attachLink)
+  if (!wallet) await confirmPayment(tx, created, inv, s.userId, null, now);
   return { inv: (await tx.invoice.findFirst({ where: { id: inv.id } }))!, payment: (await tx.payment.findFirst({ where: { id: created.id } }))! };
 }
 
@@ -721,10 +765,11 @@ export async function retryPayment(tx: Tx, s: SessionData, paymentId: string, no
   const status = undash<"initiated">(transition("PAYMENT", PAYMENT, dash<PaymentState>(p.status), "retry"));
   const others = (await tx.payment.findMany({ where: { invoiceId: inv.id, id: { not: p.id } } })).map(toRow);
   if (p.amountPaisa > paymentSummary(inv.totalPaisa, others).openPaisa) throw err(409, "amount_over_open", "বকেয়ার চেয়ে বেশি (অপেক্ষমাণ পেমেন্টসহ)", "More than is still due (counting pending payments)", { field: "amountPaisa" });
-  if (p.providerRef) await provider.cancel(p.providerRef);
+  if (p.providerRef) await providerOf(p).cancel(p.providerRef);
   await tx.payment.update({ where: { id: p.id }, data: { status, attempt: p.attempt + 1, providerRef: null, linkUrl: null, linkExpiresAt: null, failReason: null,
+    linkCode: null, providerSignature: null, executeClaimedAt: null,
     supersededRefs: p.providerRef ? [...p.supersededRefs, p.providerRef] : p.supersededRefs, statusAt: now } });
-  await sendLink(tx, (await tx.payment.findFirst({ where: { id: p.id } }))!, inv, p.phone!);
+  // the new link is made after this transaction commits (attachLink)
   return { inv: (await tx.invoice.findFirst({ where: { id: inv.id } }))!, payment: (await tx.payment.findFirst({ where: { id: p.id } }))! };
 }
 
@@ -733,7 +778,14 @@ export async function retryPayment(tx: Tx, s: SessionData, paymentId: string, no
 export async function verifyTrx(tx: Tx, s: SessionData, paymentId: string, trxId: string, now: Date): Promise<{ inv: Inv; payment: Pay; outcome: "confirmed" | "already" | "earlier-link" }> {
   const { p, inv } = await walletPaymentHere(tx, s, paymentId);
   if (p.status === "confirmed") return { inv, payment: p, outcome: "already" };
-  const st = await provider.verify({ trxId });
+  // ADR 0011: ask about this payment's own links (current first) and compare the TrxID the gateway reports — a TrxID
+  // search alone does not say which payment it paid (bKash).
+  const provider = providerOf(p);
+  let st: ProviderStatus | null = null;
+  for (const ref of [p.providerRef, ...[...p.supersededRefs].reverse()].filter((r): r is string => !!r)) {
+    const x = await provider.verify({ providerRef: ref });
+    if (x?.trxId && x.trxId.toUpperCase() === trxId) { st = x; break; }
+  }
   // Paid on a link that was replaced (review A6–A7): never applied here and never "does not match" either — the owner
   // reconciles it, and the cashier must not ask the patient to pay again.
   if (st && st.status === "confirmed" && p.supersededRefs.includes(st.providerRef)) {
@@ -758,6 +810,8 @@ export async function cancelPayment(tx: Tx, s: SessionData, paymentId: string, n
   const { p, inv } = await walletPaymentHere(tx, s, paymentId);
   if (await openReconciliation(tx, inv.id)) throw err(409, "reconciliation_open", "মালিক এই বিলের একটি পেমেন্ট মিলিয়ে দেখছেন — লিংক বাতিল করা যাবে না", "The owner is checking a payment on this bill — the link cannot be cancelled now");
   if (!["initiated", "link_sent", "waiting_customer"].includes(p.status)) throw err(409, "not_pending", "এই পেমেন্ট আর অপেক্ষমাণ নয়", "This payment is no longer pending");
+  if (p.executeClaimedAt) throw err(409, "executing", "রোগী টাকা দিয়ে ফিরেছেন — পেমেন্ট সম্পন্ন হচ্ছে, একটু পরে আবার দেখুন", "The patient has paid and the payment is being completed — check again in a moment");
+  const provider = providerOf(p);
   const st = p.providerRef ? await provider.verify({ providerRef: p.providerRef }) : null;
   if (st?.status === "confirmed" && st.trxId && st.amountPaisa === p.amountPaisa) {
     await confirmPayment(tx, p, inv, s.userId, st.trxId, now);
@@ -772,7 +826,7 @@ export async function cancelPayment(tx: Tx, s: SessionData, paymentId: string, n
 
 /* ───── provider callbacks (no session: forTenant with the tenant from payment_ref_lookup) ───── */
 export interface CallbackResult { body: ProviderCallbackResponse; audit: AuditEntry[] }
-export async function handleProviderEvent(tx: Tx, tenantId: string, paymentId: string, supersededAtLookup: boolean, ev: ProviderWebhook, now: Date): Promise<CallbackResult> {
+export async function handleProviderEvent(tx: Tx, provider: PaymentProvider, tenantId: string, paymentId: string, supersededAtLookup: boolean, ev: ProviderWebhook, now: Date): Promise<CallbackResult> {
   let superseded = supersededAtLookup;
   const prior = await tx.providerEvent.findUnique({ where: { provider_eventId: { provider: provider.name, eventId: ev.eventId } } });
   if (prior) return { body: { outcome: "noop", reason: "repeat" }, audit: [] };
@@ -832,4 +886,150 @@ export async function handleProviderEvent(tx: Tx, tenantId: string, paymentId: s
   }
   await record("applied");
   return { body: { outcome: "applied" }, audit: audit("applied", undefined, { to: decision.next }) };
+}
+
+/* ───── ADR 0011: execute gateways (bKash) — the patient's return, the short link, the sweep ───── */
+type Outcome = import("@setu/contracts").PayResultOutcome;
+export interface ReturnResult { outcome: Outcome; trxId: string | null; amountPaisa: number | null; facilityEn: string | null; facilityBn: string | null }
+
+async function facilityOf(tx: Tx, organizationId: string) {
+  const o = await tx.organization.findFirst({ where: { id: organizationId }, select: { name: true, nameBn: true } });
+  return { facilityEn: o?.name ?? null, facilityBn: o?.nameBn ?? null };
+}
+function audit(tx: Tx, tenantId: string, p: Pay, provider: PaymentProvider, detail: Record<string, unknown>, ip: string | null, action = "provider-event") {
+  return tx.auditEvent.create({ data: { tenantId, organizationId: p.organizationId, userId: null, role: null, action, entity: "Payment", entityId: p.id, patientId: p.patientId, ip, detail: { actor: `provider:${provider.name}`, ...detail } as object } });
+}
+
+/** Apply what the gateway said after our execute (or a query) to a claimed payment, once (ProviderEvent
+    `execute:<ref>`). `afterExecute`: the paymentId is spent, so anything but Completed fails the payment. */
+async function applyAnswer(tenantId: string, provider: PaymentProvider, paymentId: string, ref: string, st: ProviderStatus | null, afterExecute: boolean, now: Date, ip: string | null): Promise<ReturnResult> {
+  const { forTenant } = await import("@setu/db");
+  return forTenant(tenantId, async (tx) => {
+    const p0 = (await tx.payment.findFirst({ where: { id: paymentId } }))!;
+    await tx.$queryRaw`SELECT 1 FROM "Invoice" WHERE "id" = ${p0.invoiceId} FOR UPDATE`;
+    const p = (await tx.payment.findFirst({ where: { id: paymentId } }))!;
+    const inv = (await tx.invoice.findFirst({ where: { id: p.invoiceId } }))!;
+    const fac = await facilityOf(tx, p.organizationId);
+    const result = (outcome: Outcome, trxId: string | null = null): ReturnResult => ({ outcome, trxId, amountPaisa: p.amountPaisa, ...fac });
+    if (p.status === "confirmed") return result("paid", p.trxId);
+    if (p.providerRef !== ref || !PENDING_DB.includes(p.status)) return result("ended");
+    const a = answerOutcome(st ? { transactionStatus: st.status === "confirmed" ? "Completed" : "Initiated", amountPaisa: st.amountPaisa, trxId: st.trxId } : null, p.amountPaisa, afterExecute);
+    if (a.outcome === "pending") return result("pending");
+    const kind = a.outcome === "confirm" ? "confirmed" : "failed";
+    const event = { tenantId, provider: provider.name, eventId: `execute:${ref}`, providerRef: ref, kind, paymentId: p.id, trxId: st?.trxId ?? null, amountPaisa: st?.amountPaisa ?? null, receivedAt: now };
+    if (a.outcome === "confirm" && inv.status !== "issued" && inv.status !== "partially_paid") {
+      // money taken on a bill that no longer takes payments (voided meanwhile): never lost — the owner reconciles it
+      await tx.task.create({ data: { tenantId, kind: RECONCILE_TASK, status: "requested", focusId: p.id, reason: "money taken on a bill that takes no payments", requestedById: `provider:${provider.name}`, requestedAt: now,
+        detail: { providerRef: ref, trxId: a.trxId, amountPaisa: st!.amountPaisa, paymentAmountPaisa: p.amountPaisa, invoiceId: inv.id } as object } });
+      await tx.providerEvent.create({ data: { ...event, outcome: "refused", reason: "bill-not-payable" } });
+      await audit(tx, tenantId, p, provider, { kind, outcome: "refused", reason: "bill-not-payable", trxId: a.trxId }, ip);
+      return result("paid", a.trxId);
+    }
+    if (a.outcome === "confirm") {
+      await confirmPayment(tx, p, inv, null, a.trxId, now);
+      await tx.providerEvent.create({ data: { ...event, outcome: "applied" } });
+      await audit(tx, tenantId, p, provider, { kind, outcome: "applied", trxId: a.trxId, to: "confirmed" }, ip, "update");
+      return result("paid", a.trxId);
+    }
+    if (a.outcome === "mismatch") {
+      await tx.task.create({ data: { tenantId, kind: RECONCILE_TASK, status: "requested", focusId: p.id, reason: "amount reported by the provider differs from the payment", requestedById: `provider:${provider.name}`, requestedAt: now,
+        detail: { providerRef: ref, trxId: st?.trxId ?? null, amountPaisa: st?.amountPaisa ?? null, paymentAmountPaisa: p.amountPaisa, invoiceId: inv.id } as object } });
+    }
+    const status = undash<"failed">(transition("PAYMENT", PAYMENT, dash<PaymentState>(p.status), "fail"));
+    await tx.payment.update({ where: { id: p.id }, data: { status, failReason: a.outcome === "mismatch" ? "amount-mismatch" : "not-paid", statusAt: now } });
+    await tx.providerEvent.create({ data: { ...event, outcome: "applied", reason: a.outcome } });
+    await audit(tx, tenantId, p, provider, { kind, outcome: "applied", reason: a.outcome, to: "failed" }, ip, "update");
+    return result("not-paid");
+  });
+}
+
+/** bKash sends the patient's browser back here (`GET /v1/payments/return/bkash`). Decide under the bill's lock, claim
+    the one execute, commit, then execute (or query) and apply the answer. Nothing here trusts the redirect itself. */
+export async function returnFromGateway(provider: PaymentProvider, q: { ref: string; status: ReturnStatus; signature: string | null }, now: Date, ip: string | null): Promise<ReturnResult> {
+  const { forTenant, paymentRefLookup } = await import("@setu/db");
+  const none: ReturnResult = { outcome: "unknown", trxId: null, amountPaisa: null, facilityEn: null, facilityBn: null };
+  const hit = await paymentRefLookup(provider.name, q.ref);
+  if (!hit) return none;
+  const step = await forTenant(hit.tenantId, async (tx) => {
+    const p0 = await tx.payment.findFirst({ where: { id: hit.paymentId } });
+    if (!p0) return null;
+    await tx.$queryRaw`SELECT 1 FROM "Invoice" WHERE "id" = ${p0.invoiceId} FOR UPDATE`;
+    const p = (await tx.payment.findFirst({ where: { id: hit.paymentId } }))!;
+    const fac = await facilityOf(tx, p.organizationId);
+    const d = decideReturn({
+      status: q.status, payment: dash<PaymentState>(p.status), current: p.providerRef === q.ref,
+      expired: !!p.linkExpiresAt && p.linkExpiresAt.getTime() < now.getTime(), claimed: !!p.executeClaimedAt,
+      signatureOk: !!p.providerSignature && q.signature === p.providerSignature,
+    });
+    await audit(tx, hit.tenantId, p, provider, { kind: "return", status: q.status, decision: d.action, ...(d.action === "refuse" ? { reason: d.reason } : {}), current: p.providerRef === q.ref }, ip);
+    if (d.action === "execute") {
+      const n = await tx.payment.updateMany({ where: { id: p.id, providerRef: q.ref, executeClaimedAt: null, status: { in: ["link_sent", "waiting_customer"] } }, data: { executeClaimedAt: now } });
+      if (n.count !== 1) return { action: "query" as const, p, fac };
+    }
+    return { action: d.action, reason: d.action === "refuse" ? d.reason : null, p, fac };
+  });
+  if (!step) return none;
+  const base = { trxId: null, amountPaisa: step.p.amountPaisa, ...step.fac };
+  if (step.action === "refuse") {
+    const outcome: Outcome = step.reason === "already-paid" ? "paid" : step.reason === "expired" ? "expired" : step.reason === "signature" ? "unknown" : "ended";
+    return { ...base, outcome, trxId: step.reason === "already-paid" ? step.p.trxId : null };
+  }
+  if (step.action === "execute") {
+    let st: ProviderStatus | null = null;
+    try { st = await provider.execute(q.ref); }
+    catch { return { ...base, outcome: "pending" }; } // e.g. the token: the sweep asks again in a minute
+    return applyAnswer(hit.tenantId, provider, step.p.id, q.ref, st, true, now, ip);
+  }
+  // query: a failure / cancel, or a repeat while an execute is claimed
+  let st: ProviderStatus | null = null;
+  try { st = await provider.verify({ providerRef: q.ref }); } catch { return { ...base, outcome: "pending" }; }
+  if (step.p.executeClaimedAt || q.status === "success") {
+    // an execute is under way elsewhere: report, do not decide (the sweep does if it never finishes)
+    return st?.status === "confirmed" ? applyAnswer(hit.tenantId, provider, step.p.id, q.ref, st, false, now, ip) : { ...base, outcome: "pending" };
+  }
+  // failure / cancel: the patient did not pay on this link → PAYMENT fail (Completed would be applied)
+  return applyAnswer(hit.tenantId, provider, step.p.id, q.ref, st, true, now, ip);
+}
+
+/** `GET /v1/pay/:code`: where the short link goes — the gateway's page while the payment waits on this link, else
+    nothing (the page says to ask at the counter). */
+export async function payLinkTarget(code: string, now: Date): Promise<{ url: string | null; facilityEn: string | null; facilityBn: string | null; outcome: Outcome }> {
+  const { forTenant, paymentLinkLookup } = await import("@setu/db");
+  const hit = await paymentLinkLookup(code);
+  if (!hit) return { url: null, facilityEn: null, facilityBn: null, outcome: "unknown" };
+  return forTenant(hit.tenantId, async (tx) => {
+    const p = (await tx.payment.findFirst({ where: { id: hit.paymentId } }))!;
+    const fac = await facilityOf(tx, p.organizationId);
+    if (p.status === "confirmed") return { url: null, ...fac, outcome: "paid" as const };
+    if (!["link_sent", "waiting_customer"].includes(p.status) || !p.linkUrl || p.executeClaimedAt) return { url: null, ...fac, outcome: p.executeClaimedAt ? "pending" as const : "ended" as const };
+    if (p.linkExpiresAt && p.linkExpiresAt.getTime() < now.getTime()) return { url: null, ...fac, outcome: "expired" as const };
+    return { url: p.linkUrl, ...fac, outcome: "pending" as const };
+  });
+}
+
+/** Every minute (ADR 0011): a wallet payment left `initiated` without a link (the API stopped between the commit and
+    the gateway) is failed; an execute claimed and never answered is settled by asking the gateway. */
+export async function sweepPayments(now: Date, stuckMinutes = 2): Promise<{ failed: number; settled: number }> {
+  const { forTenant, paymentSweepTargets } = await import("@setu/db");
+  let failed = 0, settled = 0;
+  for (const t of await paymentSweepTargets(new Date(now.getTime() - stuckMinutes * 60_000))) {
+    try {
+      const p = await forTenant(t.tenantId, async (tx) => {
+        const p0 = await tx.payment.findFirst({ where: { id: t.paymentId } });
+        if (!p0) return null;
+        if (p0.status === "initiated" && !p0.providerRef) {
+          const n = await tx.payment.updateMany({ where: { id: p0.id, status: "initiated", providerRef: null, attempt: p0.attempt }, data: { status: "failed", failReason: "gateway-error", statusAt: now } });
+          if (n.count) { failed++; await audit(tx, t.tenantId, p0, providerOf(p0), { kind: "sweep", outcome: "no-link", to: "failed" }, null, "update"); }
+          return null;
+        }
+        return p0;
+      });
+      if (!p?.executeClaimedAt || !p.providerRef) continue;
+      const provider = providerOf(p);
+      const st = await provider.verify({ providerRef: p.providerRef });
+      const r = await applyAnswer(t.tenantId, provider, p.id, p.providerRef, st, true, now, null);
+      if (r.outcome === "paid" || r.outcome === "not-paid") settled++;
+    } catch (e) { console.error(`payments sweep ${t.tenantId}/${t.paymentId} failed`, e); }
+  }
+  return { failed, settled };
 }
