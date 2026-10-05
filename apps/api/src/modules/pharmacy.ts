@@ -109,7 +109,7 @@ async function billSummary(tx: Tx, encounterId: string) {
 export async function dispenseQueue(tx: Tx, s: SessionData, now: Date): Promise<DispenseQueue> {
   const branch = await branchOf(tx, s);
   // a cancelled or voided visit is not dispensed against (its note stays on record)
-  const encs = await tx.encounter.findMany({ where: { organizationId: s.organizationId, branchId: branch.id, tokenDay: dhakaDay(now), status: { notIn: ["cancelled", "entered_in_error"] } }, include: { patient: true }, orderBy: { tokenNo: "asc" } });
+  const encs = await tx.encounter.findMany({ where: { organizationId: s.organizationId, branchId: branch.id, tokenDay: dhakaDay(now), class: { not: "ipd" }, status: { notIn: ["cancelled", "entered_in_error"] } }, include: { patient: true }, orderBy: { tokenNo: "asc" } });
   const notes = await tx.composition.findMany({
     where: { encounterId: { in: encs.map((e) => e.id) }, kind: "consultation-note", status: { in: CURRENT } }, orderBy: { version: "desc" },
     include: { medications: true },

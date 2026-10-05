@@ -312,12 +312,13 @@ async function main() {
   await prisma.tenant.upsert({ where: { id: LITE.tenant }, update: { patientNoPrefix: "E2L" }, create: { id: LITE.tenant, name: "E2E Lite Hospital", plan: "lite", patientNoPrefix: "E2L" } });
   await prisma.organization.upsert({ where: { id: LITE.org }, update: {}, create: { id: LITE.org, tenantId: LITE.tenant, name: "E2E Lite Hospital", nameBn: "ই২ই লাইট হাসপাতাল", ...LIVE } });
   await prisma.location.upsert({ where: { id: LITE.branch }, update: {}, create: { id: LITE.branch, tenantId: LITE.tenant, organizationId: LITE.org, kind: "branch", name: "Main branch", nameBn: "প্রধান শাখা" } });
-  const liteUsers: [string, string, string, string, "receptionist" | "doctor" | "nurse" | "cashier" | "owner" | "admin", string | null][] = [
+  const liteUsers: [string, string, string, string, "receptionist" | "doctor" | "nurse" | "labTech" | "cashier" | "owner" | "admin", string | null][] = [
     ["u_e2l_desk", "লাইট রিসেপশন", "Lite Receptionist", "01798000001", "receptionist", null],
     ["u_e2l_doctor", "ডা. লাইট ইমার্জেন্সি", "Dr. Lite Emergency", "01798000002", "doctor", "Emergency medicine"],
     ["u_e2l_paed", "ডা. লাইট শিশু", "Dr. Lite Paediatrics", "01798000003", "doctor", "Paediatrics"],
     ["u_e2l_surgeon", "ডা. লাইট সার্জন", "Dr. Lite Surgeon", "01798000005", "doctor", "Surgery"],
     ["u_e2l_nurse", "লাইট নার্স", "Lite Nurse", "01798000004", "nurse", null],
+    ["u_e2l_labtech", "লাইট টেকনোলজিস্ট", "Lite Lab Technologist", "01798000006", "labTech", null],
     ["u_e2l_cashier", "লাইট ক্যাশিয়ার", "Lite Cashier", "01798000008", "cashier", null],
     ["u_e2l_owner", "লাইট মালিক", "Lite Owner", "01798000009", "owner", null],
     ["u_e2l_admin", "লাইট অ্যাডমিন", "Lite Admin", "01798000010", "admin", null],

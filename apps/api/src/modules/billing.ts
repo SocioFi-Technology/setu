@@ -233,7 +233,7 @@ function toPaymentView(p: Pay, who: (id: string) => { id: string; nameBn: string
 /* ───── worklist and price list ───── */
 export async function billingWorklist(tx: Tx, s: SessionData, now: Date): Promise<BillingWorklist> {
   const branch = await branchOf(tx, s);
-  const rows = await tx.encounter.findMany({ where: { organizationId: s.organizationId, branchId: branch.id, tokenDay: dhakaDay(now), status: "finished" }, include: { patient: true }, orderBy: { tokenNo: "asc" } });
+  const rows = await tx.encounter.findMany({ where: { organizationId: s.organizationId, branchId: branch.id, tokenDay: dhakaDay(now), class: { not: "ipd" }, status: "finished" }, include: { patient: true }, orderBy: { tokenNo: "asc" } });
   const invs = await tx.invoice.findMany({ where: { encounterId: { in: rows.map((r) => r.id) }, kind: "opd", status: OPEN_BILL } });
   const pending = new Set((await tx.task.findMany({ where: { kind: { in: APPROVAL_KINDS }, status: "requested", focusId: { in: invs.map((i) => i.id) } }, select: { focusId: true } })).map((t) => t.focusId));
   const byEnc = new Map(invs.map((i) => [i.encounterId, i]));
@@ -282,6 +282,8 @@ export async function recompute(tx: Tx, inv: Inv, discountPaisa: number, patch: 
 export async function createInvoice(tx: Tx, s: SessionData, encounterId: string, now: Date): Promise<{ inv: Inv; created: boolean; patientId: string; sync?: OrderSync }> {
   requireWriter(s);
   const e = await encounterHere(tx, s, encounterId);
+  // ADR 0014: an inpatient's bill is the IPD running bill the admission opened, never an OPD bill
+  if (e.class === "ipd") throw err(409, "inpatient_bill", "ভর্তি রোগীর বিল আইপিডি বিলে", "An inpatient is billed on the IPD bill", { field: "encounter" });
   const existing = await tx.invoice.findFirst({ where: { encounterId: e.id, kind: "opd", status: OPEN_BILL } });
   if (existing) { const r = await refreshIfPossible(tx, s, existing); return { inv: r.inv, created: false, patientId: e.patientId, sync: r.sync }; }
   if (e.status !== "finished") throw err(409, "visit_not_finished", "ডাক্তার নোটে স্বাক্ষর করার পর বিল হবে", "The bill is made after the doctor signs the note", { field: "encounter" });

@@ -147,7 +147,7 @@ export async function consultWorklist(tx: Tx, s: SessionData, now: Date): Promis
   const branch = await branchOf(tx, s);
   const day = dhakaDay(now);
   const rows = await tx.encounter.findMany({
-    where: { organizationId: s.organizationId, branchId: branch.id, tokenDay: day, OR: [
+    where: { organizationId: s.organizationId, branchId: branch.id, tokenDay: day, class: "opd", OR: [
       { status: { in: ["arrived", "triaged"] }, practitionerId: null },
       { status: { in: ["arrived", "triaged", "in_progress", "finished"] }, practitionerId: s.userId },
       { status: "in_progress", practitionerId: null },

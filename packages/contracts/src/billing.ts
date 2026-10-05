@@ -16,7 +16,8 @@ export const PaymentMethod = z.enum(["cash", "card", "bank", "bkash", "nagad"]);
 /** + dispense (a prescription line given at the pharmacy) and sale (over the counter), ADR 0009 */
 export const ChargeSource = z.enum(["consultation", "order", "desk", "dispense", "sale"]);
 /** ADR 0009: opd = consultation and tests; pharmacy = the visit's dispensed medicines; otc = an over-the-counter sale */
-export const InvoiceKind = z.enum(["opd", "pharmacy", "otc"]);
+/** ADR 0014: `ipd` is the inpatient running bill the admission opens; the pay screens take it up in the IPD bill slice. */
+export const InvoiceKind = z.enum(["opd", "pharmacy", "otc", "ipd"]);
 export const DiscountCategory = z.enum(["poor", "staff", "doctor", "ff", "corp"]);
 export const ApprovalStatus = z.enum(["requested", "approved", "rejected"]);
 export const IssueBlocker = z.enum(["no_lines", "unpriced_lines", "approval_pending", "orders_changed"]);

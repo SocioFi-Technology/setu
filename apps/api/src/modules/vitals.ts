@@ -83,7 +83,7 @@ export async function vitalsView(tx: Tx, s: SessionData, encounterId: string) {
 export async function vitalsWorklist(tx: Tx, s: SessionData, now: Date) {
   const branch = await branchOf(tx, s);
   const day = dhakaDay(now);
-  const rows = (await tx.encounter.findMany({ where: { organizationId: s.organizationId, branchId: branch.id, tokenDay: day, status: { in: ["arrived", "triaged"] } }, include: encInclude, orderBy: { tokenNo: "asc" } })) as EncRow[];
+  const rows = (await tx.encounter.findMany({ where: { organizationId: s.organizationId, branchId: branch.id, tokenDay: day, class: "opd", status: { in: ["arrived", "triaged"] } }, include: encInclude, orderBy: { tokenNo: "asc" } })) as EncRow[];
   const withVitals = new Set((await tx.observation.findMany({ where: { encounterId: { in: rows.map((r) => r.id) } }, select: { encounterId: true }, distinct: ["encounterId"] })).map((o) => o.encounterId));
   return { day, items: rows.map((e) => ({ ...toVitalsEncounter(e), hasVitals: withVitals.has(e.id) })) };
 }
@@ -111,8 +111,9 @@ export async function recordVitals(tx: Tx, s: SessionData, encounterId: string, 
     throw err(409, "encounter_closed", "এই ভিজিট বন্ধ — ভাইটাল যোগ করা যাবে না", "This visit is closed — vitals cannot be added");
   // Check-and-set on the visit's status in every case, so a visit closed at the same moment never takes vitals
   // (security review L4). Waiting → vitals done is the ENCOUNTER triage transition; otherwise the status stays.
-  const to = from === "arrived" ? transition("encounter", ENCOUNTER, from, "triage") : from;
-  const n = await tx.encounter.updateMany({ where: { id: e.id, status: e.status }, data: from === "arrived" ? { status: to as DbEncounterStatus, statusAt: now } : { status: e.status } });
+  // An ER visit is triaged with a level on the ER board (ADR 0014), never by its first vitals.
+  const to = from === "arrived" && e.class === "opd" ? transition("encounter", ENCOUNTER, from, "triage") : from;
+  const n = await tx.encounter.updateMany({ where: { id: e.id, status: e.status }, data: to !== from ? { status: to as DbEncounterStatus, statusAt: now } : { status: e.status } });
   if (n.count !== 1) throw err(409, "stale", "অন্য কেউ আগেই বদলেছেন — আবার দেখুন", "Someone else changed this visit first — refresh");
 
   const batchId = `vb_${crypto.randomUUID()}`;

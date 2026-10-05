@@ -31208,7 +31208,8 @@
                           "enum": [
                             "opd",
                             "pharmacy",
-                            "otc"
+                            "otc",
+                            "ipd"
                           ]
                         },
                         "buyer": {
@@ -32479,7 +32480,8 @@
                           "enum": [
                             "opd",
                             "pharmacy",
-                            "otc"
+                            "otc",
+                            "ipd"
                           ]
                         },
                         "buyer": {
@@ -34003,7 +34005,8 @@
                           "enum": [
                             "opd",
                             "pharmacy",
-                            "otc"
+                            "otc",
+                            "ipd"
                           ]
                         },
                         "buyer": {
@@ -35486,7 +35489,8 @@
                           "enum": [
                             "opd",
                             "pharmacy",
-                            "otc"
+                            "otc",
+                            "ipd"
                           ]
                         },
                         "buyer": {
@@ -37050,7 +37054,8 @@
                           "enum": [
                             "opd",
                             "pharmacy",
-                            "otc"
+                            "otc",
+                            "ipd"
                           ]
                         },
                         "buyer": {
@@ -38529,7 +38534,8 @@
                           "enum": [
                             "opd",
                             "pharmacy",
-                            "otc"
+                            "otc",
+                            "ipd"
                           ]
                         },
                         "buyer": {
@@ -40045,7 +40051,8 @@
                               "enum": [
                                 "opd",
                                 "pharmacy",
-                                "otc"
+                                "otc",
+                                "ipd"
                               ]
                             },
                             "buyer": {
@@ -41601,7 +41608,8 @@
                           "enum": [
                             "opd",
                             "pharmacy",
-                            "otc"
+                            "otc",
+                            "ipd"
                           ]
                         },
                         "buyer": {
@@ -43072,7 +43080,8 @@
                           "enum": [
                             "opd",
                             "pharmacy",
-                            "otc"
+                            "otc",
+                            "ipd"
                           ]
                         },
                         "buyer": {
@@ -44867,7 +44876,8 @@
                                 "enum": [
                                   "opd",
                                   "pharmacy",
-                                  "otc"
+                                  "otc",
+                                  "ipd"
                                 ]
                               },
                               "encounterId": {
@@ -45455,7 +45465,8 @@
                               "enum": [
                                 "opd",
                                 "pharmacy",
-                                "otc"
+                                "otc",
+                                "ipd"
                               ]
                             },
                             "encounterId": {
@@ -45649,7 +45660,8 @@
                               "enum": [
                                 "opd",
                                 "pharmacy",
-                                "otc"
+                                "otc",
+                                "ipd"
                               ]
                             },
                             "buyer": {
@@ -47469,7 +47481,8 @@
                               "enum": [
                                 "opd",
                                 "pharmacy",
-                                "otc"
+                                "otc",
+                                "ipd"
                               ]
                             },
                             "encounterId": {
@@ -47663,7 +47676,8 @@
                               "enum": [
                                 "opd",
                                 "pharmacy",
-                                "otc"
+                                "otc",
+                                "ipd"
                               ]
                             },
                             "buyer": {
@@ -49439,7 +49453,8 @@
                               "enum": [
                                 "opd",
                                 "pharmacy",
-                                "otc"
+                                "otc",
+                                "ipd"
                               ]
                             },
                             "buyer": {
@@ -51262,7 +51277,8 @@
                               "enum": [
                                 "opd",
                                 "pharmacy",
-                                "otc"
+                                "otc",
+                                "ipd"
                               ]
                             },
                             "buyer": {
@@ -52927,7 +52943,8 @@
                               "enum": [
                                 "opd",
                                 "pharmacy",
-                                "otc"
+                                "otc",
+                                "ipd"
                               ]
                             },
                             "buyer": {
@@ -54610,7 +54627,8 @@
                               "enum": [
                                 "opd",
                                 "pharmacy",
-                                "otc"
+                                "otc",
+                                "ipd"
                               ]
                             },
                             "buyer": {
@@ -59414,7 +59432,8 @@
                           "enum": [
                             "opd",
                             "pharmacy",
-                            "otc"
+                            "otc",
+                            "ipd"
                           ]
                         },
                         "buyer": {
@@ -60964,7 +60983,8 @@
                           "enum": [
                             "opd",
                             "pharmacy",
-                            "otc"
+                            "otc",
+                            "ipd"
                           ]
                         },
                         "buyer": {
@@ -62357,7 +62377,8 @@
                           "enum": [
                             "opd",
                             "pharmacy",
-                            "otc"
+                            "otc",
+                            "ipd"
                           ]
                         },
                         "buyer": {
@@ -102980,7 +103001,8 @@
                           "enum": [
                             "opd",
                             "pharmacy",
-                            "otc"
+                            "otc",
+                            "ipd"
                           ]
                         },
                         "totalPaisa": {
@@ -103947,7 +103969,8 @@
                           "enum": [
                             "opd",
                             "pharmacy",
-                            "otc"
+                            "otc",
+                            "ipd"
                           ]
                         },
                         "totalPaisa": {
@@ -104918,7 +104941,8 @@
                                 "enum": [
                                   "opd",
                                   "pharmacy",
-                                  "otc"
+                                  "otc",
+                                  "ipd"
                                 ]
                               }
                             },
@@ -105394,7 +105418,8 @@
                           "enum": [
                             "opd",
                             "pharmacy",
-                            "otc"
+                            "otc",
+                            "ipd"
                           ]
                         },
                         "totalPaisa": {
@@ -106384,7 +106409,8 @@
                           "enum": [
                             "opd",
                             "pharmacy",
-                            "otc"
+                            "otc",
+                            "ipd"
                           ]
                         },
                         "totalPaisa": {
@@ -107575,7 +107601,8 @@
                               "enum": [
                                 "opd",
                                 "pharmacy",
-                                "otc"
+                                "otc",
+                                "ipd"
                               ]
                             },
                             "totalPaisa": {
@@ -108703,7 +108730,8 @@
                           "enum": [
                             "opd",
                             "pharmacy",
-                            "otc"
+                            "otc",
+                            "ipd"
                           ]
                         },
                         "totalPaisa": {
@@ -109698,7 +109726,8 @@
                           "enum": [
                             "opd",
                             "pharmacy",
-                            "otc"
+                            "otc",
+                            "ipd"
                           ]
                         },
                         "totalPaisa": {
@@ -113109,7 +113138,8 @@
                           "enum": [
                             "opd",
                             "pharmacy",
-                            "otc"
+                            "otc",
+                            "ipd"
                           ]
                         },
                         "totalPaisa": {

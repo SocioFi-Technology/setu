@@ -756,7 +756,7 @@ export async function refundList(tx: Tx, s: SessionData, q: { status: string; in
   }));
   return { items };
 }
-const billKindsOf = (s: SessionData): ("opd" | "pharmacy" | "otc")[] => (["cashier", "owner", "admin"].includes(s.role) ? ["opd", "pharmacy", "otc"] : ["pharmacy", "otc"]);
+const billKindsOf = (s: SessionData): ("opd" | "pharmacy" | "otc" | "ipd")[] => (["cashier", "owner", "admin"].includes(s.role) ? ["opd", "pharmacy", "otc"] : ["pharmacy", "otc"]);
 
 export const refundVerifyUrl = (code: string) => `${config.verifyBaseUrl.replace(/\/rc$/, "/rf")}/${code}`;
 export async function voucherView(tx: Tx, s: SessionData, refundId: string): Promise<RefundVoucherView> {

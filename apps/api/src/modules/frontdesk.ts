@@ -330,7 +330,7 @@ export async function createVisit(tx: Tx, s: SessionData, patientId: string, vis
   if (p.linkedToId) throw err(409, "link_chain", "লিংক করা রেকর্ডের শেষ পাওয়া যায়নি", "Linked record chain is too long");
   const branch = await branchOf(tx, s);
   const day = dhakaDay(now);
-  const open = await tx.encounter.findFirst({ where: { patientId: p.id, branchId: branch.id, tokenDay: day, status: { in: ACTIVE } }, include: encounterInclude });
+  const open = await tx.encounter.findFirst({ where: { patientId: p.id, branchId: branch.id, tokenDay: day, class: "opd", status: { in: ACTIVE } }, include: encounterInclude });
   if (open) throw err(409, "visit_exists", `আজ এই রোগীর টোকেন ${open.token} আছে`, `This patient already has token ${open.token} today`, { existing: { encounterId: open.id, token: open.token } });
   const seq = await tx.sequence.upsert({ where: { tenantId_name: { tenantId: s.tenantId, name: tokenSequenceName(branch.id, day) } }, create: { tenantId: s.tenantId, name: tokenSequenceName(branch.id, day), value: 1 }, update: { value: { increment: 1 } } });
   const status = transition("encounter", ENCOUNTER, "planned", "arrive");
@@ -343,7 +343,7 @@ export async function createVisit(tx: Tx, s: SessionData, patientId: string, vis
 
 export async function queueBoard(tx: Tx, s: SessionData, day: string) {
   const branch = await branchOf(tx, s);
-  const rows = (await tx.encounter.findMany({ where: { branchId: branch.id, tokenDay: day }, include: encounterInclude, orderBy: { tokenNo: "asc" } })) as EncounterRow[];
+  const rows = (await tx.encounter.findMany({ where: { branchId: branch.id, tokenDay: day, class: "opd" }, include: encounterInclude, orderBy: { tokenNo: "asc" } })) as EncounterRow[];
   const critical = await criticalVisits(tx, rows.map((r) => r.id));
   const items = rows.map((r) => toQueueItem(r, critical));
   const { QUEUE_COLUMNS } = await import("@setu/domain");
