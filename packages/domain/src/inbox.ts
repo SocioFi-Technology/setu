@@ -5,14 +5,15 @@ import type { Interpretation } from "./vitals.js";
 
 /** substitution-notice (ADR 0009): the pharmacist gave a same-generic substitute for one of the doctor's lines. */
 /** return-notice (ADR 0013): medicine given for the doctor's line came back as a wrong dispense (a medication incident). */
-export type InboxKind = "report-inbox" | "correction-notice" | "results-withdrawn" | "order-cancelled" | "critical-vital" | "substitution-notice" | "return-notice";
+/** news2-escalation (ADR 0015): a ward NEWS2 score at or above the threshold (or a red score) for the admitting doctor. */
+export type InboxKind = "report-inbox" | "correction-notice" | "results-withdrawn" | "order-cancelled" | "critical-vital" | "substitution-notice" | "return-notice" | "news2-escalation";
 export type InboxSeverity = "critical" | "abnormal" | "normal" | "notice";
 const RANK: Record<InboxSeverity, number> = { critical: 0, abnormal: 1, normal: 2, notice: 3 };
 
 /** Reports are graded by their worst result — values under correction included (clinical review M1); a critical
     vital is critical; a correction / withdrawal notice about a critical value is critical; other notices are notices. */
 export function inboxSeverity(kind: InboxKind, flags: readonly (Interpretation | null)[]): InboxSeverity {
-  if (kind === "critical-vital") return "critical";
+  if (kind === "critical-vital" || kind === "news2-escalation") return "critical";
   const critical = flags.some((f) => f === "HH" || f === "LL");
   if (kind === "correction-notice" || kind === "results-withdrawn") return critical ? "critical" : "notice";
   if (kind !== "report-inbox") return "notice";
