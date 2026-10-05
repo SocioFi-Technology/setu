@@ -903,3 +903,51 @@ Commit after each step, push at the end of each session.
 219. **The admin's test SMS is confirmed by the admin** ("Yes, it arrived") — the only proof possible without delivery
      reports. Five tests an hour per facility; a payment link at most five SMS per payment, a minute apart.
 
+
+## Refunds slice, session 1 (domain, database, contracts, routes, bKash refund) — 05/10/2026
+### Decided by Kamrul (05/10/2026, before the session)
+- Recommendations 1, 3, 5, 7, 8, 9, 10 accepted: `bill/refund` (and a hand-added `ph/refund`) host request, payout and
+  voucher, opened from `bill/pay` / `ph/pay`; performed = locked; returned medicine into quarantine at payout; the
+  reconciliation refund (no lines, the case's amount); a cash payout needs the payer's open shift; refunds paid by hand go to
+  the owner's reconciliation queue; owner / admin approve, controlled drugs owner only.
+- **2:** a card / bank payment paid back in cash needs the **owner** (not an admin) and is flagged for reconciliation; a bKash
+  payment goes back through the gateway, cash only when the gateway refund failed or the patient has no wallet access
+  (the reason stored).
+- **4:** `withdrawn` is its own state (approved → withdrawn, owner / admin, note ≥ 10), never shown as rejected.
+- **6:** returned units reopen the line; every "wrong dispense" return tells the prescribing doctor and is a medication
+  incident on the owner's list; the re-dispense is a normal dispense with the reason "re-dispense after return".
+- The voucher records who took the money (name, mobile, relationship), required at payout, above a signature line.
+- This answers **107** (a paid bill is voided once all its money was refunded — ADR 0005 addendum), **150** (cash refunds
+  now count in the shift's expected cash), **166 / 191** (returns of dispensed medicine; a pharmacy bill is voidable once
+  all its medicine and money came back).
+
+### Decided in the session (defaults — Kamrul to confirm)
+220. **A refund pays out per allocation.** A refund against two payments (e.g. part cash, part bKash) can be part-paid: the
+     cash is out of the drawer while the bKash part waits or failed. The voucher is made only when every part is paid; the
+     refund cannot be withdrawn once any part moved. Acceptable, or one payout method per refund?
+221. **Medicine returns on an unpaid pharmacy bill** (given, nothing paid yet) have no path: a refund needs confirmed money,
+     and the bill still cannot be voided. Should the pharmacist be able to take medicine back off an unpaid bill (a return
+     without money), and the bill then be voided or reduced?
+222. **A refund on a bill that still has a due** (partly paid) is allowed and does not reduce the due (credit note lines
+     are recorded; due = total − confirmed money, as before — question 156). The accountant should confirm, or the cashier
+     should be steered to "reduce the due" instead of paying money back.
+223. **Reconciliation "refund to patient" is requested by the owner,** so it needs another approver (an admin, or a second
+     owner). A clinic with a single owner and no admin cannot approve it — allow the owner with a note, or require an admin?
+224. **A cash refund is not checked against what the drawer holds** (counts are blind); a large cash refund shows only as a
+     variance at hand-over. Add a cap per refund for cashiers?
+225. **An approved refund never paid out** has no expiry; it blocks a new refund on that bill until someone withdraws it.
+     Auto-withdraw after N days?
+226. **Quarantine has no disposal step yet:** returned units not released to the counter stay in quarantine (not in the
+     stock value tile, not pickable). Disposal / return-to-supplier comes with a later pharmacy step.
+227. **bKash, to check with sandbox credentials:** the error code for a duplicate refund within 10 minutes and for an 11th
+     refund (the stand-in answers 2074); whether Refund Status's `trxId` is the original TrxID (the sample) or a refund
+     request id (the parameter table); Refund Status's `completedTime` format.
+228. **An unanswered gateway refund** is asked about by the sweep after 2 minutes and handed back to a person after 15 with
+     nothing found; a retry asks Refund Status first and only then refunds again. bKash documents no refund webhook.
+229. **Revenue stays "bills issued"** and collections stay gross; refunds are their own tile (money paid back in the period,
+     by the day each part was paid). Should the owner also see a "net collected" figure?
+230. **The wrong-dispense notice goes to the visit's practitioner** (the encounter's doctor), like the substitution notice.
+231. **The voucher is titled "Refund voucher"** until the accountant confirms the Mushak credit-note form (6.7) and its
+     layout (pre-pilot accountant list).
+232. **Nagad (and the fake gateway) have no refund API in Setu:** their refunds are made by hand with a reference and checked
+     by the owner against the statement.

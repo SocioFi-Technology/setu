@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; next: see Next)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds session 1 done (05/10/2026); next: see Next)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -692,6 +692,36 @@ certificate) answers 202 = **accepted** and has **no delivery reports and no cli
 
 - Shell specs still sign in as Green Life users; they only read.
 
+## Done (refunds, session 1 of 2, 05/10/2026) — refund rules, database, contracts, routes, bKash refund ✅
+Kamrul's decisions: open questions "Refunds slice, session 1". **ADR 0013.** **Session 2:** `bill/refund` and `ph/refund`
+(ported from the prototype's Refunds screen; Refund buttons on `bill/pay` / `ph/pay`), the refund kind in Approvals, the
+voucher PDF (A5 + thermal, amount in words, recipient and signature line, DUPLICATE #n) and `/verify/rf/[code]`, strings
+in `billingApp` / `pharmApp`, the journey spec, reviews, hands-on as cashier, pharmacist and owner.
+- **Domain:** REFUND machine (requested → approved → paid; rejected; approved → withdrawn); INVOICE `markError` from
+  partially-paid / balanced; `refund.ts` (performed = locked, credit-note parts with VAT in proportion, the way back per
+  method, request / approval / withdraw blockers, recipient check); `dispenseStatus` with returns; `resaleBlockers`;
+  refunds KPI live; inbox `return-notice`; `ph/refund` hand-added to the access matrix (+ test).
+- **Database** (migrations `20261005100000_refunds` … `20261005100400_refunds_fixes`): Refund, RefundLine,
+  RefundAllocation, RefundVoucher (+ prints), StockResale; Invoice.refundedPaisa; MedicationDispense `return`. Guards: the
+  machine through its approval task, decided by the facility's owner / admin and never the requester (owner when
+  `needsOwner`), one open refund per bill, caps per bill line / payment / bill, the way back per method, cash from the
+  payer's open shift, manual flagged, at commit: sums, voucher, returns and refundedPaisa; void only once paid = refunded,
+  no refund open, all medicine back; returns into quarantine once per refund line; quarantine → counter only on a resale.
+- **API:** refundable, request, list, view, decision, pay (gateway claimed, refunded after the commit), check, voucher,
+  public `/v1/verify/rf/:code`, reconciliation → refund, pharmacy resale; refunds in the single Approvals queue and in the
+  reconciliation queue (refunds paid by hand); void after refund; shift cash refunds (question 150 closed); dashboard tile,
+  leakage (refunds paid, medication incidents, unmatched manual refunds), drills; the refunds sweep.
+- **bKash:** `refund/payment/transaction` + `refund/payment/status` in `BkashProvider` and the stand-in (developer.bka.sh
+  v2, read 05/10/2026: 10 partial refunds per transaction, 60 days, no duplicate in 10 minutes, status check when there is
+  no answer). Never refunded again by the system; a person's retry asks Refund Status first.
+- **Tests:** domain 305, api 264 (refunds.test.ts 10, bkash.test.ts 21), typecheck 13/13. Playwright (no screen changed
+  except the Approvals buyer line): run 1 81/84 (G4 audit order and a shell page-load timeout — both green alone, 21/21),
+  run 2 83/84 (A4 timed out with 12 GB of 15 in use by other projects — green alone 4/4). Not yet two clean full runs.
+- **Debugging tip:** API tests hide 500s (the logger is off under NODE_ENV=test): to see one, temporarily add
+  `console.error(e)` beside `req.log.error(e)` in `apps/api/src/app.ts`.
+- **Run the refund routes on the bKash stand-in:** as for journey K (`PAYMENTS_PROVIDER=bkash`, the printed `BKASH_*`);
+  on the fake (the default) bKash and Nagad refunds are made by hand with a reference.
+
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
 2. ~~MinIO image cannot be pulled~~ — dev and tests store receipts with `LocalFolderStorage` (A6–A7). Before staging: an S3-compatible adapter behind the same `Storage` interface.
@@ -744,7 +774,7 @@ certificate) answers 202 = **accepted** and has **no delivery reports and no cli
 5. ~~`/slice A12-A13`~~ — done 03/10/2026 (two sessions); **Journey A complete**. Kamrul to confirm open questions
    135–149.
 6. **Phase 2 pilot clinic, split in four slices (Kamrul, 03/10/2026):** ~~`/slice C1-C4`~~ owner dashboard + shift close
-   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → ~~SMS + bKash~~ (done 04/10/2026, two sessions; questions 205–219). **The four Phase 2 pilot-clinic slices are done.** Next: Kamrul's call — the pre-pilot hardening (known gaps 3, 4, 10, 12: argon2id, PIN tries in Redis, composite keys, clinical sign-offs), real credentials (bKash sandbox, BulkSMSBD), then the pilot; or Phase 3 per `docs/BUILD-PLAN.md`. See open questions "Phase 2 plan".
+   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → ~~SMS + bKash~~ (done 04/10/2026, two sessions; questions 205–219). **The four Phase 2 pilot-clinic slices are done.** **Refunds:** session 1 done 05/10/2026 (ADR 0013, questions 220–232); session 2 (screens, voucher PDF, journey, reviews, hands-on) next. Then: Kamrul's call — the pre-pilot hardening (known gaps 3, 4, 10, 12: argon2id, PIN tries in Redis, composite keys, clinical sign-offs), real credentials (bKash sandbox, BulkSMSBD), then the pilot; or Phase 3 per `docs/BUILD-PLAN.md`. See open questions "Phase 2 plan".
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating
