@@ -296,6 +296,15 @@ describe.runIf(db)("ADR 0013 bKash refund", () => {
     expect((await outside().refundStatus(pay))!.map((x) => x.refundTrxId)).toEqual([r.refundTrxId]);
   });
 
+  it("review: a refund status we cannot read is unknown — never \"nothing was refunded\" (so nobody pays again)", async () => {
+    const pay = await paid(10_000);
+    standIn.slowNextRefundMs = 1_200; // bKash refunds, we hear nothing …
+    standIn.brokenNextStatus = true; // … and the status answer is unreadable
+    expect(await quick().refund({ ...pay, amountPaisa: 2_000, sku: "broken", reason: "other", known: [] })).toMatchObject({ status: "unknown", refundTrxId: null });
+    standIn.brokenNextStatus = true;
+    await expect(outside().refundStatus(pay)).rejects.toThrow(/cannot read|no refund list/);
+  });
+
   it("an unclear answer with nothing new at bKash stays unknown (a person decides; no automatic resend)", async () => {
     const pay = await paid(20_000);
     const p = outside();

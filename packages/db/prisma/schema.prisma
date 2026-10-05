@@ -1852,6 +1852,10 @@ model RefundAllocation {
   gatewayFailedAt     DateTime?
   failReason          String?
   refundTrxId         String?
+  /// gateway: the transaction the money goes back against — the payment's own, or a reconciliation case's link
+  /// (review: never the bill's current link by default)
+  gatewayRef          String?
+  gatewayTrxId        String?
   /// manual: the reference typed (bank / wallet / card slip)
   reference           String?
   /// cash: the shift the money left

@@ -87,7 +87,7 @@ async function lineFacts(tx: Tx, inv: Inv) {
     const left = { netPaisa: l.netPaisa - sum("netPaisa"), vatPaisa: l.vatPaisa - sum("vatPaisa"), totalPaisa: l.totalPaisa - sum("totalPaisa"), qty: l.qty - t.reduce((a, x) => a + (x.units ?? 0), 0) };
     const order = l.source === "order" && l.sourceId && orderById.has(l.sourceId) ? { state: orderById.get(l.sourceId)!, collected: false } : null;
     const lock = lineLock({ source: l.source as LineSource, notBilled: Boolean(l.notBilledTaskId), leftPaisa: left.totalPaisa, order });
-    return { l, left, lock, byUnits: isMedicineLine(l.source as LineSource), controlled: Boolean(l.medicineKey && saleClass(l.medicineKey) === "ctrl") };
+    return { l, left, lock, order, byUnits: isMedicineLine(l.source as LineSource), controlled: Boolean(l.medicineKey && saleClass(l.medicineKey) === "ctrl") };
   });
 }
 async function paymentFacts(tx: Tx, inv: Inv) {
@@ -101,8 +101,9 @@ async function paymentFacts(tx: Tx, inv: Inv) {
   });
 }
 const openRefundOf = (tx: Tx, invoiceId: string) => tx.refund.findFirst({ where: { invoiceId, status: { in: ["requested", "approved"] } }, select: { id: true, status: true } });
+/** Money refunds of the bill (paid or open) — a return without refund moves no money and is not counted here (review). */
 const liveBillRefunds = async (tx: Tx, invoiceId: string) =>
-  (await tx.refund.aggregate({ where: { invoiceId, source: "bill", status: LIVE }, _sum: { amountPaisa: true } }))._sum.amountPaisa ?? 0;
+  (await tx.refund.aggregate({ where: { invoiceId, source: "bill", kind: "refund", status: LIVE }, _sum: { amountPaisa: true } }))._sum.amountPaisa ?? 0;
 
 export async function refundableView(tx: Tx, s: SessionData, invoiceId: string): Promise<RefundableView> {
   const inv = await invoiceHere(tx, s, invoiceId);
@@ -125,10 +126,32 @@ export async function refundableView(tx: Tx, s: SessionData, invoiceId: string):
   };
 }
 
+/** A reconciliation case whose refund is still open is decided by that refund (review). */
+export async function refusePendingCaseRefund(tx: Tx, detail: unknown) {
+  const pending = (detail as { pendingRefundId?: string } | null)?.pendingRefundId;
+  if (pending && (await tx.refund.findFirst({ where: { id: pending, status: { in: ["requested", "approved"] } }, select: { id: true } })))
+    throw err(409, "refund_pending", "এই কেসের রিফান্ড চলছে — সেটির সিদ্ধান্ত আগে হোক", "A refund for this case is under way — it decides the case");
+}
+
 /** Decision 221: an issued pharmacy / OTC bill on which no money was ever confirmed and nothing is pending. */
 async function canReturnOn(tx: Tx, inv: Inv) {
   return inv.status === "issued" && inv.paidPaisa === 0 && (inv.kind === "pharmacy" || inv.kind === "otc")
     && !(await tx.payment.findFirst({ where: { invoiceId: inv.id, status: { in: ["initiated", "link_sent", "waiting_customer", "confirmed"] } }, select: { id: true } }));
+}
+
+/** Review: a test collected (or a line otherwise locked) after the refund was asked for is refunded no more — checked
+    again at approval and at payout. */
+async function stillRefundable(tx: Tx, r: Rf) {
+  if (!r.lines.length) return;
+  const inv = (await tx.invoice.findFirst({ where: { id: r.invoiceId } }))!;
+  const facts = await lineFacts(tx, inv);
+  for (const l of r.lines) {
+    const f = facts.find((x) => x.l.id === l.chargeItemId);
+    // judged on the line itself (this refund already takes what was left of it)
+    const lock = f ? lineLock({ source: f.l.source as LineSource, notBilled: Boolean(f.l.notBilledTaskId), leftPaisa: f.l.totalPaisa, order: f.order }) : null;
+    if (lock === "performed" || lock === "not-billed")
+      throw err(409, "line_performed_since", "অনুরোধের পর এই সেবা দেওয়া হয়ে গেছে — ফেরত হয় না", "This service was given after the request — it can no longer be refunded");
+  }
 }
 
 /* ───── request ───── */
@@ -198,7 +221,8 @@ export async function requestRefund(tx: Tx, s: SessionData, invoiceId: string, r
     amountPaisa: sum("totalPaisa"), netPaisa: sum("netPaisa"), vatPaisa: sum("vatPaisa"), needsOwner: controlled || cardBankCash, approvalTaskId: taskId,
     requestedById: s.userId, requestedAt: now, statusAt: now,
     lines: { create: chosen.map(({ f, part }) => ({ tenantId: s.tenantId, chargeItemId: f.l.id, units: part!.units, netPaisa: part!.netPaisa, vatPaisa: part!.vatPaisa, totalPaisa: part!.totalPaisa })) },
-    allocations: { create: allocs.map(({ p, a }) => ({ tenantId: s.tenantId, paymentId: p.p.id, method: p.method, amountPaisa: a.amountPaisa, way: a.way, cashReason: a.way === "cash" && isWallet(p.method) ? a.cashReason ?? null : null })) },
+    allocations: { create: allocs.map(({ p, a }) => ({ tenantId: s.tenantId, paymentId: p.p.id, method: p.method, amountPaisa: a.amountPaisa, way: a.way, cashReason: a.way === "cash" && isWallet(p.method) ? a.cashReason ?? null : null,
+      gatewayRef: isWallet(p.method) ? p.p.providerRef : null, gatewayTrxId: isWallet(p.method) ? p.p.trxId : null })) },
   } });
   const r = (await refundRow(tx, s.organizationId, id))!;
   return { r, audit: [
@@ -216,6 +240,7 @@ export async function requestCaseRefund(tx: Tx, s: SessionData, taskId: string, 
   const inv = await invoiceHere(tx, s, p.invoiceId, true);
   const t = (await tx.task.findFirst({ where: { id: taskId } }))!;
   if (t.status !== "requested") throw err(409, "case_decided", "এই কেসের সিদ্ধান্ত আগেই হয়েছে", "This case was already decided");
+  await refusePendingCaseRefund(tx, t.detail);
   const d = t.detail as { providerRef: string | null; trxId: string | null; amountPaisa: number | null; resolution?: unknown };
   const provider = providerName(p);
   const live = d.providerRef && provider ? await provider.verify({ providerRef: d.providerRef }).catch(() => null) : null;
@@ -234,11 +259,12 @@ export async function requestCaseRefund(tx: Tx, s: SessionData, taskId: string, 
   await tx.refund.create({ data: {
     id, tenantId: s.tenantId, organizationId: s.organizationId, invoiceId: inv.id, patientId: inv.patientId, source: "reconciliation", caseTaskId: taskId, category: "overpayment", reason: req.reason.trim(),
     amountPaisa: live.amountPaisa, netPaisa: live.amountPaisa, vatPaisa: 0, needsOwner: false, approvalTaskId: approvalId, requestedById: s.userId, requestedAt: now, statusAt: now,
-    allocations: { create: [{ tenantId: s.tenantId, paymentId: p.id, method: p.method, amountPaisa: live.amountPaisa, way: req.way, cashReason: req.way === "cash" ? req.cashReason ?? null : null }] },
+    // the money goes back against the case's own link and TrxID — never the bill's current one (review)
+    allocations: { create: [{ tenantId: s.tenantId, paymentId: p.id, method: p.method, amountPaisa: live.amountPaisa, way: req.way, cashReason: req.way === "cash" ? req.cashReason ?? null : null, gatewayRef: d.providerRef, gatewayTrxId: live.trxId }] },
   } });
-  const status = transition("APPROVAL", APPROVAL, t.status, "reject"); // APPROVAL reject = resolved (ADR 0005); the outcome says how
-  const resolution = { action: "refunded" as const, note: req.reason.trim(), by: s.userId, at: now.toISOString(), refundId: id };
-  const upd = await tx.task.updateMany({ where: { id: t.id, status: "requested" }, data: { status, decidedById: s.userId, decidedAt: now, decisionNote: req.reason.trim(), detail: { ...(t.detail as object), resolution } } });
+  // Review: the case stays open while its refund waits — resolved only when the money has gone back (finishIfPaid); a
+  // rejected or withdrawn refund leaves it open for the owner again.
+  const upd = await tx.task.updateMany({ where: { id: t.id, status: "requested" }, data: { detail: { ...(t.detail as object), pendingRefundId: id } } });
   if (upd.count !== 1) throw stale();
   const r = (await refundRow(tx, s.organizationId, id))!;
   return { r, audit: [
@@ -289,6 +315,7 @@ export async function decideRefund(tx: Tx, s: SessionData, refundId: string, d: 
   const onlyApprover = (await facilityApprovers(tx, s.organizationId)) === 1;
   const self = s.userId === r.requestedById;
   if (d.decision === "approve") {
+    await stillRefundable(tx, r);
     const org = await tx.organization.findFirst({ where: { id: s.organizationId } });
     const items = await tx.chargeItem.findMany({ where: { id: { in: r.lines.map((l) => l.chargeItemId) } }, select: { medicineKey: true } });
     const b = refundApprovalBlockers({
@@ -316,8 +343,8 @@ export async function decideRefund(tx: Tx, s: SessionData, refundId: string, d: 
   ] };
 }
 /** Active owners / admins of the facility (decision 223: alone, the requester may decide with a note). */
-export async function facilityApprovers(tx: Tx, organizationId: string): Promise<number> {
-  const rows = await tx.practitionerRole.findMany({ where: { organizationId, role: { in: ["owner", "admin"] }, user: { active: true } }, select: { userId: true } });
+export async function facilityApprovers(tx: Tx, organizationId: string, roles: ("owner" | "admin")[] = ["owner", "admin"]): Promise<number> {
+  const rows = await tx.practitionerRole.findMany({ where: { organizationId, role: { in: roles }, user: { active: true } }, select: { userId: true } });
   return new Set(rows.map((r) => r.userId)).size;
 }
 /** The single Approvals queue decides a refund by its task id. */
@@ -370,7 +397,9 @@ async function syncRefunded(tx: Tx, invoiceId: string) {
 }
 
 /** The last allocation was paid: the voucher RF/yy/nnnn and REFUND pay, in the same transaction. */
-async function finishIfPaid(tx: Tx, o: Org, refundId: string, by: string, now: Date, audit: AuditEntry[]) {
+/** `by` paid it out (printed on the voucher); `maker` is who settles it now (the signed-in user — or, for the sweep, the
+    person who claimed it). */
+async function finishIfPaid(tx: Tx, o: Org, refundId: string, by: string, now: Date, audit: AuditEntry[], maker: string = by) {
   const r = (await refundRow(tx, o.organizationId, refundId))!;
   if (r.status !== "approved" || r.allocations.some((a) => a.status !== "paid")) return r;
   const isReturn = r.kind === "return";
@@ -394,7 +423,7 @@ async function finishIfPaid(tx: Tx, o: Org, refundId: string, by: string, now: D
     patient: p ? { nameBn: p.nameBn, nameEn: p.nameEn, facilityNo: p.facilityNo } : null, buyer: buyerOf(inv),
     category: r.category as RefundCategory, reason: r.reason, lines, netPaisa: r.netPaisa, vatPaisa: r.vatPaisa, amountPaisa: r.amountPaisa,
     vatByRate: [...rates.entries()].sort((a, b) => a[0] - b[0]).map(([rateBp, x]) => ({ rateBp, ...x })),
-    paidBack: r.allocations.map((a) => ({ method: a.method as PaymentMethod, way: a.way as PayoutWay, amountPaisa: a.amountPaisa, refundTrxId: a.refundTrxId, reference: a.reference, originalTrxId: pays.find((x) => x.id === a.paymentId)?.trxId ?? null })),
+    paidBack: r.allocations.map((a) => ({ method: a.method as PaymentMethod, way: a.way as PayoutWay, amountPaisa: a.amountPaisa, refundTrxId: a.refundTrxId, reference: a.reference, originalTrxId: a.gatewayTrxId ?? pays.find((x) => x.id === a.paymentId)?.trxId ?? null })),
     recipient: r.recipientName && r.recipientPhone && r.recipientRelation ? { name: r.recipientName, phone: r.recipientPhone, relation: r.recipientRelation as NonNullable<RefundVoucherSnapshot["recipient"]>["relation"] } : null,
     requestedBy: nm(r.requestedById), approvedBy: nm(r.decidedById!), paidBy: nm(by),
   };
@@ -403,7 +432,7 @@ async function finishIfPaid(tx: Tx, o: Org, refundId: string, by: string, now: D
   const name = `${isReturn ? "credit" : "refund"}:${o.organizationId}:${yy}`;
   const seq = await tx.sequence.upsert({ where: { tenantId_name: { tenantId: o.tenantId, name } }, create: { tenantId: o.tenantId, name, value: 1 }, update: { value: { increment: 1 } } });
   const number = `${isReturn ? "CV" : "RF"}/${yy}/${String(seq.value).padStart(4, "0")}`;
-  const v = await tx.refundVoucher.create({ data: { tenantId: o.tenantId, organizationId: o.organizationId, refundId: r.id, invoiceId: inv.id, patientId: inv.patientId, number, verifyCode: newVerifyCode(), amountPaisa: r.amountPaisa, snapshot: snapshot as object, createdById: by, createdAt: now } });
+  const v = await tx.refundVoucher.create({ data: { tenantId: o.tenantId, organizationId: o.organizationId, refundId: r.id, invoiceId: inv.id, patientId: inv.patientId, number, verifyCode: newVerifyCode(), amountPaisa: r.amountPaisa, snapshot: snapshot as object, createdById: maker, createdAt: now } });
   const to = transition("REFUND", REFUND, "approved", "pay");
   const n = await tx.refund.updateMany({ where: { id: r.id, status: "approved" }, data: { status: to, paidAt: now, statusAt: now, rev: { increment: 1 } } });
   if (n.count !== 1) throw stale();
@@ -414,6 +443,15 @@ async function finishIfPaid(tx: Tx, o: Org, refundId: string, by: string, now: D
     audit.push({ action: "update", entity: "Invoice", entityId: inv.id, patientId: r.patientId, detail: { event: "credited", creditedPaisa: credited, refundId: r.id } });
   }
   audit.push({ action: "create", entity: "RefundVoucher", entityId: v.id, patientId: r.patientId, detail: { refundId: r.id, number, amountPaisa: r.amountPaisa } });
+  if (r.caseTaskId) {
+    // the reconciliation case is resolved now that the money went back (APPROVAL reject = resolved, ADR 0005)
+    const t = await tx.task.findFirst({ where: { id: r.caseTaskId } });
+    if (t?.status === "requested") {
+      const resolution = { action: "refunded" as const, note: r.reason, by: r.requestedById, at: now.toISOString(), refundId: r.id };
+      await tx.task.updateMany({ where: { id: t.id, status: "requested" }, data: { status: transition("APPROVAL", APPROVAL, "requested", "reject"), decidedById: r.requestedById, decidedAt: now, decisionNote: r.reason, detail: { ...(t.detail as object), resolution } } });
+      audit.push({ action: "update", entity: "Task", entityId: t.id, patientId: r.patientId, detail: { kind: RECONCILE_TASK, event: "refunded", refundId: r.id } });
+    }
+  }
   audit.push({ action: "update", entity: "Refund", entityId: r.id, patientId: r.patientId, detail: { event: "pay", number } });
   return (await refundRow(tx, o.organizationId, r.id))!;
 }
@@ -453,10 +491,14 @@ export async function payRefund(tx: Tx, s: SessionData, refundId: string, req: R
     if (!r.recipientName) await tx.refund.update({ where: { id: r.id }, data: { recipientName: req.recipient.name.trim(), recipientPhone: rc.phone, recipientRelation: req.recipient.relation, rev: { increment: 1 }, statusAt: now } });
   }
   if (isReturn) {
+    // review: nothing may have been paid (or be under way) since the return was asked for
+    const inv = (await tx.invoice.findFirst({ where: { id: r.invoiceId } }))!;
+    if (!(await canReturnOn(tx, inv))) throw err(409, "money_on_bill", "এই বিলে এর মধ্যে টাকা নেওয়া হয়েছে বা পেমেন্ট চলছে — ফেরত লেখা যায় না", "Money was taken (or a payment is under way) on this bill since — the return cannot be recorded");
     await writeReturns(tx, s, r, now, audit);
     const done = await finishIfPaid(tx, s, r.id, s.userId, now, audit);
     return { r: done, claimed: [], audit };
   }
+  await stillRefundable(tx, r);
   if (r.allocations.some((a) => a.status === "paying")) throw err(409, "being_paid", "গেটওয়েতে ফেরত চলছে — একটু পরে দেখুন", "A gateway refund is under way — check again shortly");
   const open = r.allocations.filter((a) => a.status === "open");
   if (!open.length) throw err(409, "nothing_to_pay", "দেওয়ার মতো কিছু বাকি নেই", "Nothing is left to pay");
@@ -464,7 +506,8 @@ export async function payRefund(tx: Tx, s: SessionData, refundId: string, req: R
   let cashReason = open[0]!.cashReason as CashReason | null;
   if (req.switchToCash && way !== "cash") {
     const a = open[0]!;
-    if (open.length !== 1 || !payoutWayAllowed({ method: a.method as PaymentMethod, way: "cash", gatewayRefunds: true, stage: "payout", cashReason: "gateway-failed", gatewayFailed: Boolean(a.gatewayFailedAt) }))
+    // only a wallet whose gateway refund failed goes back in cash this way (card / bank → cash is asked for at the request)
+    if (open.length !== 1 || !isWallet(a.method as PaymentMethod) || !a.gatewayFailedAt || !payoutWayAllowed({ method: a.method as PaymentMethod, way: "cash", gatewayRefunds: true, stage: "payout", cashReason: "gateway-failed", gatewayFailed: true }))
       throw err(409, "cash_not_allowed", "গেটওয়েতে ফেরত ব্যর্থ না হলে নগদে দেওয়া যায় না", "Cash is allowed only after the gateway refund failed", { field: "switchToCash" });
     way = "cash"; cashReason = "gateway-failed";
   }
@@ -489,7 +532,7 @@ export async function payRefund(tx: Tx, s: SessionData, refundId: string, req: R
   } else {
     const a = open[0]!; // decision 220: a gateway refund goes back against one payment
     const p = (await tx.payment.findFirst({ where: { id: a.paymentId } }))!;
-    if (!gatewayRefunds(p) || !p.providerRef || !p.trxId) throw err(503, "gateway_off", "এই পেমেন্টের গেটওয়ে এখন ফেরত দিতে পারছে না", "This payment's gateway cannot refund right now");
+    if (!gatewayRefunds(p) || !(a.gatewayRef ?? p.providerRef) || !(a.gatewayTrxId ?? p.trxId)) throw err(503, "gateway_off", "এই পেমেন্টের গেটওয়ে এখন ফেরত দিতে পারছে না", "This payment's gateway cannot refund right now");
     const n = await tx.refundAllocation.updateMany({ where: { id: a.id, status: "open" }, data: { status: "paying", claimedById: s.userId, claimedAt: now } });
     if (n.count !== 1) throw stale();
     claimed.push(a.id);
@@ -509,7 +552,7 @@ export async function settleClaimed(tenantId: string, organizationId: string, al
       const a = await tx.refundAllocation.findFirst({ where: { id, status: "paying" }, include: { refund: true } });
       if (!a) return null;
       const p = (await tx.payment.findFirst({ where: { id: a.paymentId } }))!;
-      const known = (await tx.refundAllocation.findMany({ where: { paymentId: p.id, status: "paid", refundTrxId: { not: null } }, select: { refundTrxId: true } })).map((x) => x.refundTrxId!);
+      const known = (await tx.refundAllocation.findMany({ where: { paymentId: p.id, status: "paid", refundTrxId: { not: null } }, select: { refundTrxId: true } })).map((x) => x.refundTrxId!); // ours already
       return { a, p, known };
     }, { userId: userId ?? undefined });
     if (!job) continue;
@@ -518,9 +561,10 @@ export async function settleClaimed(tenantId: string, organizationId: string, al
     if (provider?.refundSupport === "gateway") {
       try {
         // a retry after an earlier attempt failed or went unanswered: ask Refund Status first — bKash may have made it
-        const earlier = job.a.gatewayFailedAt ? (await provider.refundStatus({ providerRef: job.p.providerRef!, trxId: job.p.trxId! }))?.find((x) => x.completed && x.amountPaisa === job.a.amountPaisa && !job.known.includes(x.refundTrxId)) : undefined;
+        const ref = { providerRef: (job.a.gatewayRef ?? job.p.providerRef)!, trxId: (job.a.gatewayTrxId ?? job.p.trxId)! };
+        const earlier = job.a.gatewayFailedAt ? (await provider.refundStatus(ref))?.find((x) => x.completed && x.amountPaisa === job.a.amountPaisa && !job.known.includes(x.refundTrxId)) : undefined;
         answer = earlier ? { status: "completed", refundTrxId: earlier.refundTrxId, code: null }
-          : await provider.refund({ providerRef: job.p.providerRef!, trxId: job.p.trxId!, amountPaisa: job.a.amountPaisa, sku: job.a.id, reason: job.a.refund.category, known: job.known });
+          : await provider.refund({ ...ref, amountPaisa: job.a.amountPaisa, sku: job.a.id, reason: job.a.refund.category, known: job.known });
       } catch (e) { answer = { status: "unknown", refundTrxId: null, code: (e as Error).message.slice(0, 60) }; }
     }
     await applyRefundAnswer(tenantId, organizationId, id, answer, now, userId);
@@ -538,7 +582,7 @@ async function applyRefundAnswer(tenantId: string, organizationId: string, alloc
       await tx.refundAllocation.update({ where: { id: a.id }, data: { status: "paid", refundTrxId: answer.refundTrxId, paidById: a.claimedById, paidAt: now } });
       await syncRefunded(tx, a.refund.invoiceId);
       audit.push({ action: "update", entity: "RefundAllocation", entityId: a.id, patientId: a.refund.patientId, detail: { event: "gateway-completed", refundTrxId: answer.refundTrxId, amountPaisa: a.amountPaisa } });
-      await finishIfPaid(tx, { tenantId, organizationId }, a.refundId, a.claimedById!, now, audit);
+      await finishIfPaid(tx, { tenantId, organizationId }, a.refundId, a.claimedById!, now, audit, userId ?? a.claimedById!);
     } else if (answer.status === "refused" || giveUp) {
       const why = answer.status === "refused" ? `gateway refused (${answer.code})` : "no refund found at the gateway";
       await tx.refundAllocation.update({ where: { id: a.id }, data: { status: "open", gatewayFailedAt: now, failReason: why } });
@@ -566,13 +610,13 @@ export async function askGateway(tenantId: string, organizationId: string, alloc
     const a = await tx.refundAllocation.findFirst({ where: { id: allocationId, status: "paying" } });
     if (!a) return null;
     const p = (await tx.payment.findFirst({ where: { id: a.paymentId } }))!;
-    const known = (await tx.refundAllocation.findMany({ where: { paymentId: p.id, status: "paid", refundTrxId: { not: null } }, select: { refundTrxId: true } })).map((x) => x.refundTrxId!);
+    const known = (await tx.refundAllocation.findMany({ where: { paymentId: p.id, status: "paid", refundTrxId: { not: null } }, select: { refundTrxId: true } })).map((x) => x.refundTrxId!); // ours already
     return { a, p, known };
   }, { userId: userId ?? undefined });
   if (!job) return;
   const provider = providerName(job.p);
   let list: Awaited<ReturnType<PaymentProvider["refundStatus"]>> = null;
-  try { list = provider ? await provider.refundStatus({ providerRef: job.p.providerRef!, trxId: job.p.trxId! }) : null; } catch { /* still unknown */ }
+  try { list = provider ? await provider.refundStatus({ providerRef: (job.a.gatewayRef ?? job.p.providerRef)!, trxId: (job.a.gatewayTrxId ?? job.p.trxId)! }) : null; } catch { /* still unknown */ }
   const hit = list?.find((x) => x.completed && x.amountPaisa === job.a.amountPaisa && !job.known.includes(x.refundTrxId));
   const giveUp = !hit && list !== null && now.getTime() - job.a.claimedAt!.getTime() > REFUND_GIVE_UP_MINUTES * 60_000;
   await applyRefundAnswer(tenantId, organizationId, allocationId, hit ? { status: "completed", refundTrxId: hit.refundTrxId, code: null } : { status: "unknown", refundTrxId: null, code: "status" }, now, userId, giveUp);
@@ -728,7 +772,7 @@ export async function refundApprovalItems(tx: Tx, s: SessionData, status: "reque
       decidedBy: t.decidedById ? who(t.decidedById) : null, decidedAt: iso(t.decidedAt), decisionNote: t.decisionNote,
       kind: "refund-approval", line: null,
       refund: {
-        id: r.id, kind: r.kind as "refund" | "return", selfApproved: r.selfApproved, category: r.category as RefundCategory, needsOwner: r.needsOwner,
+        id: r.id, status: r.status as RefundState, kind: r.kind as "refund" | "return", selfApproved: r.selfApproved, category: r.category as RefundCategory, needsOwner: r.needsOwner,
         ways: r.allocations.map((a) => ({ method: a.method as PaymentMethod, way: a.way as PayoutWay, amountPaisa: a.amountPaisa })),
         lines: r.lines.map((l) => { const c = items.find((i) => i.id === l.chargeItemId)!; return { nameEn: c.nameEn, nameBn: c.nameBn, units: l.units, totalPaisa: l.totalPaisa }; }),
         controlled: items.some((i) => i.medicineKey && saleClass(i.medicineKey) === "ctrl"),
@@ -743,7 +787,9 @@ export async function refundApprovalItems(tx: Tx, s: SessionData, status: "reque
 
 /* ───── the owner's check of refunds paid by hand (reconciliation queue) ───── */
 export async function refundCheckItems(tx: Tx, s: SessionData, status: "requested" | "approved" | "rejected"): Promise<ReconcileItem[]> {
-  const tasks = await tx.task.findMany({ where: { kind: REFUND_CHECK_TASK, status }, orderBy: { requestedAt: status === "requested" ? "asc" : "desc" }, take: 100 });
+  // this facility's checks only, before the page is cut (review: other facilities must not crowd them out)
+  const mineIds = (await tx.refundAllocation.findMany({ where: { reconcileTaskId: { not: null }, refund: { organizationId: s.organizationId } }, select: { reconcileTaskId: true } })).map((a) => a.reconcileTaskId!);
+  const tasks = await tx.task.findMany({ where: { kind: REFUND_CHECK_TASK, status, id: { in: mineIds } }, orderBy: { requestedAt: status === "requested" ? "asc" : "desc" }, take: 100 });
   const out: ReconcileItem[] = [];
   for (const t of tasks) {
     const a = t.focusId ? await tx.refundAllocation.findFirst({ where: { id: t.focusId }, include: { refund: { include: { voucher: { select: { number: true } } } } } }) : null;
@@ -772,7 +818,7 @@ export async function decideRefundCheck(tx: Tx, s: SessionData, taskId: string, 
   if (!t || !a || a.refund.organizationId !== s.organizationId) throw notFound();
   // decision 223's rule: never the person who paid it — unless they are the facility's only approver (with a note)
   if (a.paidById === s.userId) {
-    if ((await facilityApprovers(tx, s.organizationId)) !== 1) throw err(403, "own_request", "নিজের দেওয়া ফেরত নিজে মেলানো যায় না", "You cannot check a refund you paid yourself", { reason: "own-request", canRequest: false });
+    if ((await facilityApprovers(tx, s.organizationId, ["owner"])) !== 1) throw err(403, "own_request", "নিজের দেওয়া ফেরত নিজে মেলানো যায় না", "You cannot check a refund you paid yourself", { reason: "own-request", canRequest: false });
     if ((note ?? "").trim().length < 10) throw err(400, "note_required", "আপনিই এখানকার একমাত্র অনুমোদনকারী — কারণ লিখুন (অন্তত ১০ অক্ষর)", "You are the only approver here — write why (at least 10 characters)", { field: "note" });
   }
   if (action === "resolve" && (note ?? "").trim().length < 10) throw err(400, "note_required", "নোট লিখুন (অন্তত ১০ অক্ষর)", "Write a note (at least 10 characters)", { field: "note" });

@@ -30582,6 +30582,16 @@
                               "id": {
                                 "type": "string"
                               },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "requested",
+                                  "approved",
+                                  "paid",
+                                  "rejected",
+                                  "withdrawn"
+                                ]
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": [
@@ -30678,6 +30688,7 @@
                             },
                             "required": [
                               "id",
+                              "status",
                               "kind",
                               "selfApproved",
                               "category",
@@ -31159,6 +31170,16 @@
                             "id": {
                               "type": "string"
                             },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "requested",
+                                "approved",
+                                "paid",
+                                "rejected",
+                                "withdrawn"
+                              ]
+                            },
                             "kind": {
                               "type": "string",
                               "enum": [
@@ -31255,6 +31276,7 @@
                           },
                           "required": [
                             "id",
+                            "status",
                             "kind",
                             "selfApproved",
                             "category",
@@ -33162,6 +33184,16 @@
                             "id": {
                               "type": "string"
                             },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "requested",
+                                "approved",
+                                "paid",
+                                "rejected",
+                                "withdrawn"
+                              ]
+                            },
                             "kind": {
                               "type": "string",
                               "enum": [
@@ -33258,6 +33290,7 @@
                           },
                           "required": [
                             "id",
+                            "status",
                             "kind",
                             "selfApproved",
                             "category",
@@ -49955,6 +49988,12 @@
                               "refund"
                             ]
                           },
+                          "pendingRefundId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "refund": {
                             "type": [
                               "object",
@@ -50512,6 +50551,12 @@
                           "enum": [
                             "payment",
                             "refund"
+                          ]
+                        },
+                        "pendingRefundId": {
+                          "type": [
+                            "string",
+                            "null"
                           ]
                         },
                         "refund": {
@@ -51232,6 +51277,12 @@
                           "enum": [
                             "payment",
                             "refund"
+                          ]
+                        },
+                        "pendingRefundId": {
+                          "type": [
+                            "string",
+                            "null"
                           ]
                         },
                         "refund": {
@@ -88228,7 +88279,8 @@
                               "refundsPaid",
                               "manualRefundUnchecked",
                               "medicationIncident",
-                              "selfApproved"
+                              "selfApproved",
+                              "creditReturns"
                             ]
                           },
                           "count": {
@@ -88443,7 +88495,8 @@
                 "refundsPaid",
                 "manualRefundUnchecked",
                 "medicationIncident",
-                "selfApproved"
+                "selfApproved",
+                "creditReturns"
               ]
             },
             "required": true,
@@ -88481,7 +88534,8 @@
                         "refundsPaid",
                         "manualRefundUnchecked",
                         "medicationIncident",
-                        "selfApproved"
+                        "selfApproved",
+                        "creditReturns"
                       ]
                     },
                     "period": {

@@ -93,10 +93,11 @@ export async function computeDay(tx: Tx, organizationId: string, day: string, un
            (SELECT coalesce(sum("amountPaisa"), 0) FROM "Refund" WHERE "organizationId" = ${org} AND "kind" = 'refund' AND "status" = 'paid' AND "paidAt" >= ${from} AND "paidAt" < ${to}) AS paisa,
            (SELECT count(*) FROM "Refund" WHERE "organizationId" = ${org} AND "kind" = 'return' AND "status" = 'paid' AND "paidAt" >= ${from} AND "paidAt" < ${to}) AS cr,
            (SELECT coalesce(sum("amountPaisa"), 0) FROM "Refund" WHERE "organizationId" = ${org} AND "kind" = 'return' AND "status" = 'paid' AND "paidAt" >= ${from} AND "paidAt" < ${to}) AS "crPaisa",
-           (SELECT count(*) FROM "MedicationDispense" d JOIN "RefundLine" l ON l."id" = d."refundLineId" JOIN "Refund" r ON r."id" = l."refundId"
-             WHERE d."organizationId" = ${org} AND d."action" = 'return' AND r."category" = 'wrong-dispense' AND d."at" >= ${from} AND d."at" < ${to}) AS inc,
-           (SELECT coalesce(sum(l."totalPaisa"), 0) FROM "MedicationDispense" d JOIN "RefundLine" l ON l."id" = d."refundLineId" JOIN "Refund" r ON r."id" = l."refundId"
-             WHERE d."organizationId" = ${org} AND d."action" = 'return' AND r."category" = 'wrong-dispense' AND d."at" >= ${from} AND d."at" < ${to}) AS "incPaisa",
+           -- every wrong-dispense medicine line that came back (a dispense or an OTC sale), by the day it came back
+           (SELECT count(*) FROM "StockMove" m JOIN "RefundLine" l ON l."id" = m."refId" JOIN "Refund" r ON r."id" = l."refundId"
+             WHERE m."organizationId" = ${org} AND m."kind" = 'return' AND m."refType" = 'refund-line' AND r."category" = 'wrong-dispense' AND m."at" >= ${from} AND m."at" < ${to}) AS inc,
+           (SELECT coalesce(sum(l."totalPaisa"), 0) FROM "StockMove" m JOIN "RefundLine" l ON l."id" = m."refId" JOIN "Refund" r ON r."id" = l."refundId"
+             WHERE m."organizationId" = ${org} AND m."kind" = 'return' AND m."refType" = 'refund-line' AND r."category" = 'wrong-dispense' AND m."at" >= ${from} AND m."at" < ${to}) AS "incPaisa",
            (SELECT count(*) FROM "Refund" WHERE "organizationId" = ${org} AND "selfApproved" AND "decidedAt" >= ${from} AND "decidedAt" < ${to}) AS self,
            (SELECT coalesce(sum("amountPaisa"), 0) FROM "Refund" WHERE "organizationId" = ${org} AND "selfApproved" AND "decidedAt" >= ${from} AND "decidedAt" < ${to}) AS "selfPaisa"`;
   return {
@@ -404,16 +405,17 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
     rows = shown.map((a) => ({ id: a.id, at: (a.paidAt ?? a.refund.requestedAt).toISOString(), number: a.refund.voucher?.number ?? null, patient: P(a.refund.patientId), amountPaisa: a.amountPaisa, by: W(a.paidById), approvedBy: W(a.refund.decidedById),
       detail: `${a.method} → ${a.way} · ${a.reference ?? ""}`, link: { kind: "refund" as const, id: a.refundId }, status: a.refund.status }));
   } else if (what === "medicationIncident") {
-    const ret = await tx.medicationDispense.findMany({ where: { organizationId: org, action: "return", at: { gte: from, lt: to } }, orderBy: { at: "desc" } });
-    const lines = await tx.refundLine.findMany({ where: { id: { in: ret.flatMap((d) => (d.refundLineId ? [d.refundLineId] : [])) } }, include: { refund: true } });
-    const wrong = ret.filter((d) => lines.find((l) => l.id === d.refundLineId)?.refund.category === "wrong-dispense");
-    count = wrong.length; totalPaisa = wrong.reduce((x, d) => x + (lines.find((l) => l.id === d.refundLineId)?.totalPaisa ?? 0), 0);
+    // every wrong-dispense medicine line that came back — a dispense or an OTC sale (review)
+    const moves = await tx.stockMove.findMany({ where: { organizationId: org, kind: "return", refType: "refund-line", at: { gte: from, lt: to } }, include: { batch: { select: { medicineKey: true } } }, orderBy: { at: "desc" } });
+    const lines = await tx.refundLine.findMany({ where: { id: { in: moves.flatMap((m) => (m.refId ? [m.refId] : [])) }, refund: { category: "wrong-dispense" } }, include: { refund: true } });
+    const wrong = moves.filter((m) => lines.some((l) => l.id === m.refId));
+    count = wrong.length; totalPaisa = wrong.reduce((x, m) => x + (lines.find((l) => l.id === m.refId)?.totalPaisa ?? 0), 0);
     const shown = wrong.slice(0, DRILL_ROWS);
-    const P = await patients(shown.map((d) => d.patientId));
-    const W = await people(shown.flatMap((d) => [d.byId, lines.find((l) => l.id === d.refundLineId)?.refund.decidedById]));
+    const P = await patients(shown.map((m) => lines.find((l) => l.id === m.refId)!.refund.patientId));
+    const W = await people(shown.flatMap((m) => [m.byId, lines.find((l) => l.id === m.refId)!.refund.decidedById]));
     const name = (k: string) => { const md = MEDICINES_SAMPLE.find((x) => x.id === k); return md ? `${md.brand} ${md.strength}` : k; };
-    rows = shown.map((d) => { const l = lines.find((x) => x.id === d.refundLineId)!; return { id: d.id, at: d.at.toISOString(), number: null, patient: P(d.patientId), amountPaisa: l.totalPaisa, by: W(d.byId), approvedBy: W(l.refund.decidedById),
-      detail: `${name(d.medicineKey)} × ${d.qty} — ${l.refund.reason}`, link: { kind: "refund" as const, id: l.refundId }, status: l.refund.status }; });
+    rows = shown.map((m) => { const l = lines.find((x) => x.id === m.refId)!; return { id: m.id, at: m.at.toISOString(), number: null, patient: P(l.refund.patientId), amountPaisa: l.totalPaisa, by: W(m.byId), approvedBy: W(l.refund.decidedById),
+      detail: `${name(m.batch.medicineKey)} × ${m.qty} — ${l.refund.reason}`, link: { kind: "refund" as const, id: l.refundId }, status: l.refund.status }; });
   } else if (what === "labTests") {
     const rel = await tx.$queryRaw<{ sr: string; released: Date }[]>`
       WITH day AS (SELECT DISTINCT x."serviceRequestId" AS sr FROM "DiagnosticReportResult" x JOIN "DiagnosticReport" r ON r."id" = x."reportId"

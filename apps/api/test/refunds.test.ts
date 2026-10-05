@@ -430,6 +430,8 @@ describe.runIf(db)("Kamrul's decisions 220, 221, 223", () => {
     const bill = ok(await get(`/v1/invoices/${d.bill.id}`, "pharm"));
     const issued = ok(await post(`/v1/invoices/${d.bill.id}/issue`, { rev: bill.invoice.rev }, "pharm"));
     const r = ok(await post(`/v1/invoices/${d.bill.id}/refunds`, { kind: "return", category: "wrong-dispense", reason: "Two strips were one too many", lines: [{ chargeItemId: issued.lines[0].id, units: 2 }] }, "pharm"), 201);
+    // review: no money is taken while the return is open (the due it leaves is not known yet)
+    expect(ok(await post(`/v1/invoices/${d.bill.id}/payments`, { method: "cash", amountPaisa: 100, tenderedPaisa: 100 }, "pharm"), 409).code).toBe("return_open");
     ok(await approve(r.refund.id));
     ok(await post(`/v1/refunds/${r.refund.id}/pay`, { rev: ok(await get(`/v1/refunds/${r.refund.id}`, "pharm")).refund.rev }, "pharm"));
     const due = issued.invoice.totalPaisa - 800;
@@ -439,6 +441,11 @@ describe.runIf(db)("Kamrul's decisions 220, 221, 223", () => {
     expect(rc).toMatchObject({ paidPaisa: due, duePaisa: 0, snapshot: { creditedPaisa: 800 } });
     // once money is on the bill a return without refund is refused — a refund is the way
     expect(ok(await post(`/v1/invoices/${d.bill.id}/refunds`, { kind: "return", category: "patient-request", reason: "Two more brought back today", lines: [{ chargeItemId: issued.lines[0].id, units: 2 }] }, "pharm"), 409).code).toBe("money_on_bill");
+    // review: the earlier return is not money refunded — all 8 paid-for tablets can still come back, for all that was paid
+    const rb = ok(await get(`/v1/invoices/${d.bill.id}/refundable`, "pharm"));
+    expect(rb.confirmedLeftPaisa).toBe(due);
+    const back = ok(await post(`/v1/invoices/${d.bill.id}/refunds`, { category: "patient-request", reason: "The rest brought back the next day", lines: [{ chargeItemId: issued.lines[0].id, units: 8 }], allocations: [{ paymentId: rb.payments[0].id, amountPaisa: due, way: "cash" }] }, "pharm"), 201);
+    expect(back.refund.amountPaisa).toBe(due);
   });
 
   it("223: the only approver at the facility decides their own request with a note — flagged self-approved, on the exceptions list", { timeout: 40_000 }, async () => {
@@ -469,6 +476,18 @@ describe.runIf(db)("Kamrul's decisions 220, 221, 223", () => {
   });
 });
 
+describe.runIf(db)("review fixes", () => {
+  it("a test collected after the refund was asked for is refunded no more (approval and payout re-check)", { timeout: 30_000 }, async () => {
+    const { view } = await opdBill(["cbc"], { method: "cash" });
+    const pay = ok(await get(`/v1/invoices/${view.invoice.id}/refundable`)).payments[0];
+    const cbc = lineOf(view, "test:cbc") as unknown as { id: string; sourceId: string };
+    const r = ok(await post(`/v1/invoices/${view.invoice.id}/refunds`, { category: "cancelled-test", reason: "CBC cancelled by the doctor", lines: [{ chargeItemId: cbc.id, amountPaisa: 45_000 }], allocations: [{ paymentId: pay.id, amountPaisa: 45_000, way: "cash" }] }), 201);
+    // the lab collects the tube meanwhile (the order moves on)
+    await owner2((c) => c.serviceRequest.update({ where: { id: cbc.sourceId }, data: { status: "in_progress" } }));
+    expect(ok(await approve(r.refund.id), 409).code).toBe("line_performed_since");
+  });
+});
+
 describe.runIf(db)("reconciliation → refund to patient", () => {
   it("the gateway re-confirms the case's money; a refund for exactly that; the owner who asked cannot approve it", { timeout: 30_000 }, async () => {
     const { view } = await opdBill(["cbc"]);
@@ -483,12 +502,17 @@ describe.runIf(db)("reconciliation → refund to patient", () => {
     const r = ok(await post(`/v1/reconciliation/${item.taskId}/refund`, { reason: "Paid after the link failed — give it back", way: "manual" }, "owner"), 201);
     expect(r.refund).toMatchObject({ source: "reconciliation", category: "overpayment", amountPaisa: 100_000, caseTaskId: item.taskId, status: "requested" });
     expect(r.lines).toEqual([]);
-    const done = ok(await get("/v1/reconciliation?status=rejected", "owner")).items.find((i: { taskId: string }) => i.taskId === item.taskId);
-    expect(done.resolution).toMatchObject({ action: "refunded", refundId: r.refund.id });
+    // review: the case stays open (decided by its refund) until the money has gone back; meanwhile it cannot be applied
+    const still = ok(await get("/v1/reconciliation", "owner")).items.find((i: { taskId: string }) => i.taskId === item.taskId);
+    expect(still).toMatchObject({ status: "requested", pendingRefundId: r.refund.id });
+    expect(ok(await post(`/v1/reconciliation/${item.taskId}/resolve`, { note: "Trying to close it twice" }, "owner"), 409).code).toBe("refund_pending");
+    expect((await inTenant((tx) => tx.refundAllocation.findFirst({ where: { refundId: r.refund.id } })))?.gatewayRef).toBe(ref0); // the case's own link
     expect(ok(await approve(r.refund.id, "owner"), 403).code).toBe("own_request"); // an admin exists here (decision 223)
     ok(await approve(r.refund.id, "admin"));
     const paid = ok(await post(`/v1/refunds/${r.refund.id}/pay`, { rev: ok(await get(`/v1/refunds/${r.refund.id}`)).refund.rev, recipient, reference: "NGD-REV-1102" }));
     expect(paid.view.refund.status).toBe("paid");
+    const done = ok(await get("/v1/reconciliation?status=rejected", "owner")).items.find((i: { taskId: string }) => i.taskId === item.taskId);
+    expect(done.resolution).toMatchObject({ action: "refunded", refundId: r.refund.id });
     // not a credit note: the bill's refunded money is unchanged (that money was never on the bill)
     expect(ok(await get(`/v1/invoices/${view.invoice.id}`)).invoice.refundedPaisa).toBe(0);
   });

@@ -648,6 +648,8 @@ async function reconcileItem(tx: Tx, s: SessionData, t: TaskRow): Promise<Reconc
     buyer: inv.kind === "otc" ? { name: inv.buyerName, phone: inv.buyerPhone } : null,
     kind: "payment",
     refund: null,
+    // only while that refund is still open: a rejected or withdrawn refund hands the case back to the owner
+    pendingRefundId: await (async () => { const id = (t.detail as { pendingRefundId?: string }).pendingRefundId; return id && (await tx.refund.findFirst({ where: { id, status: { in: ["requested", "approved"] } }, select: { id: true } })) ? id : null; })(),
     applyBlockers,
     resolution: d.resolution ? { action: d.resolution.action, note: d.resolution.note, by: who(d.resolution.by), at: d.resolution.at, refundId: d.resolution.refundId ?? null } : null,
   };
@@ -672,6 +674,10 @@ export async function decideReconcile(tx: Tx, s: SessionData, taskId: string, ac
   const t = (await tx.task.findFirst({ where: { id: taskId } }))!;
   const p = (await tx.payment.findFirst({ where: { id: p0.id } }))!;
   const d = t.detail as unknown as ReconcileDetail;
+  // ADR 0013 review: a case whose refund to the patient is under way is decided by that refund
+  const pending = (t.detail as { pendingRefundId?: string }).pendingRefundId;
+  if (pending && (await tx.refund.findFirst({ where: { id: pending, status: { in: ["requested", "approved"] } }, select: { id: true } })))
+    throw err(409, "refund_pending", "এই কেসের রিফান্ড চলছে — সেটির সিদ্ধান্ত আগে হোক", "A refund for this case is under way — it decides the case");
   const next = transition("APPROVAL", APPROVAL, t.status, action === "apply" ? "approve" : "reject");
   if (action === "resolve" && (note ?? "").trim().length < 10) throw err(400, "note_required", "নোট লিখুন (অন্তত ১০ অক্ষর)", "Write a note (at least 10 characters)", { field: "note" });
   if (action === "apply") {
@@ -704,6 +710,13 @@ async function confirmPayment(tx: Tx, p: Pay, inv: Inv, by: string | null, trxId
   const event = invoiceEventAfterConfirm(dueBase(inv), s.confirmedPaisa);
   const next = undash<"balanced">(transition("INVOICE", INVOICE, dash<InvoiceState>(inv.status), event));
   await tx.invoice.update({ where: { id: inv.id }, data: { paidPaisa: s.confirmedPaisa, status: next, statusAt: now } });
+}
+
+/** Review (decision 221): while a return without refund is open on the bill, no money is taken — the due it leaves is not
+    known until it is decided (and a return needs a bill on which nothing was ever paid). */
+async function refuseWhileReturnOpen(tx: Tx, invoiceId: string) {
+  if (await tx.refund.findFirst({ where: { invoiceId, kind: "return", status: { in: ["requested", "approved"] } }, select: { id: true } }))
+    throw err(409, "return_open", "এই বিলে একটি ফেরত (টাকা ছাড়া) খোলা আছে — আগে সেটির সিদ্ধান্ত হোক", "A return without refund is open on this bill — decide it first");
 }
 
 /** ADR 0011 (open question 90): the wallet link is made after the payment row committed. `attachLink` runs outside any
@@ -748,6 +761,7 @@ export async function addPayment(tx: Tx, s: SessionData, invoiceId: string, req:
   const inv = await invoiceHere(tx, s, invoiceId, true);
   if (inv.status !== "issued" && inv.status !== "partially_paid")
     throw err(409, "not_payable", inv.status === "draft" ? "আগে বিল ইস্যু করুন" : "এই বিলে আর টাকা নেওয়া যায় না", inv.status === "draft" ? "Issue the bill first" : "This bill takes no more payments");
+  await refuseWhileReturnOpen(tx, inv.id);
   // ADR 0010: only the payment methods this facility takes
   const methods = (await tx.organization.findFirst({ where: { id: s.organizationId }, select: { paymentMethods: true } }))?.paymentMethods ?? [];
   if (!methods.includes(req.method)) throw err(422, "method_off", "এই প্রতিষ্ঠানে এই পেমেন্ট মাধ্যম চালু নেই", "This facility does not take this payment method", { field: "method" });
@@ -797,6 +811,7 @@ async function walletPaymentHere(tx: Tx, s: SessionData, paymentId: string) {
 export async function retryPayment(tx: Tx, s: SessionData, paymentId: string, now: Date): Promise<{ inv: Inv; payment: Pay }> {
   const { p, inv } = await walletPaymentHere(tx, s, paymentId);
   if (inv.status !== "issued" && inv.status !== "partially_paid") throw err(409, "not_payable", "এই বিলে আর টাকা নেওয়া যায় না", "This bill takes no more payments");
+  await refuseWhileReturnOpen(tx, inv.id);
   // a new link only for a method the facility still takes (controls review); checking or cancelling a pending one still works
   const methods = (await tx.organization.findFirst({ where: { id: s.organizationId }, select: { paymentMethods: true } }))?.paymentMethods ?? [];
   if (!methods.includes(p.method)) throw err(422, "method_off", "এই প্রতিষ্ঠানে এই পেমেন্ট মাধ্যম চালু নেই", "This facility does not take this payment method", { field: "method" });

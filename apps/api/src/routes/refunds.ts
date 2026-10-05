@@ -106,7 +106,8 @@ export async function refundRoutes(app: FastifyInstance) {
     let paying: { id: string }[] = [];
     return command(req, reply, async (tx, s) => {
       paying = (await checkRefund(tx, s, id)).allocations;
-      return { body: await refundView(tx, s, await refundHere(tx, s, id)), audit: [{ action: "view", entity: "Refund", entityId: id, detail: { event: "gateway-check", allocations: paying.map((a) => a.id) } }] };
+      const view = await refundView(tx, s, await refundHere(tx, s, id));
+      return { body: view, audit: [{ action: "view", entity: "Refund", entityId: id, patientId: view.patient?.id ?? null, detail: { event: "gateway-check", allocations: paying.map((a) => a.id) } }] };
     }, {
       after: async (_body, s) => {
         for (const a of paying) await askGateway(s.tenantId, s.organizationId, a.id, new Date(), s.userId);
@@ -122,7 +123,7 @@ export async function refundRoutes(app: FastifyInstance) {
     const { id } = pid.parse(req.params);
     return query(req, async (tx, s) => {
       const v = await voucherView(tx, s, id);
-      return { body: v, audit: [{ action: "view", entity: "RefundVoucher", entityId: v.voucher.id, detail: { refundId: id, number: v.voucher.number } }] };
+      return { body: v, audit: [{ action: "view", entity: "RefundVoucher", entityId: v.voucher.id, patientId: (await refundHere(tx, s, id)).patientId, detail: { refundId: id, number: v.voucher.number } }] };
     });
   });
 

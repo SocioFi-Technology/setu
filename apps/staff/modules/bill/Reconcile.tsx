@@ -89,7 +89,11 @@ export function BillReconcile() {
                   <div className="t-small">{B("total")} <span className="num">{M.tk(i.invoice.totalPaisa)}</span> · {B("paid")} <span className="num">{M.tk(i.invoice.paidPaisa)}</span></div>
                 </Card>
               </div>
-              {i.status === "requested" ? (
+              {i.status === "requested" && i.pendingRefundId ? (
+                <Callout tone="info" icon="undo-2" data-testid="rec-refund-pending">
+                  {B("rec_refund_pending")} <Button size="sm" variant="ghost" icon="external-link" onClick={() => router.push(`/m/bill/refund?rf=${encodeURIComponent(i.pendingRefundId!)}`)}>{B("appr_open_refund")}</Button>
+                </Callout>
+              ) : i.status === "requested" ? (
                 <>
                   {i.applyBlockers.length > 0 && <Callout tone="warn" icon="circle-alert" data-testid="rec-blockers">{i.applyBlockers.map((b) => B(`rb_${b}`)).join(" · ")}</Callout>}
                   <label className="field t-small">{B("rec_note")}

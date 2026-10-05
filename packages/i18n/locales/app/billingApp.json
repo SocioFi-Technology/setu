@@ -489,5 +489,6 @@
   "ver_rf_not_found": ["এই কোডের কোনো ভাউচার পাওয়া যায়নি", "No voucher found for this code"],
   "v_vat_rate": ["মূসক হার", "VAT rate"],
   "v_net": ["মূল্য", "Net"],
-  "v_format_a5": ["A5", "A5"]
+  "v_format_a5": ["A5", "A5"],
+  "rec_refund_pending": ["রোগীকে ফেরতের রিফান্ড চলছে — সেটিই কেসটির সিদ্ধান্ত দেবে", "A refund to the patient is under way — it decides this case"]
 }

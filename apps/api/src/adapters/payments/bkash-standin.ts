@@ -32,6 +32,8 @@ export class BkashSandboxStandIn {
   /** test hooks (refunds): the next refund hangs this long but is still made at bKash; the next refund is refused with this code */
   slowNextRefundMs = 0;
   failNextRefund: string | null = null;
+  /** test hook: the next refund status answers in a shape we cannot read */
+  brokenNextStatus = false;
   /** calls seen, by path (tests read them) */
   readonly calls: { path: string; body: Record<string, unknown> }[] = [];
   private server: Server | null = null;
@@ -157,6 +159,7 @@ export class BkashSandboxStandIn {
     if (op === "refund/payment/status") {
       if (!p) return this.fail(res, "2002", "Invalid Payment ID");
       if (b.trxId !== p.trxId) return this.fail(res, "3045", "Invalid TrxID", "ERROR_REFUND_TRANSACTION_ID_MISMATCH");
+      if (this.brokenNextStatus) { this.brokenNextStatus = false; return this.json(res, { originalTrxId: p.trxId, refundTransactions: "not a list" }); }
       return this.json(res, { originalTrxId: p.trxId, originalTrxAmount: p.amount, originalTrxCompletedTime: p.createdAt.toISOString(),
         refundTransactions: p.refunds.map((r) => ({ refundTrxId: r.refundTrxId, refundTransactionStatus: "Completed", refundAmount: r.amount, completedTime: r.at.toISOString() })) });
     }

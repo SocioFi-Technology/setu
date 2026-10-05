@@ -161,7 +161,7 @@ export const ApprovalItem = ApprovalView.extend({
   line: z.object({ id: z.string(), nameEn: z.string(), nameBn: z.string() }).nullable(),
   /** refund-approval (ADR 0013): the refund, how it goes back, and whether only the owner may approve it */
   refund: z.object({
-    id: z.string(), kind: z.enum(["refund", "return"]), selfApproved: z.boolean(), category: z.enum(["cancelled-test", "wrong-dispense", "overpayment", "patient-request", "other"]),
+    id: z.string(), status: z.enum(["requested", "approved", "paid", "rejected", "withdrawn"]), kind: z.enum(["refund", "return"]), selfApproved: z.boolean(), category: z.enum(["cancelled-test", "wrong-dispense", "overpayment", "patient-request", "other"]),
     ways: z.array(z.object({ method: PaymentMethod, way: z.enum(["cash", "gateway", "manual"]), amountPaisa: Paisa })),
     lines: z.array(z.object({ nameEn: z.string(), nameBn: z.string(), units: z.number().int().nullable(), totalPaisa: Paisa })),
     needsOwner: z.boolean(), controlled: z.boolean(),
@@ -280,6 +280,8 @@ export const ReconcileItem = z.object({
   /** ADR 0013: payment = money the gateway reported; refund = a refund paid by hand (or card / bank in cash) for the owner
       to check against the statement ("apply" = matches the statement) */
   kind: z.enum(["payment", "refund"]),
+  /** ADR 0013 review: a "refund to patient" opened for this case and not yet decided or paid — it decides the case */
+  pendingRefundId: z.string().nullable().optional(),
   refund: z.object({ id: z.string(), allocationId: z.string(), way: z.enum(["cash", "manual"]), amountPaisa: Paisa, reference: z.string().nullable(), paidBy: Person.nullable(), paidAt: z.string().nullable(), voucherNumber: z.string().nullable() }).nullable(),
   /** live check: "apply" is offered only when this is empty */
   applyBlockers: z.array(z.enum(["other_bill", "payment_not_pending", "not_confirmed_by_provider", "amount_mismatch", "reference_mismatch"])),

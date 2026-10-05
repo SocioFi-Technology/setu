@@ -115,7 +115,9 @@ export function BillApprovals() {
                   </span>
                 </>
               ) : (
-                <span className="t-small">{B("appr_decided", { status: B(`appr_tab_${a.status}`), by: M.name(a.decidedBy), at: M.dateTime(a.decidedAt) })}{a.decisionNote ? ` — ${a.decisionNote}` : ""}</span>
+                <span className="t-small">{B("appr_decided", { status: B(`appr_tab_${a.status}`), by: M.name(a.decidedBy), at: M.dateTime(a.decidedAt) })}{a.decisionNote ? ` — ${a.decisionNote}` : ""}
+                  {/* the refund's own state after the decision — withdrawn is never shown as rejected */}
+                  {a.refund && a.refund.status !== a.status && <> · <span data-refund-status={a.refund.status}><Pill tone={a.refund.status === "paid" ? "ok" : a.refund.status === "withdrawn" ? "off" : "info"}>{B(`rf_st_${a.refund.status}`)}</Pill></span></>}</span>
               )}
             </Card>
           );

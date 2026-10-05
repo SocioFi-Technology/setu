@@ -176,9 +176,10 @@ export class BkashProvider implements PaymentProvider {
       j = await this.api("refund/payment/transaction", { paymentId: req.providerRef, trxId: req.trxId, refundAmount: walletAmount(req.amountPaisa), sku: req.sku.slice(0, 255), reason: req.reason.slice(0, 255) });
     } catch (e) { if (!(e instanceof GatewayError) || e.code === "token") throw e; }
     const e = j ? BkashProvider.errorOf(j) : null;
-    if (j && !e && str(j.refundTransactionStatus) === "Completed" && str(j.refundTrxId)) {
+    const refundTrxId = j ? str(j.refundTrxId) ?? str(j.refundTrxID) : null;
+    if (j && !e && str(j.refundTransactionStatus) === "Completed" && refundTrxId) {
       if (parseWalletAmount(j.refundAmount) !== null && parseWalletAmount(j.refundAmount) !== req.amountPaisa) return { status: "unknown", refundTrxId: null, code: "amount" };
-      return { status: "completed", refundTrxId: str(j.refundTrxId), code: null };
+      return { status: "completed", refundTrxId, code: null };
     }
     if (e && BkashProvider.REFUSED.has(e.code)) return { status: "refused", refundTrxId: null, code: e.code };
     return this.findRefund(req, e?.code ?? "no-answer");
@@ -194,10 +195,14 @@ export class BkashProvider implements PaymentProvider {
     const j = await this.api("refund/payment/status", { paymentId: q.providerRef, trxId: q.trxId });
     const e = BkashProvider.errorOf(j);
     if (e) { if (["2002", "2077", "3045"].includes(e.code)) return null; throw e; }
-    const rows = Array.isArray(j.refundTransactions) ? (j.refundTransactions as Json[]) : [];
-    return rows.flatMap((r) => {
-      const id = str(r.refundTrxId), amt = parseWalletAmount(r.refundAmount);
-      return id && amt !== null ? [{ refundTrxId: id, amountPaisa: amt, completed: str(r.refundTransactionStatus) === "Completed", completedAt: str(r.completedTime) }] : [];
+    // Review: an answer we cannot read is not "nothing was refunded" — it throws (unknown), so nobody is told to pay again.
+    // Field names are read both ways, as for payments (the docs mix them).
+    const list = j.refundTransactions ?? j.refundTransaction;
+    if (!Array.isArray(list)) throw new GatewayError("status-shape", "bKash refund status: no refund list in the answer");
+    return (list as Json[]).map((r) => {
+      const id = str(r.refundTrxId) ?? str(r.refundTrxID), amt = parseWalletAmount(r.refundAmount);
+      if (!id || amt === null) throw new GatewayError("status-shape", "bKash refund status: a refund row we cannot read");
+      return { refundTrxId: id, amountPaisa: amt, completed: str(r.refundTransactionStatus) === "Completed", completedAt: str(r.completedTime) };
     });
   }
 }
