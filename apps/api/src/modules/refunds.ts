@@ -460,8 +460,12 @@ export async function settleClaimed(tenantId: string, organizationId: string, al
     const provider = providerName(job.p);
     let answer: RefundAnswer = { status: "unknown", refundTrxId: null, code: "gateway-off" };
     if (provider?.refundSupport === "gateway") {
-      try { answer = await provider.refund({ providerRef: job.p.providerRef!, trxId: job.p.trxId!, amountPaisa: job.a.amountPaisa, sku: job.a.id, reason: job.a.refund.category, known: job.known }); }
-      catch (e) { answer = { status: "unknown", refundTrxId: null, code: (e as Error).message.slice(0, 60) }; }
+      try {
+        // a retry after an earlier attempt failed or went unanswered: ask Refund Status first — bKash may have made it
+        const earlier = job.a.gatewayFailedAt ? (await provider.refundStatus({ providerRef: job.p.providerRef!, trxId: job.p.trxId! }))?.find((x) => x.completed && x.amountPaisa === job.a.amountPaisa && !job.known.includes(x.refundTrxId)) : undefined;
+        answer = earlier ? { status: "completed", refundTrxId: earlier.refundTrxId, code: null }
+          : await provider.refund({ providerRef: job.p.providerRef!, trxId: job.p.trxId!, amountPaisa: job.a.amountPaisa, sku: job.a.id, reason: job.a.refund.category, known: job.known });
+      } catch (e) { answer = { status: "unknown", refundTrxId: null, code: (e as Error).message.slice(0, 60) }; }
     }
     await applyRefundAnswer(tenantId, organizationId, id, answer, now, userId);
   }

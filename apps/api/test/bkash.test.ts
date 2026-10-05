@@ -401,6 +401,12 @@ describe.runIf(db)("ADR 0013 bKash refund through the routes", () => {
     await sweepRefunds(new Date(Date.now() + 16 * 60_000));
     expect((await get(`/v1/refunds/${r.id}`)).json().allocations[0]).toMatchObject({ status: "open", gatewayFailed: true, failReason: "no refund found at the gateway" });
     expect(sent()).toBe(1);
+    // bKash made it after all (shows up later): a person's retry finds it by Refund Status and sends nothing again
+    standIn.payments.get(b.providerRef)!.refunds.push({ refundTrxId: "RFLATE0001", amount: (b.card.totalPaisa / 100).toFixed(2), sku: r.alloc, reason: "patient-request", at: new Date() });
+    const rev = (await get(`/v1/refunds/${r.id}`)).json().refund.rev;
+    const retry = await post(`/v1/refunds/${r.id}/pay`, { rev, recipient });
+    expect(retry.json().view.allocations[0]).toMatchObject({ status: "paid", refundTrxId: "RFLATE0001" });
+    expect(sent()).toBe(1);
   });
 
   it("no answer from bKash in time: the refund made there is found by Refund Status — paid once", async () => {
