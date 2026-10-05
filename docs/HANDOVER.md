@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); next: see Next)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 session 1 done (05/10/2026); next: see Next)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -785,6 +785,47 @@ ADR 0013 addendum 2; migrations `20261005220000_refunds_decisions_233_235`, `202
   facility's whole bill list per item (A6-era; the E2E clinic has thousands of bills after many runs). Now read once per
   list. The refund items' per-task reads in `refundApprovalItems` are small (by refund id) and left as they are.
 
+## Done (slice B1–B2, session 1 of 2, 05/10/2026) — ER arrival, triage, disposition; admission to a bed (backend) ✅
+ADR 0014. Kamrul's plan decisions (05/10/2026): the five assumptions accepted with three refinements (STAT lab orders
+carry the priority flag and sit at the top of the lab worklist; a provisional quick registration lands on the desk's
+review queue and blocks nothing in the ER; death / refer / discharge close the ER encounter when signed) and three
+confirmations (occupancy enforced in the database, reserve and occupy in one transaction with the admission, the IPD
+bill draft created by the admission and nowhere else).
+- **Domain (`er.ts`, `ipd.ts`, 29 tests):** the five-level triage scale as a **sample pending clinician sign-off**
+  (targets 0 / 10 / 30 / 60 / 120 min, untriaged overdue after 10), overdue = past target and unassigned, board order,
+  the paediatric prompt (issue #24), dispositions and their blockers (death: certificate + family, police when
+  medico-legal), the unknown patient's name, the care-order sample list; bed classes (sample), the bed picker
+  (vacant or reserved for this patient), consents (general, financial, guardian ID required), the admission checklist
+  (deposit shown, never blocking), ADM/yy/nnnn, the **two-leg bed move** (reserve → occupy + vacate / release) and
+  **BED `vacate`** (occupied → cleaning).
+- **Database:** `ErVisit`, `BedAssignment` (the location history; append-only, the session user as "who"), `Admission`,
+  `Invoice.kind ipd`, `Location.bedNote`, encounter tokens unique per class (ER tokens `E-nnn`). Guards: one live
+  assignment per bed, one occupied and one reserved per patient, one open inpatient encounter per patient, one
+  requested admission per patient, one live IPD bill per encounter; `Location.bedState` ⇔ the live assignment at
+  commit (both directions, deferred); an ER encounter has its ErVisit and an inpatient encounter its admitted
+  Admission; an IPD bill only from an admission (deferred). Probed in psql, then through the API tests.
+- **Seed:** the **E2E Lite Hospital** `t_e2e_lite` (plan Hospital Lite, prefix E2L, users 017980000xx: desk 01, ER
+  doctor 02, paediatrician 03, nurse 04, surgeon 05, lab technologist 06, cashier 08, owner 09, admin 10; the
+  walkthrough family as `e2l_`), wards ER (4 bays, class ER), 2A (6, 2A-05 cleaning, 2A-06 blocked "O₂ line
+  repair"), Cabins (3), HDU (3) — the same shape the admin masters make; the same wards for the Meghna Lite demo and
+  an ER + HDU for Green Life; doctor specialities. `pnpm db:reset-e2e` ends live assignments, puts beds back, cancels
+  requested admissions, closes ER / IPD visits and provisional reviews in both E2E tenants in one transaction.
+- **Contracts and routes:** `GET /v1/er/board`, `POST /v1/er/arrivals` (existing patient or `unknown` → provisional
+  record + review task), `/v1/er/encounters/:id/{triage,assign,orders,care-orders,notes,disposition}`,
+  `GET /v1/er/encounters/:id`; `GET /v1/ipd/beds`, `POST /v1/ipd/beds/:id/actions` (block with reason / unblock /
+  mark ready), `GET|POST /v1/ipd/admissions`, `GET /v1/ipd/admissions/:id`, `POST …/cancel`. ER writes are the
+  clinical team's (doctor, nurse); the disposition is signed by a doctor with the PIN (never stored in the replay);
+  the admission desk is receptionist / admin; bed actions nurse / receptionist / admin. OPD lists (queue, vitals,
+  consultation, billing, pharmacy worklists) show OPD visits only; the vitals route never triages an ER visit; the OPD
+  bill route refuses an inpatient (`inpatient_bill`).
+- **Tests:** domain 344, api 294 (er 13, ipd 8), typecheck 13/13. The API suite ran with the dev API stopped.
+- **Session 2 (next):** strings in new `erApp` / `ipdApp` namespaces; screens `er/triage`, `er/orders`, `ipd/admit` in
+  `registry.tsx` (the bed picker shared with the later bed map; `er/unknown` = the quick registration inside the
+  arrival form, merge later); the lab's collection and result screens show the STAT marker; the banner shows this
+  patient (issue #1); `journeys/b1-b2.spec.ts` in the E2E Lite Hospital; `e2e/global-setup.ts` warms the new pages;
+  reviews; hands-on `e2e/walk-er.mjs` as the ER nurse, the ER doctor and the admission desk in the Meghna Lite demo.
+  Open questions 240–248.
+
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
 2. ~~MinIO image cannot be pulled~~ — dev and tests store receipts with `LocalFolderStorage` (A6–A7). Before staging: an S3-compatible adapter behind the same `Storage` interface.
@@ -837,7 +878,7 @@ ADR 0013 addendum 2; migrations `20261005220000_refunds_decisions_233_235`, `202
 5. ~~`/slice A12-A13`~~ — done 03/10/2026 (two sessions); **Journey A complete**. Kamrul to confirm open questions
    135–149.
 6. **Phase 2 pilot clinic, split in four slices (Kamrul, 03/10/2026):** ~~`/slice C1-C4`~~ owner dashboard + shift close
-   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → ~~SMS + bKash~~ (done 04/10/2026, two sessions; questions 205–219). **The four Phase 2 pilot-clinic slices are done.** ~~**Refunds**~~ done 05/10/2026 (two sessions + the 233–235 follow-up; ADR 0013; questions 220–239, 233–235 decided). Then: Kamrul's call — the pre-pilot hardening (known gaps 3, 4, 10, 12: argon2id, PIN tries in Redis, composite keys, clinical sign-offs), real credentials (bKash sandbox, BulkSMSBD), then the pilot; or Phase 3 per `docs/BUILD-PLAN.md`. See open questions "Phase 2 plan".
+   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → ~~SMS + bKash~~ (done 04/10/2026, two sessions; questions 205–219). **The four Phase 2 pilot-clinic slices are done.** ~~**Refunds**~~ done 05/10/2026 (two sessions + the 233–235 follow-up; ADR 0013; questions 220–239, 233–235 decided). **Phase 3 Journey B started:** `/slice B1-B2` session 1 done 05/10/2026 (ADR 0014; questions 240–248); session 2 = the ER and admission screens, journey B1–B2, reviews, hands-on. Then `/slice B3-B4` (bed map, transfer, the ward's view) and on per `docs/CLAUDE-CODE-GUIDE.md`. Or Kamrul's call — the pre-pilot hardening (known gaps 3, 4, 10, 12: argon2id, PIN tries in Redis, composite keys, clinical sign-offs), real credentials (bKash sandbox, BulkSMSBD), then the pilot; or Phase 3 per `docs/BUILD-PLAN.md`. See open questions "Phase 2 plan".
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

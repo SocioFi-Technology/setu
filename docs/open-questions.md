@@ -991,3 +991,42 @@ Commit after each step, push at the end of each session.
 238. **Wrong-dispense returns of an OTC sale** count as medication incidents on the owner's list but tell no doctor
      (there is no prescription). Fine?
 239. **The refund amount boxes** take Latin or Bangla digits; amounts are typed as taka (৳150 or ১৫০).
+
+## Slice B1–B2, session 1 (rules, database, contracts, routes, tests) — 05/10/2026
+### Decided by Kamrul (05/10/2026, the plan)
+- The five assumptions stand: non-lab STAT items are care-order lines in the ER note until an imaging catalogue and
+  the MAR exist; deposit and package wait for the IPD bill slice (the checklist shows deposit without blocking); the
+  unknown patient gets the quick provisional registration, the merge later; the desk (receptionist / admin) completes
+  the admission; the downstream documents of discharge / refer / death are later slices.
+- Refinements: STAT lab orders carry `priority = stat` on the ServiceRequest and sit at the top of the lab worklist
+  with a STAT marker (collection and result screens too); the provisional record lands on the desk's review queue
+  automatically (identity confidence "provisional", shown in the banner) and blocks nothing in the ER; a death
+  disposition closes the ER encounter and locks the note the moment it is signed, refer and discharge record their
+  destination / advice and close the encounter.
+- Confirmed and built: bed occupancy enforced in the database (partial unique indexes, bed state ⇔ live assignment at
+  commit); reserve and occupy in one transaction with the admission; the IPD bill draft created by the admission and
+  nowhere else (deferred trigger).
+
+### Decided in the session (defaults — Kamrul to confirm)
+240. **ER bays are beds** of class `ER` in an ER ward made through the admin masters (seeded for the demos: 4 bays).
+     An arrival may wait without a bay; triage assigns one; a bay-to-bay move inside the ER vacates the old bay into
+     cleaning like any move. Does the ER want bays cleaned between patients, or straight back to vacant?
+241. **The triage scale is a sample** (five levels, targets 0 / 10 / 30 / 60 / 120 minutes, an untriaged arrival
+     overdue after 10) labelled "pending clinician sign-off" on the API and the screens (known gap 12). A clinician
+     names the scale (ESI? Manchester?) and the targets before the pilot.
+242. **The admission request's department** defaults to the consultant's speciality when the ER doctor signs an
+     admit disposition; the desk may change it when completing the admission (the sample department list).
+243. **A nurse may place STAT lab orders and care orders** on the ER floor (protocol orders); only a doctor signs
+     the disposition, and signing assigns the signing doctor when nobody was. Keep, or doctor-only orders?
+244. **An ER visit discharged home is billed like an OPD visit** through the existing bill route (kind `opd`, the
+     consultation fee of the assigned doctor plus the active orders) until an ER billing decision exists; ER visits
+     stay off the OPD queue, vitals, consultation, billing and pharmacy worklists.
+245. **The IPD bill draft is invisible to the pay screens** (`billKindsFor` unchanged) until the IPD running bill
+     slice (B8): nothing can be added to it or paid on it yet; the admission view names it.
+246. **The desk may admit to a different bed than the ER reserved** (same class or another): the reservation is
+     released (reserved → vacant) and the chosen bed taken in the same transaction. Keep?
+247. **Death: the bay is vacated into cleaning when the disposition is signed** (the prototype says "bed released
+     after body handover"); the mortuary / body-release step and the certificate are later slices.
+248. **The provisional record carries no phone and no address**; its review task has no candidate (the desk links it
+     to the real record with the existing match review once the family identifies the patient). Should the ER screen
+     also take a phone when the family gives one?
