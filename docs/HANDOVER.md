@@ -970,8 +970,12 @@ frequency are unchanged (9).
   the units to their batches (`ward-return`, guarded: never more than taken) and the ward stock card lists returns of
   7 days; controlled doses get a linked `dose-error` register line (the original never changes).
 - Decisions recorded (open questions); ADR 0015 amendment 2. Tests: domain 394, api mar 18 / ward 14, b3-b4 5/5.
-- Not yet: there is no ward stock count (counts cover counter / store / fridge), so "shows on the next count" is the
-  7-day returns list on the ward stock card until ward counts exist.
+- **Ward stock counts** (follow-up commit): `ward:<id>` locations on the same STOCK_COUNT rules — the ward nurse counts
+  on the ward board (nursing routes `/v1/nursing/wards/:id/counts`, `/v1/nursing/counts/:id[/lines|/submit]`), the
+  pharmacist or the owner decides on ph/count (same self-approval rule; the admin is not a ward-count approver); each
+  line shows what errored doses put back since the location's last decided count; an approved variance on a controlled
+  drug (any location) writes a `count-adjust` register line. `pnpm db:reset-e2e` also rejects the Lite hospital's open
+  counts.
 
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).

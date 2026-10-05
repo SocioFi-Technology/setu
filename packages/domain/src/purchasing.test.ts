@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GOODS_RECEIPT, PURCHASE_ORDER, STOCK_COUNT, TransitionError, transition } from "./machines.js";
 import {
-  PO_APPROVAL_PAISA_SAMPLE, countDecisionBlockers, countSubmitBlockers, countVariance, grnLineBlockers, grnMoney, grnPostBlockers, poEventAfterReceipt, poSendBlockers,
+  PO_APPROVAL_PAISA_SAMPLE, countDecisionBlockers, isCountApprover, countSubmitBlockers, countVariance, grnLineBlockers, grnMoney, grnPostBlockers, poEventAfterReceipt, poSendBlockers,
   shortExpiry, supplierOwedPaisa,
 } from "./purchasing.js";
 
@@ -90,3 +90,18 @@ describe("stock counts (prototype Count & adjust)", () => {
     expect(countDecisionBlockers({ role: "owner", isCounter: false, decision: "approve", note: "" })).toEqual([]);
   });
 });
+
+describe("ward stock counts (Kamrul, 06/10/2026)", () => {
+  it("a ward count is decided by the pharmacist or the owner; the store keeps the owner / admin", () => {
+    expect(isCountApprover("pharmacist", "ward:w3b")).toBe(true);
+    expect(isCountApprover("owner", "ward:w3b")).toBe(true);
+    expect(isCountApprover("nurse", "ward:w3b")).toBe(false);
+    expect(isCountApprover("admin", "ward:w3b")).toBe(false);
+    expect(isCountApprover("pharmacist", "store")).toBe(false);
+    expect(countDecisionBlockers({ role: "pharmacist", isCounter: false, decision: "approve", note: "", location: "ward:w3b" })).toEqual([]);
+    expect(countDecisionBlockers({ role: "nurse", isCounter: true, decision: "approve", note: "", location: "ward:w3b" })).toEqual(["not_approver", "own_count"]);
+    // the same self-approval rule: the counter decides only as the only approver, with a note
+    expect(countDecisionBlockers({ role: "pharmacist", isCounter: true, decision: "approve", note: "short", onlyApprover: true, location: "ward:w3b" })).toEqual(["note_required"]);
+  });
+});
+

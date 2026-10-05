@@ -349,7 +349,7 @@ export async function decideRefund(tx: Tx, s: SessionData, refundId: string, d: 
   ] };
 }
 /** Active owners / admins of the facility (decision 223: alone, the requester may decide with a note). */
-export async function facilityApprovers(tx: Tx, organizationId: string, roles: ("owner" | "admin")[] = ["owner", "admin"]): Promise<number> {
+export async function facilityApprovers(tx: Tx, organizationId: string, roles: ("owner" | "admin" | "pharmacist")[] = ["owner", "admin"]): Promise<number> {
   const rows = await tx.practitionerRole.findMany({ where: { organizationId, role: { in: roles }, user: { active: true } }, select: { userId: true } });
   return new Set(rows.map((r) => r.userId)).size;
 }

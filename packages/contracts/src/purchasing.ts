@@ -87,9 +87,14 @@ export type GrnLineRequest = z.infer<typeof GrnLineRequest>;
 export const GrnPostRequest = z.object({ rev: z.number().int(), note: Reason.optional() });
 
 /* ── counts ── */
+/** the counter, the store, the fridge, or a ward's stock (`ward:<id>`, counted by the ward nurse) */
+export const CountLocation = z.union([z.enum(["counter", "store", "fridge"]), z.string().regex(/^ward:[A-Za-z0-9_-]+$/)]);
 export const StockCountView = z.object({
-  id: z.string(), location: z.enum(["counter", "store", "fridge"]), status: z.enum(["counting", "submitted", "approved", "rejected"]), rev: z.number().int(),
-  lines: z.array(z.object({ id: z.string(), batch: BatchView, medicine: MedicineRef, systemQty: z.number().int(), countedQty: z.number().int().nullable(), variance: z.number().int().nullable(), reason: z.string().nullable() })),
+  id: z.string(), location: CountLocation, status: z.enum(["counting", "submitted", "approved", "rejected"]), rev: z.number().int(),
+  /** a ward count: the ward's name */ wardName: z.string().nullable(),
+  lines: z.array(z.object({ id: z.string(), batch: BatchView, medicine: MedicineRef, systemQty: z.number().int(), countedQty: z.number().int().nullable(), variance: z.number().int().nullable(), reason: z.string().nullable(),
+    /** a ward count: units put back to this batch from doses marked entered-in-error since the last decided count */
+    returns: z.array(z.object({ qty: z.number().int(), reason: z.string(), by: Person, at: z.string() })) })),
   submitBlockers: z.array(z.enum(["no_lines", "not_counted", "reason_required"])),
   /** Σ |variance| × unit cost — what the adjustment moves, in money */
   varianceValuePaisa: z.number().int(),
@@ -104,7 +109,7 @@ export type StockCountView = z.infer<typeof StockCountView>;
 export const CountCreate = z.object({ location: z.enum(["counter", "store", "fridge"]) });
 export const CountLineRequest = z.object({ rev: z.number().int(), lineId: Id, countedQty: z.number().int().min(0).max(1_000_000), reason: Reason.optional() });
 export type CountLineRequest = z.infer<typeof CountLineRequest>;
-export const CountList = z.object({ items: z.array(z.object({ id: z.string(), location: z.string(), status: z.string(), lineCount: z.number().int(), varianceLines: z.number().int(), createdBy: Person, createdAt: z.string() })) });
+export const CountList = z.object({ items: z.array(z.object({ id: z.string(), location: z.string(), wardName: z.string().nullable(), status: z.string(), lineCount: z.number().int(), varianceLines: z.number().int(), createdBy: Person, createdAt: z.string() })) });
 export type CountList = z.infer<typeof CountList>;
 
 /* ── store → counter ── */

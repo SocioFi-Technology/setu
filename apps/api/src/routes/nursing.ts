@@ -7,12 +7,13 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
   AmendRoundRequest, BedMoveRequest, DoseErrorRequest, DoseRequest, EscalationInformRequest, EscalationResolveRequest, IndentCreate, IndentIssueRequest, NursingNoteRequest, ReasonRequest, SaveRoundRequest, SignRoundRequest,
-  StopOrderRequest, VialOpenRequest, WardVitalsRequest,
+  StopOrderRequest, VialOpenRequest, WardVitalsRequest, CountLineRequest, PoRev, type CountList, type StockCountView,
 } from "@setu/contracts";
 import { authorize } from "@setu/domain";
 import { command, query } from "../command.js";
-import { forbidden } from "../errors.js";
-import { cancelIndent, createIndent, issueIndent, pharmacyIndents, wardIndents, wardStock } from "../modules/indent.js";
+import { err, forbidden } from "../errors.js";
+import { cancelIndent, createIndent, issueIndent, pharmacyIndents, wardHere, wardIndents, wardStock } from "../modules/indent.js";
+import { countList, countView, createCount, setCountLine, submitCount } from "../modules/purchasing.js";
 import { arriveBed, cancelMove, moveBed } from "../modules/ipd.js";
 import { markDoseError, marView, openVial, recordDose, witnesses } from "../modules/mar.js";
 import { amendRound, openRound, roundView, roundWorklist, saveRound, signRound, stopOrder, wardMedicines } from "../modules/rounds.js";
@@ -129,6 +130,34 @@ export async function nursingRoutes(app: FastifyInstance) {
   app.get("/v1/ipd/medicines", async (req) => { /* the nurse's indent picks from the same list */
     requireAny(req, ["ipd", "rounds"], ["nur", "ward"]); const { q } = z.object({ q: z.string().max(60).optional() }).parse(req.query ?? {});
     return query(req, async (tx) => ({ body: await wardMedicines(tx, q ?? ""), audit: [] }));
+  });
+  /* ── ward stock counts (Kamrul, 06/10/2026): the ward nurse counts; the pharmacist or the owner decides on
+     /v1/pharmacy/counts/:id/decision. Same STOCK_COUNT machine and rules as the counter, store and fridge. ── */
+  const wardCount = async (tx: Parameters<Parameters<typeof query>[1]>[0], s: Parameters<Parameters<typeof query>[1]>[1], id: string) => {
+    const c = await tx.stockCount.findFirst({ where: { id, organizationId: s.organizationId } });
+    if (!c || !c.location.startsWith("ward:")) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
+    return c;
+  };
+  app.get("/v1/nursing/wards/:id/counts", async (req): Promise<CountList> => {
+    requireAny(req, ["nur", "ward"]); const { id } = pid.parse(req.params);
+    return query(req, async (tx, s) => { await wardHere(tx, s, id); return { body: await countList(tx, s, undefined, `ward:${id}`), audit: [{ action: "view", entity: "StockCount", detail: { purpose: "list", location: `ward:${id}` } }] }; });
+  });
+  app.post("/v1/nursing/wards/:id/counts", own, async (req, reply): Promise<StockCountView> => {
+    const sess = requireAny(req, ["nur", "ward"]); const { id } = pid.parse(req.params);
+    if (sess.role !== "nurse") throw forbidden("role");
+    return command(req, reply, async (tx, s) => { await wardHere(tx, s, id); const c = await createCount(tx, s, `ward:${id}`, new Date()); return { status: 201, body: await countView(tx, s, c, new Date()), audit: [{ action: "create", entity: "StockCount", entityId: c.id, detail: { location: `ward:${id}` } }] }; });
+  });
+  app.get("/v1/nursing/counts/:id", async (req): Promise<StockCountView> => {
+    requireAny(req, ["nur", "ward"]); const { id } = pid.parse(req.params);
+    return query(req, async (tx, s) => ({ body: await countView(tx, s, await wardCount(tx, s, id), new Date()), audit: [{ action: "view", entity: "StockCount", entityId: id }] }));
+  });
+  app.post("/v1/nursing/counts/:id/lines", own, async (req, reply): Promise<StockCountView> => {
+    requireAny(req, ["nur", "ward"]); const { id } = pid.parse(req.params); const body = CountLineRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { await wardCount(tx, s, id); const c = await setCountLine(tx, s, id, body); return { status: 200, body: await countView(tx, s, c, new Date()), audit: [{ action: "update", entity: "StockCount", entityId: id, detail: { lineId: body.lineId, countedQty: body.countedQty, reason: body.reason ?? null } }] }; });
+  });
+  app.post("/v1/nursing/counts/:id/submit", own, async (req, reply): Promise<StockCountView> => {
+    requireAny(req, ["nur", "ward"]); const { id } = pid.parse(req.params); const { rev } = PoRev.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { await wardCount(tx, s, id); const c = await submitCount(tx, s, id, rev, new Date()); return { status: 200, body: await countView(tx, s, c, new Date()), audit: [{ action: "update", entity: "StockCount", entityId: id, detail: { event: "submit" } }] }; });
   });
   /* ── bed moves ── */
   app.post("/v1/ipd/admissions/:id/transfer", own, async (req, reply) => {

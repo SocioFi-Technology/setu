@@ -165,13 +165,15 @@ const inpatient = await seedInpatient(db, now);
 /* ADR 0009 (pharmacy session 3): stock counts left open by earlier runs are finished as counted = expected and rejected
    by the E2E owner ("e2e reset: test run" — nothing adjusted), so a new count of that location can start; goods
    receipts left in checking are discarded (nothing posted). */
-const openCounts = await db.stockCount.findMany({ where: { tenantId: T, status: { in: ["counting", "submitted"] } } });
+// the Lite hospital's counts too (its ward counts: a leftover open one would block the next run's count of that ward);
+// the Lite owner may decide any location (counter / store / fridge and wards)
+const openCounts = await db.stockCount.findMany({ where: { tenantId: { in: [T, LITE] }, status: { in: ["counting", "submitted"] } } });
 for (const c of openCounts) {
   if (c.status === "counting") {
     for (const l of await db.stockCountLine.findMany({ where: { countId: c.id } })) await db.stockCountLine.update({ where: { id: l.id }, data: { countedQty: l.systemQty, reason: null } });
     await db.stockCount.update({ where: { id: c.id }, data: { status: "submitted", submittedAt: now, statusAt: now, rev: { increment: 1 } } });
   }
-  await db.stockCount.update({ where: { id: c.id }, data: { status: "rejected", decidedById: RECONCILE_BY, decidedAt: now, decisionNote: "e2e reset: test run", statusAt: now, rev: { increment: 1 } } });
+  await db.stockCount.update({ where: { id: c.id }, data: { status: "rejected", decidedById: c.tenantId === LITE ? "u_e2l_owner" : RECONCILE_BY, decidedAt: now, decisionNote: "e2e reset: test run", statusAt: now, rev: { increment: 1 } } });
 }
 const openGrns = await db.goodsReceipt.updateMany({ where: { tenantId: T, status: "checking" }, data: { status: "discarded", statusAt: now } });
 /* ADR 0010: the E2E setup facility goes back into setup so the onboarding journey runs again — details, branches,

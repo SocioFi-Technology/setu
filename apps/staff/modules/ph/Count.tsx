@@ -43,7 +43,7 @@ function Counts() {
             <tbody>
               {list.items.map((c) => (
                 <tr key={c.id} data-count={c.id} style={{ cursor: "pointer" }} tabIndex={0} role="link" onClick={() => router.push(`/m/ph/count?count=${encodeURIComponent(c.id)}`)} onKeyDown={(ev) => { if (ev.key === "Enter") router.push(`/m/ph/count?count=${encodeURIComponent(c.id)}`); }}>
-                  <td>{P(`loc_${c.location}`)}</td><td><Pill tone={C_TONE[c.status] ?? "neu"}>{P(`cs_${c.status}`)}</Pill></td><td className="num">{F.n(c.lineCount)}</td><td className="num">{F.n(c.varianceLines)}</td>
+                  <td>{(c.wardName ?? P(`loc_${c.location}`))}</td><td><Pill tone={C_TONE[c.status] ?? "neu"}>{P(`cs_${c.status}`)}</Pill></td><td className="num">{F.n(c.lineCount)}</td><td className="num">{F.n(c.varianceLines)}</td>
                   <td>{F.name(c.createdBy)}</td><td className="num">{F.dateTime(c.createdAt)}</td>
                 </tr>
               ))}
@@ -85,7 +85,7 @@ function CountView({ id }: { id: string }) {
   return (
     <div data-screen="ph/count" data-count={c.id} data-status={c.status} style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{P("count_of", { loc: P(`loc_${c.location}`) })}</h1>
+        <h1 className="t-h2" style={{ margin: 0 }}>{P("count_of", { loc: (c.wardName ?? P(`loc_${c.location}`)) })}</h1>
         <Pill tone={C_TONE[c.status] ?? "neu"}>{P(`cs_${c.status}`)}</Pill>
         <span className="t-small t-secondary">{F.name(c.createdBy)} · {F.dateTime(c.createdAt)}</span>
         <span style={{ marginLeft: "auto" }} />
@@ -102,7 +102,7 @@ function CountView({ id }: { id: string }) {
               const set = (p: Partial<typeof e>) => setEdit((x) => ({ ...x, [l.id]: { ...(x[l.id] ?? e), ...p } }));
               return (
                 <tr key={l.id} data-batch={l.batch.batchNo} data-variance={l.variance ?? ""}>
-                  <td><MedName m={l.medicine} strong={false} /></td><td className="num">{l.batch.batchNo}</td><td className="num">{F.day(l.batch.expiry)}</td>
+                  <td><MedName m={l.medicine} strong={false} />{l.returns.map((r, i) => <div key={i} className="t-small t-secondary" data-count-return={r.qty}>{P("returns_since", { n: F.n(r.qty), reason: r.reason })}</div>)}</td><td className="num">{l.batch.batchNo}</td><td className="num">{F.day(l.batch.expiry)}</td>
                   <td className="num">{F.n(l.systemQty)}</td>
                   <td className="num">{counting
                     ? <input className="input num" style={{ width: 90 }} inputMode="numeric" aria-label={P("counted")} value={e.qty} onChange={(ev) => set({ qty: ev.target.value })} onBlur={() => save(l.id)} onKeyDown={(ev) => { if (ev.key === "Enter") save(l.id); }} data-testid="count-qty" />

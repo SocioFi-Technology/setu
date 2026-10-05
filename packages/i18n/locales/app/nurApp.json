@@ -1078,5 +1078,53 @@
   "returns_title": [
     "ভুল নথির ডোজ থেকে ফেরত (৭ দিন)",
     "Returned from doses entered in error (7 days)"
+  ],
+  "count_title": [
+    "ওয়ার্ড স্টক গণনা",
+    "Ward stock count"
+  ],
+  "count_start": [
+    "গণনা শুরু",
+    "Start a count"
+  ],
+  "count_submit": [
+    "জমা দিন — ফার্মাসিস্ট বা মালিক সিদ্ধান্ত নেবেন",
+    "Submit — the pharmacist or owner decides"
+  ],
+  "count_expected": [
+    "থাকার কথা {n}",
+    "Expected {n}"
+  ],
+  "count_counted": [
+    "গণনা",
+    "Counted"
+  ],
+  "count_reason": [
+    "পার্থক্যের কারণ (অন্তত ১০ অক্ষর)",
+    "Why it differs (at least 10 characters)"
+  ],
+  "cst_counting": [
+    "গণনা চলছে",
+    "Counting"
+  ],
+  "cst_submitted": [
+    "জমা — সিদ্ধান্তের অপেক্ষায়",
+    "Submitted — awaiting decision"
+  ],
+  "cst_approved": [
+    "অনুমোদিত",
+    "Approved"
+  ],
+  "cst_rejected": [
+    "ফেরত",
+    "Rejected"
+  ],
+  "count_returned": [
+    "ফেরত {n} · {reason}",
+    "Returned {n} · {reason}"
+  ],
+  "count_none": [
+    "কোনো গণনা নেই",
+    "No counts yet"
   ]
 }

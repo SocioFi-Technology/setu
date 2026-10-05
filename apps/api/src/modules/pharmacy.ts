@@ -14,6 +14,7 @@ import type { DeclineRequest, DispenseLine, DispenseQueue, DispenseRequest, Disp
 import type { Tx } from "@setu/db";
 import {
   MEDICINES_SAMPLE, batchState, sameGeneric, dhakaDay, dispenseStatus, doseLabel, fefoPick, nearExpiry, otcCheck, saleClass, substitutionBlockers, type AllergyFact, type Meal,
+  wardMedicine,
 } from "@setu/domain";
 import { storage } from "../adapters/storage.js";
 import type { AuditEntry } from "../command.js";
@@ -37,7 +38,8 @@ const CURRENT = ["final", "amended"] as ("final" | "amended")[];
 const RX_PHOTO_MAX = 3 * 1024 * 1024;
 
 export function medRef(key: string): MedicineRef {
-  const m = MED.get(key);
+  // ward (inpatient-only) medicines are not in the pharmacy list: their names come from the ward catalogue
+  const m = MED.get(key) ?? wardMedicine(key) ?? undefined;
   return { key, brand: m?.brand ?? key, generic: m?.generic ?? "", strength: m?.strength ?? "", form: m?.form ?? "", saleClass: saleClass(key), sample: Boolean(m) };
 }
 const reqRef = (r: Req): MedicineRef => ({ key: r.medicineKey, brand: r.brand, generic: r.generic, strength: r.strength, form: r.form, saleClass: saleClass(r.medicineKey), sample: r.sample });

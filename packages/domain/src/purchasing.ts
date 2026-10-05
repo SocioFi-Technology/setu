@@ -2,9 +2,15 @@
    Purchase, Count & adjust). Money is paisa per tablet / capsule; the thresholds are samples pending Kamrul. */
 import type { Role } from "./access.js";
 import { MAX_PAISA } from "./money.js";
+import { isWardLocation } from "./mar.js";
 
 const APPROVERS: Role[] = ["owner", "admin"];
 export const isStockApprover = (role: Role) => APPROVERS.includes(role);
+/** Kamrul, 06/10/2026: a ward's stock (`ward:<id>`) is counted by the ward nurse and decided by the pharmacist or the
+    owner; the counter, store and fridge keep the owner / admin. Same STOCK_COUNT machine and self-approval rule. */
+const WARD_COUNT_APPROVERS: Role[] = ["pharmacist", "owner"];
+export const isCountApprover = (role: Role, location: string) => (isWardLocation(location) ? WARD_COUNT_APPROVERS : APPROVERS).includes(role);
+export const countApproverRoles = (location: string): Role[] => [...(isWardLocation(location) ? WARD_COUNT_APPROVERS : APPROVERS)];
 
 /** A purchase order above this is sent only with the owner's / admin's approval (sample: ৳50,000). */
 export const PO_APPROVAL_PAISA_SAMPLE = 5_000_000;
@@ -86,9 +92,9 @@ export function countSubmitBlockers(lines: readonly CountLine[]): CountSubmitBlo
 export type CountDecisionBlocker = "not_approver" | "own_count" | "note_required";
 /** Only the owner / admin decides, never on a count they made — unless they are the facility's only approver: then with a
     note, flagged self-approved (Kamrul's one self-approval rule, decisions 234 / 223); a rejection needs a note. */
-export function countDecisionBlockers(x: { role: Role; isCounter: boolean; decision: "approve" | "reject"; note: string; onlyApprover?: boolean }): CountDecisionBlocker[] {
+export function countDecisionBlockers(x: { role: Role; isCounter: boolean; decision: "approve" | "reject"; note: string; onlyApprover?: boolean; location?: string }): CountDecisionBlocker[] {
   const out: CountDecisionBlocker[] = [];
-  if (!isStockApprover(x.role)) out.push("not_approver");
+  if (!isCountApprover(x.role, x.location ?? "store")) out.push("not_approver");
   if (x.isCounter && !x.onlyApprover) out.push("own_count");
   if ((x.decision === "reject" || (x.isCounter && x.onlyApprover)) && x.note.trim().length < 10) out.push("note_required");
   return out;

@@ -6,7 +6,7 @@
    every minute. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Escalation, IndentList, WardBoard, WardBoardBed, WardList, WardStock } from "@setu/contracts";
+import type { CountList, Escalation, IndentList, StockCountView, WardBoard, WardBoardBed, WardList, WardStock } from "@setu/contracts";
 import { format, informBlockers } from "@setu/domain";
 import { Button, Callout, Card, Dialog, Pill, SelectField, TextArea, TextField, useToast } from "@setu/ui";
 import { ApiFailure, ward } from "../../lib/api";
@@ -170,6 +170,7 @@ function StockPanel({ wardId }: { wardId: string }) {
         </div>
       )}
     </Card>
+    <WardCount wardId={wardId} onChanged={load} />
     <Card style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14 }} data-testid="indents">
       <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><b>{N("indent_title")}</b>
         {!adding && <Button size="sm" icon="plus" onClick={() => setAdding(true)} disabled={!s.online} data-testid="indent-new">{N("indent_new")}</Button>}</span>
@@ -228,3 +229,56 @@ function IndentForm({ wardId, onDone }: { wardId: string; onDone: (number: strin
     </div>
   );
 }
+
+/** The ward's stock count (Kamrul, 06/10/2026): the nurse counts every batch on the ward (what an errored dose put back
+    is shown on its line), a difference needs a reason, then submits; the pharmacist or the owner decides on ph/count. */
+function WardCount({ wardId, onChanged }: { wardId: string; onChanged: () => Promise<void> }) {
+  const s = useSession(); const N = useN(); const err = useErr(); const toast = useToast();
+  const [list, setList] = useState<CountList | null>(null); const [c, setC] = useState<StockCountView | null>(null);
+  const [edit, setEdit] = useState<Record<string, { qty: string; reason: string }>>({}); const [busy, setBusy] = useState(false);
+  const key = useRef(crypto.randomUUID());
+  const load = useCallback(async () => {
+    try {
+      const l = await ward.counts(wardId); setList(l);
+      const open = l.items.find((x) => x.status === "counting" || x.status === "submitted") ?? l.items[0];
+      setC(open ? await ward.count(open.id) : null);
+    } catch { setList({ items: [] }); }
+  }, [wardId]);
+  useEffect(() => { void load(); }, [load]);
+  if (!list) return null;
+  const counting = c?.status === "counting" && c.createdBy.id === s.me?.userId;
+  const start = async () => { setBusy(true); try { setC(await ward.startCount(wardId, key.current)); key.current = crypto.randomUUID(); } catch (e) { if (e instanceof ApiFailure) key.current = crypto.randomUUID(); toast(err(e), "triangle-alert"); } finally { setBusy(false); } };
+  const save = async (lineId: string) => {
+    if (!c) return; const e = edit[lineId]; if (!e) return;
+    const n = /^\d+$/.test(format.toEn(e.qty)) ? Number(format.toEn(e.qty)) : null; if (n === null) return;
+    try { setC(await ward.countLine(c.id, { rev: c.rev, lineId, countedQty: n, ...(e.reason.trim() ? { reason: e.reason.trim() } : {}) })); } catch (x) { toast(err(x), "triangle-alert"); await load(); }
+  };
+  const submit = async () => { if (!c) return; setBusy(true); try { setC(await ward.submitCount(c.id, c.rev, key.current)); key.current = crypto.randomUUID(); await onChanged(); } catch (e) { if (e instanceof ApiFailure) key.current = crypto.randomUUID(); toast(err(e), "triangle-alert"); } finally { setBusy(false); } };
+  return (
+    <Card style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14 }} data-testid="ward-count" data-count-status={c?.status ?? ""}>
+      <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+        <b>{N("count_title")}</b>
+        {c && <Pill tone={c.status === "approved" ? "ok" : c.status === "rejected" ? "off" : "pend"}>{N(`cst_${c.status}`)}</Pill>}
+      </span>
+      {(!c || c.status === "approved" || c.status === "rejected") && s.me?.role === "nurse" && <div><Button size="sm" icon="clipboard-list" disabled={busy || !s.online} onClick={() => void start()} data-testid="count-start">{N("count_start")}</Button></div>}
+      {c && (c.status === "counting" || c.status === "submitted") && c.lines.map((l) => {
+        const e = edit[l.id] ?? { qty: l.countedQty === null ? "" : String(l.countedQty), reason: l.reason ?? "" };
+        const set = (p: Partial<typeof e>) => setEdit((x) => ({ ...x, [l.id]: { ...e, ...p } }));
+        return (
+          <div key={l.id} style={{ display: "flex", flexDirection: "column", gap: 4, borderTop: "1px solid var(--border-subtle)", paddingTop: 6 }} data-count-line={l.medicine.key} data-variance={l.variance ?? ""}>
+            <span className="t-small"><b>{l.medicine.brand}</b> · <span className="num">{l.batch.batchNo}</span> · {N("count_expected", { n: l.systemQty })}</span>
+            {l.returns.map((r, i) => <span key={i} className="t-small t-secondary" data-count-return={r.qty}>{N("count_returned", { n: r.qty, reason: r.reason })}</span>)}
+            {counting ? (
+              <div style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: 6 }}>
+                <TextField label={N("count_counted")} value={e.qty} inputMode="numeric" onChange={(ev) => set({ qty: ev.target.value })} onBlur={() => void save(l.id)} data-testid="count-qty" />
+                {l.variance !== null && l.variance !== 0 && <TextField label={N("count_reason")} value={e.reason} onChange={(ev) => set({ reason: ev.target.value })} onBlur={() => void save(l.id)} data-testid="count-reason" />}
+              </div>
+            ) : <span className="t-small num">{N("count_counted")}: {l.countedQty === null ? "—" : s.n(l.countedQty)}{l.reason ? ` · ${l.reason}` : ""}</span>}
+          </div>
+        );
+      })}
+      {counting && <div><Button size="sm" variant="primary" icon="send" disabled={busy || !s.online || (c?.submitBlockers.length ?? 1) > 0} onClick={() => void submit()} data-testid="count-submit">{N("count_submit")}</Button></div>}
+    </Card>
+  );
+}
+

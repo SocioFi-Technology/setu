@@ -231,3 +231,49 @@ describe.runIf(db)("escalation reach: unacknowledged in the app within N minutes
   });
 });
 
+describe.runIf(db)("ward stock counts (Kamrul, 06/10/2026): the nurse counts, the pharmacist or owner decides", () => {
+  it("an errored dose's return shows on the ward count; a controlled variance goes on the register; the nurse cannot decide", async () => {
+    const w = await h.ownWard(1); const a = await h.admit(w);
+    const issue = async (medicineKey: string, qty: number, pin?: string) => {
+      const ind = (await c.post(`/v1/nursing/wards/${a.wardId}/indents`, { lines: [{ medicineKey, qty }] })).json();
+      expect((await c.post(`/v1/pharmacy/indents/${ind.id}/issue`, { lines: [{ lineId: ind.lines[0].id, qty }], ...(pin ? { pin } : {}) }, "pharm")).statusCode).toBe(200);
+    };
+    await issue("ceftriaxone", 3); await issue("morphine", 2, "1234");
+    const r = await h.signRound(a.encounterId, [line("ceftriaxone", { doseText: "1 g IV", times: [], prn: true, prnMaxPer24h: 4 })]);
+    const o = r.activeOrders.find((x: { medicine: { key: string } }) => x.medicine.key === "ceftriaxone");
+    const given = (await c.post(`/v1/nursing/encounters/${a.encounterId}/doses`, { requestId: o.id, scheduledFor: null, outcome: "given", administeredAt: now(), checks: { patient: true, drug: true, dose: true, route: true, time: true }, source: "ward-stock" })).json();
+    const rec = given.orders.find((x: { id: string }) => x.id === o.id).prnRecords[0];
+    expect((await c.post(`/v1/nursing/doses/${rec.id}/entered-in-error`, { reason: "Charted on the wrong line", stockDrawn: "no" })).statusCode).toBe(200);
+    // a ward is not counted through the pharmacy's count (counter / store / fridge only)
+    expect((await c.post("/v1/pharmacy/counts", { location: `ward:${a.wardId}` }, "pharm")).statusCode).toBe(400);
+    expect((await c.post(`/v1/nursing/wards/${a.wardId}/counts`, {}, "surgeon")).statusCode).toBe(403);
+    const started = await c.post(`/v1/nursing/wards/${a.wardId}/counts`, {});
+    expect(started.statusCode, started.body).toBe(201);
+    let v = started.json();
+    expect(v).toMatchObject({ location: `ward:${a.wardId}`, status: "counting", wardName: w, canDecide: false });
+    const cef = v.lines.find((l: { medicine: { key: string } }) => l.medicine.key === "ceftriaxone");
+    expect(cef.systemQty).toBe(3);
+    expect(cef.returns).toEqual([expect.objectContaining({ qty: 1, reason: "Charted on the wrong line" })]);
+    expect((await c.post(`/v1/nursing/wards/${a.wardId}/counts`, {})).statusCode).toBe(409); // one open count per ward
+    const mor = v.lines.find((l: { medicine: { key: string } }) => l.medicine.key === "morphine");
+    v = (await c.post(`/v1/nursing/counts/${v.id}/lines`, { rev: v.rev, lineId: cef.id, countedQty: 3 })).json();
+    v = (await c.post(`/v1/nursing/counts/${v.id}/lines`, { rev: v.rev, lineId: mor.id, countedQty: 1, reason: "One ampoule broken on the trolley" })).json();
+    const sub = await c.post(`/v1/nursing/counts/${v.id}/submit`, { rev: v.rev });
+    expect(sub.statusCode, sub.body).toBe(200);
+    v = sub.json();
+    // the nurse has no pharmacy screen; the admin is not a ward-count approver; the pharmacist decides
+    expect((await c.post(`/v1/pharmacy/counts/${v.id}/decision`, { decision: "approve" })).statusCode).toBe(403);
+    expect((await c.post(`/v1/pharmacy/counts/${v.id}/decision`, { decision: "approve" }, "admin")).statusCode).toBe(403);
+    expect((await c.get(`/v1/pharmacy/counts/${v.id}`, "pharm")).json().canDecide).toBe(true);
+    const ok = await c.post(`/v1/pharmacy/counts/${v.id}/decision`, { decision: "approve" }, "pharm");
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect(ok.json()).toMatchObject({ status: "approved", decidedBy: { id: "u_e2l_pharm" }, selfApproved: false });
+    const reg = await tenant((tx) => tx.controlledDrugRegister.findFirst({ where: { kind: "count-adjust", location: `ward:${a.wardId}` } }));
+    expect(reg).toMatchObject({ medicineKey: "morphine", qty: -1, byId: "u_e2l_pharm", balanceAfter: 1 });
+    // the next count no longer lists the return (it was on the decided count)
+    const next = (await c.post(`/v1/nursing/wards/${a.wardId}/counts`, {})).json();
+    expect(next.lines.find((l: { medicine: { key: string } }) => l.medicine.key === "ceftriaxone").returns).toEqual([]);
+    expect((await c.get(`/v1/nursing/wards/${a.wardId}/counts`)).json().items[0]).toMatchObject({ wardName: w, status: "counting" });
+  });
+});
+

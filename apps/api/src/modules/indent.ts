@@ -17,7 +17,7 @@ import { devHash } from "./users.js";
 
 type Ind = NonNullable<Awaited<ReturnType<Tx["wardIndent"]["findFirst"]>>> & { lines: NonNullable<Awaited<ReturnType<Tx["wardIndentLine"]["findFirst"]>>>[] };
 const wire = (st: string) => st.replace(/_/g, "-") as IndentView["status"];
-async function wardHere(tx: Tx, s: SessionData, wardId: string) {
+export async function wardHere(tx: Tx, s: SessionData, wardId: string) {
   const w = await tx.location.findFirst({ where: { id: wardId, organizationId: s.organizationId, kind: "ward" } });
   if (!w) throw notFound();
   return w;

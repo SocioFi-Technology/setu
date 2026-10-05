@@ -17,7 +17,7 @@ import type {
 import type { Tx } from "@setu/db";
 import {
   APPROVAL, GOODS_RECEIPT, PO_APPROVAL_PAISA_SAMPLE, PURCHASE_ORDER, STOCK_COUNT, MEDICINES_SAMPLE, batchState, countDecisionBlockers, countSubmitBlockers, dhakaDay,
-  grnLineBlockers, grnMoney, grnPostBlockers, isStockApprover, poEventAfterReceipt, poSendBlockers, poTotalPaisa, priceVariance, shortExpiry, supplierOwedPaisa, transition, withinMoneyRange,
+  grnLineBlockers, grnMoney, grnPostBlockers, isStockApprover, isCountApprover, countApproverRoles, isWardLocation, poEventAfterReceipt, poSendBlockers, poTotalPaisa, priceVariance, shortExpiry, supplierOwedPaisa, transition, withinMoneyRange,
   type GrnLine, type PurchaseOrderState, type Role, type SupplierEntryKind,
 } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
@@ -383,11 +383,20 @@ export async function countView(tx: Tx, s: SessionData, c: Count, now: Date): Pr
   const batches = new Map((await tx.stockBatch.findMany({ where: { id: { in: lines.map((l) => l.batchId) } } })).map((b) => [b.id, b]));
   const who = await people(tx, [c.createdById, c.decidedById]);
   const exp = await expectedQty(tx, c, lines, c.decidedAt ?? now);
+  // a ward count shows what errored doses put back to each batch since this location's last decided count
+  const rets = new Map<string, { qty: number; reason: string | null; byId: string; at: Date }[]>();
+  if (isWardLocation(c.location)) {
+    const prev = await tx.stockCount.findFirst({ where: { organizationId: s.organizationId, location: c.location, status: { in: ["approved", "rejected"] }, decidedAt: { lt: c.createdAt } }, orderBy: { decidedAt: "desc" }, select: { decidedAt: true } });
+    for (const m of await tx.stockMove.findMany({ where: { batchId: { in: lines.map((l) => l.batchId) }, kind: "ward-return", ...(prev?.decidedAt ? { at: { gt: prev.decidedAt } } : {}) }, orderBy: { at: "asc" } }))
+      rets.set(m.batchId, [...(rets.get(m.batchId) ?? []), m]);
+  }
+  const rwho = await people(tx, [...rets.values()].flat().map((r) => r.byId));
   const rows = lines.map((l) => ({ l, b: batches.get(l.batchId)! })).sort((a, b) => a.b.medicineKey.localeCompare(b.b.medicineKey) || a.b.expiry.localeCompare(b.b.expiry));
   return {
-    id: c.id, location: c.location as "counter" | "store" | "fridge", status: c.status, rev: c.rev,
+    id: c.id, location: c.location, status: c.status, rev: c.rev, wardName: await wardNameOf(tx, s, c.location),
     lines: rows.map(({ l, b }) => ({
       id: l.id, medicine: medRef(b.medicineKey), systemQty: exp.get(l.id)!, countedQty: l.countedQty, variance: l.countedQty === null ? null : l.countedQty - exp.get(l.id)!, reason: l.reason,
+      returns: (rets.get(l.batchId) ?? []).map((r) => ({ qty: r.qty, reason: r.reason ?? "", by: rwho(r.byId), at: r.at.toISOString() })),
       batch: { id: b.id, batchNo: b.batchNo, expiry: b.expiry, location: b.location, qtyOnHand: b.qtyOnHand, mrpPaisa: b.mrpPaisa, vatRateBp: b.vatRateBp,
         state: batchState({ id: b.id, expiry: b.expiry, qty: b.qtyOnHand, location: b.location }, today), nearExpiry: false, sample: b.sample },
     })),
@@ -396,16 +405,17 @@ export async function countView(tx: Tx, s: SessionData, c: Count, now: Date): Pr
     createdBy: who(c.createdById), createdAt: c.createdAt.toISOString(), submittedAt: iso(c.submittedAt),
     decidedBy: c.decidedById ? who(c.decidedById) : null, decidedAt: iso(c.decidedAt), decisionNote: c.decisionNote, selfApproved: c.selfApproved,
     // decision 234: the counter decides their own count only as the facility's only approver (with a note — the screen asks)
-    canDecide: c.status === "submitted" && isStockApprover(s.role as Role) && (c.createdById !== s.userId || (await facilityApprovers(tx, s.organizationId)) === 1),
+    canDecide: c.status === "submitted" && isCountApprover(s.role as Role, c.location) && (c.createdById !== s.userId || (await facilityApprovers(tx, s.organizationId, countApproverRoles(c.location) as ("owner" | "admin" | "pharmacist")[])) === 1),
   };
 }
-export async function countList(tx: Tx, s: SessionData, status?: "counting" | "submitted" | "approved" | "rejected"): Promise<CountList> {
-  const rows = await tx.stockCount.findMany({ where: { organizationId: s.organizationId, ...(status ? { status } : {}) }, orderBy: { createdAt: "desc" }, take: 50, include: { lines: { select: { systemQty: true, countedQty: true } } } });
+export async function countList(tx: Tx, s: SessionData, status?: "counting" | "submitted" | "approved" | "rejected", location?: string): Promise<CountList> {
+  const rows = await tx.stockCount.findMany({ where: { organizationId: s.organizationId, ...(status ? { status } : {}), ...(location ? { location } : {}) }, orderBy: { createdAt: "desc" }, take: 50, include: { lines: { select: { systemQty: true, countedQty: true } } } });
   const who = await people(tx, rows.map((r) => r.createdById));
-  return { items: rows.map((r) => ({ id: r.id, location: r.location, status: r.status, lineCount: r.lines.length, varianceLines: r.lines.filter((l) => l.countedQty !== null && l.countedQty !== l.systemQty).length, createdBy: who(r.createdById), createdAt: r.createdAt.toISOString() })) };
+  const wards = new Map((await tx.location.findMany({ where: { organizationId: s.organizationId, kind: "ward" }, select: { id: true, name: true } })).map((w) => [`ward:${w.id}`, w.name]));
+  return { items: rows.map((r) => ({ id: r.id, location: r.location, wardName: wards.get(r.location) ?? null, status: r.status, lineCount: r.lines.length, varianceLines: r.lines.filter((l) => l.countedQty !== null && l.countedQty !== l.systemQty).length, createdBy: who(r.createdById), createdAt: r.createdAt.toISOString() })) };
 }
 /** A count of every batch with stock at one location; the system quantities are fixed now. One open count per location. */
-export async function createCount(tx: Tx, s: SessionData, location: "counter" | "store" | "fridge", now: Date): Promise<Count> {
+export async function createCount(tx: Tx, s: SessionData, location: string, now: Date): Promise<Count> {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(7011, hashtext(${`${s.organizationId}:${location}`}))`;
   if (await tx.stockCount.findFirst({ where: { organizationId: s.organizationId, location, status: { in: ["counting", "submitted"] } } }))
     throw err(409, "count_open", "এই জায়গার একটি গণনা আগেই চলছে", "A count of this location is already open");
@@ -446,8 +456,8 @@ export async function decideCount(tx: Tx, s: SessionData, id: string, req: Appro
   const note = req.note?.trim() ?? "";
   // decision 234 (= 223): the person who counted decides only as the facility's only approver, with a note, flagged
   const self = c.createdById === s.userId;
-  const onlyApprover = self && (await facilityApprovers(tx, s.organizationId)) === 1;
-  const b = countDecisionBlockers({ role: s.role as Role, isCounter: self, decision: req.decision, note, onlyApprover });
+  const onlyApprover = self && (await facilityApprovers(tx, s.organizationId, countApproverRoles(c.location) as ("owner" | "admin" | "pharmacist")[])) === 1;
+  const b = countDecisionBlockers({ role: s.role as Role, isCounter: self, decision: req.decision, note, onlyApprover, location: c.location });
   if (b.includes("not_approver")) throw notApprover();
   if (b.includes("own_count")) throw err(403, "own_count", "নিজের গণনা নিজে অনুমোদন করা যায় না", "You cannot decide a count you made", { reason: "role", canRequest: false });
   if (b.includes("note_required")) throw err(400, "note_required", self ? "আপনিই এখানকার একমাত্র অনুমোদনকারী — নিজের গণনায় সিদ্ধান্তের কারণ লিখুন (অন্তত ১০ অক্ষর)" : "কারণ লিখুন (অন্তত ১০ অক্ষর)", self ? "You are the only approver here — write why you decide your own count (at least 10 characters)" : "Write why (at least 10 characters)", { field: "note" });
@@ -463,7 +473,10 @@ export async function decideCount(tx: Tx, s: SessionData, id: string, req: Appro
       if (delta === 0) continue;
       const batch = (await tx.stockBatch.findFirst({ where: { id: l.batchId } }))!;
       if (batch.qtyOnHand + delta < 0) throw err(409, "stock_changed", "গণনার পর স্টক বদলেছে — আবার গণনা করুন", "Stock changed since the count — count again", { field: l.id });
-      await tx.stockMove.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, batchId: l.batchId, kind: "adjust", qty: delta, refType: "count", refId: c.id, reason: `count: ${l.reason ?? ""}`.slice(0, 500), byId: s.userId, at: now } });
+      const mv = await tx.stockMove.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, batchId: l.batchId, kind: "adjust", qty: delta, refType: "count", refId: c.id, reason: `count: ${l.reason ?? ""}`.slice(0, 500), byId: s.userId, at: now } });
+      // a controlled drug's variance goes on its register (any location)
+      if ((await tx.medicine.findFirst({ where: { key: batch.medicineKey }, select: { controlled: true } }))?.controlled)
+        await tx.controlledDrugRegister.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, medicineKey: batch.medicineKey, kind: "count-adjust", stockMoveId: mv.id, batchId: batch.id, qty: delta, location: batch.location, balanceAfter: batch.qtyOnHand + delta, byId: s.userId, note: `count ${c.id}: ${l.reason ?? ""}`.slice(0, 500), at: now } });
       moves.push({ batchId: l.batchId, qty: delta });
     }
   }
@@ -546,3 +559,9 @@ export async function pharmacyApprovals(tx: Tx, s: SessionData, status: ApprStat
     })),
   };
 }
+
+async function wardNameOf(tx: Tx, s: SessionData, location: string): Promise<string | null> {
+  if (!isWardLocation(location)) return null;
+  return (await tx.location.findFirst({ where: { id: location.slice(5), organizationId: s.organizationId, kind: "ward" }, select: { name: true } }))?.name ?? null;
+}
+
