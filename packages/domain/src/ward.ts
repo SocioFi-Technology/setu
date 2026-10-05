@@ -59,3 +59,15 @@ export function informBlockers(x: { spokeTo: string; instruction: string }): ("s
   if (x.instruction.trim().length < ESCALATION_LOG_MIN) out.push("instruction");
   return out;
 }
+
+/* ───── the ward round note (SOAP; walkthrough B7) ───── */
+export interface RoundNoteSections { s: string; o: string; a: string; p: string }
+export const emptyRoundNote = (): RoundNoteSections => ({ s: "", o: "", a: "", p: "" });
+export const ROUND_FIELD_MAX = 4000;
+/** A round note is signed with at least the assessment or the plan written. */
+export const roundNoteBlockers = (x: RoundNoteSections): ("assessment_or_plan" | "too_long")[] => {
+  const out: ("assessment_or_plan" | "too_long")[] = [];
+  if (!x.a.trim() && !x.p.trim()) out.push("assessment_or_plan");
+  if ([x.s, x.o, x.a, x.p].some((v) => v.length > ROUND_FIELD_MAX)) out.push("too_long");
+  return out;
+};

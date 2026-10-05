@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { ALLERGY, APPROVAL, ENCOUNTER, transition, type EncounterState, SHIFT } from "@setu/domain";
 import { owner as db } from "./owner.ts";
 import { SEED_BED_STATES } from "./wards.ts";
+import { seedInpatient } from "./inpatient.ts";
 
 const T = "t_e2e";
 // Runs as the database owner (RLS does not apply): only against a local database unless explicitly allowed (security review A5).
@@ -144,16 +145,23 @@ for (const sh of unfinished) {
 }
 /* ADR 0009: stock used up by earlier automated runs is topped back up to each sample batch's opening quantity with an
    `adjust` move ("e2e reset: test run") — the ledger stays append-only and the batch still equals the sum of its moves. */
-const opening = await db.stockMove.groupBy({ by: ["batchId"], where: { tenantId: T, refType: "seed" }, _sum: { qty: true } });
-const batches = new Map((await db.stockBatch.findMany({ where: { tenantId: T, sample: true } })).map((b) => [b.id, b]));
+// both E2E tenants (ADR 0015: the Lite hospital's store and Ward 3B stock too); each as its own E2E admin
 let toppedUp = 0;
-for (const o of opening) {
-  const b = batches.get(o.batchId);
-  const want = o._sum.qty ?? 0;
-  if (!b || b.qtyOnHand === want) continue;
-  await db.stockMove.create({ data: { tenantId: T, organizationId: b.organizationId, batchId: b.id, kind: "adjust", qty: want - b.qtyOnHand, refType: "e2e-reset", reason: "e2e reset: test run", byId: RESET_BY } });
-  toppedUp++;
+for (const [tid, by] of [[T, RESET_BY], [LITE, "u_e2l_admin"]] as const) {
+  const opening = await db.stockMove.groupBy({ by: ["batchId"], where: { tenantId: tid, refType: "seed" }, _sum: { qty: true } });
+  const batches = new Map((await db.stockBatch.findMany({ where: { tenantId: tid, sample: true } })).map((b) => [b.id, b]));
+  for (const o of opening) {
+    const b = batches.get(o.batchId);
+    const want = o._sum.qty ?? 0;
+    if (!b || b.qtyOnHand === want) continue;
+    await db.stockMove.create({ data: { tenantId: tid, organizationId: b.organizationId, batchId: b.id, kind: "adjust", qty: want - b.qtyOnHand, refType: "e2e-reset", reason: "e2e reset: test run", byId: by } });
+    toppedUp++;
+  }
 }
+/* ADR 0015: ward indents left open are cancelled "e2e reset: test run" (INDENT cancel); the walkthrough inpatient is
+   admitted afresh (the previous admission's visit was closed above), so every run starts from a clean MAR. */
+const openIndents = await db.wardIndent.updateMany({ where: { tenantId: { in: [T, LITE] }, status: { in: ["requested", "partially_issued"] } }, data: { status: "cancelled", cancelledById: "u_e2l_admin", cancelReason: "e2e reset: test run", statusAt: now } });
+const inpatient = await seedInpatient(db, now);
 /* ADR 0009 (pharmacy session 3): stock counts left open by earlier runs are finished as counted = expected and rejected
    by the E2E owner ("e2e reset: test run" — nothing adjusted), so a new count of that location can start; goods
    receipts left in checking are discarded (nothing posted). */
@@ -184,4 +192,4 @@ const clinicAudit = audit.filter((a) => (a.tenantId ?? T) === T), liteAudit = au
 if (clinicAudit.length) await db.auditEvent.createMany({ data: clinicAudit.map(({ tenantId: _t, ...a }) => ({ tenantId: T, userId: RESET_BY, role: "admin" as const, at: now, ...a, detail: { route: "pnpm db:reset-e2e", ...a.detail } })) });
 if (liteAudit.length) await db.auditEvent.createMany({ data: liteAudit.map(({ tenantId: _t, ...a }) => ({ tenantId: LITE, userId: "u_e2l_admin", role: "admin" as const, at: now, ...a, detail: { route: "pnpm db:reset-e2e", ...a.detail } })) });
 await db.$disconnect();
-console.log(`E2E Test Clinic reset: walkthrough family restored, ${n.count} open review(s) closed, ${undone.length} undone override(s) marked reviewed, ${extra.length} test allerg(ies) marked entered-in-error, ${restored} seeded allerg(ies) recorded again, ${open.length} leftover visit(s) closed, ${liveBeds.length} bed assignment(s) ended and ${bedsReset} bed(s) put back, ${requestedAdmissions.length} admission request(s) cancelled, ${provisionalReviews.length} provisional review(s) closed, ${cases.length} reconciliation case(s) resolved "test run", ${refundsClosed} open refund(s) closed and ${refundChecks.count} refund check(s) resolved "test run", ${unfinished.length} unfinished shift(s) approved "test run", ${toppedUp} stock batch(es) topped up, ${openCounts.length} open count(s) rejected, ${openGrns.count} goods receipt(s) discarded, E2E New Clinic back in setup (${testUsers.length} test user(s) switched off)`);
+console.log(`E2E Test Clinic reset: walkthrough family restored, ${n.count} open review(s) closed, ${undone.length} undone override(s) marked reviewed, ${extra.length} test allerg(ies) marked entered-in-error, ${restored} seeded allerg(ies) recorded again, ${open.length} leftover visit(s) closed, ${liveBeds.length} bed assignment(s) ended and ${bedsReset} bed(s) put back, ${requestedAdmissions.length} admission request(s) cancelled, ${provisionalReviews.length} provisional review(s) closed, ${cases.length} reconciliation case(s) resolved "test run", ${refundsClosed} open refund(s) closed and ${refundChecks.count} refund check(s) resolved "test run", ${unfinished.length} unfinished shift(s) approved "test run", ${toppedUp} stock batch(es) topped up, ${openIndents.count} ward indent(s) cancelled, inpatient re-admitted (${inpatient.admissionNumber}), ${openCounts.length} open count(s) rejected, ${openGrns.count} goods receipt(s) discarded, E2E New Clinic back in setup (${testUsers.length} test user(s) switched off)`);

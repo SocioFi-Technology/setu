@@ -687,6 +687,14 @@ model Medicine {
   /// true for every row until a licensed database replaces the sample list (decision D3)
   sample       Boolean    @default(true)
   active       Boolean    @default(true)
+  /// ADR 0015 (sample, pending clinician sign-off): ward use — hidden from OPD search, high-alert (witness), controlled
+  /// (register), multi-dose vial (consumed when opened), the unit the pharmacy issues, the routes it may be given by
+  inpatientOnly Boolean   @default(false)
+  highAlert     Boolean   @default(false)
+  controlled    Boolean   @default(false)
+  multiDose     Boolean   @default(false)
+  issueUnit     String    @default("tablet")
+  routes        String[]  @default(["oral"])
 
   @@unique([tenantId, key])
 }
@@ -799,9 +807,13 @@ model Composition {
   conditions              Condition[]
   medications             MedicationRequest[]
   orders                  ServiceRequest[]
+  /// ADR 0015: a ward round note (kind progress-note) is one thread of versions: the id of its v1. Version uniqueness
+  /// and the one-current rule are per thread for progress notes, per (encounter, kind) for the others (partial unique
+  /// indexes in the migration).
+  threadId                String?
 
-  @@unique([tenantId, encounterId, kind, version])
   @@index([tenantId, patientId, status])
+  @@index([tenantId, encounterId, kind])
 }
 
 enum ConditionVerification {
@@ -859,9 +871,35 @@ model MedicationRequest {
   /// interaction rule ids the doctor acknowledged on this line
   acks          String[]
   createdAt     DateTime    @default(now())
+  /// ── ADR 0015: an inpatient order on a ward round note (kind inpatient); opd lines leave these at their defaults ──
+  kind          String      @default("opd")
+  route         String?
+  doseText      String?
+  /// issue units one dose takes from ward stock; null for a multi-dose vial
+  doseQty       Int?
+  /// Dhaka times of day (HH:MM); empty for PRN
+  times         String[]    @default([])
+  prn           Boolean     @default(false)
+  prnMaxPer24h  Int?
+  /// set at signing: when the order started, and its regimen (the first line of a chain of unchanged continuations)
+  startAt       DateTime?
+  regimenId     String?
+  continuesId   String?
+  orderStatus   MedicationOrderStatus @default(active)
+  stoppedAt     DateTime?
+  stoppedById   String?
+  stopReason    String?
 
   @@index([tenantId, compositionId])
   @@index([tenantId, patientId])
+  @@index([tenantId, encounterId, kind])
+}
+
+enum MedicationOrderStatus {
+  active
+  stopped
+  superseded
+  completed
 }
 
 /// ORDER machine states (@setu/domain machines.ts).
@@ -2060,4 +2098,210 @@ model StockResale {
   at             DateTime @default(now())
 
   @@index([tenantId, fromBatchId])
+}
+
+/* ───── ADR 0015: the ward ───── */
+enum MarDoseStatus {
+  given
+  held
+  refused
+  missed
+  entered_in_error @map("entered-in-error")
+}
+
+/// One recorded dose against an active inpatient order (append-only; a wrong one is marked entered-in-error).
+model MedicationAdministration {
+  id               String        @id @default(cuid())
+  tenantId         String
+  organizationId   String
+  encounterId      String
+  patientId        String
+  requestId        String
+  regimenId        String
+  medicineKey      String
+  /// the slot (a Dhaka time of day on a day); null for PRN
+  scheduledFor     DateTime?
+  status           MarDoseStatus
+  administeredAt   DateTime
+  recordedAt       DateTime      @default(now())
+  administeredById String
+  preparedById     String
+  checkPatient     Boolean       @default(false)
+  checkDrug        Boolean       @default(false)
+  checkDose        Boolean       @default(false)
+  checkRoute       Boolean       @default(false)
+  checkTime        Boolean       @default(false)
+  /// on-time | early | late | prn
+  timing           String
+  reason           String?
+  route            String
+  doseText         String
+  doseQty          Int?
+  /// ward-stock | patient-supplied
+  source           String
+  stockRef         String?
+  highAlert        Boolean       @default(false)
+  controlled       Boolean       @default(false)
+  witnessedById    String?
+  witnessedAt      DateTime?
+  errorReason      String?
+  errorById        String?
+  errorAt          DateTime?
+
+  @@index([tenantId, encounterId])
+  @@index([tenantId, regimenId])
+}
+
+/// A multi-dose vial opened for a patient's order (consumed from ward stock when opened; opened-at shown on the MAR).
+model MultiDoseVial {
+  id             String   @id @default(cuid())
+  tenantId       String
+  organizationId String
+  encounterId    String
+  patientId      String
+  requestId      String
+  regimenId      String
+  medicineKey    String
+  source         String
+  stockRef       String?
+  openedAt       DateTime
+  openedById     String
+  recordedAt     DateTime @default(now())
+
+  @@index([tenantId, encounterId])
+}
+
+enum EscalationStatus {
+  raised
+  doctor_informed @map("doctor-informed")
+  resolved
+}
+
+/// NEWS2 escalation (ESCALATION): raised at or above the threshold or on a red score; one open per encounter.
+model EscalationEvent {
+  id             String           @id @default(cuid())
+  tenantId       String
+  organizationId String
+  encounterId    String
+  patientId      String
+  status         EscalationStatus
+  score          Int
+  peakScore      Int
+  red            Boolean
+  observationId  String
+  raisedAt       DateTime
+  raisedById     String
+  informedAt     DateTime?
+  informedById   String?
+  spokeTo        String?
+  instruction    String?
+  resolvedAt     DateTime?
+  resolvedById   String?
+  resolveNote    String?
+
+  @@index([tenantId, encounterId])
+}
+
+enum NursingNoteStatus {
+  active
+  entered_in_error @map("entered-in-error")
+}
+
+/// Append-only nursing note, attributed to the signed-in nurse (no PIN: it works offline).
+model NursingNote {
+  id             String            @id @default(cuid())
+  tenantId       String
+  organizationId String
+  encounterId    String
+  patientId      String
+  text           String
+  writtenById    String
+  writtenAt      DateTime          @default(now())
+  /// device time (offline notes keep their real time)
+  effectiveAt    DateTime
+  status         NursingNoteStatus @default(active)
+  errorReason    String?
+  errorById      String?
+  errorAt        DateTime?
+
+  @@index([tenantId, encounterId])
+}
+
+enum IndentStatus {
+  requested
+  partially_issued @map("partially-issued")
+  issued
+  cancelled
+}
+
+model WardIndent {
+  id             String           @id @default(cuid())
+  tenantId       String
+  organizationId String
+  wardId         String
+  number         String
+  status         IndentStatus     @default(requested)
+  note           String?
+  requestedById  String
+  requestedAt    DateTime         @default(now())
+  statusAt       DateTime         @default(now())
+  cancelledById  String?
+  cancelReason   String?
+  lines          WardIndentLine[]
+
+  @@unique([tenantId, organizationId, number])
+  @@index([tenantId, organizationId, status])
+}
+
+model WardIndentLine {
+  id           String     @id @default(cuid())
+  tenantId     String
+  indentId     String
+  indent       WardIndent @relation(fields: [indentId], references: [id])
+  position     Int
+  medicineKey  String
+  qtyRequested Int
+  qtyIssued    Int        @default(0)
+
+  @@index([tenantId, indentId])
+}
+
+/// One issue of an indent line from one store batch to the ward (the two-leg transfer's reference).
+model WardIndentIssue {
+  id          String   @id @default(cuid())
+  tenantId    String
+  indentId    String
+  lineId      String
+  medicineKey String
+  qty         Int
+  fromBatchId String
+  toBatchId   String
+  byId        String
+  at          DateTime @default(now())
+
+  @@index([tenantId, indentId])
+}
+
+/// Controlled-drug register: one line per controlled issue to a ward, per dose given and per vial opened.
+model ControlledDrugRegister {
+  id               String   @id @default(cuid())
+  tenantId         String
+  organizationId   String
+  medicineKey      String
+  /// issue | administer | vial-open
+  kind             String
+  stockMoveId      String?  @unique
+  batchId          String?
+  qty              Int
+  location         String
+  balanceAfter     Int
+  encounterId      String?
+  patientId        String?
+  administrationId String?
+  indentId         String?
+  byId             String
+  witnessId        String?
+  at               DateTime @default(now())
+
+  @@index([tenantId, organizationId, medicineKey])
 }

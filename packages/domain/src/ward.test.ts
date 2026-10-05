@@ -48,3 +48,10 @@ describe("escalation log (walkthrough B6: 'spoke to' and the instruction are req
   });
   it("a nursing note is 3–4000 characters", () => { expect(noteOk("ok")).toBe(false); expect(noteOk("Patient settled, eating well")).toBe(true); });
 });
+describe("the ward round note (walkthrough B7)", async () => {
+  const { emptyRoundNote, roundNoteBlockers } = await import("./ward.js");
+  it("is signed with at least the assessment or the plan", () => {
+    expect(roundNoteBlockers(emptyRoundNote())).toEqual(["assessment_or_plan"]);
+    expect(roundNoteBlockers({ ...emptyRoundNote(), p: "Continue IV antibiotics" })).toEqual([]);
+  });
+});

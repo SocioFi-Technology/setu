@@ -1,9 +1,10 @@
 /* Demo tenant used by dev, e2e and the journeys: Green Life Clinic, Mirpur (the prototype's sample facility).
    Sample people match the walkthrough so Playwright specs read like the journey text. */
 import { createHash } from "node:crypto";
-import { ANALYTES_SAMPLE, ICD11_SAMPLE, MEDICINES_SAMPLE, MRP_SAMPLE, RANGES_SAMPLE, TESTS_SAMPLE, emptySections, labFlag, patientAgeYears, priceListSample, rangeFor, rxQuantity } from "@setu/domain";
+import { ANALYTES_SAMPLE, ICD11_SAMPLE, INPATIENT_MEDICINES_SAMPLE, MEDICINES_SAMPLE, MRP_SAMPLE, wardMedicine, wardStockLocation, RANGES_SAMPLE, TESTS_SAMPLE, emptySections, labFlag, patientAgeYears, priceListSample, rangeFor, rxQuantity } from "@setu/domain";
 import { owner as prisma } from "./owner.ts";
-import { SEED_BED_STATES, SEED_WARDS } from "./wards.ts";
+import { SEED_BED_STATES, SEED_WARDS, SEED_WARD_STOCK } from "./wards.ts";
+import { seedInpatient } from "./inpatient.ts";
 
 const hash = (s: string) => createHash("sha256").update("dev-only:" + s).digest("hex"); // replaced by argon2 in the auth slice
 /** ADR 0010: the demo facilities were set up before go-live existed — live, A5 formats, every payment method. */
@@ -16,8 +17,16 @@ async function seedCatalogues(tenantId: string) {
     await prisma.icd11Code.upsert({ where: { tenantId_code: { tenantId, code: c.code } }, update: data, create: { tenantId, code: c.code, ...data } });
   }
   for (const m of MEDICINES_SAMPLE) {
-    const data = { brand: m.brand, brandBn: m.brandBn, generic: m.generic, strength: m.strength, form: m.form, manufacturer: m.manufacturer, ingredients: m.ingredients, classes: m.classes, defaultDose: m.defaults.dose, defaultMeal: m.defaults.meal, defaultDays: m.defaults.days, sample: true };
+    const w = wardMedicine(m.id)!; // ADR 0015: the ward flags (sample)
+    const data = { brand: m.brand, brandBn: m.brandBn, generic: m.generic, strength: m.strength, form: m.form, manufacturer: m.manufacturer, ingredients: m.ingredients, classes: m.classes, defaultDose: m.defaults.dose, defaultMeal: m.defaults.meal, defaultDays: m.defaults.days, sample: true,
+      inpatientOnly: false, highAlert: w.highAlert, controlled: w.controlled, multiDose: false, issueUnit: w.issueUnit, routes: w.routes };
     await prisma.medicine.upsert({ where: { tenantId_key: { tenantId, key: m.id } }, update: data, create: { tenantId, key: m.id, ...data } });
+  }
+  /* ADR 0015: the injections and infusions inpatient orders may name (sample; hidden from OPD prescription search). */
+  for (const m of INPATIENT_MEDICINES_SAMPLE) {
+    const data = { brand: m.brand, brandBn: m.brandBn, generic: m.generic, strength: m.strength, form: m.form, manufacturer: "Sample", ingredients: m.ingredients, classes: m.classes, defaultDose: "1+0+0", defaultMeal: "any" as const, defaultDays: 1, sample: true,
+      inpatientOnly: true, highAlert: m.highAlert, controlled: m.controlled, multiDose: m.multiDose, issueUnit: m.issueUnit, routes: m.routes };
+    await prisma.medicine.upsert({ where: { tenantId_key: { tenantId, key: m.key } }, update: data, create: { tenantId, key: m.key, ...data } });
   }
   for (const t of TESTS_SAMPLE) {
     const data = { nameEn: t.nameEn, nameBn: t.nameBn, group: t.group };
@@ -36,8 +45,10 @@ export async function seedStock(tenantId: string, organizationId: string, byId: 
     plan.push([m.id, `${m.id.slice(0, 2).toUpperCase()}2601`, 200, 300, "counter"], [m.id, `${m.id.slice(0, 2).toUpperCase()}2604`, 500, 500, "store"]);
     if (m.id === "comet") plan.push([m.id, "CM2511", 60, 60, "counter"], [m.id, "CM2508", -5, 40, "counter"]);
   }
+  // ADR 0015: the ward's injections and infusions live in the store until a ward indent issues them
+  for (const m of INPATIENT_MEDICINES_SAMPLE) plan.push([m.key, `${m.key.slice(0, 3).toUpperCase()}2605`, 400, m.controlled ? 30 : 100, "store"]);
   for (const [key, batchNo, expiresIn, qty, location] of plan) {
-    const mrp = MRP_SAMPLE[key] ?? 500;
+    const mrp = MRP_SAMPLE[key] ?? INPATIENT_MEDICINES_SAMPLE.find((x) => x.key === key)?.mrpPaisa ?? 500;
     const where = { tenantId_organizationId_medicineKey_batchNo_location: { tenantId, organizationId, medicineKey: key, batchNo, location } };
     if (await prisma.stockBatch.findUnique({ where })) continue;
     const b = await prisma.stockBatch.create({ data: { tenantId, organizationId, medicineKey: key, batchNo, expiry: day(expiresIn), location, costPaisa: Math.round(mrp * 0.85), mrpPaisa: mrp, vatRateBp: 0, sample: true } });
@@ -312,13 +323,16 @@ async function main() {
   await prisma.tenant.upsert({ where: { id: LITE.tenant }, update: { patientNoPrefix: "E2L" }, create: { id: LITE.tenant, name: "E2E Lite Hospital", plan: "lite", patientNoPrefix: "E2L" } });
   await prisma.organization.upsert({ where: { id: LITE.org }, update: {}, create: { id: LITE.org, tenantId: LITE.tenant, name: "E2E Lite Hospital", nameBn: "ই২ই লাইট হাসপাতাল", ...LIVE } });
   await prisma.location.upsert({ where: { id: LITE.branch }, update: {}, create: { id: LITE.branch, tenantId: LITE.tenant, organizationId: LITE.org, kind: "branch", name: "Main branch", nameBn: "প্রধান শাখা" } });
-  const liteUsers: [string, string, string, string, "receptionist" | "doctor" | "nurse" | "labTech" | "cashier" | "owner" | "admin", string | null][] = [
+  const liteUsers: [string, string, string, string, "receptionist" | "doctor" | "nurse" | "labTech" | "pharmacist" | "cashier" | "owner" | "admin", string | null][] = [
     ["u_e2l_desk", "লাইট রিসেপশন", "Lite Receptionist", "01798000001", "receptionist", null],
     ["u_e2l_doctor", "ডা. লাইট ইমার্জেন্সি", "Dr. Lite Emergency", "01798000002", "doctor", "Emergency medicine"],
     ["u_e2l_paed", "ডা. লাইট শিশু", "Dr. Lite Paediatrics", "01798000003", "doctor", "Paediatrics"],
     ["u_e2l_surgeon", "ডা. লাইট সার্জন", "Dr. Lite Surgeon", "01798000005", "doctor", "Surgery"],
     ["u_e2l_nurse", "লাইট নার্স", "Lite Nurse", "01798000004", "nurse", null],
     ["u_e2l_labtech", "লাইট টেকনোলজিস্ট", "Lite Lab Technologist", "01798000006", "labTech", null],
+    // ADR 0015: a second ward nurse (the witness for high-alert drugs) and the pharmacist who issues ward indents
+    ["u_e2l_nurse2", "লাইট নার্স দুই", "Lite Nurse Two", "01798000007", "nurse", null],
+    ["u_e2l_pharm", "লাইট ফার্মাসিস্ট", "Lite Pharmacist", "01798000011", "pharmacist", null],
     ["u_e2l_cashier", "লাইট ক্যাশিয়ার", "Lite Cashier", "01798000008", "cashier", null],
     ["u_e2l_owner", "লাইট মালিক", "Lite Owner", "01798000009", "owner", null],
     ["u_e2l_admin", "লাইট অ্যাডমিন", "Lite Admin", "01798000010", "admin", null],
@@ -341,7 +355,19 @@ async function main() {
   }
   for (const t of [tenant.id, "t_clinicdemo", "t_litedemo", E2E.tenant, LITE.tenant]) { await seedCatalogues(t); await seedLabCatalogues(t); }
   for (const [t, o] of [[tenant.id, org.id], ["t_clinicdemo", "o_clinicdemo"], ["t_litedemo", "o_litedemo"], [E2E.tenant, E2E.org], [LITE.tenant, LITE.org]] as const) await seedPriceList(t, o);
-  for (const [t, o, by] of [[tenant.id, org.id, "u_jewel"], [E2E.tenant, E2E.org, "u_e2e_pharm"]] as const) await seedStock(t, o, by);
+  for (const [t, o, by] of [[tenant.id, org.id, "u_jewel"], [E2E.tenant, E2E.org, "u_e2e_pharm"], [LITE.tenant, LITE.org, "u_e2l_pharm"]] as const) await seedStock(t, o, by);
+  /* ADR 0015: Ward 3B's opening stock (received there as the seed's opening; the E2E reset tops it up) and the
+     walkthrough inpatient with a signed round note, when none is admitted yet. */
+  const ward3b = await prisma.location.findFirst({ where: { tenantId: LITE.tenant, kind: "ward", name: "Ward 3B" } });
+  if (ward3b) for (const [key, qty] of Object.entries(SEED_WARD_STOCK)) {
+    const m = wardMedicine(key)!;
+    const where = { tenantId_organizationId_medicineKey_batchNo_location: { tenantId: LITE.tenant, organizationId: LITE.org, medicineKey: key, batchNo: `${key.slice(0, 3).toUpperCase()}W01`, location: wardStockLocation(ward3b.id) } };
+    if (await prisma.stockBatch.findUnique({ where })) continue;
+    const mrp = MRP_SAMPLE[key] ?? m.mrpPaisa;
+    const b = await prisma.stockBatch.create({ data: { tenantId: LITE.tenant, organizationId: LITE.org, medicineKey: key, batchNo: where.tenantId_organizationId_medicineKey_batchNo_location.batchNo, expiry: new Date(Date.now() + 300 * 864e5).toISOString().slice(0, 10), location: wardStockLocation(ward3b.id), costPaisa: Math.round(mrp * 0.85), mrpPaisa: mrp, vatRateBp: 0, sample: true } });
+    await prisma.stockMove.create({ data: { tenantId: LITE.tenant, organizationId: LITE.org, batchId: b.id, kind: "receive", qty, refType: "seed", reason: "sample opening ward stock", byId: "u_e2l_pharm" } });
+  }
+  if (!(await prisma.encounter.count({ where: { tenantId: LITE.tenant, patientId: "e2l_p_shahidul", class: "ipd", status: "in_progress" } }))) await seedInpatient(prisma);
   /* Pharmacy session 2 (ADR 0009): sample suppliers (distributors) for purchase orders — names are samples. */
   for (const [t, o] of [[tenant.id, org.id], [E2E.tenant, E2E.org]] as const)
     for (const name of ["Square Pharma Distribution (sample)", "Incepta Distribution (sample)", "Beximco Pharma Depot (sample)"])
