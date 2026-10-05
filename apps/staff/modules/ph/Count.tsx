@@ -60,6 +60,8 @@ function CountView({ id }: { id: string }) {
   const [c, setC] = useState<StockCountView | null>(null); const [failed, setFailed] = useState(false); const [busy, setBusy] = useState(false);
   const [edit, setEdit] = useState<Record<string, { qty: string; reason: string }>>({});
   const [key, setKey] = useState(() => crypto.randomUUID()); const [rejecting, setRejecting] = useState(false);
+  // decision 234: the counter deciding their own count as the only approver writes why
+  const [selfNote, setSelfNote] = useState("");
   // line saves run one after another on the latest version (each bumps the count's rev) — none is dropped while busy
   const latest = useRef<StockCountView | null>(null); const chain = useRef<Promise<unknown>>(Promise.resolve());
   const show = useCallback((x: StockCountView) => { latest.current = x; setC(x); setEdit((old) => Object.fromEntries(x.lines.map((l) => [l.id, old[l.id] ?? { qty: l.countedQty === null ? "" : String(l.countedQty), reason: l.reason ?? "" }]))); }, []);
@@ -68,7 +70,6 @@ function CountView({ id }: { id: string }) {
   if (failed) return <PageState icon="clipboard-check" title={P("error_generic")} />;
   if (!c) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
   const mine = c.createdBy.id === s.me?.userId;
-  const [selfNote, setSelfNote] = useState("");
   const counting = c.status === "counting" && mine;
   const run = async (f: () => Promise<StockCountView>) => { if (busy) return false; setBusy(true); try { show(await f()); setKey(crypto.randomUUID()); return true; } catch (e) { toast(E(e), "triangle-alert"); if (renewKey(e)) setKey(crypto.randomUUID()); await load(); return false; } finally { setBusy(false); } };
   const save = (lineId: string) => {
