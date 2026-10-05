@@ -162,12 +162,14 @@ export type AllergyState = "active" | "entered-in-error";
 export type AllergyEvent = "markError";
 export const ALLERGY: Table<AllergyState, AllergyEvent> = { active: { markError: "entered-in-error" }, "entered-in-error": {} };
 
+/* ADR 0014: `vacate` = a transfer out (leg 2 of a two-leg bed move frees the source bed into cleaning); `release`
+   gives back a reservation that was never occupied. Block / unblock and mark-ready are ward actions. */
 export type BedState ="vacant" | "reserved" | "occupied" | "discharge-pending" | "cleaning" | "blocked";
-export type BedEvent = "reserve" | "occupy" | "release" | "startDischarge" | "leave" | "markReady" | "block" | "unblock";
+export type BedEvent = "reserve" | "occupy" | "release" | "vacate" | "startDischarge" | "leave" | "markReady" | "block" | "unblock";
 export const BED: Table<BedState, BedEvent> = {
   vacant: { reserve: "reserved", occupy: "occupied", block: "blocked" },
   reserved: { occupy: "occupied", release: "vacant" },
-  occupied: { startDischarge: "discharge-pending" },
+  occupied: { startDischarge: "discharge-pending", vacate: "cleaning" },
   "discharge-pending": { leave: "cleaning" },
   cleaning: { markReady: "vacant" },
   blocked: { unblock: "vacant" },
