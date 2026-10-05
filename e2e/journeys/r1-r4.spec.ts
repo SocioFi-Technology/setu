@@ -9,7 +9,8 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
    owner voids the bill. R4 the owner's dashboard: the refunds tile is live, the medication incident is on the leakage
    list and its list opens the refund. Bills are set up through the API (the billing and dispensing screens are journeys
    A and P). */
-const DESK = "01799000001", DOCTOR = "01799000002", PHARM = "01799000007", CASHIER = "01799000008", OWNER = "01799000009";
+// CASHIER: the second E2E cashier — their drawer is theirs alone (journey C4 opens and closes the first cashier's)
+const DESK = "01799000001", DOCTOR = "01799000002", PHARM = "01799000007", CASHIER = "01799000012", OWNER = "01799000009";
 const RUN = Date.now().toString(36).slice(-5).toUpperCase();
 const YY = new Date(Date.now() + 6 * 3600_000).toISOString().slice(2, 4);
 

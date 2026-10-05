@@ -267,6 +267,8 @@ async function main() {
     ["u_e2e_cashier", "টেস্ট ক্যাশিয়ার", "Test Cashier", "01799000008", "cashier"],
     ["u_e2e_owner", "টেস্ট মালিক", "Test Owner", "01799000009", "owner"],
     ["u_e2e_admin", "টেস্ট অ্যাডমিন", "Test Admin", "01799000010", "admin"],
+    // Refunds (ADR 0013): a second cashier with a drawer of their own, so journey R never shares one with journey C4
+    ["u_e2e_cashier2", "টেস্ট ক্যাশিয়ার দুই", "Test Cashier Two", "01799000012", "cashier"],
   ];
   for (const [id, nameBn, nameEn, phone, role] of e2eUsers) {
     await prisma.user.upsert({ where: { id }, update: {}, create: { id, tenantId: E2E.tenant, nameBn, nameEn, phone, passwordHash: hash("setu1234"), pinHash: hash("1234") } });

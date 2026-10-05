@@ -951,3 +951,34 @@ Commit after each step, push at the end of each session.
      layout (pre-pilot accountant list).
 232. **Nagad (and the fake gateway) have no refund API in Setu:** their refunds are made by hand with a reference and checked
      by the owner against the statement.
+
+## Refunds slice, session 2 (screens, voucher, journey R, reviews, hands-on) — 05/10/2026
+### Decided by Kamrul (05/10/2026, after session 1)
+- **220** one refund = one payout method, never part-paid; part cash, part bKash = two refunds, two vouchers.
+- **221** return without refund on an unpaid pharmacy bill: same approval path, stock to quarantine, the due goes down,
+  a credit voucher (CV/…); due zero and no money ever → the ADR 0005 void.
+- **223** self-approval only when the requester is the facility's only approver, with a note, flagged (refund, audit,
+  dashboard).
+- **227** bKash sandbox codes on the pre-pilot list; an unrecognised refund code is "unknown — ask Refund Status"; an
+  answer for money already recorded as paid changes nothing.
+- Cautious readings on 222, 224–226, 228–232 stand as written.
+
+### Decided in the session (defaults — Kamrul to confirm)
+233. **A partly paid pharmacy bill whose medicine all comes back gets stuck** (money review M5): ৳1,000 bill, ৳500 paid,
+     10 tablets back → a refund covers 5 (the money paid), a return without refund is refused (money is on the bill), so
+     ৳500 stays due and the other 5 tablets are not in stock. Recommend: allow a return without refund on a bill holding
+     money for the unpaid part (credited ≤ total − paid). Not built — it widens decision 221.
+234. **Stock counts still refuse self-approval outright** (question 186) while refunds allow the only approver with a
+     note (223). Align counts with 223?
+235. **A gateway refund whose status answer cannot be read stays "being processed"** (security review H1: an unreadable
+     answer is never taken as "nothing refunded"). Only "Check with bKash" and the sweep can settle it — there is no
+     manual release yet. Before real money: an owner action "checked on the bKash merchant portal — not refunded" (with a
+     note) that hands it back to the cashier.
+236. **The controlled-drug rule (owner approves, owner releases from quarantine) is checked by the app only:** the sale
+     class lives in the sample drug list, not the database (the database checks the resale is by a pharmacist or the
+     owner). It moves into the database with the licensed drug list (gap 12).
+237. **The owner's check of a refund paid by hand is owner-only** (bill/reconcile); an admin cannot do it. With one owner
+     who paid it themselves, they may check it with a note (223's rule, counting owners only).
+238. **Wrong-dispense returns of an OTC sale** count as medication incidents on the owner's list but tell no doctor
+     (there is no prescription). Fine?
+239. **The refund amount boxes** take Latin or Bangla digits; amounts are typed as taka (৳150 or ১৫০).
