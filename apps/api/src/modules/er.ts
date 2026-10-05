@@ -6,9 +6,9 @@ import { randomUUID } from "node:crypto";
 import type { Disposition, ErArrivalRequest, ErAssignRequest, ErBoard, ErBoardItem, ErDispositionRequest, ErTriageRequest, ErVisitView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
-  BED, CARE_ORDERS_SAMPLE, DOCUMENT, ENCOUNTER, ORDER, TRIAGE_SCALE, TRIAGE_SCALE_NOTE, TRIAGE_SCALE_SAMPLE, UNTRIAGED_TARGET_MINUTES, assignTransition, bayTake, bedPickable,
+  BED, BED_ASSIGNMENT, CARE_ORDERS_SAMPLE, DOCUMENT, ENCOUNTER, ORDER, TRIAGE_SCALE, TRIAGE_SCALE_NOTE, TRIAGE_SCALE_SAMPLE, UNTRIAGED_TARGET_MINUTES, assignTransition, bayTake, bedPickable,
   boardOrder, careOrder, closesOnSign, dhakaDay, dispositionBlockers, erOpen, erToken, erTokenSequenceName, isAdmissionClass, isPaediatric, isTriageLevel, paediatricPrompt,
-  patientAgeYears, reserveLeg, signDocument, transition, triageLevel, triageOverdue, triageTransition, unknownPatientName, waitedMinutes, type EncounterState,
+  departmentForSpeciality, patientAgeYears, reserveLeg, signDocument, transition, triageLevel, triageOverdue, triageTransition, unknownPatientName, waitedMinutes, type EncounterState,
 } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
@@ -19,14 +19,30 @@ import { requirePin } from "./pin.js";
 import { devHash } from "./users.js";
 
 export const ER_NOTE = "er-note";
-const dash = <T extends string>(s: string) => s.replace(/_/g, "-") as T;
-const under = <T extends string>(s: string) => s.replace(/-/g, "_") as T;
-const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
-type DbEncStatus = "planned" | "arrived" | "triaged" | "in_progress" | "finished" | "cancelled" | "entered_in_error";
-type DbBedState = "vacant" | "reserved" | "occupied" | "discharge_pending" | "cleaning" | "blocked";
-const stale = () => err(409, "stale", "অন্য কেউ আগেই বদলেছেন — আবার দেখুন", "Someone else changed this first — refresh");
+/* Shared with ipd.ts (review: one copy of each helper). */
+export const dash = <T extends string>(s: string) => s.replace(/_/g, "-") as T;
+export const under = <T extends string>(s: string) => s.replace(/-/g, "_") as T;
+export const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
+export type DbEncStatus = "planned" | "arrived" | "triaged" | "in_progress" | "finished" | "cancelled" | "entered_in_error";
+export type DbBedState = "vacant" | "reserved" | "occupied" | "discharge_pending" | "cleaning" | "blocked";
+export const stale = () => err(409, "stale", "অন্য কেউ আগেই বদলেছেন — আবার দেখুন", "Someone else changed this first — refresh");
 const closed = () => err(409, "encounter_closed", "এই জরুরি ভিজিট বন্ধ", "This ER visit is closed");
-const isUnique = (e: unknown) => typeof e === "object" && e !== null && (e as { code?: string }).code === "P2002";
+export const isUnique = (e: unknown) => typeof e === "object" && e !== null && (e as { code?: string }).code === "P2002";
+/** Why a bed cannot be picked, in both languages (review: never a raw key inside a Bangla message). */
+const PICK_REASON: Record<string, [string, string]> = { cleaning: ["পরিষ্কার চলছে", "being cleaned"], blocked: ["বন্ধ", "blocked"], occupied: ["ভর্তি আছে", "occupied"], "discharge-pending": ["ছাড়পত্র বাকি", "discharge pending"], "reserved-other": ["অন্যের জন্য সংরক্ষিত", "reserved for someone else"], "wrong-class": ["অন্য শ্রেণি", "another class"] };
+export const bedNotFree = (name: string, reason: string) => err(409, "bed_not_free", `${name} বাছাই করা যাবে না (${PICK_REASON[reason]?.[0] ?? reason})`, `${name} cannot be picked (${PICK_REASON[reason]?.[1] ?? reason})`, { field: "bedId" });
+/** A linked record continues on the record it was linked to (the front desk's rule, same refusal on a long chain). */
+export async function resolvedPatient(tx: Tx, id: string) {
+  let p = await getPatient(tx, id);
+  for (let i = 0; i < 3 && p.linkedToId; i++) p = await getPatient(tx, p.linkedToId);
+  if (p.linkedToId) throw err(409, "link_chain", "লিংক করা রেকর্ডের শেষ পাওয়া যায়নি", "Linked record chain is too long");
+  return p;
+}
+/** A live assignment ends (BED_ASSIGNMENT end) with who and why. */
+export async function endAssignment(tx: Tx, s: SessionData, a: { id: string; status: "reserved" | "occupied" | "ended" }, now: Date, reason: string) {
+  const to = transition("bed-assignment", BED_ASSIGNMENT, a.status, "end");
+  await tx.bedAssignment.update({ where: { id: a.id }, data: { status: to, endedAt: now, endedById: s.userId, endReason: reason } });
+}
 export interface ErNoteSections { notes: string; careOrders: { key: string; at: string; by: string }[]; disposition: Disposition | null }
 
 /* ───── context ───── */
@@ -56,7 +72,7 @@ export async function erEncounter(tx: Tx, s: SessionData, id: string): Promise<E
   return e as Enc;
 }
 const ageOf = (p: Enc["patient"], now: Date) => patientAgeYears({ birthDate: p.birthDate ? p.birthDate.toISOString().slice(0, 10) : null, approxAgeYears: p.approxAgeYears, approxAgeAt: iso(p.approxAgeAt) }, now);
-const erPatient = (p: Enc["patient"]) => ({
+export const erPatient = (p: Enc["patient"]) => ({
   id: p.id, facilityNo: p.facilityNo, nameBn: p.nameBn, nameEn: p.nameEn, sex: p.sex, birthDate: p.birthDate ? p.birthDate.toISOString().slice(0, 10) : null,
   approxAgeYears: p.approxAgeYears, approxAgeMonths: p.approxAgeMonths, approxAgeAt: iso(p.approxAgeAt), identityConfidence: dash<"verified">(p.identityConfidence),
 });
@@ -113,13 +129,14 @@ function toItem(e: Enc, c: Ctx, now: Date): ErBoardItem {
     provisional: e.patient.identityConfidence === "provisional" && c.provisional.has(e.patientId),
   };
 }
-async function itemOf(tx: Tx, s: SessionData, e: Enc, now: Date): Promise<ErBoardItem> {
-  const c = await ctxFor(tx, s, [e]);
+async function fullCtx(tx: Tx, s: SessionData, rows: Enc[]): Promise<Ctx> {
+  const c = await ctxFor(tx, s, rows);
   // the ward name of the admission bed needs the wards too
   const wards = await tx.location.findMany({ where: { organizationId: s.organizationId, kind: "ward" } });
   for (const w of wards) c.beds.set(w.id, w);
-  return toItem(e, c, now);
+  return c;
 }
+async function itemOf(tx: Tx, s: SessionData, e: Enc, now: Date, ctx?: Ctx): Promise<ErBoardItem> { return toItem(e, ctx ?? (await fullCtx(tx, s, [e])), now); }
 
 /* ───── the board (B1) ───── */
 export async function erBoard(tx: Tx, s: SessionData, now: Date): Promise<ErBoard> {
@@ -129,9 +146,7 @@ export async function erBoard(tx: Tx, s: SessionData, now: Date): Promise<ErBoar
     where: { class: "er", organizationId: s.organizationId, branchId: branch.id, OR: [{ tokenDay: day }, { status: { in: ["arrived", "triaged", "in_progress"] } }] },
     include: encInclude, orderBy: { arrivedAt: "asc" },
   })) as Enc[];
-  const c = await ctxFor(tx, s, rows);
-  const wards = await tx.location.findMany({ where: { organizationId: s.organizationId, kind: "ward" } });
-  for (const w of wards) c.beds.set(w.id, w);
+  const c = await fullCtx(tx, s, rows);
   const items = rows.map((e) => toItem(e, c, now));
   const open = items.filter((i) => erOpen(i.status));
   const byLevel: Record<string, number> = {};
@@ -171,7 +186,7 @@ export async function leaveBay(tx: Tx, s: SessionData, encounterId: string, now:
   const to = under<DbBedState>(transition("bed", BED, dash(bay.bedState ?? "occupied"), "vacate"));
   const n = await tx.location.updateMany({ where: { id: bay.id, bedState: bay.bedState }, data: { bedState: to } });
   if (n.count !== 1) throw stale();
-  await tx.bedAssignment.update({ where: { id: a.id }, data: { status: "ended", endedAt: now, endedById: s.userId, endReason: reason } });
+  await endAssignment(tx, s, a, now, reason);
   return [{ action: "update", entity: "Location", entityId: bay.id, patientId: a.patientId, detail: { event: "vacate", bed: bay.name, to: dash(to), encounterId, transferId: a.transferId } }];
 }
 
@@ -180,9 +195,7 @@ export async function arrive(tx: Tx, s: SessionData, req: ErArrivalRequest, now:
   const audit: AuditEntry[] = [];
   let patientId: string; let review = false;
   if (req.patientId) {
-    let p = await getPatient(tx, req.patientId);
-    for (let i = 0; i < 3 && p.linkedToId; i++) p = await getPatient(tx, p.linkedToId);
-    patientId = p.id;
+    patientId = (await resolvedPatient(tx, req.patientId)).id;
   } else {
     // Quick provisional registration (ADR 0014): a record the desk resolves later through its review queue.
     const u = req.unknown!;
@@ -273,28 +286,33 @@ async function noteOf(tx: Tx, e: Enc): Promise<Note> {
   return c;
 }
 const requireDraft = (c: Note) => { if (c.status !== "draft") throw err(409, "note_signed", "সিদ্ধান্ত স্বাক্ষরিত — নোট আর বদলানো যায় না", "The disposition is signed — the note cannot change"); };
+/** Review: the desk cancelled the admit request — the signed note stays, the doctor signs a new disposition as v2. */
+const canRedispose = (e: Enc, c: Note) => c.status !== "draft" && !c.supersededById && erOpen(dash<EncounterState>(e.status)) && e.erVisit!.dispositionKind === null;
 export async function erVisitView(tx: Tx, s: SessionData, id: string, now: Date): Promise<{ view: ErVisitView; revealed: { allergyIds: string[]; noteId: string } }> {
   const e = await erEncounter(tx, s, id);
   const c = await noteOf(tx, e);
   const sec = c.sections as unknown as ErNoteSections;
-  const [orders, allergies, tests, doctors, live] = await Promise.all([
+  const ctx = await fullCtx(tx, s, [e]);
+  const [orders, allergies, tests] = await Promise.all([
     tx.serviceRequest.findMany({ where: { encounterId: e.id, compositionId: c.id }, orderBy: { createdAt: "asc" } }),
     tx.allergyIntolerance.findMany({ where: { patientId: e.patientId }, orderBy: [{ status: "asc" }, { recordedAt: "asc" }] }),
     tx.orderableTest.findMany({ where: { active: true, group: "lab" }, orderBy: { nameEn: "asc" } }),
-    erDoctors(tx, s), liveByBed(tx, s),
   ]);
+  const doctors = [...ctx.doctors.values()], live = ctx.live;
+  const item = toItem(e, ctx, now);
   const people = new Map((await tx.user.findMany({ where: { id: { in: [...new Set([...orders.map((o) => o.orderedById), c.signedById].filter((x): x is string => Boolean(x)))] } }, select: { id: true, nameBn: true, nameEn: true } })).map((u) => [u.id, u]));
   const person = (uid: string | null) => (uid && people.get(uid)) || { id: uid ?? "", nameBn: "—", nameEn: "—" };
-  const wards = new Map((await tx.location.findMany({ where: { organizationId: s.organizationId, kind: "ward" } })).map((w) => [w.id, w]));
-  const beds = await tx.location.findMany({ where: { organizationId: s.organizationId, kind: "bed", bedClass: { not: "ER" } }, orderBy: { name: "asc" } });
+  const wards = ctx.beds;
+  const beds = [...ctx.beds.values()].filter((b) => b.kind === "bed" && b.bedClass !== "ER").sort((a, b) => a.name.localeCompare(b.name));
   return {
     view: {
-      item: await itemOf(tx, s, e, now), patient: toSummary(await getPatient(tx, e.patientId)), allergies: await toAllergyView(tx, allergies),
+      item, patient: toSummary(await getPatient(tx, e.patientId)), allergies: await toAllergyView(tx, allergies),
       note: { id: c.id, status: dash<"draft">(c.status), rev: c.rev, version: c.version, signedAt: iso(c.signedAt), signedBy: c.signedById ? person(c.signedById) : null, notes: sec.notes ?? "" },
       orders: orders.map((o) => ({ id: o.id, testCode: o.testCode, nameEn: o.nameEn, nameBn: o.nameBn, priority: o.priority, status: dash<"active">(o.status), orderedAt: iso(o.orderedAt), orderedBy: person(o.orderedById) })),
       careOrders: CARE_ORDERS_SAMPLE.map((o) => { const on = (sec.careOrders ?? []).find((x) => x.key === o.key); return { ...o, on: Boolean(on), at: on?.at ?? null }; }),
       tests: tests.map((t) => ({ code: t.code, nameEn: t.nameEn, nameBn: t.nameBn, group: t.group as "lab" })),
       disposition: sec.disposition ?? null,
+      canRedispose: canRedispose(e, c),
       beds: beds.filter((b) => isAdmissionClass(b.bedClass ?? "")).map((b) => {
         const a = live.get(b.id);
         const pick = bedPickable({ state: dash(b.bedState ?? "vacant"), bedClass: b.bedClass, reservedForPatientId: a?.status === "reserved" ? a.patientId : null }, e.patientId);
@@ -358,14 +376,30 @@ export async function signDisposition(tx: Tx, s: SessionData, id: string, body: 
   if (s.role !== "doctor") throw err(403, "forbidden", "সিদ্ধান্ত স্বাক্ষর করেন ডাক্তার", "A doctor signs the disposition", { reason: "role", canRequest: false });
   const e = await erEncounter(tx, s, id);
   if (!erOpen(dash<EncounterState>(e.status))) throw closed();
-  const c = await noteOf(tx, e); requireDraft(c);
-  const u = await tx.user.findFirst({ where: { id: s.userId }, select: { pinHash: true } });
-  await requirePin(s.userId, () => Boolean(u?.pinHash) && u!.pinHash === devHash(body.pin));
+  let c = await noteOf(tx, e);
+  const redispose = canRedispose(e, c);
+  if (!redispose) requireDraft(c);
+  // the form and the version are checked before the PIN, so a stale note or a missing field never costs a PIN try (review)
   if (body.rev !== c.rev) throw stale();
   const d = body.disposition;
   const blockers = dispositionBlockers(d);
   if (blockers.length) throw err(422, "sign_blocked", `${blockers.length}টি ঘর ঠিক করুন — স্বাক্ষর হয়নি`, `Resolve ${blockers.length} item(s) — not signed`, { blockers: blockers as unknown as Record<string, unknown>[] });
+  const u = await tx.user.findFirst({ where: { id: s.userId }, select: { pinHash: true } });
+  await requirePin(s.userId, () => Boolean(u?.pinHash) && u!.pinHash === devHash(body.pin));
   const audit: AuditEntry[] = [];
+  if (redispose) {
+    // ADR 0003: the new disposition is version n+1, amending the signed one, which is superseded in the same transaction
+    const v1 = c;
+    const sup = transition("document", DOCUMENT, dash(v1.status), "supersede");
+    const v2 = await tx.composition.create({ data: {
+      tenantId: s.tenantId, organizationId: s.organizationId, branchId: e.branchId, patientId: e.patientId, encounterId: e.id, kind: ER_NOTE, version: v1.version + 1, status: "draft",
+      amendsId: v1.id, amendReason: "admission request cancelled at the desk", sections: { ...(v1.sections as object), disposition: null } as object, sectionSources: {}, authorId: s.userId,
+    } });
+    const n = await tx.composition.updateMany({ where: { id: v1.id, status: v1.status, supersededById: null }, data: { status: under<"superseded">(sup), supersededById: v2.id } });
+    if (n.count !== 1) throw stale();
+    audit.push({ action: "update", entity: "Composition", entityId: v1.id, patientId: e.patientId, detail: { event: "supersede", from: dash(v1.status), to: sup, by: v2.id } });
+    c = v2;
+  }
   // the signing doctor takes the visit when nobody has (so it can finish / be admitted)
   let from = dash<EncounterState>(e.status);
   if (from !== "in-progress") {
@@ -380,7 +414,7 @@ export async function signDisposition(tx: Tx, s: SessionData, id: string, body: 
     if (!bed || !isAdmissionClass(bed.bedClass ?? "")) throw err(400, "bed_unknown", "এই শয্যা পাওয়া যায়নি", "No such ward bed", { field: "bedId" });
     const live = await tx.bedAssignment.findFirst({ where: { bedId: bed.id, status: { in: ["reserved", "occupied"] } } });
     const pick = bedPickable({ state: dash(bed.bedState ?? "vacant"), bedClass: bed.bedClass, reservedForPatientId: live?.status === "reserved" ? live.patientId : null }, e.patientId);
-    if (!pick.ok) throw err(409, "bed_not_free", `${bed.name} বাছাই করা যাবে না (${pick.reason})`, `${bed.name} cannot be picked (${pick.reason})`, { field: "bedId" });
+    if (!pick.ok) throw bedNotFree(bed.name, pick.reason);
     const consultant = (await erDoctors(tx, s)).find((x) => x.id === d.consultantId);
     if (!consultant) throw err(400, "doctor_unknown", "এই কনসালট্যান্ট এই প্রতিষ্ঠানে নেই", "No such consultant at this facility", { field: "consultantId" });
     if (live?.patientId !== e.patientId) {
@@ -400,7 +434,7 @@ export async function signDisposition(tx: Tx, s: SessionData, id: string, body: 
     try {
       const adm = await tx.admission.create({ data: {
         tenantId: s.tenantId, organizationId: s.organizationId, branchId: e.branchId, patientId: e.patientId, sourceEncounterId: e.id, source: "er", status: "requested",
-        admittingDoctorId: consultant.id, department: consultant.speciality ?? "", diagnosis: d.diagnosis!.trim(), bedClass: bed.bedClass ?? "", bedId: bed.id, requestedById: s.userId, requestedAt: now,
+        admittingDoctorId: consultant.id, department: departmentForSpeciality(consultant.speciality), diagnosis: d.diagnosis!.trim(), bedClass: bed.bedClass ?? "", bedId: bed.id, requestedById: s.userId, requestedAt: now,
       } });
       audit.push({ action: "create", entity: "Admission", entityId: adm.id, patientId: e.patientId, detail: { source: "er", sourceEncounterId: e.id, bedId: bed.id, bed: bed.name, consultantId: consultant.id } });
     } catch (x) {
@@ -409,13 +443,12 @@ export async function signDisposition(tx: Tx, s: SessionData, id: string, body: 
     }
   }
   const to = signDocument({ status: dash(c.status), amendsId: c.amendsId, amendReason: c.amendReason });
-  transition("document", DOCUMENT, "draft", "sign");
   const sec = c.sections as unknown as ErNoteSections;
   const signed = await tx.composition.updateMany({ where: { id: c.id, status: "draft", rev: c.rev }, data: { status: under<"final">(to), signedAt: now, signedById: s.userId, sections: { ...sec, disposition: d } as object } });
   if (signed.count !== 1) throw stale();
   await tx.erVisit.update({ where: { encounterId: e.id }, data: { dispositionKind: d.kind, dispositionDetail: d as object, dispositionSignedAt: now, dispositionSignedById: s.userId } });
-  await tx.provenance.create({ data: { tenantId: s.tenantId, targetType: "Composition", targetId: c.id, activity: "sign", agentId: s.userId, onBehalfOf: s.organizationId, recorded: now, source: "provider_verified", detail: { kind: ER_NOTE, disposition: d.kind, version: c.version } } });
-  audit.push({ action: "sign", entity: "Composition", entityId: c.id, patientId: e.patientId, detail: { kind: ER_NOTE, disposition: d.kind, version: c.version, from: "draft", to } });
+  await tx.provenance.create({ data: { tenantId: s.tenantId, targetType: "Composition", targetId: c.id, activity: c.amendsId ? "sign-amendment" : "sign", agentId: s.userId, onBehalfOf: s.organizationId, recorded: now, source: "provider_verified", detail: { kind: ER_NOTE, disposition: d.kind, version: c.version, amends: c.amendsId } } });
+  audit.push({ action: "sign", entity: "Composition", entityId: c.id, patientId: e.patientId, detail: { kind: ER_NOTE, disposition: d.kind, version: c.version, from: "draft", to, amends: c.amendsId } });
   if (closesOnSign(d.kind)) {
     const fin = transition("encounter", ENCOUNTER, from, "finish");
     const n = await tx.encounter.updateMany({ where: { id: e.id, status: under<DbEncStatus>(from) }, data: { status: under<DbEncStatus>(fin), statusAt: now } });

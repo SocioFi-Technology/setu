@@ -1,5 +1,6 @@
 /* Admission and beds (ADR 0014, walkthrough B2–B3 and the bed map's rules). Bed state changes go through BED; a bed
    move is two legs with one transfer id, like a stock transfer. Routes and the admission screen import these. */
+import { toEn } from "./format.js";
 import { BED, ENCOUNTER, transition, type BedState, type EncounterState } from "./machines.js";
 
 export interface BedClass { key: string; nameBn: string; nameEn: string; /** per-day sample price, paisa (billing comes with the IPD bill slice) */ perDayPaisa: number }
@@ -45,11 +46,14 @@ export function admissionChecklist(f: AdmissionForm): ChecklistItem[] {
   return [
     { key: "bed", ok: Boolean(f.bedId), blocks: true },
     { key: "diagnosis", ok: f.diagnosis.trim().length >= 3, blocks: true },
-    { key: "guardian", ok: f.guardianName.trim().length >= 2 && /^(\+?880)?0?1[3-9]\d{8}$/.test(f.guardianPhone.replace(/[\s-]/g, "")), blocks: true },
+    // hands-on 05/10/2026: the phone is typed in Bangla or Latin digits (decision 239 applies to phones too)
+    { key: "guardian", ok: f.guardianName.trim().length >= 2 && /^(\+?880)?0?1[3-9]\d{8}$/.test(guardianPhoneDigits(f.guardianPhone)), blocks: true },
     { key: "consents", ok: missing === 0, missing, blocks: true },
     { key: "deposit", ok: false, blocks: false },
   ];
 }
+/** The guardian's mobile as the API stores it: Latin digits, no spaces or dashes. */
+export const guardianPhoneDigits = (raw: string) => toEn(raw).replace(/[\s-]/g, "");
 export const admissionBlockers = (f: AdmissionForm): ChecklistKey[] => admissionChecklist(f).filter((c) => c.blocks && !c.ok).map((c) => c.key);
 export const admissionReady = (f: AdmissionForm) => admissionBlockers(f).length === 0;
 
@@ -57,6 +61,16 @@ export const admissionNumber = (yy: string, n: number) => `ADM/${yy}/${String(n)
 export const ADMISSION_SEQUENCE = "admission";
 export type AdmissionSource = "opd" | "er" | "direct";
 export const ADMISSION_SOURCES: readonly AdmissionSource[] = ["opd", "er", "direct"];
+/** The department key an ER admit request starts with, from the consultant's speciality (review: the desk's form takes keys). */
+export function departmentForSpeciality(speciality: string | null | undefined): string {
+  const s = speciality ?? "";
+  if (/surg/i.test(s)) return "surgery";
+  if (/gyn|obs/i.test(s)) return "gynae";
+  if (/paed|pediat|শিশু/i.test(s)) return "paediatrics";
+  if (/cardio/i.test(s)) return "cardiology";
+  if (/ortho/i.test(s)) return "orthopaedics";
+  return "medicine";
+}
 export const DEPARTMENTS_SAMPLE = [
   { key: "medicine", nameBn: "মেডিসিন", nameEn: "Medicine" }, { key: "surgery", nameBn: "সার্জারি", nameEn: "Surgery" },
   { key: "gynae", nameBn: "স্ত্রীরোগ ও প্রসূতি", nameEn: "Obs & Gynae" }, { key: "paediatrics", nameBn: "শিশু", nameEn: "Paediatrics" },

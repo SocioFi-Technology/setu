@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { BED, can, transition } from "./machines.js";
-import { CONSENTS, admissionBlockers, admissionChecklist, admissionEncounterState, admissionNumber, admissionReady, bedPickable, finishSource, isAdmissionClass, occupyLeg, reserveLeg } from "./ipd.js";
+import { ADMISSION, BED, BED_ASSIGNMENT, can, transition } from "./machines.js";
+import { CONSENTS, departmentForSpeciality, admissionBlockers, admissionChecklist, admissionEncounterState, admissionNumber, admissionReady, bedPickable, finishSource, guardianPhoneDigits, isAdmissionClass, occupyLeg, reserveLeg } from "./ipd.js";
 
 describe("BED gains vacate (ADR 0014): a transfer out frees the bed into cleaning", () => {
   it("occupied → vacate → cleaning → markReady → vacant; a reservation is released, never vacated", () => {
@@ -46,6 +46,11 @@ describe("admission checklist (walkthrough B3: Admit unlocks after the checklist
     expect(admissionBlockers(f)).toEqual(["bed", "diagnosis", "guardian", "consents"]);
     expect(admissionChecklist(f).find((c) => c.key === "consents")?.missing).toBe(2);
   });
+  it("the guardian's phone is accepted in Bangla digits (hands-on 05/10/2026) and stored as Latin digits", () => {
+    expect(admissionBlockers({ ...full, guardianPhone: "০১৭১১-৯০৮৮১২" })).toEqual([]);
+    expect(guardianPhoneDigits("০১৭১১-৯০৮৮১২")).toBe("01711908812");
+    expect(guardianPhoneDigits("+880 1711 908812")).toBe("+8801711908812");
+  });
   it("numbers are ADM/yy/nnnn in Latin digits", () => { expect(admissionNumber("26", 81)).toBe("ADM/26/0081"); });
 });
 
@@ -65,6 +70,24 @@ describe("two-leg bed move (like a stock transfer)", () => {
   it("the destination must be vacant or reserved: an occupied or blocked bed refuses", () => {
     expect(() => occupyLeg("occupied", null, null)).toThrow();
     expect(() => occupyLeg("blocked", null, null)).toThrow();
+  });
+});
+
+describe("ADMISSION and BED_ASSIGNMENT machines (ADR 0014, review)", () => {
+  it("a request is admitted or cancelled, both final; an assignment goes reserved → occupied → ended, or reserved → ended, never back", () => {
+    expect(transition("admission", ADMISSION, "requested", "admit")).toBe("admitted");
+    expect(transition("admission", ADMISSION, "requested", "cancel")).toBe("cancelled");
+    expect(can(ADMISSION, "admitted", "cancel")).toBe(false);
+    expect(transition("bed-assignment", BED_ASSIGNMENT, "reserved", "occupy")).toBe("occupied");
+    expect(transition("bed-assignment", BED_ASSIGNMENT, "occupied", "end")).toBe("ended");
+    expect(transition("bed-assignment", BED_ASSIGNMENT, "reserved", "end")).toBe("ended");
+    expect(can(BED_ASSIGNMENT, "ended", "occupy")).toBe(false);
+  });
+  it("the ER admit request's department comes from the consultant's speciality as a key", () => {
+    expect(departmentForSpeciality("Surgery")).toBe("surgery");
+    expect(departmentForSpeciality("Obs & Gynae")).toBe("gynae");
+    expect(departmentForSpeciality("Emergency medicine")).toBe("medicine");
+    expect(departmentForSpeciality(null)).toBe("medicine");
   });
 });
 

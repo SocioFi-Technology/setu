@@ -20568,6 +20568,9 @@
                         "kind"
                       ]
                     },
+                    "canRedispose": {
+                      "type": "boolean"
+                    },
                     "beds": {
                       "type": "array",
                       "items": {
@@ -20752,6 +20755,7 @@
                     "careOrders",
                     "tests",
                     "disposition",
+                    "canRedispose",
                     "beds",
                     "consultants",
                     "scale",
@@ -21901,6 +21905,9 @@
                         "kind"
                       ]
                     },
+                    "canRedispose": {
+                      "type": "boolean"
+                    },
                     "beds": {
                       "type": "array",
                       "items": {
@@ -22085,6 +22092,7 @@
                     "careOrders",
                     "tests",
                     "disposition",
+                    "canRedispose",
                     "beds",
                     "consultants",
                     "scale",
@@ -23317,6 +23325,9 @@
                         "kind"
                       ]
                     },
+                    "canRedispose": {
+                      "type": "boolean"
+                    },
                     "beds": {
                       "type": "array",
                       "items": {
@@ -23501,6 +23512,7 @@
                     "careOrders",
                     "tests",
                     "disposition",
+                    "canRedispose",
                     "beds",
                     "consultants",
                     "scale",
@@ -24655,6 +24667,9 @@
                         "kind"
                       ]
                     },
+                    "canRedispose": {
+                      "type": "boolean"
+                    },
                     "beds": {
                       "type": "array",
                       "items": {
@@ -24839,6 +24854,7 @@
                     "careOrders",
                     "tests",
                     "disposition",
+                    "canRedispose",
                     "beds",
                     "consultants",
                     "scale",
@@ -26097,6 +26113,9 @@
                         "kind"
                       ]
                     },
+                    "canRedispose": {
+                      "type": "boolean"
+                    },
                     "beds": {
                       "type": "array",
                       "items": {
@@ -26281,6 +26300,7 @@
                     "careOrders",
                     "tests",
                     "disposition",
+                    "canRedispose",
                     "beds",
                     "consultants",
                     "scale",

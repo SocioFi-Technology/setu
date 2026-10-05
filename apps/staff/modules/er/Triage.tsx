@@ -18,7 +18,7 @@ export function ErTriage() {
   const [sel, setSel] = useState<string | null>(null);
   const [arrival, setArrival] = useState(false);
   const [tick, setTick] = useState(0);
-  const load = useCallback(async () => { try { setB(await er.board()); setFailed(false); } catch { setFailed((f) => f || !b); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const load = useCallback(async () => { try { setB(await er.board()); setFailed(false); } catch { setFailed(true); } }, []);
   useEffect(() => { void load(); const t = setInterval(() => { void load(); setTick((x) => x + 1); }, 15000); return () => clearInterval(t); }, [load]);
   const picked = b?.items.find((i) => i.id === sel) ?? null;
   useEffect(() => { s.setPatient(picked ? erBanner(picked, L, undefined, s.lang) : null); }, [picked?.id, picked?.bay?.id, s.lang, s.numerals]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -73,7 +73,7 @@ export function ErTriage() {
                 {closedRows.length > 0 && <tr><td colSpan={7} className="t-small t-muted">{E("closed_rows")}</td></tr>}
                 {closedRows.map((i) => (
                   <tr key={i.id} data-er-row={i.id} data-token={i.token} data-closed="1" onClick={() => setSel(i.id)} style={{ cursor: "pointer", opacity: 0.7, background: i.id === sel ? "var(--surface-selected)" : undefined }}>
-                    <td className="num t-muted">{i.token}</td><td><b>{name(i)}</b></td><td colSpan={2}>{i.disposition ? <Pill tone="final" icon="badge-check">{E(`d_${i.disposition.kind}`)}</Pill> : <Pill tone="off">{E("status_closed")}</Pill>}</td><td className="num">{E("waiting_min", { n: i.waited })}</td><td>{i.doctor ? (s.lang === "bn" ? i.doctor.nameBn : i.doctor.nameEn) : "—"}</td><td>—</td>
+                    <td className="num t-muted">{i.token}</td><td><b>{name(i)}</b></td><td colSpan={2}>{i.disposition ? <Pill tone="final" icon="badge-check">{E(`d_${i.disposition.kind}`)}</Pill> : <Pill tone="off">{E("status_closed")}</Pill>}</td><td className="num">{format.time(i.arrivedAt, s.numerals === "bn")}</td><td>{i.doctor ? (s.lang === "bn" ? i.doctor.nameBn : i.doctor.nameEn) : "—"}</td><td>—</td>
                   </tr>
                 ))}
               </tbody>
@@ -100,16 +100,21 @@ function TriagePanel({ b, item, onChanged, onOpen }: { b: ErBoard; item: ErBoard
   const d = b.doctors.find((x) => x.id === doctor);
   const needPaed = Boolean(d && paediatricPrompt(d.speciality, item.ageYears) && !paedOk);
   const canVitals = Boolean(s.caps?.modules.find((m) => m.key === "fd")?.screens.find((x) => x.key === "vitals")?.allowed);
+  // what Save would send (review: a bay change needs a level; nothing to send = nothing enabled)
+  const lv = Number(format.toEn(level));
+  const bayChanged = bay !== (item.bay?.id ?? ""), levelChanged = Boolean(lv) && lv !== item.level, doctorChanged = Boolean(doctor) && doctor !== (item.doctor?.id ?? "");
+  const triageSend = Boolean(lv) && (levelChanged || bayChanged);
+  const nothing = !triageSend && !doctorChanged;
+  const bayNeedsLevel = bayChanged && !lv;
   const save = async () => {
-    if (busy || !openVisit) return;
+    if (busy || !openVisit || nothing) return;
     setBusy(true); setMsg(null);
     try {
-      const lv = Number(format.toEn(level));
-      if (lv && (lv !== item.level || bay !== (item.bay?.id ?? ""))) {
+      if (triageSend) {
         const r = await er.triage(item.id, { level: lv as 1, bayId: bay ? bay : null });
         toast(E("triaged_toast", { token: r.token, level: lv }), "siren");
       }
-      if (doctor && doctor !== (item.doctor?.id ?? "")) {
+      if (doctorChanged) {
         const r = await er.assign(item.id, { doctorId: doctor, paediatricOk: paedOk });
         toast(E("assigned_toast", { token: r.token, doctor: s.lang === "bn" ? r.doctor?.nameBn ?? "" : r.doctor?.nameEn ?? "" }), "stethoscope");
       }
@@ -131,7 +136,7 @@ function TriagePanel({ b, item, onChanged, onOpen }: { b: ErBoard; item: ErBoard
         {item.disposition && <Pill tone="final" icon="badge-check">{E(`d_${item.disposition.kind}`)}</Pill>}
         {item.admission && <Pill tone="info" icon="bed-double">{E("admission_status", { status: E(`adm_${item.admission.status}`) })} · {item.admission.bed.name}</Pill>}
       </div>
-      <span className="t-small num" data-testid="panel-vitals">{item.vitals ?? E("vitals_none")}</span>
+      <span className="t-small num" data-testid="panel-vitals">{item.vitals ? s.n(item.vitals) : E("vitals_none")}</span>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <span className="t-small t-secondary">{E("triage_level")} <span className="t-muted">· {E("scale_sample")}</span></span>
         <Segmented value={level} options={b.scale.levels.map((l) => ({ value: String(l.level), label: s.n(l.level) }))} onChange={setLevel} label={E("triage_level")} rawDigits />
@@ -148,8 +153,9 @@ function TriagePanel({ b, item, onChanged, onOpen }: { b: ErBoard; item: ErBoard
         <Callout tone="warn" icon="baby" data-testid="paed-prompt">{E("paed_prompt", { age: item.ageYears ?? 0 })} <Button size="sm" onClick={() => { setPaedOk(true); setMsg(null); }} data-testid="paed-continue">{E("paed_continue")}</Button></Callout>
       )}
       {msg && !needPaed && <Callout tone="warn" icon="triangle-alert">{msg}</Callout>}
+      {bayNeedsLevel && <span className="t-small t-secondary" data-testid="bay-needs-level">{E("bay_needs_level")}</span>}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <Button variant="primary" icon="check" disabled={busy || !openVisit || !s.online || needPaed || !(level || doctor)} onClick={() => void save()} data-testid="save-triage">{E("save_triage")}</Button>
+        <Button variant="primary" icon="check" disabled={busy || !openVisit || !s.online || needPaed || nothing} onClick={() => void save()} data-testid="save-triage">{E("save_triage")}</Button>
         {canVitals && openVisit && <Button icon="heart-pulse" onClick={() => router.push(`/m/fd/vitals?enc=${encodeURIComponent(item.id)}`)}>{E("record_vitals")}</Button>}
         <Button icon="clipboard-list" onClick={() => onOpen(item.id)} data-testid="open-orders">{E("open_orders")}</Button>
       </div>

@@ -49,17 +49,21 @@ function OrdersScreen({ encounterId }: { encounterId: string }) {
   const s = useSession(); const E = useE(); const L = useLabels(); const errOf = useErr(); const toast = useToast(); const router = useRouter();
   const [v, setV] = useState<ErVisitView | null>(null); const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [notes, setNotes] = useState(""); const [notesDirty, setNotesDirty] = useState(false);
+  const [notes, setNotes] = useState(""); const [notesDirty, setNotesDirtyS] = useState(false); const dirtyRef = useRef(false);
+  const setNotesDirty = (v: boolean) => { dirtyRef.current = v; setNotesDirtyS(v); };
   const [d, setD] = useState<Disposition>(EMPTY);
   const [cls, setCls] = useState("");
   const [pin, setPin] = useState<null | "open">(null);
-  const load = useCallback(async () => { try { const x = await er.visit(encounterId); setV(x); setNotes((n) => (notesDirty ? n : x.note.notes)); if (x.disposition) setD(x.disposition); } catch { setFailed(true); } }, [encounterId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // unsaved note text survives a reload (review): the dirty flag is read from a ref, never from a stale closure
+  const load = useCallback(async () => { try { const x = await er.visit(encounterId); setV(x); setNotes((n) => (dirtyRef.current ? n : x.note.notes)); if (x.disposition && !x.canRedispose) setD(x.disposition); } catch { setFailed(true); } }, [encounterId]);
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { if (v) s.setPatient(erBanner(v.item, L, v.allergies, s.lang)); }, [v?.item.id, v?.item.bay?.id, v?.allergies.length, s.lang, s.numerals]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => s.setPatient(null), []); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <Callout tone="warn" icon="triangle-alert">{E("error_generic")}</Callout>;
   if (!v) return <div aria-busy="true" className="t-muted">{E("loading")}</div>;
   const signed = v.note.status !== "draft";
+  // the desk cancelled the admit request: the disposition is open again (signed as an amendment, v2)
+  const dispLocked = signed && !v.canRedispose;
   const open = ["arrived", "triaged", "in-progress"].includes(v.item.status);
   const canWrite = (s.me?.role === "doctor" || s.me?.role === "nurse") && !signed && open && s.online;
   const run = async (f: () => Promise<ErVisitView>) => {
@@ -73,7 +77,8 @@ function OrdersScreen({ encounterId }: { encounterId: string }) {
   const fieldLabel = (f: string) => E(`f_${{ bedId: "bed", consultantId: "consultant", diagnosis: "diagnosis", advice: "advice", referTo: "refer_to", referReason: "refer_reason", timeOfDeath: "time_of_death", cause: "cause" }[f] ?? f}`);
   const set = (patch: Partial<Disposition>) => setD((x) => ({ ...x, ...patch }));
   const classes = ADMISSION_CLASSES.map((c) => ({ key: c.key, nameBn: c.nameBn, nameEn: c.nameEn }));
-  const dateTimeLocal = (iso: string | null | undefined) => (iso ? new Date(iso).toISOString().slice(0, 16) : "");
+  // datetime-local is local time (review): local components out, local parse back in
+  const dateTimeLocal = (iso: string | null | undefined) => { if (!iso) return ""; const d = new Date(iso); const p = (n: number) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
   return (
     <div data-screen="er/orders" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -130,59 +135,60 @@ function OrdersScreen({ encounterId }: { encounterId: string }) {
         </div>
         <Card style={{ display: "flex", flexDirection: "column", gap: 10, padding: 14 }} data-testid="disposition">
           <b>{E("disposition")}</b>
-          {signed && v.disposition && <Callout tone="info" icon="badge-check" data-testid="disposition-signed">{E(`d_${v.disposition.kind}`)} · {E("signed_by", { name: s.lang === "bn" ? v.note.signedBy?.nameBn ?? "—" : v.note.signedBy?.nameEn ?? "—", at: hhmm(v.note.signedAt, s.numerals === "bn") })}{v.item.admission ? ` · ${E("admission_status", { status: E(`adm_${v.item.admission.status}`) })} · ${v.item.admission.bed.name}` : ""}</Callout>}
+          {v.canRedispose && <Callout tone="warn" icon="undo-2" data-testid="redispose">{E("redispose")}</Callout>}
+          {dispLocked && v.disposition && <Callout tone="info" icon="badge-check" data-testid="disposition-signed">{E(`d_${v.disposition.kind}`)} · {E("signed_by", { name: s.lang === "bn" ? v.note.signedBy?.nameBn ?? "—" : v.note.signedBy?.nameEn ?? "—", at: hhmm(v.note.signedAt, s.numerals === "bn") })}{v.item.admission ? ` · ${E("admission_status", { status: E(`adm_${v.item.admission.status}`) })} · ${v.item.admission.bed.name}` : ""}</Callout>}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
             {DISPOSITIONS.map((k) => (
-              <button key={k} type="button" className="card" data-disposition={k} aria-pressed={d.kind === k} disabled={signed} onClick={() => setD({ kind: k as DispositionKind })}
-                style={{ padding: 10, textAlign: "center", cursor: signed ? "default" : "pointer", borderWidth: d.kind === k ? 2 : 1, borderColor: d.kind === k ? (k === "death" ? "var(--neutral-800)" : "var(--brand-primary)") : undefined, background: d.kind === k ? "var(--surface-selected)" : undefined }}>
+              <button key={k} type="button" className="card" data-disposition={k} aria-pressed={d.kind === k} disabled={dispLocked} onClick={() => setD({ kind: k as DispositionKind })}
+                style={{ padding: 10, textAlign: "center", cursor: dispLocked ? "default" : "pointer", borderWidth: d.kind === k ? 2 : 1, borderColor: d.kind === k ? (k === "death" ? "var(--neutral-800)" : "var(--brand-primary)") : undefined, background: d.kind === k ? "var(--surface-selected)" : undefined }}>
                 <b>{E(`d_${k}`)}</b>
               </button>
             ))}
           </div>
           {d.kind === "admit" && (
             <>
-              <SelectField label={E("f_consultant")} value={d.consultantId ?? ""} onChange={(e) => set({ consultantId: e.target.value || null })} disabled={signed} data-testid="consultant-select">
+              <SelectField label={E("f_consultant")} value={d.consultantId ?? ""} onChange={(e) => set({ consultantId: e.target.value || null })} disabled={dispLocked} data-testid="consultant-select">
                 <option value="">—</option>
                 {v.consultants.map((c) => <option key={c.id} value={c.id}>{s.lang === "bn" ? c.nameBn : c.nameEn}{c.speciality ? ` · ${c.speciality}` : ""}</option>)}
               </SelectField>
-              <TextField label={E("f_diagnosis")} value={d.diagnosis ?? ""} onChange={(e) => set({ diagnosis: e.target.value })} disabled={signed} data-testid="admit-diagnosis" />
+              <TextField label={E("f_diagnosis")} value={d.diagnosis ?? ""} onChange={(e) => set({ diagnosis: e.target.value })} disabled={dispLocked} data-testid="admit-diagnosis" />
               <span className="t-small t-secondary">{E("f_bed")}</span>
-              <BedPicker beds={v.beds.map((b) => ({ ...b, mine: b.state === "reserved" && b.pickable }))} value={d.bedId ?? null} onPick={(id) => set({ bedId: id })} classes={classes} cls={cls} onClass={setCls} disabled={signed} />
+              <BedPicker beds={v.beds.map((b) => ({ ...b, mine: b.state === "reserved" && b.pickable }))} value={d.bedId ?? null} onPick={(id) => set({ bedId: id })} classes={classes} cls={cls} onClass={setCls} disabled={dispLocked} />
             </>
           )}
           {d.kind === "discharge" && (
             <>
-              <TextArea label={E("f_advice")} value={d.advice ?? ""} onChange={(e) => set({ advice: e.target.value })} rows={2} disabled={signed} data-testid="advice" />
-              <TextField label={E("f_follow_up")} value={d.followUp ?? ""} onChange={(e) => set({ followUp: e.target.value })} disabled={signed} />
+              <TextArea label={E("f_advice")} value={d.advice ?? ""} onChange={(e) => set({ advice: e.target.value })} rows={2} disabled={dispLocked} data-testid="advice" />
+              <TextField label={E("f_follow_up")} value={d.followUp ?? ""} onChange={(e) => set({ followUp: e.target.value })} disabled={dispLocked} />
             </>
           )}
           {d.kind === "refer" && (
             <>
-              <TextField label={E("f_refer_to")} value={d.referTo ?? ""} onChange={(e) => set({ referTo: e.target.value })} disabled={signed} data-testid="refer-to" />
-              <TextField label={E("f_refer_reason")} value={d.referReason ?? ""} onChange={(e) => set({ referReason: e.target.value })} disabled={signed} />
-              <TextField label={E("f_transport")} value={d.transport ?? ""} onChange={(e) => set({ transport: e.target.value })} disabled={signed} />
+              <TextField label={E("f_refer_to")} value={d.referTo ?? ""} onChange={(e) => set({ referTo: e.target.value })} disabled={dispLocked} data-testid="refer-to" />
+              <TextField label={E("f_refer_reason")} value={d.referReason ?? ""} onChange={(e) => set({ referReason: e.target.value })} disabled={dispLocked} />
+              <TextField label={E("f_transport")} value={d.transport ?? ""} onChange={(e) => set({ transport: e.target.value })} disabled={dispLocked} />
             </>
           )}
           {d.kind === "death" && (
             <>
-              <TextField label={E("f_time_of_death")} type="datetime-local" value={dateTimeLocal(d.timeOfDeath)} onChange={(e) => set({ timeOfDeath: e.target.value ? new Date(e.target.value).toISOString() : null })} disabled={signed} data-testid="time-of-death" />
-              <TextField label={E("f_cause")} value={d.cause ?? ""} onChange={(e) => set({ cause: e.target.value })} disabled={signed} data-testid="cause" />
-              <label className="t-small" style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={Boolean(d.medicoLegal)} onChange={(e) => set({ medicoLegal: e.target.checked })} disabled={signed} data-testid="medico-legal" /> {E("medico_legal")}</label>
+              <TextField label={E("f_time_of_death")} type="datetime-local" value={dateTimeLocal(d.timeOfDeath)} onChange={(e) => set({ timeOfDeath: e.target.value ? new Date(e.target.value).toISOString() : null })} disabled={dispLocked} data-testid="time-of-death" />
+              <TextField label={E("f_cause")} value={d.cause ?? ""} onChange={(e) => set({ cause: e.target.value })} disabled={dispLocked} data-testid="cause" />
+              <label className="t-small" style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={Boolean(d.medicoLegal)} onChange={(e) => set({ medicoLegal: e.target.checked })} disabled={dispLocked} data-testid="medico-legal" /> {E("medico_legal")}</label>
               {DEATH_CHECKS.map((c) => (
                 <label key={c} className="t-small" style={{ display: "flex", gap: 8, alignItems: "center" }} data-check={c}>
-                  <input type="checkbox" checked={(d.checks ?? []).includes(c)} disabled={signed} onChange={(e) => set({ checks: e.target.checked ? [...(d.checks ?? []), c] : (d.checks ?? []).filter((x) => x !== c) })} /> {E(`chk_${c}`)}
+                  <input type="checkbox" checked={(d.checks ?? []).includes(c)} disabled={dispLocked} onChange={(e) => set({ checks: e.target.checked ? [...(d.checks ?? []), c] : (d.checks ?? []).filter((x) => x !== c) })} /> {E(`chk_${c}`)}
                 </label>
               ))}
               {d.medicoLegal && !(d.checks ?? []).includes("police") && <Callout tone="warn" icon="shield-alert" data-testid="police-required">{E("police_required")}</Callout>}
             </>
           )}
-          {!signed && blockers.length > 0 && (
+          {!dispLocked && blockers.length > 0 && (
             <ul className="t-small t-secondary" style={{ margin: 0, paddingLeft: 18 }} data-testid="disposition-blockers">
               {blockers.map((b) => <li key={b.field}>{b.code === "police_required" ? E("police_required") : E("blocker_required", { field: b.field.startsWith("checks.") ? E(`chk_${b.field.slice(7)}`) : fieldLabel(b.field) })}</li>)}
             </ul>
           )}
-          {!signed && s.me?.role !== "doctor" && <span className="t-small t-muted">{E("sign_doctor_only")}</span>}
-          <Button variant="primary" icon="pen-line" disabled={signed || !open || s.me?.role !== "doctor" || blockers.length > 0 || !s.online || busy} onClick={() => setPin("open")} data-testid="sign-disposition">{signed ? E("signed") : E("sign_disposition", { kind: E(`d_${d.kind}`) })}</Button>
+          {!dispLocked && s.me?.role !== "doctor" && <span className="t-small t-muted">{E("sign_doctor_only")}</span>}
+          <Button variant="primary" icon="pen-line" disabled={dispLocked || !open || s.me?.role !== "doctor" || blockers.length > 0 || !s.online || busy} onClick={() => setPin("open")} data-testid="sign-disposition">{dispLocked ? E("signed") : E("sign_disposition", { kind: E(`d_${d.kind}`) })}</Button>
           {!s.online && <span className="t-small t-muted">{E("needs_connection")}</span>}
         </Card>
       </div>

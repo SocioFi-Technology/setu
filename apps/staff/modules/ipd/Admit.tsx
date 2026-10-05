@@ -84,9 +84,9 @@ function DoneCard({ v, onNext }: { v: AdmissionView; onNext: () => void }) {
   const s = useSession(); const I = useI();
   return (
     <Card style={{ display: "flex", flexDirection: "column", gap: 10, padding: 16 }} data-testid="admitted-card">
-      <Callout tone="info" icon="badge-check"><b className="num">{v.number}</b> · {I("admitted_msg", { number: v.number ?? "", bed: v.bed.name, ward: s.lang === "bn" ? v.bed.ward.nameBn ?? v.bed.ward.name : v.bed.ward.name })}</Callout>
+      <Callout tone="info" icon="badge-check">{I("admitted_msg", { number: v.number ?? "", bed: v.bed.name, ward: s.lang === "bn" ? v.bed.ward.nameBn ?? v.bed.ward.name : v.bed.ward.name })}</Callout>
       <span className="t-small" data-testid="ipd-bill">{I("ipd_bill")}{v.invoice ? ` · ${v.invoice.status}` : ""}</span>
-      <span className="t-small t-muted">{v.legs.map((l) => `${l.bed}: ${I(`st_${l.status === "ended" ? "vacant" : l.status}`)}${l.endReason ? ` (${l.endReason})` : ""}`).join(" → ")}</span>
+      <span className="t-small t-muted" data-testid="legs">{I("legs")}: {v.legs.map((l) => `${l.bed} · ${l.status === "ended" ? I(`leg_${l.endReason ?? "ended"}`) : I(`st_${l.status}`)}`).join(" → ")}</span>
       <div><Button variant="primary" icon="plus" onClick={onNext}>{I("admit_title")}</Button></div>
     </Card>
   );
@@ -119,7 +119,7 @@ function AdmitForm({ list, board, req, patient, onAdmitted, onCancelled }: { lis
     if (!ready || busy || !chosen) return;
     setBusy(true); setMsg(null);
     try {
-      const v = await ipd.admit({ ...(req ? { admissionId: req.id } : { patientId: subjectId, source }), ...(!req && source === "opd" ? {} : {}), admittingDoctorId: doctor, department, diagnosis: diagnosis.trim(), bedClass: chosen.bedClass, bedId: chosen.id, guardian: { name: g.name.trim(), relationship: g.relationship, phone: g.phone.trim() }, consents }, key.current);
+      const v = await ipd.admit({ ...(req ? { admissionId: req.id } : { patientId: subjectId, source }), admittingDoctorId: doctor, department, diagnosis: diagnosis.trim(), bedClass: chosen.bedClass, bedId: chosen.id, guardian: { name: g.name.trim(), relationship: g.relationship, phone: g.phone.trim() }, consents }, key.current);
       await onAdmitted(v);
     } catch (e) {
       key.current = crypto.randomUUID();

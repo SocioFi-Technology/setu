@@ -80,7 +80,7 @@ describe.runIf(db)("the admission desk (walkthrough B2 → B3)", () => {
     const r = await post("/v1/ipd/admissions", admitBody(patientId, bed!), "desk", key);
     expect(r.statusCode, r.body).toBe(201);
     const v = r.json();
-    expect(v).toMatchObject({ status: "admitted", source: "direct", encounter: { status: "in-progress" }, bed: { id: bed, state: "occupied", patient: { id: patientId } }, invoice: { kind: "ipd", status: "draft", number: null }, admittingDoctor: { id: "u_e2l_surgeon", speciality: "Surgery" }, guardian: GUARDIAN, consents: REQUIRED });
+    expect(v).toMatchObject({ status: "admitted", source: "direct", encounter: { status: "in-progress" }, bed: { id: bed, state: "occupied", patient: { id: patientId } }, invoice: { kind: "ipd", status: "draft", number: null }, admittingDoctor: { id: "u_e2l_surgeon", speciality: "Surgery" }, guardian: { ...GUARDIAN, phone: "+8801711908812" }, consents: REQUIRED }); // the phone is stored as Latin digits, no spaces
     expect(v.number).toMatch(/^ADM\/\d{2}\/\d{4}$/);
     expect(v.encounter.token).toBe(v.number);
     expect(v.checklist.find((c: { key: string }) => c.key === "deposit")).toMatchObject({ ok: false, blocks: false });
@@ -106,7 +106,7 @@ describe.runIf(db)("the admission desk (walkthrough B2 → B3)", () => {
     expect(share.statusCode).toBe(409); expect(share.json().code).toBe("bed_not_free");
     await tenant((tx) => tx.location.update({ where: { id: bed2! }, data: { bedState: "cleaning" } }));
     const dirty = await post("/v1/ipd/admissions", admitBody(await newPatient(), bed2!));
-    expect(dirty.statusCode).toBe(409); expect(dirty.json().message_en).toContain("cleaning");
+    expect(dirty.statusCode).toBe(409); expect(dirty.json().message_en).toContain("being cleaned"); expect(dirty.json().message_bn).toContain("পরিষ্কার চলছে");
   });
   it("the checklist refuses in one answer: no bed, no guardian phone, a consent missing; a nurse may not admit", async () => {
     const [bed] = await ownWard(1);
@@ -162,5 +162,25 @@ describe.runIf(db)("the admission desk (walkthrough B2 → B3)", () => {
     expect(c.statusCode, c.body).toBe(200); expect(c.json().status).toBe("cancelled");
     expect(await bedState(bed!)).toBe("vacant");
     expect(await tenant((tx) => tx.bedAssignment.count({ where: { patientId: p, status: { in: ["reserved", "occupied"] } } }))).toBe(0);
+    // review: the ER visit is not stuck — the doctor signs a new disposition as an amendment (v2); v1 is superseded
+    const view = await get(`/v1/er/encounters/${erId}`, "doctor");
+    expect(view.json()).toMatchObject({ canRedispose: true, note: { status: "final", version: 1 }, item: { status: "in-progress", disposition: null, admission: null } });
+    expect((await post(`/v1/er/encounters/${erId}/orders`, { testCode: "cbc" }, "doctor")).json().code).toBe("note_signed"); // orders stay locked on the signed note
+    const again = await post(`/v1/er/encounters/${erId}/disposition`, { rev: view.json().note.rev, pin: "1234", disposition: { kind: "discharge", advice: "Pain settled; review in OPD" } }, "doctor");
+    expect(again.statusCode, again.body).toBe(200);
+    expect(again.json()).toMatchObject({ canRedispose: false, note: { status: "amended", version: 2 }, item: { status: "finished", disposition: { kind: "discharge" } } });
+    const versions = await tenant((tx) => tx.composition.findMany({ where: { encounterId: erId, kind: "er-note" }, orderBy: { version: "asc" } }));
+    expect(versions.map((v) => [v.version, v.status, v.amendsId !== null])).toEqual([[1, "superseded", false], [2, "amended", true]]);
+  });
+  it("a direct admission of a patient who is in the ER comes from that visit: bay vacated, visit finished, source er", async () => {
+    const [bay] = await ownWard(1, "ER"); const [bed] = await ownWard(1);
+    const p = await newPatient();
+    const a = await post("/v1/er/arrivals", { patientId: p, arrivalMode: "walk-in", complaint: "Weakness", bayId: bay }, "nurse");
+    const erId = a.json().item.id as string;
+    await post(`/v1/er/encounters/${erId}/assign`, { doctorId: "u_e2l_doctor" }, "nurse");
+    const r = await post("/v1/ipd/admissions", admitBody(p, bed!));
+    expect(r.statusCode, r.body).toBe(201);
+    expect(r.json()).toMatchObject({ source: "er", sourceEncounter: { id: erId, status: "finished" } });
+    expect([await bedState(bay!), await bedState(bed!)]).toEqual(["cleaning", "occupied"]);
   });
 });

@@ -175,6 +175,15 @@ export const BED: Table<BedState, BedEvent> = {
   blocked: { unblock: "vacant" },
 };
 
+/* ADR 0014 (review): an admission request (the ER's admit disposition) is completed by the desk or cancelled; a bed
+   assignment (one leg of a move) is reserved, then occupied, and ends once — never deleted. */
+export type AdmissionState = "requested" | "admitted" | "cancelled";
+export type AdmissionEvent = "admit" | "cancel";
+export const ADMISSION: Table<AdmissionState, AdmissionEvent> = { requested: { admit: "admitted", cancel: "cancelled" }, admitted: {}, cancelled: {} };
+export type BedAssignmentState = "reserved" | "occupied" | "ended";
+export type BedAssignmentEvent = "occupy" | "end";
+export const BED_ASSIGNMENT: Table<BedAssignmentState, BedAssignmentEvent> = { reserved: { occupy: "occupied", end: "ended" }, occupied: { end: "ended" }, ended: {} };
+
 /* Discharge: final bill cannot be settled before pharmacy clearance (walkthrough B9/B10). */
 export type DischargeState = "initiated" | "summary-signed" | "pharmacy-cleared" | "final-bill" | "paid" | "left";
 export type DischargeEvent = "signSummary" | "clearPharmacy" | "finalBill" | "pay" | "leave";

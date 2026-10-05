@@ -90,6 +90,8 @@ export const ErVisitView = z.object({
   careOrders: z.array(ErCareOrder),
   tests: z.array(TestItem),
   disposition: Disposition.nullable(),
+  /** the admit request was cancelled at the desk: the doctor signs a new disposition as an amendment (v2) */
+  canRedispose: z.boolean(),
   /** beds a ward admission may go to (every admission class), with why one cannot be picked */
   beds: z.array(AdmitBed),
   consultants: z.array(ErDoctor),

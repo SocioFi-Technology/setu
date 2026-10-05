@@ -37,7 +37,7 @@ for (const t of undone)
    Signed notes stay as they are; specs never depend on counts. The reset acts as the E2E admin and audits each change. */
 const now = new Date();
 const RESET_BY = "u_e2e_admin";
-const audit: { action: string; entity: string; entityId: string; patientId?: string; detail: object }[] = [];
+const audit: { action: string; entity: string; entityId: string; patientId?: string; detail: object; tenantId?: string }[] = [];
 const SEEDED_ALLERGIES = ["e2e_al_rahima_pen", "e2e_al_rahima_sulfa"];
 const family = Object.keys(FAMILY);
 const extra = await db.allergyIntolerance.findMany({ where: { tenantId: T, status: "active", patientId: { in: family }, id: { notIn: SEEDED_ALLERGIES } } });
@@ -83,12 +83,12 @@ await db.$transaction(async (tx) => {
   for (const e of open) {
     const to = transition("encounter", ENCOUNTER, e.status.replace(/_/g, "-") as EncounterState, CLOSE[e.status]!).replace(/-/g, "_");
     await tx.encounter.updateMany({ where: { id: e.id, tenantId: e.tenantId, status: e.status }, data: { status: to as "cancelled" | "entered_in_error", statusAt: now } });
-    audit.push({ action: "update", entity: "Encounter", entityId: e.id, patientId: e.patientId, detail: { event: CLOSE[e.status], to, e2eReset: true } });
+    audit.push({ action: "update", entity: "Encounter", entityId: e.id, patientId: e.patientId, detail: { event: CLOSE[e.status], to, e2eReset: true }, tenantId: e.tenantId });
   }
   if (provisionalReviews.length) await tx.task.updateMany({ where: { id: { in: provisionalReviews.map((t) => t.id) } }, data: { status: "rejected", decisionNote: "e2e reset", decidedById: RESET_BY, decidedAt: now } });
 });
-for (const a of liveBeds) audit.push({ action: "update", entity: "BedAssignment", entityId: a.id, patientId: a.patientId, detail: { event: "end", reason: "reset", e2eReset: true } });
-for (const a of requestedAdmissions) audit.push({ action: "update", entity: "Admission", entityId: a.id, patientId: a.patientId, detail: { event: "cancel", e2eReset: true } });
+for (const a of liveBeds) audit.push({ action: "update", entity: "BedAssignment", entityId: a.id, patientId: a.patientId, detail: { event: "end", reason: "reset", e2eReset: true }, tenantId: a.tenantId });
+for (const a of requestedAdmissions) audit.push({ action: "update", entity: "Admission", entityId: a.id, patientId: a.patientId, detail: { event: "cancel", e2eReset: true }, tenantId: a.tenantId });
 // the Lite family's links and confidence, like the clinic's
 for (const [id, identityConfidence] of Object.entries(FAMILY))
   await db.patient.updateMany({ where: { id: id.replace(/^e2e_/, "e2l_"), tenantId: LITE }, data: { linkedToId: null, identityConfidence } });
@@ -179,9 +179,9 @@ const testUsers = (await db.practitionerRole.findMany({ where: { organizationId:
 await db.practitionerRole.deleteMany({ where: { organizationId: NEW, userId: { not: NEW_ADMIN } } });
 await db.user.updateMany({ where: { id: { in: testUsers }, roles: { none: {} } }, data: { active: false, deactivatedAt: now, deactivatedReason: "e2e reset: test run", sessionGeneration: { increment: 1 } } });
 await db.user.update({ where: { id: NEW_ADMIN }, data: { active: true, mustChangePassword: false, tempPasswordExpiresAt: null, passwordHash: createHash("sha256").update("dev-only:setu1234").digest("hex"), pinHash: createHash("sha256").update("dev-only:2580").digest("hex") } });
-if (audit.length) await db.auditEvent.createMany({ data: audit.map((a) => ({ tenantId: T, userId: RESET_BY, role: "admin" as const, at: now, ...a, detail: { route: "pnpm db:reset-e2e", ...a.detail } })) });
-// the Lite hospital's resets are audited there, as its admin (its rows carry its tenant under RLS)
-const liteAudit = audit.filter((a) => (a.entity === "Encounter" && open.some((e) => e.id === a.entityId && e.tenantId === LITE)) || (a.entity === "BedAssignment" && liveBeds.some((b) => b.id === a.entityId && b.tenantId === LITE)) || (a.entity === "Admission" && requestedAdmissions.some((b) => b.id === a.entityId && b.tenantId === LITE)));
-if (liteAudit.length) await db.auditEvent.createMany({ data: liteAudit.map((a) => ({ tenantId: LITE, userId: "u_e2l_admin", role: "admin" as const, at: now, ...a, detail: { route: "pnpm db:reset-e2e", ...a.detail } })) });
+// each row is audited under its own tenant, as that tenant's E2E admin (review: never a Lite row under the clinic)
+const clinicAudit = audit.filter((a) => (a.tenantId ?? T) === T), liteAudit = audit.filter((a) => a.tenantId === LITE);
+if (clinicAudit.length) await db.auditEvent.createMany({ data: clinicAudit.map(({ tenantId: _t, ...a }) => ({ tenantId: T, userId: RESET_BY, role: "admin" as const, at: now, ...a, detail: { route: "pnpm db:reset-e2e", ...a.detail } })) });
+if (liteAudit.length) await db.auditEvent.createMany({ data: liteAudit.map(({ tenantId: _t, ...a }) => ({ tenantId: LITE, userId: "u_e2l_admin", role: "admin" as const, at: now, ...a, detail: { route: "pnpm db:reset-e2e", ...a.detail } })) });
 await db.$disconnect();
 console.log(`E2E Test Clinic reset: walkthrough family restored, ${n.count} open review(s) closed, ${undone.length} undone override(s) marked reviewed, ${extra.length} test allerg(ies) marked entered-in-error, ${restored} seeded allerg(ies) recorded again, ${open.length} leftover visit(s) closed, ${liveBeds.length} bed assignment(s) ended and ${bedsReset} bed(s) put back, ${requestedAdmissions.length} admission request(s) cancelled, ${provisionalReviews.length} provisional review(s) closed, ${cases.length} reconciliation case(s) resolved "test run", ${refundsClosed} open refund(s) closed and ${refundChecks.count} refund check(s) resolved "test run", ${unfinished.length} unfinished shift(s) approved "test run", ${toppedUp} stock batch(es) topped up, ${openCounts.length} open count(s) rejected, ${openGrns.count} goods receipt(s) discarded, E2E New Clinic back in setup (${testUsers.length} test user(s) switched off)`);
