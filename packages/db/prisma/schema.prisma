@@ -905,6 +905,8 @@ model Invoice {
   /// ADR 0013: money of this bill paid back (refunds of source "bill", allocations paid out); the database keeps it
   /// equal to their sum. Confirmed payments stay confirmed: paid − refunded is what the facility keeps.
   refundedPaisa       Int           @default(0)
+  /// Kamrul, decision 221: medicine returned on an unpaid bill (returns without refund) — the due goes down by it
+  creditedPaisa       Int           @default(0)
   statusAt            DateTime      @default(now())
   lines               ChargeItem[]
   payments            Payment[]
@@ -1073,6 +1075,8 @@ model Receipt {
   paidPaisa      Int
   totalPaisa     Int
   duePaisa       Int
+  /// ADR 0013 (decision 221): returned medicine credited off the bill — paid + due + credited = total
+  creditedPaisa  Int            @default(0)
   /// everything the receipt prints (seller, patient, lines, totals, paid by, pending, cashier)
   snapshot       Json
   createdById    String
@@ -1768,6 +1772,10 @@ model Refund {
   patientId         String?
   /// bill | reconciliation (money a gateway reported that never became confirmed money on the bill — no lines)
   source            String             @default("bill")
+  /// refund (money goes back) | return (decision 221: medicine back on an unpaid bill, a credit — no money, no allocations)
+  kind              String             @default("refund")
+  /// decision 223: approved (or rejected) by the requester as the facility's only approver, with a note
+  selfApproved      Boolean            @default(false)
   /// reconciliation: the case it came from
   caseTaskId        String?
   /// cancelled-test | wrong-dispense | overpayment | patient-request | other

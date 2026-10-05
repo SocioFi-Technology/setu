@@ -46,6 +46,8 @@ export const ChargeLine = z.object({
   notBilled: z.object({ reason: z.string(), at: z.string(), approvedBy: Person.nullable() }).nullable(),
   /** ADR 0009: a medicine line — the batch it came from */
   batch: z.object({ id: z.string(), batchNo: z.string(), expiry: z.string() }).nullable(),
+  /** ADR 0013: refunded or returned of this line so far (paid / recorded) — units for medicine */
+  back: z.object({ units: z.number().int(), totalPaisa: Paisa }).nullable(),
   /** ADR 0010: a draft line whose price-list item changed since it was added — the price now (the line keeps its own) */
   currentUnitPaisa: Paisa.nullable(),
   /** …and its VAT rate now, when the price or the VAT changed */
@@ -89,6 +91,8 @@ export const InvoiceView = z.object({
     subtotalPaisa: Paisa, discountPaisa: Paisa, netPaisa: Paisa, vatPaisa: Paisa, totalPaisa: Paisa, paidPaisa: Paisa,
     /** ADR 0013: money of this bill paid back (paid − refunded is what the facility keeps) */
     refundedPaisa: Paisa,
+    /** decision 221: medicine returned without a refund — the due goes down by it */
+    creditedPaisa: Paisa,
     discount: z.object({ category: DiscountCategory, reason: z.string(), appliedBy: Person, appliedAt: z.string(), approvedBy: Person.nullable() }).nullable(),
     createdAt: z.string(), issuedAt: z.string().nullable(), issuedBy: Person.nullable(),
     /** ADR 0005: void (entered-in-error) and the replacement chain */
@@ -157,7 +161,7 @@ export const ApprovalItem = ApprovalView.extend({
   line: z.object({ id: z.string(), nameEn: z.string(), nameBn: z.string() }).nullable(),
   /** refund-approval (ADR 0013): the refund, how it goes back, and whether only the owner may approve it */
   refund: z.object({
-    id: z.string(), category: z.enum(["cancelled-test", "wrong-dispense", "overpayment", "patient-request", "other"]),
+    id: z.string(), kind: z.enum(["refund", "return"]), selfApproved: z.boolean(), category: z.enum(["cancelled-test", "wrong-dispense", "overpayment", "patient-request", "other"]),
     ways: z.array(z.object({ method: PaymentMethod, way: z.enum(["cash", "gateway", "manual"]), amountPaisa: Paisa })),
     lines: z.array(z.object({ nameEn: z.string(), nameBn: z.string(), units: z.number().int().nullable(), totalPaisa: Paisa })),
     needsOwner: z.boolean(), controlled: z.boolean(),
@@ -224,6 +228,8 @@ export const ReceiptSnapshot = z.object({
     notBilledReason: z.string().nullable().optional(),
   })),
   subtotalPaisa: Paisa, discountPaisa: Paisa, vatPaisa: Paisa, totalPaisa: Paisa, paidPaisa: Paisa, duePaisa: Paisa,
+  /** decision 221: returned medicine credited off the bill (paid + due + credited = total) */
+  creditedPaisa: Paisa.default(0),
   /** sums of line paisa per VAT rate (Mushak-6.3 breakdown) */
   vatByRate: z.array(z.object({ rateBp: z.number().int(), netPaisa: Paisa, vatPaisa: Paisa })),
   discount: z.object({ category: DiscountCategory, reason: z.string(), approvedBy: z.object({ nameBn: z.string(), nameEn: z.string() }).nullable() }).nullable(),

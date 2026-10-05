@@ -64,6 +64,11 @@ async function freshShift(who: "cashier" | "pharm") {
   if (sh?.status === "closed") ok(await post(`/v1/shifts/${sh.id}/review`, { decision: "approve", note: "closing a shift left by an earlier test run" }, "owner"));
   return ok(await post("/v1/shifts", { openingFloatPaisa: 200_000 }, who), 201);
 }
+/** A read on the owner connection (no RLS, no signed-in user) — for database checks only. */
+async function owner2<R>(fn: (c: InstanceType<NonNullable<typeof db>["PrismaClient"]>) => Promise<R>): Promise<R> {
+  const c = new db!.PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+  try { return await fn(c); } finally { await c.$disconnect(); }
+}
 const myShift = async (who: "cashier" | "pharm" = "cashier") => ok(await get("/v1/shifts/mine", who)).shift;
 
 type Med = { medicineKey: string; dose: string; meal: string; days: number };
@@ -227,8 +232,7 @@ describe.runIf(db)("the way the money goes back (decision 2)", () => {
     ok(await approve(r.refund.id));
     const rev = ok(await get(`/v1/refunds/${r.refund.id}`)).refund.rev;
     expect(ok(await post(`/v1/refunds/${r.refund.id}/pay`, { rev, recipient }), 400).code).toBe("reference_required");
-    const alloc = ok(await get(`/v1/refunds/${r.refund.id}`)).allocations[0];
-    const paid = ok(await post(`/v1/refunds/${r.refund.id}/pay`, { rev, recipient, allocations: [{ id: alloc.id, reference: "NGD-RF-77812" }] }));
+    const paid = ok(await post(`/v1/refunds/${r.refund.id}/pay`, { rev, recipient, reference: "NGD-RF-77812" }));
     expect(paid.view.allocations[0]).toMatchObject({ status: "paid", way: "manual", reference: "NGD-RF-77812", needsReconciliation: true, reconciled: "waiting" });
     const item = ok(await get("/v1/reconciliation", "owner")).items.find((i: { refund: { id: string } | null }) => i.refund?.id === r.refund.id);
     expect(item).toMatchObject({ kind: "refund", whyCode: "manual-refund", refund: { way: "manual", amountPaisa: 45_000, reference: "NGD-RF-77812", paidBy: { id: "u_e2e_cashier" } }, applyBlockers: [] });
@@ -347,6 +351,113 @@ describe.runIf(db)("pharmacy returns (ADR 0009 addendum)", () => {
   });
 });
 
+describe.runIf(db)("Kamrul's decisions 220, 221, 223", () => {
+  const COMET: Med = { medicineKey: "comet", dose: "1+0+1", meal: "after", days: 5 };
+  it("220: part cash, part bKash is two refunds, each paid whole with its own voucher — never one mixed refund", { timeout: 30_000 }, async () => {
+    const { view } = await opdBill(["cbc", "rbs"], { method: "cash", amountPaisa: 100_000 });
+    const id = view.invoice.id;
+    const p2 = ok(await post(`/v1/invoices/${id}/payments`, { method: "nagad", amountPaisa: 40_000 }), 201).payment;
+    const ref = (await inTenant((tx) => tx.payment.findFirst({ where: { id: p2.id } })))!.providerRef!;
+    const cb = fakeProvider()!.simulate(ref, "confirmed")!;
+    await app.inject({ method: "POST", url: "/v1/payments/callback/fake", payload: cb.body, headers: cb.headers });
+    const pays = ok(await get(`/v1/invoices/${id}/refundable`)).payments;
+    const cash = pays.find((x: { method: string }) => x.method === "cash"), nagad = pays.find((x: { method: string }) => x.method === "nagad");
+    const cbc = lineOf(view, "test:cbc"), rbs = lineOf(view, "test:rbs");
+    const mixed = await post(`/v1/invoices/${id}/refunds`, { category: "cancelled-test", reason: "Both tests cancelled by the doctor", lines: [{ chargeItemId: cbc.id, amountPaisa: 45_000 }, { chargeItemId: rbs.id, amountPaisa: 15_000 }],
+      allocations: [{ paymentId: cash.id, amountPaisa: 30_000, way: "cash" }, { paymentId: nagad.id, amountPaisa: 30_000, way: "manual" }] });
+    expect(ok(mixed, 422).code).toBe("mixed_ways");
+    const r1 = ok(await post(`/v1/invoices/${id}/refunds`, { category: "cancelled-test", reason: "CBC cancelled by the doctor", lines: [{ chargeItemId: cbc.id, amountPaisa: 45_000 }], allocations: [{ paymentId: cash.id, amountPaisa: 45_000, way: "cash" }] }), 201);
+    ok(await approve(r1.refund.id));
+    const v1 = ok(await post(`/v1/refunds/${r1.refund.id}/pay`, { rev: ok(await get(`/v1/refunds/${r1.refund.id}`)).refund.rev, recipient }));
+    const r2 = ok(await post(`/v1/invoices/${id}/refunds`, { category: "cancelled-test", reason: "RBS cancelled by the doctor", lines: [{ chargeItemId: rbs.id, amountPaisa: 15_000 }], allocations: [{ paymentId: nagad.id, amountPaisa: 15_000, way: "manual" }] }), 201);
+    ok(await approve(r2.refund.id));
+    const v2 = ok(await post(`/v1/refunds/${r2.refund.id}/pay`, { rev: ok(await get(`/v1/refunds/${r2.refund.id}`)).refund.rev, recipient, reference: "NGD-RF-2201" }));
+    expect([v1.outcome, v2.outcome]).toEqual(["paid", "paid"]);
+    expect(v1.view.refund.voucher.number).not.toBe(v2.view.refund.voucher.number);
+    // and the database itself refuses a refund going back two ways
+    await expect(inTenant((tx) => tx.refundAllocation.create({ data: { tenantId: T, refundId: r2.refund.id, paymentId: cash.id, method: "cash", amountPaisa: 1, way: "cash" } }))).rejects.toThrow();
+  });
+
+  it("221: medicine back on an unpaid pharmacy bill — no money, the due goes down, a credit voucher; all back → the bill can be voided", { timeout: 40_000 }, async () => {
+    const { enc, compositionId } = await signedVisit({ meds: [COMET] });
+    const v0 = ok(await get(`/v1/pharmacy/encounters/${enc}`, "pharm"));
+    const d = ok(await post(`/v1/pharmacy/encounters/${enc}/dispense`, { compositionId, lines: [{ requestId: v0.lines[0].requestId, medicineKey: "comet", qty: 10 }] }, "pharm"));
+    const bill = ok(await get(`/v1/invoices/${d.bill.id}`, "pharm"));
+    const issued = ok(await post(`/v1/invoices/${d.bill.id}/issue`, { rev: bill.invoice.rev }, "pharm"));
+    const line = issued.lines[0];
+    expect(ok(await get(`/v1/invoices/${d.bill.id}/refundable`, "pharm"))).toMatchObject({ canReturn: true, confirmedLeftPaisa: 0 });
+    const ret = (units: number, reason = "Brought back unopened before paying") => post(`/v1/invoices/${d.bill.id}/refunds`, { kind: "return", category: "patient-request", reason, lines: [{ chargeItemId: line.id, units }] }, "pharm");
+    // a return takes no money back
+    expect(ok(await post(`/v1/invoices/${d.bill.id}/refunds`, { kind: "return", category: "patient-request", reason: "Brought back unopened before paying", lines: [{ chargeItemId: line.id, units: 4 }], allocations: [{ paymentId: "x", amountPaisa: 1, way: "cash" }] }, "pharm"), 404).code).toBe("payment_not_found");
+    const r = ok(await ret(4), 201);
+    expect(r.refund).toMatchObject({ kind: "return", status: "requested", amountPaisa: 1_600 });
+    expect(r.allocations).toEqual([]);
+    ok(await approve(r.refund.id));
+    const done = ok(await post(`/v1/refunds/${r.refund.id}/pay`, { rev: ok(await get(`/v1/refunds/${r.refund.id}`, "pharm")).refund.rev }, "pharm"));
+    expect(done.view.refund).toMatchObject({ status: "paid", recipient: null, voucher: { number: expect.stringMatching(new RegExp(`^CV/${YY}/`)) } });
+    const after = ok(await get(`/v1/invoices/${d.bill.id}`, "pharm"));
+    expect(after.invoice).toMatchObject({ status: "issued", paidPaisa: 0, creditedPaisa: 1_600 });
+    expect(after.summary.duePaisa).toBe(issued.invoice.totalPaisa - 1_600);
+    expect(after.lines[0].back).toEqual({ units: 4, totalPaisa: 1_600 });
+    expect((await inTenant((tx) => tx.stockMove.findFirst({ where: { refType: "refund-line", refId: r.lines[0].id } })))?.qty).toBe(4);
+    expect(ok(await get(`/v1/refunds/${r.refund.id}/voucher`, "pharm")).voucher.snapshot).toMatchObject({ kind: "return", recipient: null, paidBack: [] });
+    // the rest comes back too: due zero, never any money → void (ADR 0005)
+    expect(ok(await post(`/v1/invoices/${d.bill.id}/void`, { reason: "All medicine returned unpaid" }, "owner"), 409).code).toBe("medicine_given");
+    const r2 = ok(await ret(6), 201);
+    ok(await approve(r2.refund.id));
+    ok(await post(`/v1/refunds/${r2.refund.id}/pay`, { rev: ok(await get(`/v1/refunds/${r2.refund.id}`, "pharm")).refund.rev }, "pharm"));
+    const zero = ok(await get(`/v1/invoices/${d.bill.id}`, "pharm"));
+    expect(zero.summary.duePaisa).toBe(0);
+    expect(ok(await post(`/v1/invoices/${d.bill.id}/payments`, { method: "cash", amountPaisa: 100, tenderedPaisa: 100 }, "pharm"), 409).code).toBeTruthy();
+    expect(ok(await post(`/v1/invoices/${d.bill.id}/void`, { reason: "All medicine returned unpaid" }, "owner")).invoice.status).toBe("entered-in-error");
+  });
+
+  it("221: a partly returned bill is then paid for the rest — balanced at total − credited, the receipt shows the credit", { timeout: 40_000 }, async () => {
+    const { enc, compositionId } = await signedVisit({ meds: [COMET] });
+    const v0 = ok(await get(`/v1/pharmacy/encounters/${enc}`, "pharm"));
+    const d = ok(await post(`/v1/pharmacy/encounters/${enc}/dispense`, { compositionId, lines: [{ requestId: v0.lines[0].requestId, medicineKey: "comet", qty: 10 }] }, "pharm"));
+    const bill = ok(await get(`/v1/invoices/${d.bill.id}`, "pharm"));
+    const issued = ok(await post(`/v1/invoices/${d.bill.id}/issue`, { rev: bill.invoice.rev }, "pharm"));
+    const r = ok(await post(`/v1/invoices/${d.bill.id}/refunds`, { kind: "return", category: "wrong-dispense", reason: "Two strips were one too many", lines: [{ chargeItemId: issued.lines[0].id, units: 2 }] }, "pharm"), 201);
+    ok(await approve(r.refund.id));
+    ok(await post(`/v1/refunds/${r.refund.id}/pay`, { rev: ok(await get(`/v1/refunds/${r.refund.id}`, "pharm")).refund.rev }, "pharm"));
+    const due = issued.invoice.totalPaisa - 800;
+    const paid = ok(await post(`/v1/invoices/${d.bill.id}/payments`, { method: "cash", amountPaisa: due, tenderedPaisa: due }, "pharm"), 201);
+    expect(paid.view.invoice).toMatchObject({ status: "balanced", paidPaisa: due, creditedPaisa: 800 });
+    const rc = ok(await post(`/v1/invoices/${d.bill.id}/receipts`, {}, "pharm"), 201).receipt;
+    expect(rc).toMatchObject({ paidPaisa: due, duePaisa: 0, snapshot: { creditedPaisa: 800 } });
+    // once money is on the bill a return without refund is refused — a refund is the way
+    expect(ok(await post(`/v1/invoices/${d.bill.id}/refunds`, { kind: "return", category: "patient-request", reason: "Two more brought back today", lines: [{ chargeItemId: issued.lines[0].id, units: 2 }] }, "pharm"), 409).code).toBe("money_on_bill");
+  });
+
+  it("223: the only approver at the facility decides their own request with a note — flagged self-approved, on the exceptions list", { timeout: 40_000 }, async () => {
+    const owner = new db!.PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+    const { view } = await opdBill(["rbs"], { method: "cash" });
+    const pay = ok(await get(`/v1/invoices/${view.invoice.id}/refundable`)).payments[0];
+    const r = ok(await post(`/v1/invoices/${view.invoice.id}/refunds`, { category: "cancelled-test", reason: "RBS cancelled by the doctor", lines: [{ chargeItemId: lineOf(view, "test:rbs").id, amountPaisa: 15_000 }], allocations: [{ paymentId: pay.id, amountPaisa: 15_000, way: "cash" }] }, "owner"), 201);
+    // with the E2E admin there, the owner cannot approve their own request
+    expect(ok(await post(`/v1/refunds/${r.refund.id}/decision`, { decision: "approve", note: "Owner approving alone" }, "owner"), 403).code).toBe("own_request");
+    // the admin switched off for this test: the owner is the only approver — a note is required, then it is flagged
+    await owner.user.update({ where: { id: "u_e2e_admin" }, data: { active: false } });
+    try {
+      expect(ok(await post(`/v1/refunds/${r.refund.id}/decision`, { decision: "approve", note: "ok" }, "owner"), 400).code).toBe("note_required");
+      const a = ok(await post(`/v1/refunds/${r.refund.id}/decision`, { decision: "approve", note: "Only approver at the counter today" }, "owner"));
+      expect(a.refund).toMatchObject({ status: "approved", selfApproved: true, decisionNote: "Only approver at the counter today", decidedBy: { id: "u_e2e_owner" } });
+    } finally {
+      await owner.user.update({ where: { id: "u_e2e_admin" }, data: { active: true } });
+      await owner.$disconnect();
+    }
+    const audit = await inTenant((tx) => tx.auditEvent.findFirst({ where: { entity: "Refund", entityId: r.refund.id, action: "update" }, orderBy: { at: "desc" } }));
+    expect(audit?.detail).toMatchObject({ selfApproved: true, flag: "self-approved" });
+    const dash = ok(await get("/v1/owner/dashboard?period=today", "owner"));
+    expect(dash.leakage.find((l: { kind: string }) => l.kind === "selfApproved").count).toBeGreaterThanOrEqual(1);
+    const drill = ok(await get("/v1/owner/drill?period=today&what=selfApproved", "owner"));
+    expect(drill.rows.find((x: { id: string }) => x.id === r.refund.id)).toMatchObject({ by: { id: "u_e2e_owner" }, approvedBy: { id: "u_e2e_owner" } });
+    // the database refuses a self-decision while another approver exists (the admin is back)
+    expect(await owner2((tx) => tx.$queryRaw<{ n: number }[]>`SELECT facility_approvers('o_e2e') AS n`)).toEqual([{ n: 2 }]);
+  });
+});
+
 describe.runIf(db)("reconciliation → refund to patient", () => {
   it("the gateway re-confirms the case's money; a refund for exactly that; the owner who asked cannot approve it", { timeout: 30_000 }, async () => {
     const { view } = await opdBill(["cbc"]);
@@ -363,10 +474,9 @@ describe.runIf(db)("reconciliation → refund to patient", () => {
     expect(r.lines).toEqual([]);
     const done = ok(await get("/v1/reconciliation?status=rejected", "owner")).items.find((i: { taskId: string }) => i.taskId === item.taskId);
     expect(done.resolution).toMatchObject({ action: "refunded", refundId: r.refund.id });
-    expect(ok(await approve(r.refund.id, "owner"), 403).code).toBe("own_request");
+    expect(ok(await approve(r.refund.id, "owner"), 403).code).toBe("own_request"); // an admin exists here (decision 223)
     ok(await approve(r.refund.id, "admin"));
-    const alloc = ok(await get(`/v1/refunds/${r.refund.id}`)).allocations[0];
-    const paid = ok(await post(`/v1/refunds/${r.refund.id}/pay`, { rev: ok(await get(`/v1/refunds/${r.refund.id}`)).refund.rev, recipient, allocations: [{ id: alloc.id, reference: "NGD-REV-1102" }] }));
+    const paid = ok(await post(`/v1/refunds/${r.refund.id}/pay`, { rev: ok(await get(`/v1/refunds/${r.refund.id}`)).refund.rev, recipient, reference: "NGD-REV-1102" }));
     expect(paid.view.refund.status).toBe("paid");
     // not a credit note: the bill's refunded money is unchanged (that money was never on the bill)
     expect(ok(await get(`/v1/invoices/${view.invoice.id}`)).invoice.refundedPaisa).toBe(0);

@@ -164,8 +164,11 @@ export class BkashProvider implements PaymentProvider {
   /* ── refunds (ADR 0013; developer.bka.sh v2 Refund / Refund Status, read 05/10/2026) ── */
   /** Refund codes after which nothing moved (bKash said no): the window (2071), the amount (2072), SKU / reason (2073,
       2075, 2076, 2078), cannot be reversed (2074), TrxID (2077), not permitted (2080–2082), merchant balance (2023), not
-      yet completed (2127), unknown payment (2002). Anything else — a timeout, 503 / 9999, a broken answer — may have
-      refunded: ask Refund Status before anyone tries again ("if the refund API doesn't respond within 30 s"). */
+      yet completed (2127), unknown payment (2002). Anything else — a timeout, 503 / 9999, a broken answer, or a code we
+      do not recognise (a duplicate refund, an 11th refund: undocumented) — may have refunded: ask Refund Status, and it
+      is neither refunded nor failed until that answers (Kamrul, decision 227 — the lesson of the execute path). A
+      duplicate answer for money we already recorded as paid changes nothing: only an allocation still "paying" is
+      settled by an answer. */
   private static readonly REFUSED = new Set(["2002", "2023", "2071", "2072", "2073", "2074", "2075", "2076", "2077", "2078", "2080", "2081", "2082", "2127"]);
   async refund(req: RefundCall): Promise<RefundAnswer> {
     let j: Json | null = null;

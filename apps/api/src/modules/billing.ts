@@ -68,6 +68,9 @@ export function providerOf(p: { provider: string | null; method: string }): Paym
 const linkCode = () => Array.from(randomBytes(LINK_CODE_LENGTH), (b) => LINK_CODE_ALPHABET[b % LINK_CODE_ALPHABET.length]).join("");
 const PENDING_DB = ["initiated", "link_sent", "waiting_customer"];
 
+/** What the bill asks to be paid: its total less returned medicine credited off it (decision 221). */
+export const dueBase = (inv: { totalPaisa: number; creditedPaisa: number }) => inv.totalPaisa - inv.creditedPaisa;
+
 export function requireWriter(s: SessionData) { if (!WRITE_ROLES.includes(s.role)) throw readOnlyRole(); }
 
 async function people(tx: Tx, ids: (string | null | undefined)[]) {
@@ -124,6 +127,9 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
     tx.invoice.findMany({ where: { id: { in: [inv.replacesId, inv.replacedById].filter((x): x is string => Boolean(x)) } }, select: { id: true, number: true } }),
   ]);
   const task = tasks[0] ?? null;
+  // ADR 0013: what refunds (paid) and returns (recorded) took back of each line
+  const backRows = await tx.refundLine.groupBy({ by: ["chargeItemId"], where: { chargeItemId: { in: lines.map((l) => l.id) }, refund: { status: "paid" } }, _sum: { units: true, totalPaisa: true } });
+  const back = new Map(backRows.map((b) => [b.chargeItemId, { units: b._sum.units ?? 0, totalPaisa: b._sum.totalPaisa ?? 0 }]));
   const batches = await tx.stockBatch.findMany({ where: { id: { in: lines.flatMap((l) => (l.batchId ? [l.batchId] : [])) } }, select: { id: true, batchNo: true, expiry: true } });
   const batchById = new Map(batches.map((b) => [b.id, b]));
   // ADR 0010: a draft keeps its prices; a line whose price-list item changed since says so (and what it costs now)
@@ -147,7 +153,7 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
       id: inv.id, status: dash<InvoiceState>(inv.status), number: inv.number, rev: inv.rev,
       kind: inv.kind, buyer: inv.kind === "otc" ? { name: inv.buyerName, phone: inv.buyerPhone } : null,
       subtotalPaisa: inv.subtotalPaisa, discountPaisa: inv.discountPaisa, netPaisa: inv.netPaisa, vatPaisa: inv.vatPaisa, totalPaisa: inv.totalPaisa, paidPaisa: inv.paidPaisa,
-      refundedPaisa: inv.refundedPaisa,
+      refundedPaisa: inv.refundedPaisa, creditedPaisa: inv.creditedPaisa,
       discount: inv.discountPaisa > 0 && inv.discountCategory && inv.discountReason && inv.discountAppliedById && inv.discountAppliedAt
         ? { category: inv.discountCategory as DiscountCategory, reason: inv.discountReason, appliedBy: who(inv.discountAppliedById), appliedAt: inv.discountAppliedAt.toISOString(),
             approvedBy: discountTask?.decidedById ? (await people(tx, [discountTask.decidedById]))(discountTask.decidedById) : null }
@@ -165,6 +171,7 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
         ? { reason: l.notBilledReason, at: l.notBilledAt.toISOString(), approvedBy: (() => { const t = lineTaskById.get(l.notBilledTaskId!); return t?.decidedById ? who(t.decidedById) : null; })() }
         : null,
       batch: l.batchId ? batchById.get(l.batchId) ?? null : null,
+      back: back.get(l.id) ?? null,
       currentUnitPaisa: changed(l)?.unitPaisa ?? null, currentVatRateBp: changed(l)?.vatRateBp ?? null,
     })),
     approval: task ? toApprovalView(task, who) : null,
@@ -194,7 +201,7 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
       const phone = inv.patientId ? (await tx.patient.findFirst({ where: { id: inv.patientId }, select: { phone: true } }))?.phone ?? null : null;
       return pays.map((p) => toPaymentView(p, who, last.get(p.id) ?? null, !!smsPhone(phone)));
     })(),
-    summary: paymentSummary(inv.totalPaisa, rows),
+    summary: paymentSummary(dueBase(inv), rows),
     paidBy: paidBy(rows),
     seller: { nameEn: org.name, nameBn: org.nameBn, vatBin: org.vatBin, vatBinSample: org.vatBinSample },
   };
@@ -693,8 +700,8 @@ async function confirmPayment(tx: Tx, p: Pay, inv: Inv, by: string | null, trxId
   const n = await tx.payment.updateMany({ where: { id: p.id, status: p.status }, data: { status, confirmedAt: now, confirmedById: by, trxId: trxId ?? p.trxId, statusAt: now } });
   if (n.count !== 1) throw stale();
   const rows = (await tx.payment.findMany({ where: { invoiceId: inv.id } })).map(toRow);
-  const s = paymentSummary(inv.totalPaisa, rows);
-  const event = invoiceEventAfterConfirm(inv.totalPaisa, s.confirmedPaisa);
+  const s = paymentSummary(dueBase(inv), rows);
+  const event = invoiceEventAfterConfirm(dueBase(inv), s.confirmedPaisa);
   const next = undash<"balanced">(transition("INVOICE", INVOICE, dash<InvoiceState>(inv.status), event));
   await tx.invoice.update({ where: { id: inv.id }, data: { paidPaisa: s.confirmedPaisa, status: next, statusAt: now } });
 }
@@ -745,7 +752,7 @@ export async function addPayment(tx: Tx, s: SessionData, invoiceId: string, req:
   const methods = (await tx.organization.findFirst({ where: { id: s.organizationId }, select: { paymentMethods: true } }))?.paymentMethods ?? [];
   if (!methods.includes(req.method)) throw err(422, "method_off", "এই প্রতিষ্ঠানে এই পেমেন্ট মাধ্যম চালু নেই", "This facility does not take this payment method", { field: "method" });
   const rows = (await tx.payment.findMany({ where: { invoiceId: inv.id } })).map(toRow);
-  const check = checkNewPayment(paymentSummary(inv.totalPaisa, rows), { method: req.method, amountPaisa: req.amountPaisa, tenderedPaisa: req.tenderedPaisa, reference: req.reference });
+  const check = checkNewPayment(paymentSummary(dueBase(inv), rows), { method: req.method, amountPaisa: req.amountPaisa, tenderedPaisa: req.tenderedPaisa, reference: req.reference });
   if (!check.ok) {
     const msg: Record<typeof check.code, [string, string, string]> = {
       amount_not_positive: ["টাকার পরিমাণ লিখুন", "Enter an amount", "amountPaisa"],
@@ -795,7 +802,7 @@ export async function retryPayment(tx: Tx, s: SessionData, paymentId: string, no
   if (!methods.includes(p.method)) throw err(422, "method_off", "এই প্রতিষ্ঠানে এই পেমেন্ট মাধ্যম চালু নেই", "This facility does not take this payment method", { field: "method" });
   const status = undash<"initiated">(transition("PAYMENT", PAYMENT, dash<PaymentState>(p.status), "retry"));
   const others = (await tx.payment.findMany({ where: { invoiceId: inv.id, id: { not: p.id } } })).map(toRow);
-  if (p.amountPaisa > paymentSummary(inv.totalPaisa, others).openPaisa) throw err(409, "amount_over_open", "বকেয়ার চেয়ে বেশি (অপেক্ষমাণ পেমেন্টসহ)", "More than is still due (counting pending payments)", { field: "amountPaisa" });
+  if (p.amountPaisa > paymentSummary(dueBase(inv), others).openPaisa) throw err(409, "amount_over_open", "বকেয়ার চেয়ে বেশি (অপেক্ষমাণ পেমেন্টসহ)", "More than is still due (counting pending payments)", { field: "amountPaisa" });
   if (p.providerRef) await providerOf(p).cancel(p.providerRef);
   await tx.payment.update({ where: { id: p.id }, data: { status, attempt: p.attempt + 1, providerRef: null, linkUrl: null, linkExpiresAt: null, failReason: null,
     linkCode: null, providerSignature: null, executeClaimedAt: null, supersededLinkCodes: p.linkCode ? [...p.supersededLinkCodes, p.linkCode] : p.supersededLinkCodes,

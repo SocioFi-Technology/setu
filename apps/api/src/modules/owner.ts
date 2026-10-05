@@ -11,7 +11,7 @@ import type { SessionData } from "../plugins/session.js";
 
 /** 2: the cash variance is stored as short and over separately (money-controls review H3); 3: refunds (ADR 0013) —
     older rows are recomputed. */
-export const ROLLUP_VERSION = 3;
+export const ROLLUP_VERSION = 4;
 export interface DayMetrics {
   revenuePaisa: number; revenueByHour: number[]; collectionsPaisa: number; collectionsByHour: number[]; byMethod: Record<string, number>;
   discountsPaisa: number; duesPaisa: number; opdVisits: number; noShows: number; labTests: number; labTatMinutesSum: number;
@@ -19,6 +19,8 @@ export interface DayMetrics {
   discountAbovePolicy: { count: number; paisa: number }; notBilledHere: { count: number; paisa: number }; cashOutsideShift: { count: number; paisa: number };
   /** ADR 0013: money paid back that day (allocations paid), refunds completed that day, wrong-dispense returns that day */
   refundsPaisa: number; refundsPaid: { count: number; paisa: number }; medicationIncident: { count: number; paisa: number };
+  /** decision 223: refunds decided by the requester as the facility's only approver (v4) */
+  selfApproved: { count: number; paisa: number };
 }
 /** Dhaka day D runs from D 00:00 +06 to D+1 00:00 +06. */
 export const dayBounds = (day: string) => { const from = new Date(Date.parse(`${day}T00:00:00+06:00`)); return { from, to: new Date(from.getTime() + 864e5) }; };
@@ -46,7 +48,10 @@ export async function computeDay(tx: Tx, organizationId: string, day: string, un
     FROM "Invoice" WHERE "organizationId" = ${org} AND "issuedAt" >= ${from} AND "issuedAt" < ${to} AND "status" <> 'entered-in-error'`;
   const [dues] = await tx.$queryRaw<{ paisa: bigint }[]>`
     SELECT coalesce(sum(i."totalPaisa"), 0) - coalesce((SELECT sum(p."amountPaisa") FROM "Payment" p JOIN "Invoice" j ON j."id" = p."invoiceId"
-        WHERE j."organizationId" = ${org} AND j."issuedAt" < ${to} AND j."status" <> 'entered-in-error' AND p."status" = 'confirmed' AND p."confirmedAt" < ${to}), 0) AS paisa
+        WHERE j."organizationId" = ${org} AND j."issuedAt" < ${to} AND j."status" <> 'entered-in-error' AND p."status" = 'confirmed' AND p."confirmedAt" < ${to}), 0)
+      -- decision 221: medicine returned without a refund lowers the due from the moment it was recorded
+      - coalesce((SELECT sum(r."amountPaisa") FROM "Refund" r JOIN "Invoice" j ON j."id" = r."invoiceId"
+        WHERE j."organizationId" = ${org} AND j."issuedAt" < ${to} AND j."status" <> 'entered-in-error' AND r."kind" = 'return' AND r."status" = 'paid' AND r."paidAt" < ${to}), 0) AS paisa
     FROM "Invoice" i WHERE i."organizationId" = ${org} AND i."issuedAt" < ${to} AND i."status" <> 'entered-in-error'`;
   const [visits] = await tx.$queryRaw<{ opd: bigint; noshow: bigint }[]>`
     SELECT count(*) FILTER (WHERE "createdAt" >= ${from} AND "createdAt" < ${to} AND "status" <> 'entered-in-error') AS opd,
@@ -79,7 +84,7 @@ export async function computeDay(tx: Tx, organizationId: string, day: string, un
         WHERE s."organizationId" = p."organizationId" AND s."cashierId" = p."createdById" AND s."openedAt" <= p."confirmedAt"
           AND (s."status" = 'open' OR c."windowTo" >= p."confirmedAt"))`;
   // ADR 0013: refunds — money out by the day it was paid back; refunds completed; wrong-dispense returns (medication incidents)
-  const [rf] = await tx.$queryRaw<{ out: bigint; n: bigint; paisa: bigint; inc: bigint; incPaisa: bigint }[]>`
+  const [rf] = await tx.$queryRaw<{ out: bigint; n: bigint; paisa: bigint; inc: bigint; incPaisa: bigint; self: bigint; selfPaisa: bigint }[]>`
     SELECT (SELECT coalesce(sum(a."amountPaisa"), 0) FROM "RefundAllocation" a JOIN "Refund" r ON r."id" = a."refundId"
              WHERE r."organizationId" = ${org} AND a."status" = 'paid' AND a."paidAt" >= ${from} AND a."paidAt" < ${to}) AS out,
            (SELECT count(*) FROM "Refund" WHERE "organizationId" = ${org} AND "status" = 'paid' AND "paidAt" >= ${from} AND "paidAt" < ${to}) AS n,
@@ -87,9 +92,11 @@ export async function computeDay(tx: Tx, organizationId: string, day: string, un
            (SELECT count(*) FROM "MedicationDispense" d JOIN "RefundLine" l ON l."id" = d."refundLineId" JOIN "Refund" r ON r."id" = l."refundId"
              WHERE d."organizationId" = ${org} AND d."action" = 'return' AND r."category" = 'wrong-dispense' AND d."at" >= ${from} AND d."at" < ${to}) AS inc,
            (SELECT coalesce(sum(l."totalPaisa"), 0) FROM "MedicationDispense" d JOIN "RefundLine" l ON l."id" = d."refundLineId" JOIN "Refund" r ON r."id" = l."refundId"
-             WHERE d."organizationId" = ${org} AND d."action" = 'return' AND r."category" = 'wrong-dispense' AND d."at" >= ${from} AND d."at" < ${to}) AS "incPaisa"`;
+             WHERE d."organizationId" = ${org} AND d."action" = 'return' AND r."category" = 'wrong-dispense' AND d."at" >= ${from} AND d."at" < ${to}) AS "incPaisa",
+           (SELECT count(*) FROM "Refund" WHERE "organizationId" = ${org} AND "selfApproved" AND "decidedAt" >= ${from} AND "decidedAt" < ${to}) AS self,
+           (SELECT coalesce(sum("amountPaisa"), 0) FROM "Refund" WHERE "organizationId" = ${org} AND "selfApproved" AND "decidedAt" >= ${from} AND "decidedAt" < ${to}) AS "selfPaisa"`;
   return {
-    refundsPaisa: n(rf?.out), refundsPaid: { count: n(rf?.n), paisa: n(rf?.paisa) }, medicationIncident: { count: n(rf?.inc), paisa: n(rf?.incPaisa) },
+    refundsPaisa: n(rf?.out), refundsPaid: { count: n(rf?.n), paisa: n(rf?.paisa) }, medicationIncident: { count: n(rf?.inc), paisa: n(rf?.incPaisa) }, selfApproved: { count: n(rf?.self), paisa: n(rf?.selfPaisa) },
     revenuePaisa: hours(rev).reduce((a, b) => a + b, 0), revenueByHour: hours(rev),
     collectionsPaisa: hours(col).reduce((a, b) => a + b, 0), collectionsByHour: hours(col),
     byMethod: Object.fromEntries(methods.map((m) => [m.method, n(m.paisa)])),
@@ -219,6 +226,7 @@ export async function dashboard(tx: Tx, s: SessionData, period: Period, now: Dat
     // hand that the owner has not matched to a statement yet
     { kind: "refundsPaid" as const, ...leak((x) => x.refundsPaid ?? { count: 0, paisa: 0 }), severity: "review" as const },
     { kind: "medicationIncident" as const, ...leak((x) => x.medicationIncident ?? { count: 0, paisa: 0 }), severity: "high" as const },
+    { kind: "selfApproved" as const, ...leak((x) => x.selfApproved ?? { count: 0, paisa: 0 }), severity: "review" as const },
     { kind: "manualRefundUnchecked" as const, ...(await uncheckedRefunds(tx, s.organizationId)), severity: "high" as const },
   ];
   // approval tasks point at a bill, reconciliation tasks at a payment: counted for this facility only (review #5)
@@ -280,17 +288,17 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
       : what === "discounts" ? { ...invoiceWhere, discountPaisa: { gt: 0 } } : what === "discountAbovePolicy" ? { ...invoiceWhere, discountPaisa: { gt: 0 }, discountTaskId: { not: null } } : invoiceWhere;
     const [inv, agg] = await Promise.all([
       tx.invoice.findMany({ where, orderBy: { issuedAt: "desc" }, take: DRILL_ROWS }),
-      tx.invoice.aggregate({ where, _count: { _all: true }, _sum: { totalPaisa: true, discountPaisa: true, paidPaisa: true } }),
+      tx.invoice.aggregate({ where, _count: { _all: true }, _sum: { totalPaisa: true, discountPaisa: true, paidPaisa: true, creditedPaisa: true } }),
     ]);
     count = agg._count._all;
-    totalPaisa = what === "revenue" ? agg._sum.totalPaisa ?? 0 : what === "dues" ? (agg._sum.totalPaisa ?? 0) - (agg._sum.paidPaisa ?? 0) : agg._sum.discountPaisa ?? 0;
+    totalPaisa = what === "revenue" ? agg._sum.totalPaisa ?? 0 : what === "dues" ? (agg._sum.totalPaisa ?? 0) - (agg._sum.paidPaisa ?? 0) - (agg._sum.creditedPaisa ?? 0) : agg._sum.discountPaisa ?? 0;
     const tasks = await tx.task.findMany({ where: { id: { in: inv.map((i) => i.discountTaskId!).filter(Boolean) } } });
     const T = new Map(tasks.map((t) => [t.id, t]));
     const P = await patients(inv.map((i) => i.patientId));
     const W = await people([...inv.flatMap((i) => [i.issuedById, i.discountAppliedById]), ...tasks.flatMap((t) => [t.requestedById, t.decidedById])]);
     rows = inv.map((i) => {
       const t = i.discountTaskId ? T.get(i.discountTaskId) : undefined;
-      const amount = what === "revenue" ? i.totalPaisa : what === "dues" ? i.totalPaisa - i.paidPaisa : i.discountPaisa;
+      const amount = what === "revenue" ? i.totalPaisa : what === "dues" ? i.totalPaisa - i.creditedPaisa - i.paidPaisa : i.discountPaisa;
       // a discount: who asked (above the limit) or who applied it (within the limit) — money-controls review L4
       const by = what === "discounts" || what === "discountAbovePolicy" ? (t ? W(t.requestedById) : W(i.discountAppliedById ?? i.issuedById)) : W(i.issuedById);
       return { id: i.id, at: (i.issuedAt ?? i.createdAt).toISOString(), number: i.number, patient: P(i.patientId), amountPaisa: amount, by, approvedBy: t ? W(t.decidedById) : null,
@@ -359,6 +367,14 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
       HAVING sum(CASE WHEN e."kind" = 'goods-received' THEN e."amountPaisa" ELSE -e."amountPaisa" END) <> 0 ORDER BY 3 DESC`;
     count = owed.length; totalPaisa = owed.reduce((a, x) => a + Number(x.owed), 0);
     rows = owed.slice(0, DRILL_ROWS).map((x) => ({ id: x.id, at: x.last.toISOString(), number: x.name, patient: null, amountPaisa: Number(x.owed), by: null, approvedBy: null, detail: null, link: null }));
+  } else if (what === "selfApproved") {
+    const list = await tx.refund.findMany({ where: { organizationId: org, selfApproved: true, decidedAt: { gte: from, lt: to } }, include: { invoice: { select: { number: true } } }, orderBy: { decidedAt: "desc" } });
+    count = list.length; totalPaisa = list.reduce((x, r) => x + r.amountPaisa, 0);
+    const shown = list.slice(0, DRILL_ROWS);
+    const P = await patients(shown.map((r) => r.patientId));
+    const W = await people(shown.flatMap((r) => [r.requestedById, r.decidedById]));
+    rows = shown.map((r) => ({ id: r.id, at: r.decidedAt!.toISOString(), number: r.invoice.number, patient: P(r.patientId), amountPaisa: r.amountPaisa, by: W(r.requestedById), approvedBy: W(r.decidedById),
+      detail: `${r.category} — ${r.reason} · ${r.decisionNote ?? ""}`, link: { kind: "refund" as const, id: r.id }, status: r.status }));
   } else if (what === "refunds" || what === "refundsPaid") {
     // ADR 0013: refunds — money paid back in the period (by the day each part was paid) / refunds completed in the period;
     // every row with its reason, who asked and who approved; withdrawn is its own state, never "rejected"

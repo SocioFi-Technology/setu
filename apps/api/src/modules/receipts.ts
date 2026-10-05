@@ -88,7 +88,7 @@ export async function createReceipt(tx: Tx, s: SessionData, invoiceId: string, n
     patient: { nameBn: p!.nameBn, nameEn: p!.nameEn, facilityNo: p!.facilityNo },
     lines: lines.map((l) => ({ nameBn: l.nameBn, nameEn: l.nameEn, qty: l.qty, unitPaisa: l.unitPaisa ?? 0, vatRateBp: l.vatRateBp, grossPaisa: l.grossPaisa, discountPaisa: l.discountPaisa, netPaisa: l.netPaisa, vatPaisa: l.vatPaisa, totalPaisa: l.totalPaisa, notBilledReason: l.notBilledReason })),
     subtotalPaisa: inv.subtotalPaisa, discountPaisa: inv.discountPaisa, vatPaisa: inv.vatPaisa, totalPaisa: inv.totalPaisa,
-    paidPaisa: inv.paidPaisa, duePaisa: inv.totalPaisa - inv.paidPaisa,
+    paidPaisa: inv.paidPaisa, duePaisa: inv.totalPaisa - inv.creditedPaisa - inv.paidPaisa, creditedPaisa: inv.creditedPaisa,
     vatByRate: [...rates.entries()].sort((a, b) => a[0] - b[0]).map(([rateBp, x]) => ({ rateBp, ...x })),
     discount: v.invoice.discount ? { category: v.invoice.discount.category, reason: v.invoice.discount.reason, approvedBy: v.invoice.discount.approvedBy ? { nameBn: v.invoice.discount.approvedBy.nameBn, nameEn: v.invoice.discount.approvedBy.nameEn } : null } : null,
     paidBy: v.paidBy,
@@ -99,7 +99,7 @@ export async function createReceipt(tx: Tx, s: SessionData, invoiceId: string, n
   const seq = await tx.sequence.upsert({ where: { tenantId_name: { tenantId: s.tenantId, name } }, create: { tenantId: s.tenantId, name, value: 1 }, update: { value: { increment: 1 } } });
   const r = await tx.receipt.create({ data: {
     tenantId: s.tenantId, organizationId: s.organizationId, invoiceId: inv.id, patientId: inv.patientId, number: `RCPT/${yy}/${String(seq.value).padStart(4, "0")}`,
-    verifyCode: newVerifyCode(), paidPaisa: snapshot.paidPaisa, totalPaisa: snapshot.totalPaisa, duePaisa: snapshot.duePaisa, snapshot: snapshot as object, createdById: s.userId, createdAt: now,
+    verifyCode: newVerifyCode(), paidPaisa: snapshot.paidPaisa, totalPaisa: snapshot.totalPaisa, duePaisa: snapshot.duePaisa, creditedPaisa: snapshot.creditedPaisa, snapshot: snapshot as object, createdById: s.userId, createdAt: now,
   } });
   return { r, created: true };
 }

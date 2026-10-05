@@ -131,3 +131,26 @@ Refunds need a connection: no outbox, every refund screen and route refuses work
 - `PaymentProvider` gains `refundSupport`, `refund`, `refundStatus` (bKash + stand-in; the fake is manual).
 - New screen `ph/refund` hand-added to the access matrix (pharmacist, owner, admin; Clinic) beside the designed
   `bill/refund` — **the prototype gets it in the next design round.**
+
+## Addendum (Kamrul, 05/10/2026 — open questions 220–232)
+- **One refund = one payout method (220).** All allocations of a refund go back the same way; a gateway refund goes back
+  against one payment (one call). A bill paid part cash, part bKash gets two refunds, each with its own voucher. A refund
+  is never part-paid: "paid" means the whole amount left in one transaction (a gateway refund: one claim, one answer; if
+  the gateway refuses, the whole refund may go back in cash with "gateway-failed"). This replaces the per-allocation
+  payout above.
+- **Return without refund (221).** On an issued pharmacy / OTC bill on which no money was ever confirmed and nothing is
+  pending, the pharmacist (or cashier) asks for a `return` (Refund.kind `return`, categories wrong dispense / patient
+  request / other, medicine lines only, no allocations). Same approval path (owner / admin; controlled → owner). Recording
+  it brings the units into quarantine like a refund's, marks them back on the bill line, and lowers the due:
+  `Invoice.creditedPaisa` (the database keeps it equal to the recorded returns) — due = total − credited − paid; a bill is
+  balanced at paid = total − credited; a receipt prints the credit (paid + due + credited = total). The voucher is a
+  **credit voucher CV/yy/nnnn** (no money left; no recipient required). Once every unit is back and no money was ever
+  confirmed, the ADR 0005 void applies. Once money is on the bill, a refund is the way.
+- **Self-approval (223).** The requester may decide their own refund only when they are the facility's only active owner
+  / admin, with a note (≥ 10); the refund is flagged `selfApproved`, the audit says "self-approved", and the owner's
+  dashboard lists it (leakage `selfApproved`). The same rule applies to the owner's check of a refund paid by hand. The
+  database re-checks it (`facility_approvers`). Stock counts keep their own rule (open question 186) for now.
+- **Unknown gateway answers (227).** A refund answer with a code the adapter does not recognise (a duplicate refund, an
+  11th refund — undocumented) is "unknown — ask Refund Status", never refunded and never failed. A gateway answer for
+  an allocation we already recorded as paid changes nothing. The exact codes go on the pre-pilot bKash sandbox list.
+- Migration `20261005200000_refunds_decisions`.

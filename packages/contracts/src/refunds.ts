@@ -10,6 +10,8 @@ import { VitalsEncounter } from "./vitals.js";
 const Person = z.object({ id: z.string(), nameBn: z.string(), nameEn: z.string() });
 
 export const RefundStatus = z.enum(["requested", "approved", "paid", "rejected", "withdrawn"]);
+/** refund = money goes back; return = medicine back on an unpaid pharmacy bill, the due goes down (Kamrul, decision 221) */
+export const RefundKind = z.enum(["refund", "return"]);
 export type RefundStatus = z.infer<typeof RefundStatus>;
 export const RefundCategory = z.enum(["cancelled-test", "wrong-dispense", "overpayment", "patient-request", "other"]);
 export const PayoutWay = z.enum(["cash", "gateway", "manual"]);
@@ -53,6 +55,8 @@ export const RefundableView = z.object({
   })),
   /** the refund open on this bill (requested or approved) — a second one waits for it */
   openRefundId: z.string().nullable(),
+  /** decision 221: an issued pharmacy / OTC bill on which no money was ever confirmed — medicine can come back without a refund */
+  canReturn: z.boolean(),
   /** why nothing can be requested now (bill not refundable, a refund open, nothing left, offline is the screen's) */
   blockers: z.array(z.enum(["bill_not_refundable", "refund_open", "nothing_left"])),
 });
@@ -67,10 +71,12 @@ export const RefundRequestAllocation = z.object({
   paymentId: z.string().min(1).max(80), amountPaisa: Paisa, way: PayoutWay, cashReason: CashReason.optional(),
 });
 export const RefundRequest = z.object({
+  kind: RefundKind.default("refund"),
   category: RefundCategory,
   reason: z.string().trim().min(10).max(300),
   lines: z.array(RefundRequestLine).min(1).max(100),
-  allocations: z.array(RefundRequestAllocation).min(1).max(20),
+  /** one payout method for the whole refund (decision 220); none for a return without refund */
+  allocations: z.array(RefundRequestAllocation).max(20).default([]),
 });
 export type RefundRequest = z.infer<typeof RefundRequest>;
 
@@ -78,7 +84,9 @@ export type RefundRequest = z.infer<typeof RefundRequest>;
 export const RefundTimelineEvent = z.enum(["requested", "approved", "rejected", "withdrawn", "payout-started", "gateway-failed", "allocation-paid", "paid"]);
 export const RefundView = z.object({
   refund: z.object({
-    id: z.string(), status: RefundStatus, source: z.enum(["bill", "reconciliation"]), caseTaskId: z.string().nullable(),
+    id: z.string(), status: RefundStatus, kind: RefundKind, source: z.enum(["bill", "reconciliation"]), caseTaskId: z.string().nullable(),
+    /** decision 223: decided by the requester as the facility's only approver (with a note) */
+    selfApproved: z.boolean(),
     category: RefundCategory, reason: z.string(), amountPaisa: Paisa, netPaisa: Paisa, vatPaisa: Paisa, rev: z.number().int(),
     /** a controlled drug, or card / bank money paid back in cash: the owner approves */
     needsOwner: z.boolean(),
@@ -116,20 +124,18 @@ export type RefundView = z.infer<typeof RefundView>;
 export const RefundDecisionRequest = z.object({ decision: z.enum(["approve", "reject", "withdraw"]), note: z.string().trim().max(300).optional() });
 export type RefundDecisionRequest = z.infer<typeof RefundDecisionRequest>;
 
-/** Pay out every allocation still open: cash from the payer's open shift, manual with its reference, gateway claimed now
-    and answered after the commit. A gateway allocation whose refund failed may be switched to cash (gateway-failed). */
+/** Pay the whole refund out in one go (decision 220): cash from the payer's open shift, by hand with its reference, or the
+    gateway (claimed now, answered after the commit). A gateway refund that failed may be paid in cash (gateway-failed).
+    A return without refund is recorded the same way — no money moves, so no recipient is needed. */
 export const RefundPayRequest = z.object({
   rev: z.number().int().min(1),
-  recipient: z.object({ name: z.string().trim().min(2).max(80), phone: z.string().trim().min(10).max(20), relation: RecipientRelation }),
-  allocations: z.array(z.object({
-    id: z.string().min(1).max(80),
-    /** only "cash", for a gateway allocation whose refund failed */
-    switchToCash: z.boolean().optional(),
-    reference: z.string().trim().min(3).max(80).optional(),
-  })).max(20).default([]),
+  recipient: z.object({ name: z.string().trim().min(2).max(80), phone: z.string().trim().min(10).max(20), relation: RecipientRelation }).optional(),
+  reference: z.string().trim().min(3).max(80).optional(),
+  switchToCash: z.boolean().optional(),
 });
 export type RefundPayRequest = z.infer<typeof RefundPayRequest>;
-export const RefundPayResponse = z.object({ outcome: z.enum(["paid", "paying", "part-paid"]), view: RefundView });
+/** paying = the gateway has not answered yet; failed = the gateway refused (nothing moved — try again, or cash) */
+export const RefundPayResponse = z.object({ outcome: z.enum(["paid", "paying", "failed"]), view: RefundView });
 export type RefundPayResponse = z.infer<typeof RefundPayResponse>;
 
 export const RefundListQuery = z.object({
@@ -138,7 +144,7 @@ export const RefundListQuery = z.object({
   days: z.coerce.number().int().min(1).max(90).default(30),
 });
 export const RefundListItem = z.object({
-  id: z.string(), status: RefundStatus, category: RefundCategory, reason: z.string(), amountPaisa: Paisa, requestedAt: z.string(), paidAt: z.string().nullable(),
+  id: z.string(), status: RefundStatus, kind: RefundKind, selfApproved: z.boolean(), category: RefundCategory, reason: z.string(), amountPaisa: Paisa, requestedAt: z.string(), paidAt: z.string().nullable(),
   requestedBy: Person, decidedBy: Person.nullable(),
   invoice: z.object({ id: z.string(), number: z.string().nullable(), kind: InvoiceKind }),
   patient: z.object({ id: z.string(), nameBn: z.string(), nameEn: z.string().nullable(), facilityNo: z.string() }).nullable(),
@@ -151,6 +157,9 @@ export type RefundList = z.infer<typeof RefundList>;
 
 /* ── the voucher (RF/yy/nnnn; printed and reprinted like a receipt) ── */
 export const RefundVoucherSnapshot = z.object({
+  /** refund voucher (RF/…) or credit voucher (CV/…, a return without refund: no money left) */
+  kind: RefundKind.default("refund"),
+  selfApproved: z.boolean().default(false),
   seller: z.object({ nameEn: z.string(), nameBn: z.string().nullable(), address: z.string().nullable(), vatBin: z.string().nullable(), vatBinSample: z.boolean() }),
   invoice: z.object({ id: z.string(), number: z.string().nullable(), issuedAt: z.string().nullable(), totalPaisa: Paisa }),
   patient: z.object({ nameBn: z.string(), nameEn: z.string().nullable(), facilityNo: z.string() }).nullable(),
@@ -161,7 +170,7 @@ export const RefundVoucherSnapshot = z.object({
   netPaisa: Paisa, vatPaisa: Paisa, amountPaisa: Paisa,
   vatByRate: z.array(z.object({ rateBp: z.number().int(), netPaisa: Paisa, vatPaisa: Paisa })),
   paidBack: z.array(z.object({ method: PaymentMethod, way: PayoutWay, amountPaisa: Paisa, refundTrxId: z.string().nullable(), reference: z.string().nullable(), originalTrxId: z.string().nullable() })),
-  recipient: z.object({ name: z.string(), phone: z.string(), relation: RecipientRelation }),
+  recipient: z.object({ name: z.string(), phone: z.string(), relation: RecipientRelation }).nullable(),
   requestedBy: z.object({ nameBn: z.string(), nameEn: z.string() }),
   approvedBy: z.object({ nameBn: z.string(), nameEn: z.string() }),
   paidBy: z.object({ nameBn: z.string(), nameEn: z.string() }),

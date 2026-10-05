@@ -60,6 +60,7 @@
   "l_notBilledHere": ["এখানে বিল হয়নি", "Not billed here"],
   "l_refundsPaid": ["ফেরত দেওয়া রিফান্ড (কারণ ও অনুমোদনকারীসহ)", "Refunds paid (with reason and approver)"],
   "l_medicationIncident": ["ভুল ওষুধ দেওয়া — ফেরত (ওষুধ-ঘটনা)", "Wrong dispense returned (medication incident)"],
+  "l_selfApproved": ["নিজের অনুরোধ নিজে অনুমোদিত (একমাত্র অনুমোদনকারী)", "Self-approved refunds (the only approver)"],
   "l_manualRefundUnchecked": ["হাতে দেওয়া রিফান্ড — স্টেটমেন্টের সঙ্গে মেলানো বাকি", "Refunds paid by hand — not yet matched to a statement"],
   "sev_high": ["উচ্চ", "High"],
   "sev_review": ["পর্যালোচনা", "Review"],

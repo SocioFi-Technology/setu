@@ -87,7 +87,7 @@ export async function refundRoutes(app: FastifyInstance) {
       const r = await payRefund(tx, s, id, body, new Date());
       claimed = r.claimed;
       const view = await refundView(tx, s, r.r);
-      return { body: { outcome: view.refund.status === "paid" ? "paid" : claimed.length ? "paying" : "part-paid", view }, audit: r.audit };
+      return { body: { outcome: (view.refund.status === "paid" ? "paid" : "paying") as RefundPayResponse["outcome"], view }, audit: r.audit };
     }, {
       // ADR 0013: the gateway is called only after the claim committed; its answer is what the cashier sees
       after: async (body, s) => {
@@ -95,7 +95,7 @@ export async function refundRoutes(app: FastifyInstance) {
         await settleClaimed(s.tenantId, s.organizationId, claimed, new Date(), s.userId);
         const { forTenant } = await import("@setu/db");
         const view = await forTenant(s.tenantId, async (tx) => refundView(tx, s, await refundHere(tx, s, id)), { userId: s.userId });
-        return { outcome: view.refund.status === "paid" ? "paid" : view.allocations.some((a) => a.status === "paying") ? "paying" : "part-paid", view };
+        return { outcome: view.refund.status === "paid" ? "paid" : view.allocations.some((a) => a.status === "paying") ? "paying" : "failed", view };
       },
     });
   });

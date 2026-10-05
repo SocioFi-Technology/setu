@@ -17139,6 +17139,11 @@
                           "minimum": 0,
                           "maximum": 1000000000
                         },
+                        "creditedPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
                         "discount": {
                           "type": [
                             "object",
@@ -17337,6 +17342,7 @@
                         "totalPaisa",
                         "paidPaisa",
                         "refundedPaisa",
+                        "creditedPaisa",
                         "discount",
                         "createdAt",
                         "issuedAt",
@@ -17621,6 +17627,26 @@
                               "expiry"
                             ]
                           },
+                          "back": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "units": {
+                                "type": "integer"
+                              },
+                              "totalPaisa": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              }
+                            },
+                            "required": [
+                              "units",
+                              "totalPaisa"
+                            ]
+                          },
                           "currentUnitPaisa": {
                             "type": [
                               "integer",
@@ -17655,6 +17681,7 @@
                           "editable",
                           "notBilled",
                           "batch",
+                          "back",
                           "currentUnitPaisa",
                           "currentVatRateBp"
                         ]
@@ -18383,6 +18410,11 @@
                           "minimum": 0,
                           "maximum": 1000000000
                         },
+                        "creditedPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
                         "discount": {
                           "type": [
                             "object",
@@ -18581,6 +18613,7 @@
                         "totalPaisa",
                         "paidPaisa",
                         "refundedPaisa",
+                        "creditedPaisa",
                         "discount",
                         "createdAt",
                         "issuedAt",
@@ -18865,6 +18898,26 @@
                               "expiry"
                             ]
                           },
+                          "back": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "units": {
+                                "type": "integer"
+                              },
+                              "totalPaisa": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              }
+                            },
+                            "required": [
+                              "units",
+                              "totalPaisa"
+                            ]
+                          },
                           "currentUnitPaisa": {
                             "type": [
                               "integer",
@@ -18899,6 +18952,7 @@
                           "editable",
                           "notBilled",
                           "batch",
+                          "back",
                           "currentUnitPaisa",
                           "currentVatRateBp"
                         ]
@@ -19880,6 +19934,11 @@
                           "minimum": 0,
                           "maximum": 1000000000
                         },
+                        "creditedPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
                         "discount": {
                           "type": [
                             "object",
@@ -20078,6 +20137,7 @@
                         "totalPaisa",
                         "paidPaisa",
                         "refundedPaisa",
+                        "creditedPaisa",
                         "discount",
                         "createdAt",
                         "issuedAt",
@@ -20362,6 +20422,26 @@
                               "expiry"
                             ]
                           },
+                          "back": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "units": {
+                                "type": "integer"
+                              },
+                              "totalPaisa": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              }
+                            },
+                            "required": [
+                              "units",
+                              "totalPaisa"
+                            ]
+                          },
                           "currentUnitPaisa": {
                             "type": [
                               "integer",
@@ -20396,6 +20476,7 @@
                           "editable",
                           "notBilled",
                           "batch",
+                          "back",
                           "currentUnitPaisa",
                           "currentVatRateBp"
                         ]
@@ -21336,6 +21417,11 @@
                           "minimum": 0,
                           "maximum": 1000000000
                         },
+                        "creditedPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
                         "discount": {
                           "type": [
                             "object",
@@ -21534,6 +21620,7 @@
                         "totalPaisa",
                         "paidPaisa",
                         "refundedPaisa",
+                        "creditedPaisa",
                         "discount",
                         "createdAt",
                         "issuedAt",
@@ -21818,6 +21905,26 @@
                               "expiry"
                             ]
                           },
+                          "back": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "units": {
+                                "type": "integer"
+                              },
+                              "totalPaisa": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              }
+                            },
+                            "required": [
+                              "units",
+                              "totalPaisa"
+                            ]
+                          },
                           "currentUnitPaisa": {
                             "type": [
                               "integer",
@@ -21852,6 +21959,7 @@
                           "editable",
                           "notBilled",
                           "batch",
+                          "back",
                           "currentUnitPaisa",
                           "currentVatRateBp"
                         ]
@@ -22873,6 +22981,11 @@
                           "minimum": 0,
                           "maximum": 1000000000
                         },
+                        "creditedPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
                         "discount": {
                           "type": [
                             "object",
@@ -23071,6 +23184,7 @@
                         "totalPaisa",
                         "paidPaisa",
                         "refundedPaisa",
+                        "creditedPaisa",
                         "discount",
                         "createdAt",
                         "issuedAt",
@@ -23355,6 +23469,26 @@
                               "expiry"
                             ]
                           },
+                          "back": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "units": {
+                                "type": "integer"
+                              },
+                              "totalPaisa": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              }
+                            },
+                            "required": [
+                              "units",
+                              "totalPaisa"
+                            ]
+                          },
                           "currentUnitPaisa": {
                             "type": [
                               "integer",
@@ -23389,6 +23523,7 @@
                           "editable",
                           "notBilled",
                           "batch",
+                          "back",
                           "currentUnitPaisa",
                           "currentVatRateBp"
                         ]
@@ -24325,6 +24460,11 @@
                           "minimum": 0,
                           "maximum": 1000000000
                         },
+                        "creditedPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
                         "discount": {
                           "type": [
                             "object",
@@ -24523,6 +24663,7 @@
                         "totalPaisa",
                         "paidPaisa",
                         "refundedPaisa",
+                        "creditedPaisa",
                         "discount",
                         "createdAt",
                         "issuedAt",
@@ -24807,6 +24948,26 @@
                               "expiry"
                             ]
                           },
+                          "back": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "units": {
+                                "type": "integer"
+                              },
+                              "totalPaisa": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              }
+                            },
+                            "required": [
+                              "units",
+                              "totalPaisa"
+                            ]
+                          },
                           "currentUnitPaisa": {
                             "type": [
                               "integer",
@@ -24841,6 +25002,7 @@
                           "editable",
                           "notBilled",
                           "batch",
+                          "back",
                           "currentUnitPaisa",
                           "currentVatRateBp"
                         ]
@@ -25814,6 +25976,11 @@
                               "minimum": 0,
                               "maximum": 1000000000
                             },
+                            "creditedPaisa": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000000
+                            },
                             "discount": {
                               "type": [
                                 "object",
@@ -26012,6 +26179,7 @@
                             "totalPaisa",
                             "paidPaisa",
                             "refundedPaisa",
+                            "creditedPaisa",
                             "discount",
                             "createdAt",
                             "issuedAt",
@@ -26296,6 +26464,26 @@
                                   "expiry"
                                 ]
                               },
+                              "back": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "units": {
+                                    "type": "integer"
+                                  },
+                                  "totalPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000000
+                                  }
+                                },
+                                "required": [
+                                  "units",
+                                  "totalPaisa"
+                                ]
+                              },
                               "currentUnitPaisa": {
                                 "type": [
                                   "integer",
@@ -26330,6 +26518,7 @@
                               "editable",
                               "notBilled",
                               "batch",
+                              "back",
                               "currentUnitPaisa",
                               "currentVatRateBp"
                             ]
@@ -27343,6 +27532,11 @@
                           "minimum": 0,
                           "maximum": 1000000000
                         },
+                        "creditedPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
                         "discount": {
                           "type": [
                             "object",
@@ -27541,6 +27735,7 @@
                         "totalPaisa",
                         "paidPaisa",
                         "refundedPaisa",
+                        "creditedPaisa",
                         "discount",
                         "createdAt",
                         "issuedAt",
@@ -27825,6 +28020,26 @@
                               "expiry"
                             ]
                           },
+                          "back": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "units": {
+                                "type": "integer"
+                              },
+                              "totalPaisa": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              }
+                            },
+                            "required": [
+                              "units",
+                              "totalPaisa"
+                            ]
+                          },
                           "currentUnitPaisa": {
                             "type": [
                               "integer",
@@ -27859,6 +28074,7 @@
                           "editable",
                           "notBilled",
                           "batch",
+                          "back",
                           "currentUnitPaisa",
                           "currentVatRateBp"
                         ]
@@ -28787,6 +29003,11 @@
                           "minimum": 0,
                           "maximum": 1000000000
                         },
+                        "creditedPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
                         "discount": {
                           "type": [
                             "object",
@@ -28985,6 +29206,7 @@
                         "totalPaisa",
                         "paidPaisa",
                         "refundedPaisa",
+                        "creditedPaisa",
                         "discount",
                         "createdAt",
                         "issuedAt",
@@ -29269,6 +29491,26 @@
                               "expiry"
                             ]
                           },
+                          "back": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "units": {
+                                "type": "integer"
+                              },
+                              "totalPaisa": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              }
+                            },
+                            "required": [
+                              "units",
+                              "totalPaisa"
+                            ]
+                          },
                           "currentUnitPaisa": {
                             "type": [
                               "integer",
@@ -29303,6 +29545,7 @@
                           "editable",
                           "notBilled",
                           "batch",
+                          "back",
                           "currentUnitPaisa",
                           "currentVatRateBp"
                         ]
@@ -30339,6 +30582,16 @@
                               "id": {
                                 "type": "string"
                               },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "refund",
+                                  "return"
+                                ]
+                              },
+                              "selfApproved": {
+                                "type": "boolean"
+                              },
                               "category": {
                                 "type": "string",
                                 "enum": [
@@ -30425,6 +30678,8 @@
                             },
                             "required": [
                               "id",
+                              "kind",
+                              "selfApproved",
                               "category",
                               "ways",
                               "lines",
@@ -30904,6 +31159,16 @@
                             "id": {
                               "type": "string"
                             },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "refund",
+                                "return"
+                              ]
+                            },
+                            "selfApproved": {
+                              "type": "boolean"
+                            },
                             "category": {
                               "type": "string",
                               "enum": [
@@ -30990,6 +31255,8 @@
                           },
                           "required": [
                             "id",
+                            "kind",
+                            "selfApproved",
                             "category",
                             "ways",
                             "lines",
@@ -31291,6 +31558,11 @@
                               "minimum": 0,
                               "maximum": 1000000000
                             },
+                            "creditedPaisa": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000000
+                            },
                             "discount": {
                               "type": [
                                 "object",
@@ -31489,6 +31761,7 @@
                             "totalPaisa",
                             "paidPaisa",
                             "refundedPaisa",
+                            "creditedPaisa",
                             "discount",
                             "createdAt",
                             "issuedAt",
@@ -31773,6 +32046,26 @@
                                   "expiry"
                                 ]
                               },
+                              "back": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "units": {
+                                    "type": "integer"
+                                  },
+                                  "totalPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000000
+                                  }
+                                },
+                                "required": [
+                                  "units",
+                                  "totalPaisa"
+                                ]
+                              },
                               "currentUnitPaisa": {
                                 "type": [
                                   "integer",
@@ -31807,6 +32100,7 @@
                               "editable",
                               "notBilled",
                               "batch",
+                              "back",
                               "currentUnitPaisa",
                               "currentVatRateBp"
                             ]
@@ -32868,6 +33162,16 @@
                             "id": {
                               "type": "string"
                             },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "refund",
+                                "return"
+                              ]
+                            },
+                            "selfApproved": {
+                              "type": "boolean"
+                            },
                             "category": {
                               "type": "string",
                               "enum": [
@@ -32954,6 +33258,8 @@
                           },
                           "required": [
                             "id",
+                            "kind",
+                            "selfApproved",
                             "category",
                             "ways",
                             "lines",
@@ -33255,6 +33561,11 @@
                               "minimum": 0,
                               "maximum": 1000000000
                             },
+                            "creditedPaisa": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000000
+                            },
                             "discount": {
                               "type": [
                                 "object",
@@ -33453,6 +33764,7 @@
                             "totalPaisa",
                             "paidPaisa",
                             "refundedPaisa",
+                            "creditedPaisa",
                             "discount",
                             "createdAt",
                             "issuedAt",
@@ -33737,6 +34049,26 @@
                                   "expiry"
                                 ]
                               },
+                              "back": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "units": {
+                                    "type": "integer"
+                                  },
+                                  "totalPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000000
+                                  }
+                                },
+                                "required": [
+                                  "units",
+                                  "totalPaisa"
+                                ]
+                              },
                               "currentUnitPaisa": {
                                 "type": [
                                   "integer",
@@ -33771,6 +34103,7 @@
                               "editable",
                               "notBilled",
                               "batch",
+                              "back",
                               "currentUnitPaisa",
                               "currentVatRateBp"
                             ]
@@ -35004,6 +35337,11 @@
                               "minimum": 0,
                               "maximum": 1000000000
                             },
+                            "creditedPaisa": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000000
+                            },
                             "discount": {
                               "type": [
                                 "object",
@@ -35202,6 +35540,7 @@
                             "totalPaisa",
                             "paidPaisa",
                             "refundedPaisa",
+                            "creditedPaisa",
                             "discount",
                             "createdAt",
                             "issuedAt",
@@ -35486,6 +35825,26 @@
                                   "expiry"
                                 ]
                               },
+                              "back": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "units": {
+                                    "type": "integer"
+                                  },
+                                  "totalPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000000
+                                  }
+                                },
+                                "required": [
+                                  "units",
+                                  "totalPaisa"
+                                ]
+                              },
                               "currentUnitPaisa": {
                                 "type": [
                                   "integer",
@@ -35520,6 +35879,7 @@
                               "editable",
                               "notBilled",
                               "batch",
+                              "back",
                               "currentUnitPaisa",
                               "currentVatRateBp"
                             ]
@@ -36800,6 +37160,11 @@
                               "minimum": 0,
                               "maximum": 1000000000
                             },
+                            "creditedPaisa": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000000
+                            },
                             "discount": {
                               "type": [
                                 "object",
@@ -36998,6 +37363,7 @@
                             "totalPaisa",
                             "paidPaisa",
                             "refundedPaisa",
+                            "creditedPaisa",
                             "discount",
                             "createdAt",
                             "issuedAt",
@@ -37282,6 +37648,26 @@
                                   "expiry"
                                 ]
                               },
+                              "back": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "units": {
+                                    "type": "integer"
+                                  },
+                                  "totalPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000000
+                                  }
+                                },
+                                "required": [
+                                  "units",
+                                  "totalPaisa"
+                                ]
+                              },
                               "currentUnitPaisa": {
                                 "type": [
                                   "integer",
@@ -37316,6 +37702,7 @@
                               "editable",
                               "notBilled",
                               "batch",
+                              "back",
                               "currentUnitPaisa",
                               "currentVatRateBp"
                             ]
@@ -38438,6 +38825,11 @@
                               "minimum": 0,
                               "maximum": 1000000000
                             },
+                            "creditedPaisa": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000000
+                            },
                             "discount": {
                               "type": [
                                 "object",
@@ -38636,6 +39028,7 @@
                             "totalPaisa",
                             "paidPaisa",
                             "refundedPaisa",
+                            "creditedPaisa",
                             "discount",
                             "createdAt",
                             "issuedAt",
@@ -38920,6 +39313,26 @@
                                   "expiry"
                                 ]
                               },
+                              "back": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "units": {
+                                    "type": "integer"
+                                  },
+                                  "totalPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000000
+                                  }
+                                },
+                                "required": [
+                                  "units",
+                                  "totalPaisa"
+                                ]
+                              },
                               "currentUnitPaisa": {
                                 "type": [
                                   "integer",
@@ -38954,6 +39367,7 @@
                               "editable",
                               "notBilled",
                               "batch",
+                              "back",
                               "currentUnitPaisa",
                               "currentVatRateBp"
                             ]
@@ -40094,6 +40508,11 @@
                               "minimum": 0,
                               "maximum": 1000000000
                             },
+                            "creditedPaisa": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000000
+                            },
                             "discount": {
                               "type": [
                                 "object",
@@ -40292,6 +40711,7 @@
                             "totalPaisa",
                             "paidPaisa",
                             "refundedPaisa",
+                            "creditedPaisa",
                             "discount",
                             "createdAt",
                             "issuedAt",
@@ -40576,6 +40996,26 @@
                                   "expiry"
                                 ]
                               },
+                              "back": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "units": {
+                                    "type": "integer"
+                                  },
+                                  "totalPaisa": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000000
+                                  }
+                                },
+                                "required": [
+                                  "units",
+                                  "totalPaisa"
+                                ]
+                              },
                               "currentUnitPaisa": {
                                 "type": [
                                   "integer",
@@ -40610,6 +41050,7 @@
                               "editable",
                               "notBilled",
                               "batch",
+                              "back",
                               "currentUnitPaisa",
                               "currentVatRateBp"
                             ]
@@ -42155,6 +42596,12 @@
                               "minimum": 0,
                               "maximum": 1000000000
                             },
+                            "creditedPaisa": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000000,
+                              "default": 0
+                            },
                             "vatByRate": {
                               "type": "array",
                               "items": {
@@ -42642,6 +43089,12 @@
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 1000000000
+                            },
+                            "creditedPaisa": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000000,
+                              "default": 0
                             },
                             "vatByRate": {
                               "type": "array",
@@ -43225,6 +43678,12 @@
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 1000000000
+                            },
+                            "creditedPaisa": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000000,
+                              "default": 0
                             },
                             "vatByRate": {
                               "type": "array",
@@ -44008,6 +44467,12 @@
                                   "type": "integer",
                                   "minimum": 0,
                                   "maximum": 1000000000
+                                },
+                                "creditedPaisa": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 1000000000,
+                                  "default": 0
                                 },
                                 "vatByRate": {
                                   "type": "array",
@@ -44847,6 +45312,11 @@
                           "minimum": 0,
                           "maximum": 1000000000
                         },
+                        "creditedPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
                         "discount": {
                           "type": [
                             "object",
@@ -45045,6 +45515,7 @@
                         "totalPaisa",
                         "paidPaisa",
                         "refundedPaisa",
+                        "creditedPaisa",
                         "discount",
                         "createdAt",
                         "issuedAt",
@@ -45329,6 +45800,26 @@
                               "expiry"
                             ]
                           },
+                          "back": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "units": {
+                                "type": "integer"
+                              },
+                              "totalPaisa": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              }
+                            },
+                            "required": [
+                              "units",
+                              "totalPaisa"
+                            ]
+                          },
                           "currentUnitPaisa": {
                             "type": [
                               "integer",
@@ -45363,6 +45854,7 @@
                           "editable",
                           "notBilled",
                           "batch",
+                          "back",
                           "currentUnitPaisa",
                           "currentVatRateBp"
                         ]
@@ -46370,6 +46862,11 @@
                           "minimum": 0,
                           "maximum": 1000000000
                         },
+                        "creditedPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
                         "discount": {
                           "type": [
                             "object",
@@ -46568,6 +47065,7 @@
                         "totalPaisa",
                         "paidPaisa",
                         "refundedPaisa",
+                        "creditedPaisa",
                         "discount",
                         "createdAt",
                         "issuedAt",
@@ -46852,6 +47350,26 @@
                               "expiry"
                             ]
                           },
+                          "back": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "units": {
+                                "type": "integer"
+                              },
+                              "totalPaisa": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              }
+                            },
+                            "required": [
+                              "units",
+                              "totalPaisa"
+                            ]
+                          },
                           "currentUnitPaisa": {
                             "type": [
                               "integer",
@@ -46886,6 +47404,7 @@
                           "editable",
                           "notBilled",
                           "batch",
+                          "back",
                           "currentUnitPaisa",
                           "currentVatRateBp"
                         ]
@@ -47736,6 +48255,11 @@
                           "minimum": 0,
                           "maximum": 1000000000
                         },
+                        "creditedPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
                         "discount": {
                           "type": [
                             "object",
@@ -47934,6 +48458,7 @@
                         "totalPaisa",
                         "paidPaisa",
                         "refundedPaisa",
+                        "creditedPaisa",
                         "discount",
                         "createdAt",
                         "issuedAt",
@@ -48218,6 +48743,26 @@
                               "expiry"
                             ]
                           },
+                          "back": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "units": {
+                                "type": "integer"
+                              },
+                              "totalPaisa": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              }
+                            },
+                            "required": [
+                              "units",
+                              "totalPaisa"
+                            ]
+                          },
                           "currentUnitPaisa": {
                             "type": [
                               "integer",
@@ -48252,6 +48797,7 @@
                           "editable",
                           "notBilled",
                           "batch",
+                          "back",
                           "currentUnitPaisa",
                           "currentVatRateBp"
                         ]
@@ -87681,7 +88227,8 @@
                               "cashOutsideShift",
                               "refundsPaid",
                               "manualRefundUnchecked",
-                              "medicationIncident"
+                              "medicationIncident",
+                              "selfApproved"
                             ]
                           },
                           "count": {
@@ -87895,7 +88442,8 @@
                 "refunds",
                 "refundsPaid",
                 "manualRefundUnchecked",
-                "medicationIncident"
+                "medicationIncident",
+                "selfApproved"
               ]
             },
             "required": true,
@@ -87932,7 +88480,8 @@
                         "refunds",
                         "refundsPaid",
                         "manualRefundUnchecked",
-                        "medicationIncident"
+                        "medicationIncident",
+                        "selfApproved"
                       ]
                     },
                     "period": {
@@ -88575,6 +89124,9 @@
                         "null"
                       ]
                     },
+                    "canReturn": {
+                      "type": "boolean"
+                    },
                     "blockers": {
                       "type": "array",
                       "items": {
@@ -88595,6 +89147,7 @@
                     "lines",
                     "payments",
                     "openRefundId",
+                    "canReturn",
                     "blockers"
                   ]
                 }
@@ -88788,6 +89341,14 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "refund",
+                      "return"
+                    ],
+                    "default": "refund"
+                  },
                   "category": {
                     "type": "string",
                     "enum": [
@@ -88887,15 +89448,14 @@
                         "way"
                       ]
                     },
-                    "minItems": 1,
-                    "maxItems": 20
+                    "maxItems": 20,
+                    "default": []
                   }
                 },
                 "required": [
                   "category",
                   "reason",
-                  "lines",
-                  "allocations"
+                  "lines"
                 ]
               }
             }
@@ -88925,6 +89485,13 @@
                             "withdrawn"
                           ]
                         },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "refund",
+                            "return"
+                          ]
+                        },
                         "source": {
                           "type": "string",
                           "enum": [
@@ -88937,6 +89504,9 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "selfApproved": {
+                          "type": "boolean"
                         },
                         "category": {
                           "type": "string",
@@ -89121,8 +89691,10 @@
                       "required": [
                         "id",
                         "status",
+                        "kind",
                         "source",
                         "caseTaskId",
+                        "selfApproved",
                         "category",
                         "reason",
                         "amountPaisa",
@@ -90024,6 +90596,16 @@
                               "withdrawn"
                             ]
                           },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "refund",
+                              "return"
+                            ]
+                          },
+                          "selfApproved": {
+                            "type": "boolean"
+                          },
                           "category": {
                             "type": "string",
                             "enum": [
@@ -90173,6 +90755,8 @@
                         "required": [
                           "id",
                           "status",
+                          "kind",
+                          "selfApproved",
                           "category",
                           "reason",
                           "amountPaisa",
@@ -90313,6 +90897,13 @@
                             "withdrawn"
                           ]
                         },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "refund",
+                            "return"
+                          ]
+                        },
                         "source": {
                           "type": "string",
                           "enum": [
@@ -90325,6 +90916,9 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "selfApproved": {
+                          "type": "boolean"
                         },
                         "category": {
                           "type": "string",
@@ -90509,8 +91103,10 @@
                       "required": [
                         "id",
                         "status",
+                        "kind",
                         "source",
                         "caseTaskId",
+                        "selfApproved",
                         "category",
                         "reason",
                         "amountPaisa",
@@ -91256,6 +91852,13 @@
                             "withdrawn"
                           ]
                         },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "refund",
+                            "return"
+                          ]
+                        },
                         "source": {
                           "type": "string",
                           "enum": [
@@ -91268,6 +91871,9 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "selfApproved": {
+                          "type": "boolean"
                         },
                         "category": {
                           "type": "string",
@@ -91452,8 +92058,10 @@
                       "required": [
                         "id",
                         "status",
+                        "kind",
                         "source",
                         "caseTaskId",
+                        "selfApproved",
                         "category",
                         "reason",
                         "amountPaisa",
@@ -92349,36 +92957,17 @@
                       "relation"
                     ]
                   },
-                  "allocations": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 80
-                        },
-                        "switchToCash": {
-                          "type": "boolean"
-                        },
-                        "reference": {
-                          "type": "string",
-                          "minLength": 3,
-                          "maxLength": 80
-                        }
-                      },
-                      "required": [
-                        "id"
-                      ]
-                    },
-                    "maxItems": 20,
-                    "default": []
+                  "reference": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 80
+                  },
+                  "switchToCash": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
-                  "rev",
-                  "recipient"
+                  "rev"
                 ]
               }
             }
@@ -92397,7 +92986,7 @@
                       "enum": [
                         "paid",
                         "paying",
-                        "part-paid"
+                        "failed"
                       ]
                     },
                     "view": {
@@ -92419,6 +93008,13 @@
                                 "withdrawn"
                               ]
                             },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "refund",
+                                "return"
+                              ]
+                            },
                             "source": {
                               "type": "string",
                               "enum": [
@@ -92431,6 +93027,9 @@
                                 "string",
                                 "null"
                               ]
+                            },
+                            "selfApproved": {
+                              "type": "boolean"
                             },
                             "category": {
                               "type": "string",
@@ -92615,8 +93214,10 @@
                           "required": [
                             "id",
                             "status",
+                            "kind",
                             "source",
                             "caseTaskId",
+                            "selfApproved",
                             "category",
                             "reason",
                             "amountPaisa",
@@ -93500,6 +94101,13 @@
                             "withdrawn"
                           ]
                         },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "refund",
+                            "return"
+                          ]
+                        },
                         "source": {
                           "type": "string",
                           "enum": [
@@ -93512,6 +94120,9 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "selfApproved": {
+                          "type": "boolean"
                         },
                         "category": {
                           "type": "string",
@@ -93696,8 +94307,10 @@
                       "required": [
                         "id",
                         "status",
+                        "kind",
                         "source",
                         "caseTaskId",
+                        "selfApproved",
                         "category",
                         "reason",
                         "amountPaisa",
@@ -94422,6 +95035,18 @@
                         "snapshot": {
                           "type": "object",
                           "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "refund",
+                                "return"
+                              ],
+                              "default": "refund"
+                            },
+                            "selfApproved": {
+                              "type": "boolean",
+                              "default": false
+                            },
                             "seller": {
                               "type": "object",
                               "properties": {
@@ -94697,7 +95322,10 @@
                               }
                             },
                             "recipient": {
-                              "type": "object",
+                              "type": [
+                                "object",
+                                "null"
+                              ],
                               "properties": {
                                 "name": {
                                   "type": "string"
@@ -95661,6 +96289,13 @@
                             "withdrawn"
                           ]
                         },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "refund",
+                            "return"
+                          ]
+                        },
                         "source": {
                           "type": "string",
                           "enum": [
@@ -95673,6 +96308,9 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "selfApproved": {
+                          "type": "boolean"
                         },
                         "category": {
                           "type": "string",
@@ -95857,8 +96495,10 @@
                       "required": [
                         "id",
                         "status",
+                        "kind",
                         "source",
                         "caseTaskId",
+                        "selfApproved",
                         "category",
                         "reason",
                         "amountPaisa",

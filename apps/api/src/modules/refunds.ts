@@ -115,8 +115,15 @@ export async function refundableView(tx: Tx, s: SessionData, invoiceId: string):
     })),
     payments: pays.map(({ p, method, gw, ways, leftPaisa }) => ({ id: p.id, method, amountPaisa: p.amountPaisa, trxId: p.trxId, reference: p.reference, confirmedAt: iso(p.confirmedAt), leftPaisa, ways, gatewayRefunds: gw })),
     openRefundId: open?.id ?? null,
+    canReturn: await canReturnOn(tx, inv) && !open,
     blockers,
   };
+}
+
+/** Decision 221: an issued pharmacy / OTC bill on which no money was ever confirmed and nothing is pending. */
+async function canReturnOn(tx: Tx, inv: Inv) {
+  return inv.status === "issued" && inv.paidPaisa === 0 && (inv.kind === "pharmacy" || inv.kind === "otc")
+    && !(await tx.payment.findFirst({ where: { invoiceId: inv.id, status: { in: ["initiated", "link_sent", "waiting_customer", "confirmed"] } }, select: { id: true } }));
 }
 
 /* ───── request ───── */
@@ -135,6 +142,11 @@ const REQUEST_MSG: Record<string, [number, string, string]> = {
   allocation_over: [422, "পেমেন্টে যত টাকা ছিল তার বেশি ফেরত হয় না", "More than the payment held"],
   allocation_mismatch: [422, "পেমেন্ট ভাগের যোগফল রিফান্ডের সমান নয়", "The payments do not add up to the refund"],
   payout_not_allowed: [422, "এই পেমেন্ট এভাবে ফেরত দেওয়া যায় না", "This payment cannot be paid back that way"],
+  mixed_ways: [422, "একটি রিফান্ড একভাবেই ফেরত যায় — নগদ ও bKash আলাদা রিফান্ডে চান", "One refund goes back one way — ask for cash and bKash as separate refunds"],
+  gateway_one_payment: [422, "গেটওয়েতে ফেরত একটি পেমেন্টের বিপরীতে — প্রতিটির জন্য আলাদা রিফান্ড", "A gateway refund goes back against one payment — one refund each"],
+  money_on_bill: [409, "এই বিলে টাকা নেওয়া হয়েছে — ফেরত দিতে রিফান্ড চান", "Money was taken on this bill — ask for a refund instead"],
+  payment_pending: [409, "এই বিলে একটি পেমেন্ট অপেক্ষমাণ — আগে সেটি মিটিয়ে নিন", "A payment is pending on this bill — settle it first"],
+  return_takes_no_money: [422, "টাকা ছাড়া ফেরতে কোনো টাকা দেওয়া হয় না", "A return without refund pays no money back"],
 };
 function refuse(code: string, field?: string): never {
   const [status, bn, en] = REQUEST_MSG[code] ?? [422, "রিফান্ড করা যাচ্ছে না", "The refund cannot be made"];
@@ -159,8 +171,11 @@ export async function requestRefund(tx: Tx, s: SessionData, invoiceId: string, r
     if (!p) throw err(404, "payment_not_found", "এই বিলে এমন নিশ্চিত পেমেন্ট নেই", "No such confirmed payment on this bill", { field: `allocations.${i}.paymentId` });
     return { p, a };
   });
+  const pendingPayments = await tx.payment.count({ where: { invoiceId: inv.id, status: { in: ["initiated", "link_sent", "waiting_customer"] } } });
+  if (req.kind === "return" && inv.kind === "opd") refuse("category_line_mismatch", "kind");
   const blockers = refundRequestBlockers({
-    source: "bill", category: req.category, reason: req.reason, billStatus: dash<InvoiceState>(inv.status), openRefund: Boolean(open),
+    source: "bill", kind: req.kind, confirmedPaisa: inv.paidPaisa, pendingPayments,
+    category: req.category, reason: req.reason, billStatus: dash<InvoiceState>(inv.status), openRefund: Boolean(open),
     lines: chosen.map(({ f, part }) => ({ source: f.l.source as LineSource, lock: f.lock, part })),
     confirmedLeftPaisa: inv.paidPaisa - live,
     allocations: allocs.map(({ p, a }) => ({ method: p.method, leftPaisa: p.leftPaisa, amountPaisa: a.amountPaisa, way: a.way, gatewayRefunds: p.gw, cashReason: a.cashReason ?? null })),
@@ -172,9 +187,9 @@ export async function requestRefund(tx: Tx, s: SessionData, invoiceId: string, r
   const cardBankCash = allocs.some(({ p, a }) => isCardBankCash(p.method, a.way));
   const id = `rf_${randomUUID()}`, taskId = `task_${randomUUID()}`;
   await tx.task.create({ data: { id: taskId, tenantId: s.tenantId, kind: REFUND_TASK, status: "requested", focusId: inv.id, reason: req.reason.trim(), requestedById: s.userId, requestedAt: now,
-    detail: { refundId: id, amountPaisa: sum("totalPaisa"), category: req.category } } });
+    detail: { refundId: id, amountPaisa: sum("totalPaisa"), category: req.category, kind: req.kind } } });
   await tx.refund.create({ data: {
-    id, tenantId: s.tenantId, organizationId: s.organizationId, invoiceId: inv.id, patientId: inv.patientId, source: "bill", category: req.category, reason: req.reason.trim(),
+    id, tenantId: s.tenantId, organizationId: s.organizationId, invoiceId: inv.id, patientId: inv.patientId, source: "bill", kind: req.kind, category: req.category, reason: req.reason.trim(),
     amountPaisa: sum("totalPaisa"), netPaisa: sum("netPaisa"), vatPaisa: sum("vatPaisa"), needsOwner: controlled || cardBankCash, approvalTaskId: taskId,
     requestedById: s.userId, requestedAt: now, statusAt: now,
     lines: { create: chosen.map(({ f, part }) => ({ tenantId: s.tenantId, chargeItemId: f.l.id, units: part!.units, netPaisa: part!.netPaisa, vatPaisa: part!.vatPaisa, totalPaisa: part!.totalPaisa })) },
@@ -182,7 +197,7 @@ export async function requestRefund(tx: Tx, s: SessionData, invoiceId: string, r
   } });
   const r = (await refundRow(tx, s.organizationId, id))!;
   return { r, audit: [
-    { action: "create", entity: "Refund", entityId: id, patientId: inv.patientId, detail: { invoiceId: inv.id, number: inv.number, category: req.category, amountPaisa: r.amountPaisa, lines: r.lines.length, ways: r.allocations.map((a) => `${a.method}:${a.way}`), needsOwner: r.needsOwner, taskId } },
+    { action: "create", entity: "Refund", entityId: id, patientId: inv.patientId, detail: { invoiceId: inv.id, number: inv.number, kind: req.kind, category: req.category, amountPaisa: r.amountPaisa, lines: r.lines.length, ways: r.allocations.map((a) => `${a.method}:${a.way}`), needsOwner: r.needsOwner, taskId } },
   ] };
 }
 
@@ -232,6 +247,7 @@ const DECIDE_MSG: Record<string, [number, string, string, object?]> = {
   not_an_approver: [403, "শুধু মালিক বা অ্যাডমিন সিদ্ধান্ত দিতে পারেন", "Only the owner or an admin can decide", { reason: "role", canRequest: false }],
   own_request: [403, "নিজের অনুরোধ নিজে অনুমোদন করা যায় না", "You cannot approve your own request", { reason: "own-request", canRequest: false }],
   above_approver_limit: [422, "আপনার অনুমোদন সীমার বেশি", "Above your approval limit"],
+  note_required: [400, "আপনিই এখানকার একমাত্র অনুমোদনকারী — নিজের অনুরোধে সিদ্ধান্তের কারণ লিখুন (অন্তত ১০ অক্ষর)", "You are the only approver here — write why you decide your own request (at least 10 characters)", { field: "note" }],
   owner_only: [403, "এই রিফান্ড (নিয়ন্ত্রিত ওষুধ, বা কার্ড / ব্যাংকের টাকা নগদে) শুধু মালিক অনুমোদন করেন", "Only the owner approves this refund (a controlled drug, or card / bank money paid back in cash)", { reason: "owner-only", canRequest: false }],
   note_too_short: [400, "নোট লিখুন (অন্তত ১০ অক্ষর)", "Write a note (at least 10 characters)", { field: "note" }],
   part_paid: [409, "ফেরত দেওয়া শুরু হয়ে গেছে — আর প্রত্যাহার করা যায় না", "The payout has started — it can no longer be withdrawn"],
@@ -264,6 +280,9 @@ export async function decideRefund(tx: Tx, s: SessionData, refundId: string, d: 
   if (from !== "requested") throw err(409, "already_decided", "এই রিফান্ডের সিদ্ধান্ত আগেই হয়েছে", "This refund was already decided");
   const task = await tx.task.findFirst({ where: { id: r.approvalTaskId!, kind: REFUND_TASK } });
   if (!task) throw notFound();
+  // decision 223: the requester decides their own request only as the facility's only approver, with a note (flagged)
+  const onlyApprover = (await facilityApprovers(tx, s.organizationId)) === 1;
+  const self = s.userId === r.requestedById;
   if (d.decision === "approve") {
     const org = await tx.organization.findFirst({ where: { id: s.organizationId } });
     const items = await tx.chargeItem.findMany({ where: { id: { in: r.lines.map((l) => l.chargeItemId) } }, select: { medicineKey: true } });
@@ -272,23 +291,29 @@ export async function decideRefund(tx: Tx, s: SessionData, refundId: string, d: 
       settings: { cashierLimitPaisa: org!.cashierDiscountLimitPaisa, cashierLimitBp: org!.cashierDiscountLimitBp, approverLimitPaisa: org!.approverLimitPaisa },
       controlled: items.some((i) => i.medicineKey && saleClass(i.medicineKey) === "ctrl"),
       cardBankCash: r.allocations.some((a) => isCardBankCash(a.method as PaymentMethod, a.way as PayoutWay)),
+      onlyApprover, note,
     });
     if (b.length) refuseDecision(b[0]!);
   } else {
     if (!APPROVERS.includes(s.role)) refuseDecision("not_an_approver");
-    if (s.userId === r.requestedById) refuseDecision("own_request");
+    if (self && !onlyApprover) refuseDecision("own_request");
     if (note.length < 10) throw err(400, "note_required", "প্রত্যাখ্যানের কারণ লিখুন (অন্তত ১০ অক্ষর)", "Write why it is rejected (at least 10 characters)", { field: "note" });
   }
   const tStatus = transition("APPROVAL", APPROVAL, task.status, d.decision);
   const u = await tx.task.updateMany({ where: { id: task.id, status: "requested" }, data: { status: tStatus, decidedById: s.userId, decidedAt: now, decisionNote: note || null } });
   if (u.count !== 1) throw stale();
   const to = transition("REFUND", REFUND, from, d.decision);
-  const n = await tx.refund.updateMany({ where: { id: r.id, status: "requested", rev: r.rev }, data: { status: to, decidedById: s.userId, decidedAt: now, decisionNote: note || null, statusAt: now, rev: { increment: 1 } } });
+  const n = await tx.refund.updateMany({ where: { id: r.id, status: "requested", rev: r.rev }, data: { status: to, decidedById: s.userId, decidedAt: now, decisionNote: note || null, selfApproved: self, statusAt: now, rev: { increment: 1 } } });
   if (n.count !== 1) throw stale();
   return { r: (await refundRow(tx, s.organizationId, r.id))!, audit: [
     { action: "update", entity: "Task", entityId: task.id, patientId: r.patientId, detail: { kind: REFUND_TASK, event: d.decision, refundId: r.id, amountPaisa: r.amountPaisa, note: note || null } },
-    { action: "update", entity: "Refund", entityId: r.id, patientId: r.patientId, detail: { event: d.decision, note: note || null } },
+    { action: "update", entity: "Refund", entityId: r.id, patientId: r.patientId, detail: { event: d.decision, note: note || null, ...(self ? { selfApproved: true, flag: "self-approved" } : {}) } },
   ] };
+}
+/** Active owners / admins of the facility (decision 223: alone, the requester may decide with a note). */
+export async function facilityApprovers(tx: Tx, organizationId: string): Promise<number> {
+  const rows = await tx.practitionerRole.findMany({ where: { organizationId, role: { in: ["owner", "admin"] }, user: { active: true } }, select: { userId: true } });
+  return new Set(rows.map((r) => r.userId)).size;
 }
 /** The single Approvals queue decides a refund by its task id. */
 export async function refundIdOfTask(tx: Tx, taskId: string): Promise<string | null> {
@@ -343,6 +368,7 @@ async function syncRefunded(tx: Tx, invoiceId: string) {
 async function finishIfPaid(tx: Tx, o: Org, refundId: string, by: string, now: Date, audit: AuditEntry[]) {
   const r = (await refundRow(tx, o.organizationId, refundId))!;
   if (r.status !== "approved" || r.allocations.some((a) => a.status !== "paid")) return r;
+  const isReturn = r.kind === "return";
   const inv = (await tx.invoice.findFirst({ where: { id: r.invoiceId } }))!;
   const org = (await tx.organization.findFirst({ where: { id: o.organizationId } }))!;
   const p = inv.patientId ? await tx.patient.findFirst({ where: { id: inv.patientId }, select: { nameBn: true, nameEn: true, facilityNo: true } }) : null;
@@ -357,23 +383,31 @@ async function finishIfPaid(tx: Tx, o: Org, refundId: string, by: string, now: D
   });
   const nm = (id: string) => ({ nameBn: who(id).nameBn, nameEn: who(id).nameEn });
   const snapshot: RefundVoucherSnapshot = {
+    kind: isReturn ? "return" : "refund", selfApproved: r.selfApproved,
     seller: { nameEn: org.name, nameBn: org.nameBn, address: org.address, vatBin: org.vatBin, vatBinSample: org.vatBinSample },
     invoice: { id: inv.id, number: inv.number, issuedAt: iso(inv.issuedAt), totalPaisa: inv.totalPaisa },
     patient: p ? { nameBn: p.nameBn, nameEn: p.nameEn, facilityNo: p.facilityNo } : null, buyer: buyerOf(inv),
     category: r.category as RefundCategory, reason: r.reason, lines, netPaisa: r.netPaisa, vatPaisa: r.vatPaisa, amountPaisa: r.amountPaisa,
     vatByRate: [...rates.entries()].sort((a, b) => a[0] - b[0]).map(([rateBp, x]) => ({ rateBp, ...x })),
     paidBack: r.allocations.map((a) => ({ method: a.method as PaymentMethod, way: a.way as PayoutWay, amountPaisa: a.amountPaisa, refundTrxId: a.refundTrxId, reference: a.reference, originalTrxId: pays.find((x) => x.id === a.paymentId)?.trxId ?? null })),
-    recipient: { name: r.recipientName!, phone: r.recipientPhone!, relation: r.recipientRelation as RefundVoucherSnapshot["recipient"]["relation"] },
+    recipient: r.recipientName && r.recipientPhone && r.recipientRelation ? { name: r.recipientName, phone: r.recipientPhone, relation: r.recipientRelation as NonNullable<RefundVoucherSnapshot["recipient"]>["relation"] } : null,
     requestedBy: nm(r.requestedById), approvedBy: nm(r.decidedById!), paidBy: nm(by),
   };
   const yy = dhakaDay(now).slice(2, 4);
-  const name = `refund:${o.organizationId}:${yy}`;
+  // a refund voucher RF/…; a return without refund gets a credit voucher CV/… (decision 221)
+  const name = `${isReturn ? "credit" : "refund"}:${o.organizationId}:${yy}`;
   const seq = await tx.sequence.upsert({ where: { tenantId_name: { tenantId: o.tenantId, name } }, create: { tenantId: o.tenantId, name, value: 1 }, update: { value: { increment: 1 } } });
-  const number = `RF/${yy}/${String(seq.value).padStart(4, "0")}`;
+  const number = `${isReturn ? "CV" : "RF"}/${yy}/${String(seq.value).padStart(4, "0")}`;
   const v = await tx.refundVoucher.create({ data: { tenantId: o.tenantId, organizationId: o.organizationId, refundId: r.id, invoiceId: inv.id, patientId: inv.patientId, number, verifyCode: newVerifyCode(), amountPaisa: r.amountPaisa, snapshot: snapshot as object, createdById: by, createdAt: now } });
   const to = transition("REFUND", REFUND, "approved", "pay");
   const n = await tx.refund.updateMany({ where: { id: r.id, status: "approved" }, data: { status: to, paidAt: now, statusAt: now, rev: { increment: 1 } } });
   if (n.count !== 1) throw stale();
+  if (isReturn) {
+    // the due goes down by the returned medicine (the database keeps creditedPaisa = the recorded returns)
+    const credited = (await tx.refund.aggregate({ where: { invoiceId: inv.id, kind: "return", status: "paid" }, _sum: { amountPaisa: true } }))._sum.amountPaisa ?? 0;
+    await tx.invoice.update({ where: { id: inv.id }, data: { creditedPaisa: credited } });
+    audit.push({ action: "update", entity: "Invoice", entityId: inv.id, patientId: r.patientId, detail: { event: "credited", creditedPaisa: credited, refundId: r.id } });
+  }
   audit.push({ action: "create", entity: "RefundVoucher", entityId: v.id, patientId: r.patientId, detail: { refundId: r.id, number, amountPaisa: r.amountPaisa } });
   audit.push({ action: "update", entity: "Refund", entityId: r.id, patientId: r.patientId, detail: { event: "pay", number } });
   return (await refundRow(tx, o.organizationId, r.id))!;
@@ -389,6 +423,10 @@ async function openRefundCheck(tx: Tx, s: SessionData, r: Rf, a: Alloc, now: Dat
 }
 
 export interface PayOutcome { r: Rf; claimed: string[]; audit: AuditEntry[] }
+/** Pay the whole refund out in one transaction (Kamrul, decision 220: one refund = one payout method, never part-paid):
+    cash from the payer's open shift, by hand with a reference (the owner's check), or the gateway — claimed now and sent
+    after the commit (one payment). A gateway refund that failed may go back in cash with the reason gateway-failed.
+    A return without refund (decision 221) is recorded here: the medicine into quarantine, the due down, a credit voucher. */
 export async function payRefund(tx: Tx, s: SessionData, refundId: string, req: RefundPayRequest, now: Date): Promise<PayOutcome> {
   if (!WRITERS.includes(s.role)) throw notWriter();
   const r0 = await refundRow(tx, s.organizationId, refundId);
@@ -397,52 +435,65 @@ export async function payRefund(tx: Tx, s: SessionData, refundId: string, req: R
   const r = (await refundRow(tx, s.organizationId, refundId))!;
   if (r.status !== "approved") throw err(409, "not_approved", r.status === "requested" ? "অনুমোদনের আগে টাকা ফেরত দেওয়া যায় না" : "এই রিফান্ড আর দেওয়ার মতো নেই", r.status === "requested" ? "Nothing is paid before approval" : "This refund can no longer be paid");
   if (r.rev !== req.rev) throw stale();
-  const rc = recipientCheck(req.recipient);
-  if (!rc.ok) throw err(400, `recipient_${rc.field}`, rc.field === "phone" ? "যিনি টাকা নিচ্ছেন তাঁর সঠিক মোবাইল নম্বর লিখুন" : rc.field === "name" ? "যিনি টাকা নিচ্ছেন তাঁর নাম লিখুন" : "রোগীর সঙ্গে সম্পর্ক বেছে নিন",
-    rc.field === "phone" ? "Write the mobile number of the person taking the money" : rc.field === "name" ? "Write the name of the person taking the money" : "Choose their relationship to the patient", { field: `recipient.${rc.field}` });
-  if (r.recipientName && (r.recipientName !== req.recipient.name.trim() || r.recipientPhone !== rc.phone || r.recipientRelation !== req.recipient.relation))
-    throw err(409, "recipient_recorded", "যিনি টাকা নিচ্ছেন তাঁর তথ্য আগেই লেখা হয়েছে", "Who takes the money was already recorded for this refund", { field: "recipient" });
   const audit: AuditEntry[] = [];
+  const isReturn = r.kind === "return";
+  // who took the money — required when money leaves; for a return, who brought the medicine back may be recorded
+  if (req.recipient || !isReturn) {
+    if (!req.recipient) throw err(400, "recipient_name", "যিনি টাকা নিচ্ছেন তাঁর নাম লিখুন", "Write the name of the person taking the money", { field: "recipient.name" });
+    const rc = recipientCheck(req.recipient);
+    if (!rc.ok) throw err(400, `recipient_${rc.field}`, rc.field === "phone" ? "যিনি টাকা নিচ্ছেন তাঁর সঠিক মোবাইল নম্বর লিখুন" : rc.field === "name" ? "যিনি টাকা নিচ্ছেন তাঁর নাম লিখুন" : "রোগীর সঙ্গে সম্পর্ক বেছে নিন",
+      rc.field === "phone" ? "Write the mobile number of the person taking the money" : rc.field === "name" ? "Write the name of the person taking the money" : "Choose their relationship to the patient", { field: `recipient.${rc.field}` });
+    if (r.recipientName && (r.recipientName !== req.recipient.name.trim() || r.recipientPhone !== rc.phone || r.recipientRelation !== req.recipient.relation))
+      throw err(409, "recipient_recorded", "যিনি টাকা নিচ্ছেন তাঁর তথ্য আগেই লেখা হয়েছে", "Who takes the money was already recorded for this refund", { field: "recipient" });
+    if (!r.recipientName) await tx.refund.update({ where: { id: r.id }, data: { recipientName: req.recipient.name.trim(), recipientPhone: rc.phone, recipientRelation: req.recipient.relation, rev: { increment: 1 }, statusAt: now } });
+  }
+  if (isReturn) {
+    await writeReturns(tx, s, r, now, audit);
+    const done = await finishIfPaid(tx, s, r.id, s.userId, now, audit);
+    return { r: done, claimed: [], audit };
+  }
+  if (r.allocations.some((a) => a.status === "paying")) throw err(409, "being_paid", "গেটওয়েতে ফেরত চলছে — একটু পরে দেখুন", "A gateway refund is under way — check again shortly");
   const open = r.allocations.filter((a) => a.status === "open");
-  if (!open.length) throw err(409, r.allocations.some((a) => a.status === "paying") ? "being_paid" : "nothing_to_pay", "গেটওয়েতে ফেরত চলছে — একটু পরে দেখুন", "A gateway refund is under way — check again shortly");
-  const pays = await tx.payment.findMany({ where: { id: { in: open.map((a) => a.paymentId) } } });
-  const shift = open.some((a) => a.way === "cash" || req.allocations.some((x) => x.id === a.id && x.switchToCash)) ? await openShiftOf(tx, s) : null;
-  if (!r.recipientName) await tx.refund.update({ where: { id: r.id }, data: { recipientName: req.recipient.name.trim(), recipientPhone: rc.phone, recipientRelation: req.recipient.relation, rev: { increment: 1 }, statusAt: now } });
+  if (!open.length) throw err(409, "nothing_to_pay", "দেওয়ার মতো কিছু বাকি নেই", "Nothing is left to pay");
+  let way = open[0]!.way as PayoutWay;
+  let cashReason = open[0]!.cashReason as CashReason | null;
+  if (req.switchToCash && way !== "cash") {
+    const a = open[0]!;
+    if (open.length !== 1 || !payoutWayAllowed({ method: a.method as PaymentMethod, way: "cash", gatewayRefunds: true, stage: "payout", cashReason: "gateway-failed", gatewayFailed: Boolean(a.gatewayFailedAt) }))
+      throw err(409, "cash_not_allowed", "গেটওয়েতে ফেরত ব্যর্থ না হলে নগদে দেওয়া যায় না", "Cash is allowed only after the gateway refund failed", { field: "switchToCash" });
+    way = "cash"; cashReason = "gateway-failed";
+  }
   await writeReturns(tx, s, r, now, audit);
   const claimed: string[] = [];
-  for (const a of open) {
-    const ask = req.allocations.find((x) => x.id === a.id);
-    const p = pays.find((x) => x.id === a.paymentId)!;
-    let way = a.way as PayoutWay, cashReason = a.cashReason as CashReason | null;
-    if (ask?.switchToCash && way !== "cash") {
-      if (!payoutWayAllowed({ method: a.method as PaymentMethod, way: "cash", gatewayRefunds: true, stage: "payout", cashReason: "gateway-failed", gatewayFailed: Boolean(a.gatewayFailedAt) }))
-        throw err(409, "cash_not_allowed", "গেটওয়েতে ফেরত ব্যর্থ না হলে নগদে দেওয়া যায় না", "Cash is allowed only after the gateway refund failed", { field: "allocations" });
-      way = "cash"; cashReason = "gateway-failed";
-    }
-    if (way === "cash") {
-      if (!shift) throw err(409, "no_open_shift", "নগদ ফেরতের জন্য আপনার শিফট খোলা থাকতে হবে", "Open your shift first — cash refunds leave your drawer", { field: "shift" });
+  if (way === "cash") {
+    const shift = await openShiftOf(tx, s);
+    if (!shift) throw err(409, "no_open_shift", "নগদ ফেরতের জন্য আপনার শিফট খোলা থাকতে হবে", "Open your shift first — cash refunds leave your drawer", { field: "shift" });
+    for (const a of open) {
       const flag = isCardBankCash(a.method as PaymentMethod, "cash");
       await tx.refundAllocation.update({ where: { id: a.id }, data: { way, cashReason, status: "paid", shiftId: shift.id, paidById: s.userId, paidAt: now, needsReconciliation: flag } });
       if (flag) await tx.refundAllocation.update({ where: { id: a.id }, data: { reconcileTaskId: await openRefundCheck(tx, s, r, { ...a, way: "cash" }, now) } });
       audit.push({ action: "update", entity: "RefundAllocation", entityId: a.id, patientId: r.patientId, detail: { event: "paid", way, cashReason, amountPaisa: a.amountPaisa, shiftId: shift.id } });
-    } else if (way === "manual") {
-      if (!ask?.reference) throw err(400, "reference_required", "হাতে ফেরতের রেফারেন্স লিখুন", "Write the reference of the refund made by hand", { field: "allocations" });
-      await tx.refundAllocation.update({ where: { id: a.id }, data: { status: "paid", reference: ask.reference, paidById: s.userId, paidAt: now, needsReconciliation: true } });
-      await tx.refundAllocation.update({ where: { id: a.id }, data: { reconcileTaskId: await openRefundCheck(tx, s, r, { ...a, reference: ask.reference }, now) } });
-      audit.push({ action: "update", entity: "RefundAllocation", entityId: a.id, patientId: r.patientId, detail: { event: "paid", way, reference: ask.reference, amountPaisa: a.amountPaisa } });
-    } else {
-      if (!gatewayRefunds(p) || !p.providerRef || !p.trxId) throw err(503, "gateway_off", "এই পেমেন্টের গেটওয়ে এখন ফেরত দিতে পারছে না", "This payment's gateway cannot refund right now");
-      const n = await tx.refundAllocation.updateMany({ where: { id: a.id, status: "open" }, data: { status: "paying", claimedById: s.userId, claimedAt: now } });
-      if (n.count !== 1) throw stale();
-      claimed.push(a.id);
-      audit.push({ action: "update", entity: "RefundAllocation", entityId: a.id, patientId: r.patientId, detail: { event: "gateway-claimed", amountPaisa: a.amountPaisa, provider: p.provider } });
     }
+  } else if (way === "manual") {
+    if (!req.reference) throw err(400, "reference_required", "হাতে ফেরতের রেফারেন্স লিখুন", "Write the reference of the refund made by hand", { field: "reference" });
+    for (const a of open) {
+      await tx.refundAllocation.update({ where: { id: a.id }, data: { status: "paid", reference: req.reference, paidById: s.userId, paidAt: now, needsReconciliation: true } });
+      await tx.refundAllocation.update({ where: { id: a.id }, data: { reconcileTaskId: await openRefundCheck(tx, s, r, { ...a, reference: req.reference }, now) } });
+      audit.push({ action: "update", entity: "RefundAllocation", entityId: a.id, patientId: r.patientId, detail: { event: "paid", way, reference: req.reference, amountPaisa: a.amountPaisa } });
+    }
+  } else {
+    const a = open[0]!; // decision 220: a gateway refund goes back against one payment
+    const p = (await tx.payment.findFirst({ where: { id: a.paymentId } }))!;
+    if (!gatewayRefunds(p) || !p.providerRef || !p.trxId) throw err(503, "gateway_off", "এই পেমেন্টের গেটওয়ে এখন ফেরত দিতে পারছে না", "This payment's gateway cannot refund right now");
+    const n = await tx.refundAllocation.updateMany({ where: { id: a.id, status: "open" }, data: { status: "paying", claimedById: s.userId, claimedAt: now } });
+    if (n.count !== 1) throw stale();
+    claimed.push(a.id);
+    audit.push({ action: "update", entity: "RefundAllocation", entityId: a.id, patientId: r.patientId, detail: { event: "gateway-claimed", amountPaisa: a.amountPaisa, provider: p.provider } });
   }
   await syncRefunded(tx, r.invoiceId);
   const done = await finishIfPaid(tx, s, r.id, s.userId, now, audit);
   return { r: done, claimed, audit };
 }
-
 /** After the commit: ask the gateway to refund each claimed allocation, then store its answer in a transaction of its
     own (ADR 0011 pattern). Completed → paid (and the voucher once all are); refused → open again with why; unknown →
     stays claimed for the sweep. */
@@ -540,7 +591,7 @@ export async function refundView(tx: Tx, s: SessionData, r: Rf): Promise<RefundV
   const checks = await tx.task.findMany({ where: { id: { in: r.allocations.flatMap((a) => (a.reconcileTaskId ? [a.reconcileTaskId] : [])) } }, select: { id: true, status: true } });
   const who = await people(tx, [r.requestedById, r.decidedById, r.withdrawnById, ...r.allocations.flatMap((a) => [a.paidById, a.claimedById])]);
   const started = await payoutStarted(tx, r);
-  const approver = APPROVERS.includes(s.role) && s.userId !== r.requestedById;
+  const approver = APPROVERS.includes(s.role) && (s.userId !== r.requestedById || (await facilityApprovers(tx, s.organizationId)) === 1);
   const timeline: RefundView["timeline"] = [{ event: "requested", at: r.requestedAt.toISOString(), by: who(r.requestedById), note: r.reason }];
   if (r.decidedAt && r.decidedById) timeline.push({ event: r.status === "rejected" ? "rejected" : "approved", at: r.decidedAt.toISOString(), by: who(r.decidedById), note: r.decisionNote });
   for (const a of r.allocations) {
@@ -553,7 +604,7 @@ export async function refundView(tx: Tx, s: SessionData, r: Rf): Promise<RefundV
   timeline.sort((a, b) => a.at.localeCompare(b.at));
   return {
     refund: {
-      id: r.id, status: r.status as RefundState, source: r.source as "bill" | "reconciliation", caseTaskId: r.caseTaskId, category: r.category as RefundCategory, reason: r.reason,
+      id: r.id, status: r.status as RefundState, kind: r.kind as "refund" | "return", selfApproved: r.selfApproved, source: r.source as "bill" | "reconciliation", caseTaskId: r.caseTaskId, category: r.category as RefundCategory, reason: r.reason,
       amountPaisa: r.amountPaisa, netPaisa: r.netPaisa, vatPaisa: r.vatPaisa, rev: r.rev, needsOwner: r.needsOwner,
       requestedBy: who(r.requestedById), requestedAt: r.requestedAt.toISOString(),
       decidedBy: r.decidedById ? who(r.decidedById) : null, decidedAt: iso(r.decidedAt), decisionNote: r.decisionNote,
@@ -582,7 +633,7 @@ export async function refundView(tx: Tx, s: SessionData, r: Rf): Promise<RefundV
     can: {
       approve: r.status === "requested" && approver, reject: r.status === "requested" && approver,
       withdraw: r.status === "approved" && APPROVERS.includes(s.role) && !started,
-      pay: r.status === "approved" && WRITERS.includes(s.role) && r.allocations.some((a) => a.status === "open"),
+      pay: r.status === "approved" && WRITERS.includes(s.role) && (r.kind === "return" || (r.allocations.some((a) => a.status === "open") && !r.allocations.some((a) => a.status === "paying"))),
       check: r.allocations.some((a) => a.status === "paying"),
     },
   };
@@ -605,7 +656,7 @@ export async function refundList(tx: Tx, s: SessionData, q: { status: string; in
   const pts = await tx.patient.findMany({ where: { id: { in: rows.flatMap((r) => (r.patientId ? [r.patientId] : [])) } }, select: { id: true, nameBn: true, nameEn: true, facilityNo: true } });
   const who = await people(tx, rows.flatMap((r) => [r.requestedById, r.decidedById]));
   const items: RefundList["items"] = rows.map((r) => ({
-    id: r.id, status: r.status as RefundState, category: r.category as RefundCategory, reason: r.reason, amountPaisa: r.amountPaisa, requestedAt: r.requestedAt.toISOString(), paidAt: iso(r.paidAt),
+    id: r.id, status: r.status as RefundState, kind: r.kind as "refund" | "return", selfApproved: r.selfApproved, category: r.category as RefundCategory, reason: r.reason, amountPaisa: r.amountPaisa, requestedAt: r.requestedAt.toISOString(), paidAt: iso(r.paidAt),
     requestedBy: who(r.requestedById), decidedBy: r.decidedById ? who(r.decidedById) : null, invoice: r.invoice,
     patient: pts.find((p) => p.id === r.patientId) ?? null, voucher: r.voucher, paying: r.allocations.some((a) => a.status === "paying"),
   }));
@@ -645,7 +696,7 @@ export async function refundApprovalItems(tx: Tx, s: SessionData, status: "reque
       decidedBy: t.decidedById ? who(t.decidedById) : null, decidedAt: iso(t.decidedAt), decisionNote: t.decisionNote,
       kind: "refund-approval", line: null,
       refund: {
-        id: r.id, category: r.category as RefundCategory, needsOwner: r.needsOwner,
+        id: r.id, kind: r.kind as "refund" | "return", selfApproved: r.selfApproved, category: r.category as RefundCategory, needsOwner: r.needsOwner,
         ways: r.allocations.map((a) => ({ method: a.method as PaymentMethod, way: a.way as PayoutWay, amountPaisa: a.amountPaisa })),
         lines: r.lines.map((l) => { const c = items.find((i) => i.id === l.chargeItemId)!; return { nameEn: c.nameEn, nameBn: c.nameBn, units: l.units, totalPaisa: l.totalPaisa }; }),
         controlled: items.some((i) => i.medicineKey && saleClass(i.medicineKey) === "ctrl"),
@@ -687,7 +738,11 @@ export async function decideRefundCheck(tx: Tx, s: SessionData, taskId: string, 
   const t = await tx.task.findFirst({ where: { id: taskId, kind: REFUND_CHECK_TASK } });
   const a = t?.focusId ? await tx.refundAllocation.findFirst({ where: { id: t.focusId }, include: { refund: true } }) : null;
   if (!t || !a || a.refund.organizationId !== s.organizationId) throw notFound();
-  if (a.paidById === s.userId) throw err(403, "own_request", "নিজের দেওয়া ফেরত নিজে মেলানো যায় না", "You cannot check a refund you paid yourself", { reason: "own-request", canRequest: false });
+  // decision 223's rule: never the person who paid it — unless they are the facility's only approver (with a note)
+  if (a.paidById === s.userId) {
+    if ((await facilityApprovers(tx, s.organizationId)) !== 1) throw err(403, "own_request", "নিজের দেওয়া ফেরত নিজে মেলানো যায় না", "You cannot check a refund you paid yourself", { reason: "own-request", canRequest: false });
+    if ((note ?? "").trim().length < 10) throw err(400, "note_required", "আপনিই এখানকার একমাত্র অনুমোদনকারী — কারণ লিখুন (অন্তত ১০ অক্ষর)", "You are the only approver here — write why (at least 10 characters)", { field: "note" });
+  }
   if (action === "resolve" && (note ?? "").trim().length < 10) throw err(400, "note_required", "নোট লিখুন (অন্তত ১০ অক্ষর)", "Write a note (at least 10 characters)", { field: "note" });
   const status = transition("APPROVAL", APPROVAL, t.status, action === "apply" ? "approve" : "reject");
   const u = await tx.task.updateMany({ where: { id: t.id, status: "requested" }, data: { status, decidedById: s.userId, decidedAt: now, decisionNote: note?.trim() || null } });

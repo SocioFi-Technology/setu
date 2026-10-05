@@ -274,13 +274,15 @@ describe.runIf(db)("ADR 0013 bKash refund", () => {
     expect(list!.map((r) => [r.refundTrxId, r.amountPaisa, r.completed])).toEqual([[a.refundTrxId, 10_000, true], [b.refundTrxId, 40_000, true]]);
   });
 
-  it("a wrong TrxID, a payment never completed, and the same amount again within 10 minutes are refused", async () => {
+  it("a wrong TrxID and a payment never completed are refused; the same amount again within 10 minutes is unknown, not refused", async () => {
     const pay = await paid(30_000);
     const p = outside();
     expect((await p.refund({ ...pay, trxId: "TRXWRONG1", amountPaisa: 5_000, sku: "s", reason: "other", known: [] })).code).toBe("2077");
     const first = await p.refund({ ...pay, amountPaisa: 5_000, sku: "s1", reason: "other", known: [] });
     expect(first.status).toBe("completed");
-    expect(await p.refund({ ...pay, amountPaisa: 5_000, sku: "s2", reason: "other", known: [first.refundTrxId!] })).toMatchObject({ status: "refused", code: "2074" });
+    // decision 227: an undocumented answer (here a duplicate) is "unknown — ask Refund Status", never refunded or failed;
+    // the status shows only the refund we already hold
+    expect(await p.refund({ ...pay, amountPaisa: 5_000, sku: "s2", reason: "other", known: [first.refundTrxId!] })).toEqual({ status: "unknown", refundTrxId: null, code: "2901" });
     const link = await p.createLink({ method: "bkash", amountPaisa: 1_000, reference: `rf-${randomUUID()}`, invoiceNumber: "INV/RF", phone: "1712345678", attempt: 1 });
     expect((await p.refund({ providerRef: link.providerRef, trxId: "TRXNONE01", amountPaisa: 1_000, sku: "s", reason: "other", known: [] })).code).toBe("2127");
   });
@@ -377,12 +379,12 @@ describe.runIf(db)("ADR 0013 bKash refund through the routes", () => {
     standIn.failNextRefund = "2023"; // the merchant's balance is too low
     const first = await post(`/v1/refunds/${r.id}/pay`, { rev: r.rev, recipient });
     expect(first.statusCode, first.body).toBe(200);
-    expect(first.json()).toMatchObject({ outcome: "part-paid", view: { refund: { status: "approved" }, allocations: [{ status: "open", gatewayFailed: true, failReason: "gateway refused (2023)" }] } });
+    expect(first.json()).toMatchObject({ outcome: "failed", view: { refund: { status: "approved" }, allocations: [{ status: "open", gatewayFailed: true, failReason: "gateway refused (2023)" }] } });
     // the cashier needs a drawer for cash
     const mine = (await get("/v1/shifts/mine")).json();
     if (!mine.shift || mine.shift.status !== "open") expect((await post("/v1/shifts", { openingFloatPaisa: 100_000 })).statusCode).toBe(201);
     const rev = (await get(`/v1/refunds/${r.id}`)).json().refund.rev;
-    const cash = await post(`/v1/refunds/${r.id}/pay`, { rev, recipient, allocations: [{ id: r.alloc, switchToCash: true }] });
+    const cash = await post(`/v1/refunds/${r.id}/pay`, { rev, recipient, switchToCash: true });
     expect(cash.statusCode, cash.body).toBe(200);
     expect(cash.json().view.allocations[0]).toMatchObject({ status: "paid", way: "cash", cashReason: "gateway-failed" });
   });

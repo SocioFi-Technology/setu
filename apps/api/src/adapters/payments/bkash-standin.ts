@@ -131,7 +131,8 @@ export class BkashSandboxStandIn {
     }
     /* Refund (ADR 0013, developer.bka.sh v2 read 05/10/2026): up to 10 partial refunds per transaction within the
        refundable amount and 60 days; no duplicate within 10 minutes. The documented codes are used; which code bKash
-       gives a duplicate or an 11th refund is not documented — the stand-in answers 2074 ("cannot be reversed"). */
+       gives a duplicate or an 11th refund is not documented — the stand-in answers "2901", a code the adapter does not
+       know, which it must treat as "unknown — ask Refund Status" (Kamrul, decision 227). */
     if (op === "refund/payment/transaction") {
       if (this.failNextRefund) { const c = this.failNextRefund; this.failNextRefund = null; return this.fail(res, c, "Refund refused"); }
       if (!p) return this.fail(res, "2002", "Invalid Payment ID");
@@ -147,7 +148,7 @@ export class BkashSandboxStandIn {
       if (done + cents(String(b.refundAmount)) > cents(p.amount)) return this.fail(res, "2072", "Refund amount not valid", "refund_amount_exceed_payment_amount");
       if (Date.now() - p.createdAt.getTime() > 60 * 864e5) return this.fail(res, "2071", "Refund after 60 days not allowed");
       if (p.refunds.length >= 10 || p.refunds.some((r) => r.amount === Number(b.refundAmount).toFixed(2) && Date.now() - r.at.getTime() < 10 * 60_000))
-        return this.fail(res, "2074", "The transaction cannot be reversed");
+        return this.fail(res, "2901", "Duplicate refund request");
       const r = { refundTrxId: "RF" + tok(8), amount: Number(b.refundAmount).toFixed(2), sku: String(b.sku), reason: String(b.reason), at: new Date() };
       p.refunds.push(r);
       if (this.slowNextRefundMs) { const ms = this.slowNextRefundMs; this.slowNextRefundMs = 0; await new Promise((ok) => setTimeout(ok, ms)); }

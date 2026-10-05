@@ -73,6 +73,11 @@ export const isCardBankCash = (method: PaymentMethod, way: PayoutWay) => (method
 export interface RequestAllocation { method: PaymentMethod; leftPaisa: Paisa; amountPaisa: Paisa; way: PayoutWay; gatewayRefunds: boolean; cashReason?: CashReason | null }
 export interface RequestInput {
   source: "bill" | "reconciliation";
+  /** Kamrul, decision 221: "return" = medicine back on an unpaid pharmacy bill — a credit, no money leaves */
+  kind?: "refund" | "return";
+  /** return: money ever confirmed on the bill, and payments still pending (both must be 0) */
+  confirmedPaisa?: Paisa;
+  pendingPayments?: number;
   category: RefundCategory;
   reason: string;
   billStatus: InvoiceState;
@@ -87,10 +92,14 @@ export interface RequestInput {
 }
 export type RequestBlocker =
   | "refund_open" | "bill_not_refundable" | "category_unknown" | "reason_too_short" | "no_lines" | "line_locked" | "line_over"
-  | "category_line_mismatch" | "over_confirmed" | "over_case" | "no_allocations" | "allocation_over" | "allocation_mismatch" | "payout_not_allowed";
+  | "category_line_mismatch" | "over_confirmed" | "over_case" | "no_allocations" | "allocation_over" | "allocation_mismatch" | "payout_not_allowed"
+  | "mixed_ways" | "gateway_one_payment" | "money_on_bill" | "payment_pending" | "return_takes_no_money";
+/** Categories a return without refund can carry (medicine came back). */
+export const RETURN_CATEGORIES: RefundCategory[] = ["wrong-dispense", "patient-request", "other"];
 export function refundRequestBlockers(x: RequestInput): RequestBlocker[] {
   if (x.openRefund) return ["refund_open"];
   if (!["issued", "partially-paid", "balanced"].includes(x.billStatus)) return ["bill_not_refundable"];
+  if (x.kind === "return") return returnBlockers(x);
   const out: RequestBlocker[] = [];
   if (!(REFUND_CATEGORIES as readonly string[]).includes(x.category)) out.push("category_unknown");
   if (x.reason.trim().length < REFUND_REASON_MIN) out.push("reason_too_short");
@@ -111,15 +120,39 @@ export function refundRequestBlockers(x: RequestInput): RequestBlocker[] {
   if (x.allocations.some((a) => !Number.isSafeInteger(a.amountPaisa) || a.amountPaisa < 1 || a.amountPaisa > a.leftPaisa)) out.push("allocation_over");
   if (x.allocations.reduce((a, l) => a + l.amountPaisa, 0) !== total) out.push("allocation_mismatch");
   if (x.allocations.some((a) => !payoutWayAllowed({ method: a.method, way: a.way, gatewayRefunds: a.gatewayRefunds, stage: "request", cashReason: a.cashReason ?? null }))) out.push("payout_not_allowed");
+  // Kamrul, decision 220: one refund = one payout method, paid whole in one transaction — so a gateway refund (one call per
+  // payment) goes back against one payment; part cash, part bKash is two refunds
+  if (new Set(x.allocations.map((a) => `${a.way}:${a.cashReason ?? ""}`)).size > 1) out.push("mixed_ways");
+  if (x.allocations.filter((a) => a.way === "gateway").length > 1) out.push("gateway_one_payment");
+  return out;
+}
+
+/** Decision 221: a return without refund — the medicine comes back into quarantine and the due goes down; no money moves.
+    Only on an issued bill on which no money was ever confirmed and nothing is pending. */
+function returnBlockers(x: RequestInput): RequestBlocker[] {
+  if ((x.confirmedPaisa ?? 0) > 0) return ["money_on_bill"];
+  if ((x.pendingPayments ?? 0) > 0) return ["payment_pending"];
+  const out: RequestBlocker[] = [];
+  if (!(REFUND_CATEGORIES as readonly string[]).includes(x.category)) out.push("category_unknown");
+  if (x.reason.trim().length < REFUND_REASON_MIN) out.push("reason_too_short");
+  if (!x.lines.length) out.push("no_lines");
+  if (x.lines.some((l) => l.lock)) out.push("line_locked");
+  if (x.lines.some((l) => !l.lock && !l.part)) out.push("line_over");
+  if (!RETURN_CATEGORIES.includes(x.category) || x.lines.some((l) => !isMedicineLine(l.source))) out.push("category_line_mismatch");
+  if (x.allocations.length) out.push("return_takes_no_money");
   return out;
 }
 
 /* ── approve / reject / withdraw ── */
-export type RefundApprovalBlocker = ApprovalBlocker | "owner_only";
+export type RefundApprovalBlocker = ApprovalBlocker | "owner_only" | "note_required";
+export const isSelfApproval = (a: { approverId: string; requestedById: string }) => a.approverId === a.requestedById;
 /** The discount rules (owner / admin, never their own, within the approver's limit); a controlled drug on the refund, or
-    card / bank money paid back in cash, needs an owner. */
-export function refundApprovalBlockers(a: { approverId: string; approverRole: string; requestedById: string; amountPaisa: Paisa; settings: BillingSettings; controlled: boolean; cardBankCash: boolean }): RefundApprovalBlocker[] {
-  const b = approvalBlockers(a);
+    card / bank money paid back in cash, needs an owner. Kamrul, decision 223: the requester may approve their own request
+    only when they are the facility's only approver — with a note (≥ 10), and the refund is flagged "self-approved". */
+export function refundApprovalBlockers(a: { approverId: string; approverRole: string; requestedById: string; amountPaisa: Paisa; settings: BillingSettings; controlled: boolean; cardBankCash: boolean; onlyApprover?: boolean; note?: string }): RefundApprovalBlocker[] {
+  const self = isSelfApproval(a) && a.onlyApprover === true && (APPROVER_ROLES as readonly string[]).includes(a.approverRole);
+  if (self && (a.note ?? "").trim().length < REFUND_REASON_MIN) return ["note_required"];
+  const b = approvalBlockers(self ? { ...a, requestedById: `${a.requestedById}#self` } : a);
   if (b.length) return b;
   if ((a.controlled || a.cardBankCash) && a.approverRole !== "owner") return ["owner_only"];
   return [];

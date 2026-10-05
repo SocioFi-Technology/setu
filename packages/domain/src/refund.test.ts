@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_BILLING_SETTINGS, voidBlockers } from "./billing.js";
 import { dispenseStatus, resaleBlockers } from "./pharmacy.js";
 import {
-  lineLock, partOfLine, payoutWayAllowed, recipientCheck, refundApprovalBlockers, refundRequestBlockers, refundSummary, refundWithdrawBlockers,
+  isSelfApproval, lineLock, partOfLine, payoutWayAllowed, recipientCheck, refundApprovalBlockers, refundRequestBlockers, refundSummary, refundWithdrawBlockers,
   type RequestInput,
 } from "./refund.js";
 
@@ -87,7 +87,7 @@ describe("how the money goes back (decision 2 with Kamrul's guards)", () => {
 
 describe("a refund request", () => {
   const ok: RequestInput = {
-    source: "bill", category: "cancelled-test", reason: "RBS not done — patient left before collection", billStatus: "balanced", openRefund: false,
+    source: "bill", kind: "refund", category: "cancelled-test", reason: "RBS not done — patient left before collection", billStatus: "balanced", openRefund: false,
     lines: [{ source: "order", lock: null, part: { netPaisa: 15_000, vatPaisa: 0, totalPaisa: 15_000, units: null } }],
     confirmedLeftPaisa: 230_000,
     allocations: [{ method: "cash", leftPaisa: 130_000, amountPaisa: 15_000, way: "cash", gatewayRefunds: false }],
@@ -129,6 +129,38 @@ describe("a refund request", () => {
   });
 });
 
+describe("one refund = one payout method (Kamrul, decision 220)", () => {
+  const base: RequestInput = {
+    source: "bill", kind: "refund", category: "patient-request", reason: "Patient asked for the card fee back", billStatus: "balanced", openRefund: false,
+    lines: [{ source: "desk", lock: null, part: { netPaisa: 30_000, vatPaisa: 0, totalPaisa: 30_000, units: null } }], confirmedLeftPaisa: 230_000,
+    allocations: [{ method: "cash", leftPaisa: 20_000, amountPaisa: 20_000, way: "cash", gatewayRefunds: false }, { method: "cash", leftPaisa: 10_000, amountPaisa: 10_000, way: "cash", gatewayRefunds: false }],
+  };
+  it("two cash payments back in cash: one refund", () => expect(refundRequestBlockers(base)).toEqual([]));
+  it("part cash, part bKash: two refunds, never one", () => {
+    expect(refundRequestBlockers({ ...base, allocations: [base.allocations[0]!, { method: "bkash", leftPaisa: 10_000, amountPaisa: 10_000, way: "gateway", gatewayRefunds: true }] })).toContain("mixed_ways");
+  });
+  it("a gateway refund goes back against one payment (one call, paid whole)", () => {
+    const gw = { method: "bkash" as const, leftPaisa: 15_000, amountPaisa: 15_000, way: "gateway" as const, gatewayRefunds: true };
+    expect(refundRequestBlockers({ ...base, allocations: [gw, gw] })).toContain("gateway_one_payment");
+  });
+});
+
+describe("a return without refund on an unpaid pharmacy bill (Kamrul, decision 221)", () => {
+  const ret: RequestInput = {
+    source: "bill", kind: "return", category: "patient-request", reason: "Brought back unopened before paying", billStatus: "issued", openRefund: false,
+    lines: [{ source: "dispense", lock: null, part: { netPaisa: 1_600, vatPaisa: 0, totalPaisa: 1_600, units: 4 } }], confirmedLeftPaisa: 0, confirmedPaisa: 0, pendingPayments: 0, allocations: [],
+  };
+  it("medicine lines, no money on the bill, no allocations: nothing blocks it", () => expect(refundRequestBlockers(ret)).toEqual([]));
+  it("only while no money was ever confirmed and no payment is pending; medicine only; no money goes back", () => {
+    expect(refundRequestBlockers({ ...ret, confirmedPaisa: 100 })).toEqual(["money_on_bill"]);
+    expect(refundRequestBlockers({ ...ret, pendingPayments: 1 })).toEqual(["payment_pending"]);
+    expect(refundRequestBlockers({ ...ret, lines: [{ source: "desk", lock: null, part: { netPaisa: 100, vatPaisa: 0, totalPaisa: 100, units: null } }] })).toContain("category_line_mismatch");
+    expect(refundRequestBlockers({ ...ret, allocations: [{ method: "cash", leftPaisa: 0, amountPaisa: 1_600, way: "cash", gatewayRefunds: false }] })).toContain("return_takes_no_money");
+    expect(refundRequestBlockers({ ...ret, billStatus: "draft" })).toEqual(["bill_not_refundable"]);
+    expect(refundRequestBlockers({ ...ret, category: "cancelled-test" })).toContain("category_line_mismatch");
+  });
+});
+
 describe("approving a refund (same rules as a discount, ADR 0013)", () => {
   const base = { approverId: "u-owner", approverRole: "owner", requestedById: "u-cashier", amountPaisa: 15_000, settings: DEFAULT_BILLING_SETTINGS, controlled: false, cardBankCash: false };
   it("owner or admin, never their own request, within the approver's limit", () => {
@@ -137,6 +169,12 @@ describe("approving a refund (same rules as a discount, ADR 0013)", () => {
     expect(refundApprovalBlockers({ ...base, approverRole: "cashier" })).toEqual(["not_an_approver"]);
     expect(refundApprovalBlockers({ ...base, requestedById: "u-owner" })).toEqual(["own_request"]);
     expect(refundApprovalBlockers({ ...base, amountPaisa: 1_000_001 })).toEqual(["above_approver_limit"]);
+  });
+  it("Kamrul, decision 223: the requester approves only when they are the facility's only approver — with a note, flagged", () => {
+    expect(refundApprovalBlockers({ ...base, requestedById: "u-owner", onlyApprover: true, note: "I am the only approver here" })).toEqual([]);
+    expect(refundApprovalBlockers({ ...base, requestedById: "u-owner", onlyApprover: true, note: "ok" })).toEqual(["note_required"]);
+    expect(refundApprovalBlockers({ ...base, requestedById: "u-owner", onlyApprover: false, note: "I am the only approver here" })).toEqual(["own_request"]);
+    expect(isSelfApproval({ approverId: "u-owner", requestedById: "u-owner" })).toBe(true);
   });
   it("a controlled drug, or card / bank money paid back in cash, needs the owner — not an admin", () => {
     expect(refundApprovalBlockers({ ...base, approverRole: "admin", controlled: true })).toEqual(["owner_only"]);
