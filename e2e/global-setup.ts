@@ -13,6 +13,6 @@ export default async function globalSetup() {
   const ctx = await request.newContext({ baseURL });
   const login = await ctx.post("/api/v1/auth/login", { data: { identifier: "01799000001", password: "setu1234" } });
   if (!login.ok()) throw new Error(`global-setup: E2E receptionist cannot sign in (${login.status()}) — is the stack running and seeded?`);
-  for (const path of ["/", "/m/fd/search", "/m/fd/match", "/m/fd/register", "/m/fd/queue", "/m/fd/vitals", "/m/cons/draft", "/m/cons/signed", "/m/cons/amended", "/m/bill/opd", "/m/bill/pay", "/m/bill/receipt", "/m/bill/approvals", "/m/bill/reconcile", "/m/bill/refund", "/m/lab/collect", "/m/lab/accession", "/m/lab/result", "/m/lab/verify", "/m/lab/report", "/m/lab/delivery", "/m/er/triage", "/m/er/orders", "/m/ipd/admit"]) await ctx.get(path, { timeout: 120_000 });
+  for (const path of ["/", "/m/fd/search", "/m/fd/match", "/m/fd/register", "/m/fd/queue", "/m/fd/vitals", "/m/cons/draft", "/m/cons/signed", "/m/cons/amended", "/m/bill/opd", "/m/bill/pay", "/m/bill/receipt", "/m/bill/approvals", "/m/bill/reconcile", "/m/bill/refund", "/m/lab/collect", "/m/lab/accession", "/m/lab/result", "/m/lab/verify", "/m/lab/report", "/m/lab/delivery", "/m/er/triage", "/m/er/orders", "/m/ipd/admit", "/m/nur/ward", "/m/nur/vitals", "/m/nur/mar", "/m/nur/io", "/m/ipd/map", "/m/ipd/transfer", "/m/ipd/rounds", "/m/ph/indent", "/m/doc/inbox"]) await ctx.get(path, { timeout: 120_000 });
   await ctx.dispose();
 }

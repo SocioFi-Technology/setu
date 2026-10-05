@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { DoseRecord, MarOrder, MarView, WitnessList } from "@setu/contracts";
-import { FIVE_CHECKS, doseBlockers, doseTiming, type DoseOutcome, type FiveChecks } from "@setu/domain";
+import { FIVE_CHECKS, dhakaDay, doseBlockers, doseTiming, format, type DoseOutcome, type FiveChecks } from "@setu/domain";
 import { Button, Callout, Card, Dialog, Pill, Segmented, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -45,17 +45,17 @@ function MarFor({ enc }: { enc: string }) {
         <span className="t-small t-muted">{v.day} · {N("mar_window", { n: v.windowMin })} · {s.L(v.sample.bn, v.sample.en)}</span>
       </div>
       {!s.online && <Callout tone="warn" icon="cloud-off" data-testid="mar-offline">{N("needs_connection")}</Callout>}
-      {active.map((o) => <OrderRow key={o.id} o={o} onPick={(slot) => setPick({ order: o, slot })} onVial={async () => {
+      {active.map((o) => <OrderRow key={o.id} o={o} day={v.day} onPick={(slot) => setPick({ order: o, slot })} onVial={async () => {
         try { setV(await ward.vial(enc, { requestId: o.id, openedAt: new Date().toISOString(), source: "ward-stock" })); toast(N("open_vial"), "flask-conical"); } catch (e) { toast(err(e), "triangle-alert"); }
       }} />)}
-      {ended.map((o) => <OrderRow key={o.id} o={o} onPick={() => undefined} onVial={() => undefined} />)}
+      {ended.map((o) => <OrderRow key={o.id} o={o} day={v.day} onPick={() => undefined} onVial={() => undefined} />)}
       <History v={v} onChanged={setV} />
       {pick && <DoseDialog v={v} pick={pick} onClose={() => setPick(null)} onDone={(nv) => { setV(nv); setPick(null); toast(N("recorded"), "badge-check"); }} onStale={load} />}
     </div>
   );
 }
 
-function OrderRow({ o, onPick, onVial }: { o: MarOrder; onPick: (slot: string | null) => void; onVial: () => void }) {
+function OrderRow({ o, day, onPick, onVial }: { o: MarOrder; day: string; onPick: (slot: string | null) => void; onVial: () => void }) {
   const s = useSession(); const N = useN(); const bnNum = s.numerals === "bn";
   const ended = o.status !== "active";
   const capReached = o.prn && o.prnMaxPer24h !== null && o.givenLast24h >= o.prnMaxPer24h;
@@ -86,9 +86,9 @@ function OrderRow({ o, onPick, onVial }: { o: MarOrder; onPick: (slot: string | 
             const recorded = sl.record !== null;
             const actionable = !ended && !recorded && (sl.state === "due" || sl.state === "overdue" || sl.state === "scheduled");
             return (
-              <button key={sl.at} type="button" className="card" data-slot={hhmm(sl.at, false)} data-slot-state={sl.state} data-slot-source={sl.record?.source ?? ""} disabled={!actionable || !s.online} onClick={() => onPick(sl.at)}
+              <button key={sl.at} type="button" className="card" data-slot={hhmm(sl.at, false)} data-slot-at={sl.at} data-slot-state={sl.state} data-slot-source={sl.record?.source ?? ""} disabled={!actionable || !s.online} onClick={() => onPick(sl.at)}
                 style={{ padding: "6px 10px", display: "flex", flexDirection: "column", gap: 2, cursor: actionable && s.online ? "pointer" : "default", minWidth: 96 }}>
-                <b className="num">{hhmm(sl.at, bnNum)}</b>
+                <b className="num">{dhakaDay(new Date(sl.at)) !== day ? `${format.digits(dhakaDay(new Date(sl.at)).slice(8, 10) + "/" + dhakaDay(new Date(sl.at)).slice(5, 7), bnNum)} ` : ""}{hhmm(sl.at, bnNum)}</b>
                 <Pill tone={SLOT_TONE[sl.state] ?? "neu"} icon={SLOT_ICON[sl.state]}>{N(`st_${sl.state}`)}</Pill>
                 {sl.record && <span className="t-small t-muted">{s.lang === "bn" ? sl.record.by.nameBn : sl.record.by.nameEn}{sl.record.administeredAt ? ` · ${hhmm(sl.record.administeredAt, bnNum)}` : ""}</span>}
                 {sl.record?.source === "patient-supplied" && <Pill tone="pend" icon="user-round">{N("source_patient")}</Pill>}

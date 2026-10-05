@@ -199,8 +199,8 @@ function Editor({ v, draft, onChanged }: { v: RoundView; draft: RoundNote; onCha
                 <div key={j} className="t-small" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", color: "var(--danger-fg)" }} data-sign-warning={w.kind}>
                   {w.kind === "allergy" ? N("blocker_allergy", { drug: m?.brand ?? l.medicineKey, allergy: s.lang === "bn" ? w.allergy?.labelBn ?? "" : w.allergy?.labelEn ?? "" })
                     : w.kind === "interaction" ? `${m?.brand ?? l.medicineKey}: ${s.L(w.textBn ?? "", w.textEn ?? "")}` : N("blocker_rx", { drug: m?.brand ?? l.medicineKey, kind: w.kind })}
-                  {w.kind === "same-medicine" && <label><input type="checkbox" checked={Boolean(l.keepBoth)} onChange={(e) => set(i, { keepBoth: e.target.checked })} /> keep both</label>}
-                  {(w.kind === "interaction" || w.kind === "same-class") && <label><input type="checkbox" checked={(l.acks ?? []).includes(w.ruleId ?? w.kind)} onChange={(e) => set(i, { acks: e.target.checked ? [...(l.acks ?? []), w.ruleId ?? w.kind] : (l.acks ?? []).filter((x) => x !== (w.ruleId ?? w.kind)) })} /> acknowledge</label>}
+                  {w.kind === "same-medicine" && <label><input type="checkbox" checked={Boolean(l.keepBoth)} onChange={(e) => set(i, { keepBoth: e.target.checked })} /> {N("keep_both")}</label>}
+                  {(w.kind === "interaction" || w.kind === "same-class") && <label><input type="checkbox" checked={(l.acks ?? []).includes(w.ruleId ?? w.kind)} onChange={(e) => set(i, { acks: e.target.checked ? [...(l.acks ?? []), w.ruleId ?? w.kind] : (l.acks ?? []).filter((x) => x !== (w.ruleId ?? w.kind)) })} /> {N("acknowledge")}</label>}
                 </div>
               );
             })}

@@ -27698,13 +27698,20 @@
                                     },
                                     "since": {
                                       "type": "string"
+                                    },
+                                    "admissionId": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "id",
                                     "status",
                                     "encounterId",
-                                    "since"
+                                    "since",
+                                    "admissionId"
                                   ]
                                 }
                               },
@@ -28091,13 +28098,20 @@
                         },
                         "since": {
                           "type": "string"
+                        },
+                        "admissionId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
                         "id",
                         "status",
                         "encounterId",
-                        "since"
+                        "since",
+                        "admissionId"
                       ]
                     }
                   },
@@ -29524,13 +29538,20 @@
                             },
                             "since": {
                               "type": "string"
+                            },
+                            "admissionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
                             "id",
                             "status",
                             "encounterId",
-                            "since"
+                            "since",
+                            "admissionId"
                           ]
                         }
                       },
@@ -30523,13 +30544,20 @@
                             },
                             "since": {
                               "type": "string"
+                            },
+                            "admissionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
                             "id",
                             "status",
                             "encounterId",
-                            "since"
+                            "since",
+                            "admissionId"
                           ]
                         }
                       },
@@ -31391,13 +31419,20 @@
                             },
                             "since": {
                               "type": "string"
+                            },
+                            "admissionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
                             "id",
                             "status",
                             "encounterId",
-                            "since"
+                            "since",
+                            "admissionId"
                           ]
                         }
                       },
@@ -56895,13 +56930,20 @@
                             },
                             "since": {
                               "type": "string"
+                            },
+                            "admissionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
                             "id",
                             "status",
                             "encounterId",
-                            "since"
+                            "since",
+                            "admissionId"
                           ]
                         }
                       },
@@ -57823,13 +57865,20 @@
                             },
                             "since": {
                               "type": "string"
+                            },
+                            "admissionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
                             "id",
                             "status",
                             "encounterId",
-                            "since"
+                            "since",
+                            "admissionId"
                           ]
                         }
                       },
@@ -58690,13 +58739,20 @@
                             },
                             "since": {
                               "type": "string"
+                            },
+                            "admissionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
                             "id",
                             "status",
                             "encounterId",
-                            "since"
+                            "since",
+                            "admissionId"
                           ]
                         }
                       },

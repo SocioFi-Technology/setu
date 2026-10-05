@@ -32,7 +32,7 @@ export function NurWard() {
   if (failed && !board) return <Callout tone="warn" icon="triangle-alert">{failed}</Callout>;
   if (!wards) return <div aria-busy="true" className="t-muted">{N("loading")}</div>;
   const bn = s.lang === "bn";
-  const pick = (id: string) => { setWardId(id); rememberWard(id); setBoard(null); };
+  const pick = (id: string) => { rememberWard(id); if (id === wardId) return; setWardId(id); setBoard(null); };
   const go = (screen: string, encounterId: string) => router.push(`/m/${screen}?enc=${encodeURIComponent(encounterId)}`);
   const occupied = board?.beds.filter((b) => b.patient).length ?? 0;
   const arrive = async (admissionId: string) => { try { await ward.arrive(admissionId); toast(N("arrived"), "badge-check"); await load(); } catch (e) { toast(err(e), "triangle-alert"); } };

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { HIGH_ALERT_SAMPLE, wardMedicine } from "./catalog.js";
 import { INDENT, MAR_DOSE, MEDICATION_ORDER, NURSING_NOTE, can, transition } from "./machines.js";
 import {
+  marSlotRange,
   doseBlockers, doseConsumption, doseTiming, indentLineProblems, indentNumber, indentStateAfter, isSlotOf, lineProblems, sameRegimen, slotState, slotsBetween, stopBlockers,
   type DoseFacts, type OrderFacts,
 } from "./mar.js";
@@ -147,5 +148,20 @@ describe("stock and indents", () => {
     expect(indentStateAfter([{ requested: 6, issued: 6 }, { requested: 6, issued: 4 }])).toBe("partially-issued");
     expect(indentStateAfter([{ requested: 6, issued: 6 }])).toBe("issued");
     expect(indentNumber("26", 412)).toBe("IND/26/0412");
+  });
+});
+
+describe("marSlotRange — every dose the board counts is on the MAR", () => {
+  const dayStart = new Date("2026-10-05T18:00:00Z"); // 6 Oct 00:00 Dhaka
+  it("just after midnight today: the last 24 hours are included (yesterday 22:00 is visible)", () => {
+    const r = marSlotRange(dayStart, new Date("2026-10-05T18:54:00Z"));
+    expect(r.from.toISOString()).toBe("2026-10-04T18:54:00.000Z");
+    expect(r.to.toISOString()).toBe("2026-10-06T17:59:59.999Z");
+    const slot22 = new Date("2026-10-05T16:00:00Z"); // 5 Oct 22:00 Dhaka
+    expect(slot22 >= r.from && slot22 <= r.to).toBe(true);
+  });
+  it("an earlier day shows just that day", () => {
+    const r = marSlotRange(dayStart, new Date("2026-10-08T06:00:00Z"));
+    expect(r.from.getTime()).toBe(dayStart.getTime());
   });
 });

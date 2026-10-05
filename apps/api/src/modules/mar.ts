@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import type { DoseRecord, DoseRequest, MarOrder, MarView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
-  DOSE_REASON_MIN, DOSE_WINDOW_MIN, PRN_WINDOW_MS, allergyMatches, dhakaDay, doseBlockers, doseConsumption, doseTiming, slotState, slotsBetween, wardStockLocation, type DoseOutcome,
+  DOSE_REASON_MIN, DOSE_WINDOW_MIN, PRN_WINDOW_MS, allergyMatches, dhakaDay, doseBlockers, doseConsumption, doseTiming, marSlotRange, slotState, slotsBetween, wardStockLocation, type DoseOutcome,
 } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
 import { HttpError, err } from "../errors.js";
@@ -85,9 +85,11 @@ export async function marView(tx: Tx, s: SessionData, encounterId: string, now: 
     const m = meds.get(o.medicineKey)!;
     const mine = live.filter((r) => r.regimenId === o.regimenId);
     const active = isActive(o);
-    const slots = active ? slotsBetween({ times: o.times, prn: o.prn, startAt: o.startAt! }, dayStart, dayEnd).map((at) => {
+    // today's MAR also carries the last 24 hours' slots (the board's overdue count counts them): see marSlotRange
+    const range = marSlotRange(dayStart, now);
+    const slots = active ? slotsBetween({ times: o.times, prn: o.prn, startAt: o.startAt! }, range.from, range.to).flatMap((at) => {
       const rec = mine.find((r) => r.scheduledFor?.getTime() === at.getTime());
-      return { at: at.toISOString(), state: (rec ? rec.status : slotState(at, now)) as MarOrder["slots"][number]["state"], record: rec ? recordWire(rec, who) : null };
+      return [{ at: at.toISOString(), state: (rec ? rec.status : slotState(at, now)) as MarOrder["slots"][number]["state"], record: rec ? recordWire(rec, who) : null }];
     }) : [];
     const vial = vials.find((v) => v.regimenId === o.regimenId);
     return {

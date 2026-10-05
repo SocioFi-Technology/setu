@@ -886,5 +886,13 @@
   "filter_cancelled": [
     "বাতিল",
     "Cancelled"
+  ],
+  "keep_both": [
+    "দুটোই রাখুন",
+    "Keep both"
+  ],
+  "acknowledge": [
+    "জেনে রাখলাম",
+    "Acknowledge"
   ]
 }

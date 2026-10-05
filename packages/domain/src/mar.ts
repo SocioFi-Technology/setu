@@ -60,6 +60,14 @@ export function slotsBetween(o: Schedulable, from: Date, to: Date): Date[] {
   return out;
 }
 export const isSlotOf = (o: Schedulable, slot: Date) => slotsBetween(o, new Date(slot.getTime() - 1), new Date(slot.getTime() + 1)).some((x) => x.getTime() === slot.getTime());
+/** The slots a MAR day shows: the Dhaka calendar day, and when that day is today also the last 24 hours before it —
+    so just after midnight the night nurse still sees yesterday's 22:00 dose (the ward board counts overdue doses over
+    the last 24 hours; the MAR must show every dose the board counts). */
+export function marSlotRange(dayStart: Date, now: Date): { from: Date; to: Date } {
+  const to = new Date(dayStart.getTime() + 864e5 - 1);
+  const today = now.getTime() >= dayStart.getTime() && now.getTime() <= to.getTime();
+  return { from: today ? new Date(Math.min(dayStart.getTime(), now.getTime() - 864e5)) : dayStart, to };
+}
 export type SlotView = "scheduled" | "due" | "overdue";
 /** A slot nobody has recorded: due inside the window, overdue (missed — reason needed) after it, scheduled before it. */
 export function slotState(slot: Date, now: Date, windowMin = DOSE_WINDOW_MIN): SlotView {

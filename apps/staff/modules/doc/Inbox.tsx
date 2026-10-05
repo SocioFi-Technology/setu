@@ -121,6 +121,11 @@ function InboxCard({ item: x, queued, busy, onAck }: { item: InboxItem; queued: 
         <span data-testid="critical-vital"><Icon name="siren" size={14} /> {D("k_vital", { vital: `${s.t("vitalsApp", VITAL_KEY[x.vital.code] ?? x.vital.code)} ${F.num(x.vital.value)} ${UNIT[x.vital.unit] ?? x.vital.unit}${x.vital.flag ? ` · ${lab(`flag_${x.vital.flag}`)}` : ""}` })}</span>
       )}
 
+      {x.kind === "news2-escalation" && (
+        <span data-testid="news2-escalation" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}><Icon name="siren" size={14} /> {D("k_news2", { n: x.vital ? F.num(x.vital.value) : "—" })}
+          <a className="t-small" href={`/m/ipd/rounds?enc=${encodeURIComponent(x.encounter.id)}`} data-testid="open-round-link">{D("open_round")}</a></span>
+      )}
+
       {x.kind === "substitution-notice" && x.substitution && (
         <span data-testid="substitution" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <span><Icon name="repeat" size={14} /> {D("k_substitution", { from: `${x.substitution.prescribed.brand} ${x.substitution.prescribed.strength}`, to: `${x.substitution.given.brand} ${x.substitution.given.strength}`, n: x.substitution.qty })}</span>
