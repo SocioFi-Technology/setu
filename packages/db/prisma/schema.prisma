@@ -120,6 +120,9 @@ model Organization {
   practitionerRoles         PractitionerRole[]
   escalationAckMinutes      Int                @default(15)
   escalationDutyDoctorIds   String[]           @default([])
+  /// ADR 0016 samples: shift start hours (Dhaka) and the I/O day start
+  shiftStartHours           Int[]              @default([8, 14, 20])
+  ioDayStartHour            Int                @default(8)
 
   @@index([tenantId])
 }
@@ -2119,44 +2122,48 @@ enum MarDoseStatus {
 
 /// One recorded dose against an active inpatient order (append-only; a wrong one is marked entered-in-error).
 model MedicationAdministration {
-  id               String        @id @default(cuid())
-  tenantId         String
-  organizationId   String
-  encounterId      String
-  patientId        String
-  requestId        String
-  regimenId        String
-  medicineKey      String
+  id                 String        @id @default(cuid())
+  tenantId           String
+  organizationId     String
+  encounterId        String
+  patientId          String
+  requestId          String
+  regimenId          String
+  medicineKey        String
   /// the slot (a Dhaka time of day on a day); null for PRN
-  scheduledFor     DateTime?
-  status           MarDoseStatus
-  administeredAt   DateTime
-  recordedAt       DateTime      @default(now())
-  administeredById String
-  preparedById     String
-  checkPatient     Boolean       @default(false)
-  checkDrug        Boolean       @default(false)
-  checkDose        Boolean       @default(false)
-  checkRoute       Boolean       @default(false)
-  checkTime        Boolean       @default(false)
+  scheduledFor       DateTime?
+  status             MarDoseStatus
+  administeredAt     DateTime
+  recordedAt         DateTime      @default(now())
+  administeredById   String
+  preparedById       String
+  checkPatient       Boolean       @default(false)
+  checkDrug          Boolean       @default(false)
+  checkDose          Boolean       @default(false)
+  checkRoute         Boolean       @default(false)
+  checkTime          Boolean       @default(false)
   /// on-time | early | late | prn
-  timing           String
-  reason           String?
-  route            String
-  doseText         String
-  amountGiven      String?
-  errorStockDrawn  String?
-  doseQty          Int?
+  timing             String
+  reason             String?
+  route              String
+  doseText           String
+  amountGiven        String?
+  errorStockDrawn    String?
+  /// ADR 0016 scan-to-verify: when the wristband matched, the ward batch whose label matched, or the override reason
+  scanBandAt         DateTime?
+  scanMedBatchId     String?
+  scanOverrideReason String?
+  doseQty            Int?
   /// ward-stock | patient-supplied
-  source           String
-  stockRef         String?
-  highAlert        Boolean       @default(false)
-  controlled       Boolean       @default(false)
-  witnessedById    String?
-  witnessedAt      DateTime?
-  errorReason      String?
-  errorById        String?
-  errorAt          DateTime?
+  source             String
+  stockRef           String?
+  highAlert          Boolean       @default(false)
+  controlled         Boolean       @default(false)
+  witnessedById      String?
+  witnessedAt        DateTime?
+  errorReason        String?
+  errorById          String?
+  errorAt            DateTime?
 
   @@index([tenantId, encounterId])
   @@index([tenantId, regimenId])
@@ -2320,4 +2327,123 @@ model ControlledDrugRegister {
   at               DateTime @default(now())
 
   @@index([tenantId, organizationId, medicineKey])
+}
+
+/// ADR 0016: intake / output, append-only (a wrong entry is marked entered-in-error by its writer).
+model IntakeOutputEntry {
+  id             String            @id @default(cuid())
+  tenantId       String
+  organizationId String
+  encounterId    String
+  patientId      String
+  /// in | out
+  side           String
+  route          String
+  ml             Int
+  note           String?
+  effectiveAt    DateTime
+  writtenById    String
+  writtenAt      DateTime          @default(now())
+  status         NursingNoteStatus @default(active)
+  errorReason    String?
+  errorById      String?
+  errorAt        DateTime?
+
+  @@index([tenantId, encounterId, effectiveAt])
+}
+
+enum CareTaskStatus {
+  requested
+  completed
+  cancelled
+}
+
+/// ADR 0016: a care plan task (once, or every N hours: completing one creates the next).
+model CareTask {
+  id             String         @id @default(cuid())
+  tenantId       String
+  organizationId String
+  encounterId    String
+  patientId      String
+  seriesId       String
+  previousId     String?
+  text           String
+  everyHours     Int?
+  dueAt          DateTime
+  status         CareTaskStatus @default(requested)
+  createdById    String
+  createdAt      DateTime       @default(now())
+  completedById  String?
+  completedAt    DateTime?
+  cancelledById  String?
+  cancelledAt    DateTime?
+  cancelReason   String?
+
+  @@index([tenantId, encounterId, status])
+}
+
+enum HandoverStatus {
+  draft
+  outgoing_signed @map("outgoing-signed")
+  accepted
+}
+
+/// ADR 0016: one handover per ward per shift (draft → outgoing-signed → accepted; query back to draft).
+model Handover {
+  id             String            @id @default(cuid())
+  tenantId       String
+  organizationId String
+  wardId         String
+  shiftDay       String
+  shiftStartHour Int
+  status         HandoverStatus    @default(draft)
+  rev            Int               @default(1)
+  outgoingId     String
+  signedAt       DateTime?
+  incomingId     String?
+  acceptedAt     DateTime?
+  acceptNote     String?
+  queryNote      String?
+  queriedById    String?
+  queriedAt      DateTime?
+  createdAt      DateTime          @default(now())
+  patients       HandoverPatient[]
+
+  @@unique([organizationId, wardId, shiftDay, shiftStartHour])
+  @@index([tenantId, wardId])
+}
+
+model HandoverPatient {
+  id             String    @id @default(cuid())
+  tenantId       String
+  handoverId     String
+  handover       Handover  @relation(fields: [handoverId], references: [id])
+  encounterId    String
+  patientId      String
+  bed            String
+  situation      String    @default("")
+  background     String    @default("")
+  assessment     String    @default("")
+  recommendation String    @default("")
+  /// latest NEWS2, open escalations, due doses, I/O balance, open tasks — refreshed while draft, frozen at signing
+  snapshot       Json
+  reviewed       Boolean   @default(false)
+  reviewedAt     DateTime?
+
+  @@unique([handoverId, encounterId])
+}
+
+/// ADR 0016: each wristband print (the first at admission; a reprint needs a reason). Append-only.
+model WristbandPrint {
+  id             String   @id @default(cuid())
+  tenantId       String
+  organizationId String
+  admissionId    String
+  encounterId    String
+  patientId      String
+  reason         String?
+  printedById    String
+  printedAt      DateTime @default(now())
+
+  @@index([tenantId, admissionId])
 }
