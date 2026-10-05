@@ -114,7 +114,8 @@ function PayView({ id }: { id: string }) {
   if (!v) return <div aria-busy="true" className="t-muted">{B("loading")}</div>;
   const inv = v.invoice;
   const sum = v.summary;
-  const open = inv.status === "issued" || inv.status === "partially-paid";
+  // decision 221: a bill whose medicine all came back unpaid has nothing left to take
+  const open = (inv.status === "issued" || inv.status === "partially-paid") && sum.duePaisa > 0;
   const methodLabel = (m: string) => B(`m_${m}`);
   const queuedCash = queued.filter((q) => (q.body as NewPaymentRequest | null)?.method === "cash");
   const canSubmit = open && !busy && !(stale && s.online) && amountPaisa !== null && amountPaisa > 0 && amountPaisa <= openShown

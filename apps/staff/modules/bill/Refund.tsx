@@ -92,7 +92,8 @@ function RequestForm({ invoiceId }: { invoiceId: string }) {
   const parts = useMemo(() => (v?.lines ?? []).flatMap((l) => {
     const p = picks[l.id];
     if (!p?.on || l.lock) return [];
-    const units = /^\d+$/.test(p.input.trim()) ? Number(p.input.trim()) : NaN;
+    const typed = p.input.trim().replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d))); // Bangla digits too
+    const units = /^\d+$/.test(typed) ? Number(typed) : NaN;
     const amount = parseTaka(p.input);
     const part = l.byUnits ? (Number.isSafeInteger(units) ? partOfLine(l.left, { units }) : null) : amount === null ? null : partOfLine(l.left, { amountPaisa: amount });
     return [{ l, part }];
@@ -399,7 +400,7 @@ function VoucherPanel({ refundId }: { refundId: string }) {
       <span className="t-small t-muted">{B("rc_verify_url")}: <a href={v.voucher.verifyUrl} target="_blank" rel="noreferrer" data-testid="voucher-verify-url">{v.voucher.verifyUrl}</a></span>
       <span style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
         <Segmented label={B("rc_lang")} value={lang} onChange={setLang} options={[{ value: "both", label: B("rc_lang_both") }, { value: "bn", label: B("rc_lang_bn") }, { value: "en", label: B("rc_lang_en") }]} />
-        <Segmented label={B("rc_format")} value={paper} onChange={setPaper} options={[{ value: "a5", label: B("rc_format_a5") }, { value: "thermal", label: B("rc_format_thermal") }]} />
+        <Segmented label={B("rc_format")} value={paper} onChange={setPaper} options={[{ value: "a5", label: B("v_format_a5") }, { value: "thermal", label: B("rc_format_thermal") }]} />
       </span>
       {printed && (
         <label className="field t-small">{B("rc_reason")}

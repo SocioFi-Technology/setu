@@ -488,5 +488,6 @@
   "ver_rf_title": ["রিফান্ড ভাউচার যাচাই", "Refund voucher check"],
   "ver_rf_not_found": ["এই কোডের কোনো ভাউচার পাওয়া যায়নি", "No voucher found for this code"],
   "v_vat_rate": ["মূসক হার", "VAT rate"],
-  "v_net": ["মূল্য", "Net"]
+  "v_net": ["মূল্য", "Net"],
+  "v_format_a5": ["A5", "A5"]
 }

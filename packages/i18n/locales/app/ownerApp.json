@@ -135,5 +135,6 @@
   "rs_approved": ["অনুমোদিত", "Approved"],
   "rs_paid": ["দেওয়া হয়েছে", "Paid"],
   "rs_rejected": ["প্রত্যাখ্যাত", "Rejected"],
-  "rs_withdrawn": ["প্রত্যাহার করা হয়েছে", "Withdrawn"]
+  "rs_withdrawn": ["প্রত্যাহার করা হয়েছে", "Withdrawn"],
+  "l_creditReturns": ["টাকা ছাড়া ফেরত (বকেয়া মওকুফ)", "Returns without refund (due written off)"]
 }

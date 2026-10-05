@@ -53,7 +53,7 @@ export const KpiKey = z.enum(["revenue", "collections", "dues", "discounts", "de
 export const OpsKey = z.enum(["opdVisits", "labTests", "labTat", "noShows", "cashVariance", "reprints"]);
 /** ADR 0013: refunds paid (reason, approver), refunds paid by hand not yet matched to a statement, wrong-dispense returns
     (medication incidents) */
-export const LeakageKind = z.enum(["discountAbovePolicy", "reprints", "shiftVariance", "notBilledHere", "cashOutsideShift", "refundsPaid", "manualRefundUnchecked", "medicationIncident", "selfApproved"]);
+export const LeakageKind = z.enum(["discountAbovePolicy", "reprints", "shiftVariance", "notBilledHere", "cashOutsideShift", "refundsPaid", "manualRefundUnchecked", "medicationIncident", "selfApproved", "creditReturns"]);
 const Change = { previous: z.number().nullable(), pct: z.number().int().nullable(), judgement: z.enum(["better", "worse", "same"]).nullable() };
 export const DashboardView = z.object({
   period: Period, days: z.array(z.string()), previousDays: z.array(z.string()),
@@ -75,7 +75,7 @@ export const DashboardView = z.object({
 });
 export type DashboardView = z.infer<typeof DashboardView>;
 export const DashboardQuery = z.object({ period: Period.default("today") });
-export const DrillWhat = z.enum(["revenue", "collections", "dues", "discounts", "opdVisits", "labTests", "noShows", "reprints", "shiftVariance", "discountAbovePolicy", "notBilledHere", "cashOutsideShift", "stockValue", "nearExpiry", "supplierDues", "refunds", "refundsPaid", "manualRefundUnchecked", "medicationIncident", "selfApproved"]);
+export const DrillWhat = z.enum(["revenue", "collections", "dues", "discounts", "opdVisits", "labTests", "noShows", "reprints", "shiftVariance", "discountAbovePolicy", "notBilledHere", "cashOutsideShift", "stockValue", "nearExpiry", "supplierDues", "refunds", "refundsPaid", "manualRefundUnchecked", "medicationIncident", "selfApproved", "creditReturns"]);
 export const DrillQuery = z.object({ period: Period.default("today"), what: DrillWhat });
 export const DrillView = z.object({
   what: DrillWhat, period: Period,

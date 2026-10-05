@@ -153,4 +153,6 @@ Refunds need a connection: no outbox, every refund screen and route refuses work
 - **Unknown gateway answers (227).** A refund answer with a code the adapter does not recognise (a duplicate refund, an
   11th refund — undocumented) is "unknown — ask Refund Status", never refunded and never failed. A gateway answer for
   an allocation we already recorded as paid changes nothing. The exact codes go on the pre-pilot bKash sandbox list.
+- The owner's leakage list keeps money and credits apart: "refunds paid" counts money refunds only; returns without
+  refund have their own row ("due written off"); self-approved refunds their own.
 - Migration `20261005200000_refunds_decisions`.
