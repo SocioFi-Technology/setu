@@ -257,3 +257,65 @@ describe.runIf(db)("clinical-safety review fixes (B3–B4 session 2)", () => {
     expect(far.statusCode).toBe(422); expect(far.json().blockers).toContain("slot_too_far");
   });
 });
+
+describe.runIf(db)("a dose marked entered-in-error: was the stock drawn? (Kamrul, 06/10/2026)", () => {
+  const issue = async (wardId: string, medicineKey: string, qty: number, pin?: string) => {
+    const ind = (await c.post(`/v1/nursing/wards/${wardId}/indents`, { lines: [{ medicineKey, qty }] })).json();
+    const r = await c.post(`/v1/pharmacy/indents/${ind.id}/issue`, { lines: [{ lineId: ind.lines[0].id, qty }], ...(pin ? { pin } : {}) }, "pharm");
+    expect(r.statusCode, r.body).toBe(200);
+  };
+  it("a ward-stock dose: the answer is required; 'no' puts the unit back to its batch with the reason; 'yes' moves nothing", async () => {
+    const w = await h.ownWard(1); const a = await h.admit(w);
+    await issue(a.wardId, "ceftriaxone", 3);
+    const r = await h.signRound(a.encounterId, [line("ceftriaxone", { doseText: "1 g IV", times: [], prn: true, prnMaxPer24h: 4 })]);
+    const o = orderOf(r, "ceftriaxone");
+    const give = async () => (await dose(a.encounterId, { requestId: o.id, scheduledFor: null, outcome: "given", administeredAt: now(), checks: TICKS, source: "ward-stock" })).json();
+    let v = await give();
+    expect(v.orders.find((x: { id: string }) => x.id === o.id).wardStock).toBe(2);
+    const rec1 = v.orders.find((x: { id: string }) => x.id === o.id).prnRecords[0];
+    expect(rec1).toMatchObject({ stockTaken: 1, returned: 0 });
+    const noAnswer = await c.post(`/v1/nursing/doses/${rec1.id}/entered-in-error`, { reason: "Charted on the wrong line" });
+    expect(noAnswer.statusCode).toBe(400); expect(noAnswer.json().code).toBe("stock_answer_required");
+    const no = await c.post(`/v1/nursing/doses/${rec1.id}/entered-in-error`, { reason: "Charted on the wrong line", stockDrawn: "no" });
+    expect(no.statusCode, no.body).toBe(200);
+    expect(no.json().orders.find((x: { id: string }) => x.id === o.id).wardStock).toBe(3);
+    expect(no.json().history.find((x: { id: string }) => x.id === rec1.id)).toMatchObject({ status: "entered-in-error", errorStockDrawn: "no", returned: 1 });
+    const stock = (await c.get(`/v1/nursing/wards/${a.wardId}/stock`)).json();
+    expect(stock.returns[0]).toMatchObject({ qty: 1, reason: "Charted on the wrong line" });
+    // the database refuses a second return for the same dose
+    const mv = await tenant((tx) => tx.stockMove.findFirst({ where: { refType: "dose-error", refId: rec1.id } }));
+    await expect(db!.forTenant(T, (tx) => tx.stockMove.create({ data: { tenantId: T, organizationId: mv!.organizationId, batchId: mv!.batchId, kind: "ward-return", qty: 1, refType: "dose-error", refId: rec1.id, reason: "again please", byId: "u_e2l_nurse" } }), { userId: "u_e2l_nurse" })).rejects.toThrow(/no more/);
+    v = await give();
+    const rec2 = v.orders.find((x: { id: string }) => x.id === o.id).prnRecords.find((x: { status: string }) => x.status === "given");
+    const yes = await c.post(`/v1/nursing/doses/${rec2.id}/entered-in-error`, { reason: "Duplicate charting", stockDrawn: "yes" });
+    expect(yes.statusCode, yes.body).toBe(200);
+    expect(yes.json().orders.find((x: { id: string }) => x.id === o.id).wardStock).toBe(2);
+  });
+  it("the patient's own supply took no stock: no question", async () => {
+    const w = await h.ownWard(1); const a = await h.admit(w);
+    const r = await h.signRound(a.encounterId, [line("napa", { route: "oral", doseText: "500 mg", times: [], prn: true, prnMaxPer24h: 4 })]);
+    const o = orderOf(r, "napa");
+    const v = (await dose(a.encounterId, { requestId: o.id, scheduledFor: null, outcome: "given", administeredAt: now(), checks: TICKS, source: "patient-supplied" })).json();
+    const rec = v.orders.find((x: { id: string }) => x.id === o.id).prnRecords[0];
+    expect(rec.stockTaken).toBe(0);
+    expect((await c.post(`/v1/nursing/doses/${rec.id}/entered-in-error`, { reason: "Wrong patient's chart" })).statusCode).toBe(200);
+  });
+  it("a controlled dose: the register line stays; a linked dose-error line notes the error ('not sure': nothing back; 'no': the unit back)", async () => {
+    const w = await h.ownWard(1); const a = await h.admit(w);
+    await issue(a.wardId, "morphine", 2, "1234");
+    const r = await h.signRound(a.encounterId, [line("morphine", { doseText: "2.5 mg IV", times: [], prn: true, prnMaxPer24h: 6 })]);
+    const o = orderOf(r, "morphine");
+    const give = async () => { const g = await dose(a.encounterId, { requestId: o.id, scheduledFor: null, outcome: "given", administeredAt: now(), checks: TICKS, source: "ward-stock", witness: { userId: "u_e2l_nurse2", pin: "1234" } }); expect(g.statusCode, g.body).toBe(201); return g.json().orders.find((x: { id: string }) => x.id === o.id).prnRecords.find((x: { status: string }) => x.status === "given"); };
+    const d1 = await give();
+    expect((await c.post(`/v1/nursing/doses/${d1.id}/entered-in-error`, { reason: "Ampoule dropped before giving", stockDrawn: "unsure" })).statusCode).toBe(200);
+    let reg = await tenant((tx) => tx.controlledDrugRegister.findMany({ where: { administrationId: d1.id }, orderBy: { at: "asc" } }));
+    expect(reg.map((x) => [x.kind, x.qty])).toEqual([["administer", -1], ["dose-error", 0]]);
+    expect(reg[1]!.note).toMatch(/Ampoule dropped.*stock drawn: unsure/);
+    const d2 = await give();
+    expect((await c.post(`/v1/nursing/doses/${d2.id}/entered-in-error`, { reason: "Charted before drawing up", stockDrawn: "no" })).statusCode).toBe(200);
+    reg = await tenant((tx) => tx.controlledDrugRegister.findMany({ where: { administrationId: d2.id }, orderBy: { at: "asc" } }));
+    expect(reg.map((x) => [x.kind, x.qty])).toEqual([["administer", -1], ["dose-error", 1]]);
+    expect(reg[1]!.stockMoveId).not.toBeNull();
+  });
+});
+

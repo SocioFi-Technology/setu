@@ -961,6 +961,18 @@ frequency are unchanged (9).
   numbers (E2E-250044) and every registration collided (169 API failures); `pnpm db:reset-e2e` now moves each E2E
   tenant's patient counter past the numbers in use. CI starts from a fresh database and never saw it.
 
+## Done (B3–B4 follow-up, 06/10/2026) — Kamrul's decisions: escalation reach, stock on entered-in-error ✅
+- **Escalation reach:** `ackDueAt` per escalation (facility setting N, 5–120, sample 15; Admin › Masters › Escalation
+  reach with the duty list); the doctor's in-app acknowledgement of the NEWS2 inbox item acknowledges it; the
+  minute sweep (`sweepEscalations`, `escalation_sweep_targets`) raises an overdue one to every doctor on duty and marks
+  it widened; ward board, vitals and round worklist show "unacknowledged" / "acknowledged by". Worse restarts the clock.
+- **Entered-in-error stock:** "was the stock drawn?" (yes / no / not sure) when the dose took ward stock; "no" returns
+  the units to their batches (`ward-return`, guarded: never more than taken) and the ward stock card lists returns of
+  7 days; controlled doses get a linked `dose-error` register line (the original never changes).
+- Decisions recorded (open questions); ADR 0015 amendment 2. Tests: domain 394, api mar 18 / ward 14, b3-b4 5/5.
+- Not yet: there is no ward stock count (counts cover counter / store / fridge), so "shows on the next count" is the
+  7-day returns list on the ward stock card until ward counts exist.
+
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
 2. ~~MinIO image cannot be pulled~~ — dev and tests store receipts with `LocalFolderStorage` (A6–A7). Before staging: an S3-compatible adapter behind the same `Storage` interface.
@@ -1008,8 +1020,9 @@ frequency are unchanged (9).
 14. **Ward clinical content (ADR 0015, pre-pilot, a clinician):** the NEWS2 threshold, red-score rule and observation
     intervals; the ±60-minute dose window; the high-alert list; discard-after-opening periods for insulin, heparin and
     other multi-dose vials (until then the MAR shows opened-at only); SpO₂ scale 2 for hypercapnic patients; the
-    structured insulin sliding scale, a daily maximum per medicine across regimens, escalation reach (duty doctor,
-    acknowledgement), controlled-drug register gaps (open questions, B3–B4 session 2).
+    structured insulin sliding scale, a daily maximum per medicine across regimens, escalation reach — N minutes and who
+    counts as on duty (the mechanism is built, samples 15 min / every active doctor), controlled-drug register gaps
+    (open questions, B3–B4 session 2).
 11. **Patients are per tenant** (decided 02/10/2026, open question 21): one record shared across an owner's branches; between different owners only through Connected Care with consent (Journey E), never by default.
 
 ## Next (in order)

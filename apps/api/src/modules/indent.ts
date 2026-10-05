@@ -135,5 +135,10 @@ export async function wardStock(tx: Tx, s: SessionData, wardId: string): Promise
   const rows = await tx.stockBatch.findMany({ where: { organizationId: s.organizationId, location: wardStockLocation(ward.id), qtyOnHand: { gt: 0 }, expiry: { gte: dhakaDay(new Date()) } }, orderBy: [{ medicineKey: "asc" }, { expiry: "asc" }] });
   const meds = new Map((await tx.medicine.findMany({ where: { key: { in: [...new Set(rows.map((r) => r.medicineKey))] } } })).map((m) => [m.key, m]));
   const keys = [...new Set(rows.map((r) => r.medicineKey))];
-  return { ward: { id: ward.id, name: ward.name }, items: keys.map((k) => { const b = rows.filter((r) => r.medicineKey === k), m = meds.get(k); return { medicineKey: k, name: m ? `${m.brand} ${m.strength}` : k, issueUnit: m?.issueUnit ?? "unit", controlled: Boolean(m?.controlled), qty: b.reduce((a, x) => a + x.qtyOnHand, 0), batches: b.map((x) => ({ batchNo: x.batchNo, expiry: x.expiry, qty: x.qtyOnHand })) }; }) };
+  // units put back from errored doses ("stock not drawn"), last 7 days — the next count checks them
+  const rets = await tx.stockMove.findMany({ where: { organizationId: s.organizationId, kind: "ward-return", batch: { location: wardStockLocation(ward.id) }, at: { gte: new Date(Date.now() - 7 * 864e5) } }, include: { batch: true }, orderBy: { at: "desc" }, take: 50 });
+  const rmeds = new Map((await tx.medicine.findMany({ where: { key: { in: [...new Set(rets.map((r) => r.batch.medicineKey))] } } })).map((m) => [m.key, m]));
+  const rwho = await peopleOf(tx, rets.map((r) => r.byId));
+  const returns = rets.map((r) => { const m = rmeds.get(r.batch.medicineKey); return { medicine: m ? `${m.brand} ${m.strength}` : r.batch.medicineKey, batchNo: r.batch.batchNo, qty: r.qty, reason: r.reason ?? "", by: rwho(r.byId), at: r.at.toISOString() }; });
+  return { ward: { id: ward.id, name: ward.name }, returns, items: keys.map((k) => { const b = rows.filter((r) => r.medicineKey === k), m = meds.get(k); return { medicineKey: k, name: m ? `${m.brand} ${m.strength}` : k, issueUnit: m?.issueUnit ?? "unit", controlled: Boolean(m?.controlled), qty: b.reduce((a, x) => a + x.qtyOnHand, 0), batches: b.map((x) => ({ batchNo: x.batchNo, expiry: x.expiry, qty: x.qtyOnHand })) }; }) };
 }

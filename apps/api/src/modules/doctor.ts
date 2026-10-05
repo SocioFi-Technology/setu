@@ -156,10 +156,12 @@ export async function acknowledge(tx: Tx, s: SessionData, id: string, req: AckRe
     } });
   }
   await tx.inboxAck.create({ data: { tenantId: s.tenantId, communicationId: c.id, ackedById: s.userId, ackedAt: now, notifyPatient: req.notifyPatient, notifyCommunicationId: smsId } });
+  // escalation reach: a doctor's acknowledgement of a NEWS2 escalation item acknowledges the open escalation
+  const escAudit = c.kind === "news2-escalation" && c.encounterId ? await (await import("./ward.js")).acknowledgeEscalation(tx, s, c.encounterId!, now) : [];
   const [after] = await loadRows(tx, s, { id });
   const [item] = await toItems(tx, s, [after!], now);
   return {
     item: item!, dispatch: smsId ? [smsId] : [],
-    audit: [{ action: "acknowledge", entity: "Communication", entityId: c.id, patientId: c.patientId, detail: { kind: c.kind, reportId: c.reportId, notifyPatient: req.notifyPatient, sms: smsId } }],
+    audit: [{ action: "acknowledge", entity: "Communication", entityId: c.id, patientId: c.patientId, detail: { kind: c.kind, reportId: c.reportId, notifyPatient: req.notifyPatient, sms: smsId } }, ...escAudit],
   };
 }

@@ -338,7 +338,7 @@ export const ward = {
   noteError: (id: string, reason: string) => call<NursingNoteView>("POST", `/v1/nursing/notes/${enc(id)}/entered-in-error`, { reason }, k()),
   mar: (encounterId: string, day?: string) => call<MarView>("GET", `/v1/nursing/encounters/${enc(encounterId)}/mar${day ? `?day=${day}` : ""}`),
   dose: (encounterId: string, body: DoseRequest, key: string) => call<MarView>("POST", `/v1/nursing/encounters/${enc(encounterId)}/doses`, body, key),
-  doseError: (id: string, reason: string) => call<MarView>("POST", `/v1/nursing/doses/${enc(id)}/entered-in-error`, { reason }, k()),
+  doseError: (id: string, reason: string, stockDrawn?: "yes" | "no" | "unsure") => call<MarView>("POST", `/v1/nursing/doses/${enc(id)}/entered-in-error`, { reason, ...(stockDrawn ? { stockDrawn } : {}) }, k()),
   vial: (encounterId: string, body: { requestId: string; openedAt: string; source: "ward-stock" | "patient-supplied" }, key: string = k()) => call<MarView>("POST", `/v1/nursing/encounters/${enc(encounterId)}/vials`, body, key),
   witnesses: () => call<WitnessList>("GET", "/v1/nursing/witnesses"),
   stock: (wardId: string) => call<WardStock>("GET", `/v1/nursing/wards/${enc(wardId)}/stock`),

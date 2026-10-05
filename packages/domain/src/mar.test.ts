@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { HIGH_ALERT_SAMPLE, wardMedicine } from "./catalog.js";
 import { INDENT, MAR_DOSE, MEDICATION_ORDER, NURSING_NOTE, can, transition } from "./machines.js";
 import {
-  marSlotRange,
+  marSlotRange, doseErrorReturns, doseErrorNeedsAnswer,
   doseBlockers, doseConsumption, doseTiming, indentLineProblems, indentNumber, indentStateAfter, isSlotOf, lineProblems, sameRegimen, slotState, slotsBetween, stopBlockers,
   type DoseFacts, type OrderFacts,
 } from "./mar.js";
@@ -196,3 +196,16 @@ describe("review fixes (clinical safety, B3–B4 session 2)", () => {
     expect(doseBlockers(metro, dose({ slot: at("2026-10-05T16:00:00Z"), outcome: "held", reason: "Patient going to theatre" }))).not.toContain("slot_too_far");
   });
 });
+
+describe("a dose marked entered-in-error: was the stock drawn?", () => {
+  const taken = [{ batchId: "b1", qty: 1 }, { batchId: "b2", qty: 1 }];
+  it("asked only when the dose took ward stock", () => { expect(doseErrorNeedsAnswer(2)).toBe(true); expect(doseErrorNeedsAnswer(0)).toBe(false); });
+  it("'no' returns what the dose took, batch by batch; 'yes' and 'not sure' move nothing", () => {
+    expect(doseErrorReturns("no", taken)).toEqual(taken);
+    expect(doseErrorReturns("yes", taken)).toEqual([]);
+    expect(doseErrorReturns("unsure", taken)).toEqual([]);
+    expect(doseErrorReturns(null, taken)).toEqual([]);
+  });
+  it("never returns more than was taken", () => { expect(doseErrorReturns("no", taken, [{ batchId: "b1", qty: 1 }])).toEqual([{ batchId: "b2", qty: 1 }]); });
+});
+

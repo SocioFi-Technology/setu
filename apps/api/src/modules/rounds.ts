@@ -67,7 +67,7 @@ export async function roundWorklist(tx: Tx, s: SessionData, now: Date): Promise<
     tx.medicationAdministration.groupBy({ by: ["encounterId"], where: { encounterId: { in: ids }, status: { in: ["missed", "held", "refused"] }, administeredAt: { gte: new Date(now.getTime() - 864e5) } }, _count: true }),
     tx.nursingNote.findMany({ where: { encounterId: { in: ids }, status: "active" }, select: { encounterId: true, effectiveAt: true } }),
   ]);
-  const who = await peopleOf(tx, escs.flatMap((e) => [e.raisedById, e.informedById, e.resolvedById]));
+  const who = await peopleOf(tx, escs.flatMap((e) => [e.raisedById, e.informedById, e.resolvedById, e.acknowledgedById]));
   const items = encs.map((e) => {
     const sc = scores.get(e.id), esc = escs.find((x) => x.encounterId === e.id), bed = live.find((x) => x.encounterId === e.id), adm = adms.find((x) => x.encounterId === e.id);
     const last = signed.find((x) => x.encounterId === e.id)?.signedAt ?? null;
@@ -96,7 +96,7 @@ export async function roundView(tx: Tx, s: SessionData, encounterId: string, now
     tx.composition.findMany({ where: { encounterId: ip.e.id, kind: KIND, status: { in: ["final", "amended"] } }, orderBy: { signedAt: "desc" }, take: 10 }),
   ]);
   const meds = new Map((await tx.medicine.findMany({ where: { key: { in: doses.map((d) => d.medicineKey) } } })).map((m) => [m.key, m]));
-  const who = await peopleOf(tx, [...escs.flatMap((e) => [e.raisedById, e.informedById, e.resolvedById]), ...notes.flatMap((n) => [n.writtenById, n.errorById])]);
+  const who = await peopleOf(tx, [...escs.flatMap((e) => [e.raisedById, e.informedById, e.resolvedById, e.acknowledgedById]), ...notes.flatMap((n) => [n.writtenById, n.errorById])]);
   const batches = [...new Set(obs.map((o) => o.batchId))];
   const summary = (rows2: typeof obs) => {
     const v = Object.fromEntries(rows2.map((r) => [r.code, r.value]));

@@ -183,3 +183,51 @@ describe.runIf(db)("indents and bed moves", () => {
     expect(dhakaHHMM(0)).toMatch(/^\d\d:\d\d$/);
   });
 });
+
+describe.runIf(db)("escalation reach: unacknowledged in the app within N minutes → every doctor on duty (Kamrul, 06/10/2026)", () => {
+  it("raised to the doctors on duty and shown unacknowledged; a doctor's acknowledgement in the app stops it; worse restarts the clock", async () => {
+    const { sweepEscalations } = await import("../src/modules/ward.js");
+    const w = await h.ownWard(1); const a = await h.admit(w);
+    const esc = (await c.post(`/v1/nursing/encounters/${a.encounterId}/vitals`, { values: B6, effectiveAt: now() })).json().escalation;
+    expect(esc).toMatchObject({ acknowledgedAt: null, widenedAt: null, unacknowledged: false });
+    const due = new Date(esc.ackDueAt).getTime() - new Date(esc.raisedAt).getTime();
+    expect(due).toBe(15 * 60_000);
+    // a nurse's logged call is not an acknowledgement
+    expect((await c.post(`/v1/nursing/escalations/${esc.id}/inform`, { spokeTo: "Dr. Surgeon (phone)", instruction: "Coming to see" })).statusCode).toBe(200);
+    await sweepEscalations(new Date(Date.now() + 10 * 60_000));
+    expect((await tenant((tx) => tx.escalationEvent.findFirst({ where: { id: esc.id } })))!.widenedAt).toBeNull();
+    await sweepEscalations(new Date(Date.now() + 16 * 60_000));
+    const recipients = (await tenant((tx) => tx.communication.findMany({ where: { encounterId: a.encounterId, kind: "news2-escalation" }, select: { recipientUserId: true } }))).map((x) => x.recipientUserId).sort();
+    expect(recipients).toEqual(expect.arrayContaining(["u_e2l_doctor", "u_e2l_paed", "u_e2l_surgeon"]));
+    expect(recipients.filter((x) => x === "u_e2l_surgeon")).toHaveLength(1); // the admitting doctor is not told twice
+    const board = (await c.get(`/v1/nursing/wards/${a.wardId}/board`)).json();
+    expect(board.escalations[0].escalation).toMatchObject({ unacknowledged: true });
+    expect(board.escalations[0].escalation.widenedAt).not.toBeNull();
+    // the on-duty doctor acknowledges it in the inbox
+    const inbox = (await c.get("/v1/doctor/inbox", "doctor")).json();
+    const item = inbox.items.find((i: { kind: string; patient: { id: string } }) => i.kind === "news2-escalation" && i.patient.id === a.patientId);
+    expect((await c.post(`/v1/doctor/inbox/${item.id}/ack`, { notifyPatient: false }, "doctor")).statusCode).toBe(200);
+    const acked = (await c.get(`/v1/nursing/encounters/${a.encounterId}`)).json().escalations[0];
+    expect(acked).toMatchObject({ unacknowledged: false, acknowledgedBy: { id: "u_e2l_doctor" } });
+    // worse: the acknowledgement is asked for again on a fresh clock
+    const worse = (await c.post(`/v1/nursing/encounters/${a.encounterId}/vitals`, { values: { ...B6, spo2: 90, onOxygen: true }, effectiveAt: now() })).json().escalation;
+    expect(worse).toMatchObject({ status: "raised", acknowledgedAt: null, widenedAt: null });
+    expect(new Date(worse.ackDueAt).getTime()).toBeGreaterThan(new Date(esc.ackDueAt).getTime());
+  });
+  it("N and the duty list are facility settings (admin); the list names only active doctors here", async () => {
+    const f = (await c.get("/v1/admin/facility", "admin")).json();
+    expect(f.escalation).toMatchObject({ ackMinutes: 15, dutyDoctorIds: [], sample: true });
+    const base = { ...f.settings, receiptFormat: f.settings.receiptFormat ?? "a5", rxFormat: f.settings.rxFormat ?? "a5" };
+    expect((await c.post("/v1/admin/settings", { ...base, escalationAckMinutes: 3 }, "admin")).statusCode).toBe(400);
+    expect((await c.post("/v1/admin/settings", { ...base, escalationDutyDoctorIds: ["u_e2l_nurse"] }, "admin")).statusCode).toBe(400);
+    const ok = await c.post("/v1/admin/settings", { ...base, escalationAckMinutes: 10, escalationDutyDoctorIds: ["u_e2l_doctor"] }, "admin");
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect(ok.json().escalation).toMatchObject({ ackMinutes: 10, dutyDoctorIds: ["u_e2l_doctor"] });
+    const w = await h.ownWard(1); const a = await h.admit(w);
+    const esc = (await c.post(`/v1/nursing/encounters/${a.encounterId}/vitals`, { values: B6, effectiveAt: now() })).json().escalation;
+    expect(new Date(esc.ackDueAt).getTime() - new Date(esc.raisedAt).getTime()).toBe(10 * 60_000);
+    // restore the defaults for the other tests
+    expect((await c.post("/v1/admin/settings", { ...base, escalationAckMinutes: 15, escalationDutyDoctorIds: [] }, "admin")).statusCode).toBe(200);
+  });
+});
+

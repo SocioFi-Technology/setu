@@ -51,12 +51,14 @@ export function NurWard() {
       {!board ? <div aria-busy="true" className="t-muted">{N("loading")}</div> : (<>
         <span className="t-small t-muted" data-testid="occupancy">{N("beds_occupied", { occ: occupied, n: board.beds.length })} · {N("sample_rule")}: NEWS2 ≥ {s.n(board.rule.threshold)}</span>
         {board.escalations.map((x) => (
-          <Callout key={x.escalation.id} tone="bad" icon="siren" data-testid="escalation-banner" data-escalation={x.escalation.id} data-escalation-status={x.escalation.status}>
+          <Callout key={x.escalation.id} tone="bad" icon="siren" data-testid="escalation-banner" data-escalation={x.escalation.id} data-escalation-status={x.escalation.status} data-unacknowledged={x.escalation.unacknowledged ? "1" : "0"}>
             <span style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <b style={{ flex: 1 }}>{N(x.escalation.status === "raised" ? "escalation_banner" : "escalation_banner_informed", { bed: x.bed, name: name(x.patient, bn), n: x.escalation.peakScore })}</b>
               {x.escalation.status === "raised"
                 ? <Button size="sm" variant="primary" icon="phone" onClick={() => setInform(x.escalation)} data-testid="log-inform">{N("log_inform")}</Button>
                 : <Pill tone="info" icon="phone">{N("escalation_informed")} · {x.escalation.spokeTo}</Pill>}
+              {x.escalation.unacknowledged && <Pill tone="crit" icon="bell-ring">{N("unacknowledged")}</Pill>}
+              {x.escalation.acknowledgedBy && <Pill tone="ok" icon="check">{N("acknowledged_by", { name: bn ? x.escalation.acknowledgedBy.nameBn : x.escalation.acknowledgedBy.nameEn, t: hhmm(x.escalation.acknowledgedAt, s.numerals === "bn") })}</Pill>}
               <Button size="sm" icon="heart-pulse" onClick={() => go("nur/vitals", x.encounterId)}>{N("open_vitals")}</Button>
             </span>
           </Callout>
@@ -161,6 +163,12 @@ function StockPanel({ wardId }: { wardId: string }) {
           <span>{i.name}{i.controlled ? <> · <Pill tone="crit">{N("controlled")}</Pill></> : null}</span><b className="num">{s.n(i.qty)} {i.issueUnit}</b>
         </span>
       ))}
+      {stock && stock.returns.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 6 }} data-testid="ward-returns">
+          <span className="t-small t-secondary">{N("returns_title")}</span>
+          {stock.returns.map((r, i) => <span key={i} className="t-small" data-return-qty={r.qty}>{r.medicine} · {N("returned_n", { n: r.qty })} · {r.reason} · {s.lang === "bn" ? r.by.nameBn : r.by.nameEn} {hhmm(r.at, s.numerals === "bn")}</span>)}
+        </div>
+      )}
     </Card>
     <Card style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14 }} data-testid="indents">
       <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><b>{N("indent_title")}</b>

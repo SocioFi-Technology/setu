@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import type { Escalation, NursingNoteView, WardBoard, WardPatientView, WardVitalsRequest, WardVitalsResponse } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
-  ESCALATION, NEWS2_SAMPLE_NOTE, NEWS2_THRESHOLD_SAMPLE, NURSING_NOTE, assessVitals, consciousnessCode, informBlockers, news2, nextObsMinutes, noteOk, rrPossible, shouldEscalate, transition,
+  ESCALATION, NEWS2_SAMPLE_NOTE, ackDueAt, escalationUnacknowledged, onDutyDoctors, NEWS2_THRESHOLD_SAMPLE, NURSING_NOTE, assessVitals, consciousnessCode, informBlockers, news2, nextObsMinutes, noteOk, rrPossible, shouldEscalate, transition,
 } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
@@ -22,6 +22,9 @@ export const escWire = (e: Esc, who: Awaited<ReturnType<typeof peopleOf>>): Esca
   id: e.id, status: e.status === "doctor_informed" ? "doctor-informed" : e.status, score: e.score, peakScore: e.peakScore, red: e.red, raisedAt: e.raisedAt.toISOString(), raisedBy: who(e.raisedById),
   informedAt: iso(e.informedAt), informedBy: e.informedById ? who(e.informedById) : null, spokeTo: e.spokeTo, instruction: e.instruction,
   resolvedAt: iso(e.resolvedAt), resolvedBy: e.resolvedById ? who(e.resolvedById) : null, resolveNote: e.resolveNote,
+  ackDueAt: iso(e.ackDueAt), acknowledgedAt: iso(e.acknowledgedAt), acknowledgedBy: e.acknowledgedById ? who(e.acknowledgedById) : null, widenedAt: iso(e.widenedAt),
+  unacknowledged: escalationUnacknowledged({ status: e.status === "doctor_informed" ? "doctor-informed" : e.status, acknowledgedAt: e.acknowledgedAt, ackDueAt: e.ackDueAt }, new Date())
+    || (e.status !== "resolved" && e.acknowledgedAt === null && e.widenedAt !== null),
 });
 export const noteWire = (n: Note, who: Awaited<ReturnType<typeof peopleOf>>): NursingNoteView => ({
   id: n.id, text: n.text, writtenBy: who(n.writtenById), writtenAt: n.writtenAt.toISOString(), effectiveAt: n.effectiveAt.toISOString(),
@@ -53,7 +56,7 @@ export async function wardBoard(tx: Tx, s: SessionData, wardId: string, now: Dat
     doseCounts(tx, encIds, now),
   ]);
   const srcBeds = new Map((await tx.bedAssignment.findMany({ where: { encounterId: { in: reservedFor.map((a) => a.encounterId) }, status: "occupied" }, include: { bed: true } })).map((a) => [a.encounterId, a.bed.name]));
-  const who = await peopleOf(tx, [...encs.map((e) => e.practitionerId), ...escs.flatMap((e) => [e.raisedById, e.informedById, e.resolvedById])]);
+  const who = await peopleOf(tx, [...encs.map((e) => e.practitionerId), ...escs.flatMap((e) => [e.raisedById, e.informedById, e.resolvedById, e.acknowledgedById])]);
   const rows: WardBoard["beds"] = beds.map((b) => {
     const a = occ.find((x) => x.bedId === b.id);
     const e = a ? encs.find((x) => x.id === a.encounterId) : undefined;
@@ -116,10 +119,11 @@ export async function recordWardVitals(tx: Tx, s: SessionData, encounterId: stri
   const audit: AuditEntry[] = [{ action: "create", entity: "Observation", entityId: batchId, patientId: ip.e.patientId, detail: { encounterId: ip.e.id, news2: n.total, red: n.red } }];
   // the escalation rule: one open per visit; a worse score while it is open tells the doctor once more
   let esc: Esc | null = await tx.escalationEvent.findFirst({ where: { encounterId: ip.e.id, status: { not: "resolved" } } });
+  const ackMinutes = (await tx.organization.findFirst({ where: { id: s.organizationId }, select: { escalationAckMinutes: true } }))?.escalationAckMinutes ?? 15;
   let escalated = false;
   if (shouldEscalate(n)) {
     if (!esc) {
-      esc = await tx.escalationEvent.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, encounterId: ip.e.id, patientId: ip.e.patientId, status: "raised", score: n.total, peakScore: n.total, red: n.red, peakRed: n.red, observationId: news2Id, raisedAt: now, raisedById: s.userId } });
+      esc = await tx.escalationEvent.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, encounterId: ip.e.id, patientId: ip.e.patientId, status: "raised", score: n.total, peakScore: n.total, red: n.red, peakRed: n.red, ackDueAt: ackDueAt(now, ackMinutes), observationId: news2Id, raisedAt: now, raisedById: s.userId } });
       escalated = true;
       audit.push({ action: "create", entity: "EscalationEvent", entityId: esc.id, patientId: ip.e.patientId, detail: { score: n.total, red: n.red, doctorId: ip.e.practitionerId } });
       if (ip.e.practitionerId) await deliverInApp(tx, s, { patientId: ip.e.patientId, encounterId: ip.e.id }, { kind: "news2-escalation", channel: "doctor_inbox", recipientUserId: ip.e.practitionerId, observationId: news2Id }, now);
@@ -127,7 +131,11 @@ export async function recordWardVitals(tx: Tx, s: SessionData, encounterId: stri
       // worse: a higher score, or a first red parameter at any total — the doctor is told again; after a logged
       // contact the escalation goes back to raised so the nurse logs a new one (ESCALATION worsen)
       const status = esc.status === "doctor_informed" ? (transition("escalation", ESCALATION, "doctor-informed", "worsen") as "raised") : esc.status;
-      esc = await tx.escalationEvent.update({ where: { id: esc.id }, data: { peakScore: Math.max(n.total, esc.peakScore), peakRed: esc.peakRed || n.red, status } });
+      esc = await tx.escalationEvent.update({ where: { id: esc.id }, data: {
+        peakScore: Math.max(n.total, esc.peakScore), peakRed: esc.peakRed || n.red, status,
+        // worse: the in-app acknowledgement is asked for again, on a fresh clock (escalation reach)
+        ackDueAt: ackDueAt(now, ackMinutes), acknowledgedAt: null, acknowledgedById: null, widenedAt: null,
+      } });
       escalated = true;
       audit.push({ action: "update", entity: "EscalationEvent", entityId: esc.id, patientId: ip.e.patientId, detail: { event: "worse", score: n.total, red: n.red, status } });
       if (ip.e.practitionerId) await deliverInApp(tx, s, { patientId: ip.e.patientId, encounterId: ip.e.id }, { kind: "news2-escalation", channel: "doctor_inbox", recipientUserId: ip.e.practitionerId, observationId: news2Id }, now);
@@ -135,7 +143,7 @@ export async function recordWardVitals(tx: Tx, s: SessionData, encounterId: stri
   }
   const stored = await tx.observation.findMany({ where: { batchId }, orderBy: { code: "asc" } });
   const u = await tx.user.findFirst({ where: { id: s.userId }, select: { nameBn: true, nameEn: true } });
-  const who = await peopleOf(tx, esc ? [esc.raisedById, esc.informedById, esc.resolvedById] : []);
+  const who = await peopleOf(tx, esc ? [esc.raisedById, esc.informedById, esc.resolvedById, esc.acknowledgedById] : []);
   const wire = news2OfBatch([...stored, { code: "news2", value: n.total, effectiveAt, batchId }].filter((x, i, arr) => arr.findIndex((y) => y.code === x.code) === i))!;
   return {
     res: {
@@ -160,7 +168,7 @@ export async function informEscalation(tx: Tx, s: SessionData, id: string, body:
   const n = await tx.escalationEvent.updateMany({ where: { id: e.id, status: e.status }, data: { status: to === "doctor-informed" ? "doctor_informed" : "raised", informedAt: now, informedById: s.userId, spokeTo: body.spokeTo.trim(), instruction: body.instruction.trim() } });
   if (n.count !== 1) throw stale();
   const after = (await tx.escalationEvent.findFirst({ where: { id: e.id } }))!;
-  return { esc: escWire(after, await peopleOf(tx, [after.raisedById, after.informedById, after.resolvedById])), audit: [{ action: "update", entity: "EscalationEvent", entityId: e.id, patientId: e.patientId, detail: { event: "inform", spokeTo: body.spokeTo.trim() } }] as AuditEntry[] };
+  return { esc: escWire(after, await peopleOf(tx, [after.raisedById, after.informedById, after.resolvedById, after.acknowledgedById])), audit: [{ action: "update", entity: "EscalationEvent", entityId: e.id, patientId: e.patientId, detail: { event: "inform", spokeTo: body.spokeTo.trim() } }] as AuditEntry[] };
 }
 export async function resolveEscalation(tx: Tx, s: SessionData, id: string, note: string, now: Date) {
   if (s.role !== "nurse" && s.role !== "doctor") throw err(403, "forbidden", "নার্স বা ডাক্তার", "A nurse or a doctor resolves it", { reason: "role", canRequest: false });
@@ -172,7 +180,7 @@ export async function resolveEscalation(tx: Tx, s: SessionData, id: string, note
   const n = await tx.escalationEvent.updateMany({ where: { id: e.id, status: "doctor_informed" }, data: { status: "resolved", resolvedAt: now, resolvedById: s.userId, resolveNote: note.trim() } });
   if (n.count !== 1) throw stale();
   const after = (await tx.escalationEvent.findFirst({ where: { id: e.id } }))!;
-  return { esc: escWire(after, await peopleOf(tx, [after.raisedById, after.informedById, after.resolvedById])), audit: [{ action: "update", entity: "EscalationEvent", entityId: e.id, patientId: e.patientId, detail: { event: "resolve" } }] as AuditEntry[] };
+  return { esc: escWire(after, await peopleOf(tx, [after.raisedById, after.informedById, after.resolvedById, after.acknowledgedById])), audit: [{ action: "update", entity: "EscalationEvent", entityId: e.id, patientId: e.patientId, detail: { event: "resolve" } }] as AuditEntry[] };
 }
 
 /* ───── nursing notes ───── */
@@ -208,7 +216,7 @@ export async function wardPatient(tx: Tx, s: SessionData, encounterId: string, n
     tx.allergyIntolerance.findMany({ where: { patientId: ip.e.patientId }, orderBy: [{ status: "asc" }, { recordedAt: "asc" }] }),
   ]);
   const batches = [...new Set(obs.map((o) => o.batchId))];
-  const who = await peopleOf(tx, [ip.e.practitionerId, ...obs.map((o) => o.recordedById), ...escs.flatMap((e) => [e.raisedById, e.informedById, e.resolvedById]), ...notes.flatMap((n) => [n.writtenById, n.errorById])]);
+  const who = await peopleOf(tx, [ip.e.practitionerId, ...obs.map((o) => o.recordedById), ...escs.flatMap((e) => [e.raisedById, e.informedById, e.resolvedById, e.acknowledgedById]), ...notes.flatMap((n) => [n.writtenById, n.errorById])]);
   const vitals = batches.map((b) => {
     const rows = obs.filter((o) => o.batchId === b);
     const first = rows[0]!;
@@ -221,3 +229,39 @@ export async function wardPatient(tx: Tx, s: SessionData, encounterId: string, n
     vitals, nextObsDueAt: latest?.nextObsDueAt ?? null, escalations: escs.map((e) => escWire(e, who)), notes: notes.map((n) => noteWire(n, who)), rule: rule(),
   };
 }
+
+/* ───── escalation reach (Kamrul, 06/10/2026) ───── */
+/** A doctor acknowledged a NEWS2 escalation item in the app: the open escalation of that visit is acknowledged. */
+export async function acknowledgeEscalation(tx: Tx, s: SessionData, encounterId: string, now: Date): Promise<AuditEntry[]> {
+  const e = await tx.escalationEvent.findFirst({ where: { encounterId, organizationId: s.organizationId, status: { not: "resolved" }, acknowledgedAt: null } });
+  if (!e) return [];
+  const n = await tx.escalationEvent.updateMany({ where: { id: e.id, acknowledgedAt: null }, data: { acknowledgedAt: now, acknowledgedById: s.userId } });
+  return n.count ? [{ action: "update", entity: "EscalationEvent", entityId: e.id, patientId: e.patientId, detail: { event: "acknowledge", late: e.widenedAt !== null } }] : [];
+}
+/** Every minute: an escalation past its acknowledgement time goes to every doctor on duty (the facility's list, or every
+    active doctor) who has not had it yet, and is marked widened; the board shows it unacknowledged. */
+export async function sweepEscalations(now: Date): Promise<{ widened: number; told: number }> {
+  const { escalationSweepTargets, forTenant } = await import("@setu/db");
+  const targets = await escalationSweepTargets(now);
+  let widened = 0, told = 0;
+  for (const t of targets) {
+    await forTenant(t.tenantId, async (tx) => {
+      const e = await tx.escalationEvent.findFirst({ where: { id: t.escalationId, status: { not: "resolved" }, acknowledgedAt: null, widenedAt: null } });
+      if (!e) return;
+      const org = await tx.organization.findFirst({ where: { id: e.organizationId }, select: { escalationDutyDoctorIds: true } });
+      const doctors = (await tx.practitionerRole.findMany({ where: { organizationId: e.organizationId, role: "doctor", user: { active: true } }, select: { userId: true } })).map((r) => r.userId);
+      const already = new Set((await tx.communication.findMany({ where: { encounterId: e.encounterId, kind: "news2-escalation", createdAt: { gte: e.raisedAt } }, select: { recipientUserId: true } })).map((c) => c.recipientUserId));
+      const to = onDutyDoctors(doctors, org?.escalationDutyDoctorIds ?? []).filter((d) => !already.has(d));
+      // the message is the escalation's (created by the nurse who raised it); the sweep is the actor in the audit
+      const as = { tenantId: t.tenantId, organizationId: e.organizationId, userId: e.raisedById } as SessionData;
+      const news2Id = (await tx.observation.findFirst({ where: { encounterId: e.encounterId, code: "news2" }, orderBy: { effectiveAt: "desc" }, select: { id: true } }))?.id ?? e.observationId;
+      for (const d of to) await deliverInApp(tx, as, { patientId: e.patientId, encounterId: e.encounterId }, { kind: "news2-escalation", channel: "doctor_inbox", recipientUserId: d, observationId: news2Id }, now);
+      const n = await tx.escalationEvent.updateMany({ where: { id: e.id, widenedAt: null, acknowledgedAt: null }, data: { widenedAt: now } });
+      if (!n.count) return;
+      widened++; told += to.length;
+      await tx.auditEvent.create({ data: { tenantId: t.tenantId, organizationId: e.organizationId, userId: null, role: null, action: "update", entity: "EscalationEvent", entityId: e.id, patientId: e.patientId, detail: { actor: "system:escalation-sweep", event: "widen", doctors: to, dueAt: iso(e.ackDueAt) } } });
+    });
+  }
+  return { widened, told };
+}
+

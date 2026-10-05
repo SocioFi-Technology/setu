@@ -71,3 +71,23 @@ export const roundNoteBlockers = (x: RoundNoteSections): ("assessment_or_plan" |
   if ([x.s, x.o, x.a, x.p].some((v) => v.length > ROUND_FIELD_MAX)) out.push("too_long");
   return out;
 };
+
+/* ───── escalation reach (Kamrul, 06/10/2026): an escalation no doctor acknowledges in the app within N minutes is
+   raised to every doctor on duty and shown "unacknowledged" on the ward board. N and who counts as on duty are
+   facility settings; the defaults are samples — a clinician decides both before the pilot. ───── */
+export const ESCALATION_ACK_MINUTES_SAMPLE = 15;
+export const ESCALATION_ACK_MINUTES_RANGE: [number, number] = [5, 120];
+export const ackMinutesOk = (n: number) => Number.isInteger(n) && n >= ESCALATION_ACK_MINUTES_RANGE[0] && n <= ESCALATION_ACK_MINUTES_RANGE[1];
+/** When the in-app acknowledgement falls due: from the raise, and again from each worsening (the clock restarts). */
+export const ackDueAt = (raisedOrWorsenedAt: Date, minutes = ESCALATION_ACK_MINUTES_SAMPLE) => new Date(raisedOrWorsenedAt.getTime() + minutes * 60_000);
+export interface EscalationAckFacts { status: "raised" | "doctor-informed" | "resolved"; acknowledgedAt: Date | null; ackDueAt: Date | null }
+/** Open, not acknowledged by a doctor in the app, and past its due time. A nurse's logged phone call is not an acknowledgement. */
+export const escalationUnacknowledged = (e: EscalationAckFacts, now: Date) =>
+  e.status !== "resolved" && e.acknowledgedAt === null && e.ackDueAt !== null && now.getTime() >= e.ackDueAt.getTime();
+/** Who is on duty: the facility's duty list when it has one, else every active doctor (sample default). */
+export function onDutyDoctors(activeDoctorIds: string[], dutyList: string[]): string[] {
+  const active = new Set(activeDoctorIds);
+  const listed = dutyList.filter((id) => active.has(id));
+  return listed.length ? [...new Set(listed)] : [...active];
+}
+

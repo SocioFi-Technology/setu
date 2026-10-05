@@ -221,8 +221,9 @@ function DoseDialog({ v, pick, onClose, onDone, onStale }: { v: MarView; pick: P
 function History({ v, onChanged }: { v: MarView; onChanged: (v: MarView) => void }) {
   const s = useSession(); const N = useN(); const err = useErr();
   const [open, setOpen] = useState<string | null>(null); const [reason, setReason] = useState(""); const [msg, setMsg] = useState<string | null>(null); const [busy, setBusy] = useState(false);
+  const [drawn, setDrawn] = useState<"yes" | "no" | "unsure" | "">("");
   const bnNum = s.numerals === "bn";
-  const mark = async (r: DoseRecord) => { if (busy) return; setBusy(true); try { onChanged(await ward.doseError(r.id, reason.trim())); setOpen(null); setReason(""); } catch (e) { setMsg(err(e)); } finally { setBusy(false); } };
+  const mark = async (r: DoseRecord) => { if (busy) return; setBusy(true); try { onChanged(await ward.doseError(r.id, reason.trim(), r.stockTaken > 0 ? (drawn || undefined) : undefined)); setOpen(null); setReason(""); setDrawn(""); } catch (e) { setMsg(err(e)); } finally { setBusy(false); } };
   if (v.history.length === 0) return null;
   return (
     <Card style={{ display: "flex", flexDirection: "column", gap: 6, padding: 14 }} data-testid="mar-history">
@@ -235,12 +236,18 @@ function History({ v, onChanged }: { v: MarView; onChanged: (v: MarView) => void
             {r.source === "patient-supplied" && <Pill tone="pend" icon="user-round">{N("source_patient")}</Pill>}
             {r.reason && <span className="t-muted">· {r.reason}</span>}
           </span>
-          {r.status === "entered-in-error" && r.error && <span className="t-muted">{N("st_entered-in-error")}: {r.error.reason}</span>}
-          {r.status !== "entered-in-error" && r.by.id === s.me?.userId && open !== r.id && <div><Button size="sm" icon="x" disabled={!s.online} onClick={() => { setOpen(r.id); setReason(""); }}>{N("mark_error")}</Button></div>}
+          {r.status === "entered-in-error" && r.error && <span className="t-muted">{N("st_entered-in-error")}: {r.error.reason}{r.errorStockDrawn ? ` · ${N("stock_drawn_q")} ${N(`sd_${r.errorStockDrawn}`)}` : ""}{r.returned > 0 ? ` · ${N("returned_n", { n: r.returned })}` : ""}</span>}
+          {r.status !== "entered-in-error" && r.by.id === s.me?.userId && open !== r.id && <div><Button size="sm" icon="x" disabled={!s.online} onClick={() => { setOpen(r.id); setReason(""); setDrawn(""); }}>{N("mark_error")}</Button></div>}
           {open === r.id && (
-            <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
               <TextArea label={N("reason")} value={reason} onChange={(e) => setReason(e.target.value)} rows={2} name="errorReason" />
-              <Button size="sm" variant="danger" disabled={reason.trim().length < 5 || busy || !s.online} onClick={() => void mark(r)} data-testid="dose-error-confirm">{N("mark_error")}</Button>
+              {r.stockTaken > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }} data-testid="stock-drawn">
+                  <Segmented value={drawn} options={(["yes", "no", "unsure"] as const).map((x) => ({ value: x, label: N(`sd_${x}`) }))} onChange={(x) => setDrawn(x as typeof drawn)} label={N("stock_drawn_q")} />
+                  <span className="t-small t-muted">{N("sd_note")}</span>
+                </div>
+              )}
+              <Button size="sm" variant="danger" disabled={reason.trim().length < 5 || busy || !s.online || (r.stockTaken > 0 && !drawn)} onClick={() => void mark(r)} data-testid="dose-error-confirm">{N("mark_error")}</Button>
             </div>
           )}
         </div>

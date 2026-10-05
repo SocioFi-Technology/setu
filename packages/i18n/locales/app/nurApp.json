@@ -1038,5 +1038,45 @@
   "stock_failed": [
     "স্টক/ইনডেন্ট আনা যায়নি",
     "Could not load stock or indents"
+  ],
+  "unacknowledged": [
+    "স্বীকৃত হয়নি — ডিউটির সব ডাক্তারকে পাঠানো হয়েছে",
+    "Unacknowledged — sent to every doctor on duty"
+  ],
+  "unacknowledged_short": [
+    "স্বীকৃত হয়নি",
+    "Unacknowledged"
+  ],
+  "acknowledged_by": [
+    "স্বীকার করেছেন: {name} · {t}",
+    "Acknowledged by {name} · {t}"
+  ],
+  "stock_drawn_q": [
+    "স্টক কি তোলা হয়েছিল?",
+    "Was the stock drawn?"
+  ],
+  "sd_yes": [
+    "হ্যাঁ",
+    "Yes"
+  ],
+  "sd_no": [
+    "না — ওয়ার্ডে ফেরত",
+    "No — back to the ward"
+  ],
+  "sd_unsure": [
+    "নিশ্চিত নই",
+    "Not sure"
+  ],
+  "sd_note": [
+    "\"না\" হলে ইউনিট যে ব্যাচ থেকে এসেছিল সেখানে ফেরত যায়, পরের গণনায় দেখাবে",
+    "\"No\" puts the unit back to the batch it came from; the next count will see it"
+  ],
+  "returned_n": [
+    "{n} ফেরত",
+    "{n} returned"
+  ],
+  "returns_title": [
+    "ভুল নথির ডোজ থেকে ফেরত (৭ দিন)",
+    "Returned from doses entered in error (7 days)"
   ]
 }

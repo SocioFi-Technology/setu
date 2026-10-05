@@ -6,7 +6,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
-  AmendRoundRequest, BedMoveRequest, DoseRequest, EscalationInformRequest, EscalationResolveRequest, IndentCreate, IndentIssueRequest, NursingNoteRequest, ReasonRequest, SaveRoundRequest, SignRoundRequest,
+  AmendRoundRequest, BedMoveRequest, DoseErrorRequest, DoseRequest, EscalationInformRequest, EscalationResolveRequest, IndentCreate, IndentIssueRequest, NursingNoteRequest, ReasonRequest, SaveRoundRequest, SignRoundRequest,
   StopOrderRequest, VialOpenRequest, WardVitalsRequest,
 } from "@setu/contracts";
 import { authorize } from "@setu/domain";
@@ -70,8 +70,8 @@ export async function nursingRoutes(app: FastifyInstance) {
     return command(req, reply, async (tx, s) => { const r = await recordDose(tx, s, id, body, new Date()); return { status: 201, body: r.view, audit: r.audit }; }, { hashOmit: ["witness"] });
   });
   app.post("/v1/nursing/doses/:id/entered-in-error", own, async (req, reply) => {
-    requireAny(req, ["nur", "mar"]); const { id } = pid.parse(req.params); const body = ReasonRequest.parse(req.body ?? {});
-    return command(req, reply, async (tx, s) => { const r = await markDoseError(tx, s, id, body.reason, new Date()); return { body: r.view, audit: r.audit }; });
+    requireAny(req, ["nur", "mar"]); const { id } = pid.parse(req.params); const body = DoseErrorRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const r = await markDoseError(tx, s, id, body.reason, new Date(), body.stockDrawn ?? null); return { body: r.view, audit: r.audit }; });
   });
   app.post("/v1/nursing/encounters/:id/vials", own, async (req, reply) => {
     requireAny(req, ["nur", "mar"]); const { id } = pid.parse(req.params); const body = VialOpenRequest.parse(req.body ?? {});

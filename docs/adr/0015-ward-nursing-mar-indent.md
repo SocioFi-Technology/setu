@@ -104,3 +104,21 @@ guard; migrations `20261006090600_ward_review`, `20261006090700_escalation_worse
 - **The MAR day:** today's grid carries the last 24 hours' slots (`marSlotRange`), so every dose the ward board counts as
   overdue is on the MAR (just after midnight yesterday's 22:00 dose).
 
+## Amendment 2 — Kamrul's decisions of 06/10/2026
+Migration `20261006090800_escalation_reach_dose_error_stock`.
+- **Escalation reach (engineering half built; the clinician decides N and who is on duty before the pilot):** every
+  escalation carries `ackDueAt` = raise (or worsening) + N minutes, N a facility setting (`escalationAckMinutes`, 5–120,
+  sample 15). A doctor's acknowledgement of the NEWS2 item in the app inbox acknowledges it; a nurse's logged phone call
+  does not. A sweep every minute raises an escalation past `ackDueAt` without an acknowledgement to every doctor on duty
+  — the facility's duty list (`escalationDutyDoctorIds`), or every active doctor when it is empty — who has not had it,
+  marks it `widenedAt`, and audits it as `system:escalation-sweep`. The ward board, the vitals screen and the round
+  worklist show it **unacknowledged**. Worsening clears the acknowledgement and restarts the clock. Applied to every
+  NEWS2 escalation (score at or above the threshold, or a single red parameter).
+- **A dose marked entered-in-error asks "was the stock drawn?"** when it took ward stock. "No" puts the units back to
+  the ward batches they came from (StockMove `ward-return`, refType `dose-error`, with the error reason; the database
+  allows no more than the dose took) and the ward stock card lists returns of the last 7 days for the next count; "yes"
+  or "not sure" moves nothing. A controlled register line is never changed: a linked `dose-error` line records the
+  reason and the answer and adds back what was returned (qty 0 otherwise).
+- Kept as built: a controlled drug is always witnessed; stopping an order needs the doctor's PIN; held / refused before
+  due, missed only after the window, PRN given or refused only. Open questions 264–269 accepted.
+

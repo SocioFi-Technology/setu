@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import type { DoseRecord, DoseRequest, MarOrder, MarView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
-  DOSE_REASON_MIN, DOSE_WINDOW_MIN, PRN_WINDOW_MS, allergyMatches, dhakaDay, doseBlockers, doseConsumption, doseTiming, marSlotRange, slotState, slotsBetween, wardStockLocation, type DoseOutcome,
+  DOSE_REASON_MIN, DOSE_WINDOW_MIN, PRN_WINDOW_MS, allergyMatches, dhakaDay, doseBlockers, doseConsumption, doseErrorNeedsAnswer, doseErrorReturns, doseTiming, marSlotRange, type StockDrawn, slotState, slotsBetween, wardStockLocation, type DoseOutcome,
 } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
 import { HttpError, err } from "../errors.js";
@@ -50,13 +50,15 @@ export async function doseCounts(tx: Tx, encounterIds: string[], now: Date): Pro
   return out;
 }
 
-function recordWire(a: Admin, who: Awaited<ReturnType<typeof peopleOf>>): DoseRecord {
+type StockOf = Map<string, { taken: number; returned: number }>;
+function recordWire(a: Admin, who: Awaited<ReturnType<typeof peopleOf>>, st: StockOf = new Map()): DoseRecord {
   return {
     id: a.id, status: a.status === "entered_in_error" ? "entered-in-error" : a.status, administeredAt: a.administeredAt.toISOString(), scheduledFor: iso(a.scheduledFor),
     timing: a.timing as DoseRecord["timing"], reason: a.reason, source: a.source as DoseRecord["source"], by: who(a.administeredById), preparedBy: who(a.preparedById),
     witness: a.witnessedById ? who(a.witnessedById) : null, checks: { patient: a.checkPatient, drug: a.checkDrug, dose: a.checkDose, route: a.checkRoute, time: a.checkTime },
     error: a.errorAt ? { reason: a.errorReason ?? "", by: who(a.errorById), at: a.errorAt.toISOString() } : null,
     amountGiven: a.amountGiven,
+    stockTaken: st.get(a.id)?.taken ?? 0, returned: st.get(a.id)?.returned ?? 0, errorStockDrawn: (a.errorStockDrawn ?? null) as DoseRecord["errorStockDrawn"],
   };
 }
 async function wardStockOf(tx: Tx, s: SessionData, wardId: string | null, keys: string[], today: string): Promise<Map<string, number>> {
@@ -83,6 +85,13 @@ export async function marView(tx: Tx, s: SessionData, encounterId: string, now: 
   const who = await peopleOf(tx, [...recs.flatMap((r) => [r.administeredById, r.preparedById, r.witnessedById, r.errorById]), ...orders.flatMap((o) => [o.composition.signedById, o.stoppedById]), ...vials.map((v) => v.openedById)]);
   const stock = await wardStockOf(tx, s, ip.ward?.id ?? null, [...meds.keys()], dhakaDay(now));
   const live = recs.filter((r) => r.status !== "entered_in_error");
+  // units each dose took from the ward, and what an errored one put back ("stock not drawn")
+  const st: StockOf = new Map();
+  if (recs.length) for (const m of await tx.stockMove.findMany({ where: { organizationId: s.organizationId, refId: { in: recs.map((r) => r.id) }, refType: { in: ["administration", "dose-error"] } }, select: { refId: true, refType: true, qty: true } })) {
+    const x = st.get(m.refId!) ?? { taken: 0, returned: 0 };
+    if (m.refType === "administration") x.taken += -m.qty; else x.returned += m.qty;
+    st.set(m.refId!, x);
+  }
   const out: MarOrder[] = shown.map((o) => {
     const m = meds.get(o.medicineKey)!;
     const mine = live.filter((r) => r.regimenId === o.regimenId);
@@ -91,14 +100,14 @@ export async function marView(tx: Tx, s: SessionData, encounterId: string, now: 
     const range = marSlotRange(dayStart, now);
     const slots = active ? slotsBetween({ times: o.times, prn: o.prn, startAt: o.startAt! }, range.from, range.to).flatMap((at) => {
       const rec = mine.find((r) => r.scheduledFor?.getTime() === at.getTime());
-      const errored = recs.filter((r) => r.regimenId === o.regimenId && r.status === "entered_in_error" && r.scheduledFor?.getTime() === at.getTime()).map((r) => recordWire(r, who));
-      return [{ at: at.toISOString(), state: (rec ? rec.status : slotState(at, now)) as MarOrder["slots"][number]["state"], record: rec ? recordWire(rec, who) : null, errored }];
+      const errored = recs.filter((r) => r.regimenId === o.regimenId && r.status === "entered_in_error" && r.scheduledFor?.getTime() === at.getTime()).map((r) => recordWire(r, who, st));
+      return [{ at: at.toISOString(), state: (rec ? rec.status : slotState(at, now)) as MarOrder["slots"][number]["state"], record: rec ? recordWire(rec, who, st) : null, errored }];
     }) : [];
     const vial = vials.find((v) => v.medicineKey === o.medicineKey);
     return {
       id: o.id, regimenId: o.regimenId!, noteId: o.compositionId, medicine: medWire(m), route: o.route!, doseText: o.doseText!, doseQty: o.doseQty, times: o.times, prn: o.prn, prnMaxPer24h: o.prnMaxPer24h,
       startAt: o.startAt!.toISOString(), status: o.orderStatus, orderedBy: who(o.composition.signedById), stop: o.stoppedAt ? { by: who(o.stoppedById), at: o.stoppedAt.toISOString(), reason: o.stopReason ?? "" } : null,
-      slots, prnRecords: o.prn ? mine.filter((r) => r.administeredAt >= dayStart && r.administeredAt <= dayEnd).map((r) => recordWire(r, who)) : [],
+      slots, prnRecords: o.prn ? mine.filter((r) => r.administeredAt >= dayStart && r.administeredAt <= dayEnd).map((r) => recordWire(r, who, st)) : [],
       givenLast24h: mine.filter((r) => r.status === "given" && r.administeredAt.getTime() > now.getTime() - PRN_WINDOW_MS).length,
       vial: vial ? { openedAt: vial.openedAt.toISOString(), by: who(vial.openedById), source: vial.source as "ward-stock" } : null,
       allergyBlock: active && allergyMatches(m, facts).length > 0, wardStock: stock.get(o.medicineKey) ?? 0,
@@ -112,7 +121,7 @@ export async function marView(tx: Tx, s: SessionData, encounterId: string, now: 
       encounterId: ip.e.id, patient: toSummary(await getPatient(tx, ip.e.patientId)), allergies: await toAllergyView(tx, allergies),
       bed: ip.bed && ip.ward ? { id: ip.bed.id, name: ip.bed.name, ward: ip.ward.name, wardId: ip.ward.id } : null,
       day, now: now.toISOString(), orders: out, windowMin: DOSE_WINDOW_MIN, sample: SAMPLE_NOTE,
-      history: recs.filter((r) => r.administeredAt >= dayStart && r.administeredAt <= dayEnd).map((r) => ({ ...recordWire(r, who), orderId: r.requestId, medicine: names.get(r.requestId) ?? r.medicineKey })),
+      history: recs.filter((r) => r.administeredAt >= dayStart && r.administeredAt <= dayEnd).map((r) => ({ ...recordWire(r, who, st), orderId: r.requestId, medicine: names.get(r.requestId) ?? r.medicineKey })),
     },
   };
 }
@@ -206,7 +215,7 @@ export async function recordDose(tx: Tx, s: SessionData, encounterId: string, re
   return { view: (await marView(tx, s, ip.e.id, now)).view, audit };
 }
 
-export async function markDoseError(tx: Tx, s: SessionData, id: string, reason: string, now: Date): Promise<{ view: MarView; audit: AuditEntry[] }> {
+export async function markDoseError(tx: Tx, s: SessionData, id: string, reason: string, now: Date, stockDrawn: StockDrawn | null = null): Promise<{ view: MarView; audit: AuditEntry[] }> {
   requireNurse(s);
   const a = await tx.medicationAdministration.findFirst({ where: { id, organizationId: s.organizationId } });
   if (!a) throw notFound();
@@ -215,9 +224,32 @@ export async function markDoseError(tx: Tx, s: SessionData, id: string, reason: 
   if (a.administeredById !== s.userId) throw err(403, "forbidden", "যিনি নথিভুক্ত করেছেন শুধু তিনিই ভুল চিহ্নিত করেন", "Only the nurse who recorded it marks it entered-in-error", { reason: "role", canRequest: false });
   const ip = await inpatientHere(tx, s, a.encounterId);
   if (!ip.open) throw err(409, "closed_visit", "ভর্তি বন্ধ — নথি বদলানো যায় না", "The admission is closed — the record cannot change");
-  const n = await tx.medicationAdministration.updateMany({ where: { id: a.id, status: a.status }, data: { status: "entered_in_error", errorReason: reason.trim(), errorById: s.userId, errorAt: now } });
+  // Kamrul, 06/10/2026: a dose that took ward stock asks "was the stock drawn?" — "no" puts the units back
+  const taken = await tx.stockMove.findMany({ where: { organizationId: s.organizationId, refType: "administration", refId: a.id }, include: { batch: true } });
+  const units = taken.reduce((x, m) => x - m.qty, 0);
+  if (doseErrorNeedsAnswer(units) && !stockDrawn) throw err(400, "stock_answer_required", "স্টক কি তোলা হয়েছিল? — হ্যাঁ, না বা নিশ্চিত নই বাছুন", "Was the stock drawn? — answer yes, no or not sure", { field: "stockDrawn" });
+  const answer = doseErrorNeedsAnswer(units) ? stockDrawn : null;
+  const n = await tx.medicationAdministration.updateMany({ where: { id: a.id, status: a.status }, data: { status: "entered_in_error", errorReason: reason.trim(), errorById: s.userId, errorAt: now, errorStockDrawn: answer } });
   if (n.count !== 1) throw stale();
-  return { view: (await marView(tx, s, a.encounterId, now)).view, audit: [{ action: "update", entity: "MedicationAdministration", entityId: a.id, patientId: a.patientId, detail: { event: "markError", from: a.status, reason: reason.trim() } }] };
+  const back = doseErrorReturns(answer, taken.map((m) => ({ batchId: m.batchId, qty: -m.qty })));
+  const note = `${reason.trim()} — stock drawn: ${answer ?? "n/a"}`;
+  const returnedMoves: { moveId: string; batchId: string; qty: number; after: number; location: string }[] = [];
+  for (const r of back) {
+    const b = taken.find((m) => m.batchId === r.batchId)!.batch;
+    const mv = await tx.stockMove.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, batchId: r.batchId, kind: "ward-return", qty: r.qty, refType: "dose-error", refId: a.id, reason: reason.trim(), byId: s.userId, at: now } });
+    const after = (await tx.stockBatch.findFirst({ where: { id: r.batchId }, select: { qtyOnHand: true } }))!.qtyOnHand;
+    returnedMoves.push({ moveId: mv.id, batchId: r.batchId, qty: r.qty, after, location: b.location });
+  }
+  // the controlled register is never changed: a linked dose-error line notes the error (and adds back any return)
+  if (a.controlled && units > 0) {
+    const base = { tenantId: s.tenantId, organizationId: s.organizationId, medicineKey: a.medicineKey, kind: "dose-error", encounterId: a.encounterId, patientId: a.patientId, administrationId: a.id, byId: s.userId, note, at: now };
+    if (returnedMoves.length) for (const m of returnedMoves) await tx.controlledDrugRegister.create({ data: { ...base, stockMoveId: m.moveId, batchId: m.batchId, qty: m.qty, location: m.location, balanceAfter: m.after } });
+    else {
+      const b0 = taken[0]!.batch; const now0 = (await tx.stockBatch.findFirst({ where: { id: b0.id }, select: { qtyOnHand: true } }))!.qtyOnHand;
+      await tx.controlledDrugRegister.create({ data: { ...base, batchId: b0.id, qty: 0, location: b0.location, balanceAfter: now0 } });
+    }
+  }
+  return { view: (await marView(tx, s, a.encounterId, now)).view, audit: [{ action: "update", entity: "MedicationAdministration", entityId: a.id, patientId: a.patientId, detail: { event: "markError", from: a.status, reason: reason.trim(), stockDrawn: answer, unitsTaken: units, returned: returnedMoves.reduce((x, m) => x + m.qty, 0) } }] };
 }
 
 /** A multi-dose vial opened (insulin, heparin): one unit out of the ward (or the patient's own), opened-at kept. */

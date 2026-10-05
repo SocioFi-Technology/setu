@@ -86,6 +86,9 @@ test.describe("Journey B4–B7: the patient on the ward", () => {
     await expect(item).toBeVisible();
     await expect(item).toHaveAttribute("data-severity", "critical");
     await expect(item.getByTestId("news2-escalation")).toContainText("NEWS2 9");
+    // escalation reach: the doctor acknowledges it in the app (a nurse's logged call is not an acknowledgement)
+    await item.getByTestId("ack-seen").click();
+    await expect(item).toHaveAttribute("data-acked", "server");
     await page.goto("/m/ipd/rounds");
     await expect(page.locator(`[data-round-patient="${SHAHIDUL}"]`)).toBeVisible();
     await page.locator(`[data-round-patient="${SHAHIDUL}"]`).click();
@@ -214,6 +217,16 @@ test.describe("Journey B4–B7: the patient on the ward", () => {
     await own.locator("textarea[name=errorReason]").fill("Recorded against the wrong PRN line");
     await own.getByTestId("dose-error-confirm").click();
     await expect(hist.locator('[data-dose-status="entered-in-error"]').filter({ hasText: "Napa" }).first()).toBeVisible();
+    // a ward-stock dose marked entered-in-error: "was the stock drawn?" — "No" puts the vial back on the ward
+    const cefRec = hist.locator("[data-dose]").filter({ hasText: "Ceftriaxone" }).filter({ hasNotText: "Patient's own" }).first();
+    const stockBefore = Number(await cef.locator("[data-ward-stock]").getAttribute("data-ward-stock"));
+    await cefRec.getByRole("button", { name: "Mark entered in error" }).click();
+    await cefRec.locator("textarea[name=errorReason]").fill("Charted on the wrong slot");
+    await expect(cefRec.getByTestId("dose-error-confirm")).toBeDisabled(); // the question must be answered
+    await cefRec.getByRole("radio", { name: "No — back to the ward" }).click();
+    await cefRec.getByTestId("dose-error-confirm").click();
+    await expect(hist.locator('[data-dose-status="entered-in-error"]').filter({ hasText: "Ceftriaxone" }).first()).toContainText("1 returned");
+    await expect(cef.locator("[data-ward-stock]")).toHaveAttribute("data-ward-stock", String(stockBefore + 1));
     // nursing notes: append-only
     await page.goto(`/m/nur/io?enc=${ip.encounterId}`);
     await page.getByTestId("note-text").fill("Wound dressing changed, clean and dry. Patient ambulating with support.");
@@ -225,6 +238,11 @@ test.describe("Journey B4–B7: the patient on the ward", () => {
     const ip = await inpatient(request);
     await login(page, NURSE);
     await pickWard(page, ip.wardId);
+    // the doctor's in-app acknowledgement shows on the ward banner
+    await expect(page.getByTestId("escalation-banner").filter({ hasText: "Shahidul" })).toContainText("Acknowledged by Dr. Lite Surgeon");
+    await expect(page.getByTestId("escalation-banner").filter({ hasText: "Shahidul" })).toHaveAttribute("data-unacknowledged", "0");
+    // the errored ceftriaxone dose's vial came back and is listed for the next count
+    await expect(page.getByTestId("ward-returns")).toContainText("Charted on the wrong slot");
     const before = Number(await page.locator('[data-stock="ceftriaxone"]').getAttribute("data-stock-qty"));
     await page.getByTestId("indent-new").click();
     const form = page.getByTestId("indent-form");

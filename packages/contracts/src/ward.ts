@@ -21,6 +21,9 @@ export const Escalation = z.object({
   id: z.string(), status: EscalationStatusWire, score: z.number().int(), peakScore: z.number().int(), red: z.boolean(),
   raisedAt: z.string(), raisedBy: Person, informedAt: z.string().nullable(), informedBy: Person.nullable(), spokeTo: z.string().nullable(), instruction: z.string().nullable(),
   resolvedAt: z.string().nullable(), resolvedBy: Person.nullable(), resolveNote: z.string().nullable(),
+  /** escalation reach: a doctor's acknowledgement in the app, when it falls due, and when it was raised to the doctors on duty */
+  ackDueAt: z.string().nullable(), acknowledgedAt: z.string().nullable(), acknowledgedBy: Person.nullable(), widenedAt: z.string().nullable(),
+  /** open, no doctor's acknowledgement, past ackDueAt */ unacknowledged: z.boolean(),
 });
 export type Escalation = z.infer<typeof Escalation>;
 export const NursingNoteView = z.object({ id: z.string(), text: z.string(), writtenBy: Person, writtenAt: z.string(), effectiveAt: z.string(), status: z.enum(["active", "entered-in-error"]), error: z.object({ reason: z.string(), by: Person, at: z.string() }).nullable() });
@@ -63,6 +66,10 @@ export const EscalationInformRequest = z.object({ spokeTo: z.string().trim().max
 export const EscalationResolveRequest = z.object({ note: z.string().trim().max(500) });
 export const NursingNoteRequest = z.object({ text: z.string().max(4000), effectiveAt: z.string().datetime() });
 export const ReasonRequest = z.object({ reason: z.string().trim().max(500) });
+/** a dose marked entered-in-error: when it took ward stock, "was the stock drawn?" — "no" returns the units to the ward */
+export const StockDrawn = z.enum(["yes", "no", "unsure"]);
+export const DoseErrorRequest = ReasonRequest.extend({ stockDrawn: StockDrawn.optional() });
+export type DoseErrorRequest = z.infer<typeof DoseErrorRequest>;
 
 /* GET /v1/nursing/encounters/:id — the patient on the ward: vitals history (72 h), escalations, notes */
 export const WardPatientView = z.object({
@@ -82,6 +89,8 @@ export const DoseRecord = z.object({
   timing: z.enum(["on-time", "early", "late", "prn"]), reason: z.string().nullable(), source: DoseSource, by: Person, preparedBy: Person, witness: Person.nullable(),
   checks: FiveChecks, error: z.object({ reason: z.string(), by: Person, at: z.string() }).nullable(),
   /** multi-dose drugs: the amount actually given ("6 IU") */ amountGiven: z.string().nullable(),
+  /** units this dose took from ward stock (the entered-in-error question is asked only then) */ stockTaken: z.number().int(),
+  /** entered-in-error: the nurse's answer to "was the stock drawn?" and the units put back */ errorStockDrawn: StockDrawn.nullable(), returned: z.number().int(),
 });
 export type DoseRecord = z.infer<typeof DoseRecord>;
 export const WardMedicineWire = z.object({ key: z.string(), brand: z.string(), brandBn: z.string(), generic: z.string(), strength: z.string(), form: z.string(), issueUnit: z.string(), routes: z.array(z.string()), highAlert: z.boolean(), controlled: z.boolean(), multiDose: z.boolean(), inpatientOnly: z.boolean(), sample: z.literal(true) });
@@ -181,7 +190,10 @@ export const IndentList = z.object({ items: z.array(IndentView) });
 export type IndentList = z.infer<typeof IndentList>;
 export const IndentIssueRequest = z.object({ lines: z.array(z.object({ lineId: z.string().max(64), qty: z.number().int().min(1).max(500) })).min(1).max(30), pin: z.string().regex(/^\d{4}$/).optional() });
 export type IndentIssueRequest = z.infer<typeof IndentIssueRequest>;
-export const WardStock = z.object({ ward: z.object({ id: z.string(), name: z.string() }), items: z.array(z.object({ medicineKey: z.string(), name: z.string(), issueUnit: z.string(), controlled: z.boolean(), qty: z.number().int(), batches: z.array(z.object({ batchNo: z.string(), expiry: z.string(), qty: z.number().int() })) })) });
+export const WardStock = z.object({ ward: z.object({ id: z.string(), name: z.string() }), items: z.array(z.object({ medicineKey: z.string(), name: z.string(), issueUnit: z.string(), controlled: z.boolean(), qty: z.number().int(), batches: z.array(z.object({ batchNo: z.string(), expiry: z.string(), qty: z.number().int() })) })),
+  /** units put back from doses marked entered-in-error ("stock not drawn"), last 7 days — for the next count to check */
+  returns: z.array(z.object({ medicine: z.string(), batchNo: z.string(), qty: z.number().int(), reason: z.string(), by: Person, at: z.string() })),
+});
 export type WardStock = z.infer<typeof WardStock>;
 
 /* ───── bed moves ───── */

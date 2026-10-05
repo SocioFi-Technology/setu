@@ -15,6 +15,7 @@ import {
   FLAGGED_ACTIONS, ONE_TIME_PASSWORD_HOURS, REG_BODY, createUserBlockers, deactivateBlockers, goLiveBlockers, goLiveChecklist, isFlagged, labelPageOk, limitProblems,
   priceChangeProblems, roleChangeBlockers, type GoLiveFacts, type Role, type UserAdminBlocker,
   smsSafeName,
+  ackMinutesOk,
 } from "@setu/domain";
 import { messenger } from "../adapters/messaging/index.js";
 import { registration } from "../adapters/registration.js";
@@ -75,6 +76,10 @@ export async function facilityView(tx: Tx, s: SessionData): Promise<FacilityView
       labelWidthMm: o.labelWidthMm, labelHeightMm: o.labelHeightMm, receiptFormat: o.receiptFormat as "a5" | "thermal" | null, rxFormat: o.rxFormat as "a5" | "a4" | null,
       paymentMethods: o.paymentMethods as FacilityView["settings"]["paymentMethods"],
     },
+    escalation: {
+      ackMinutes: o.escalationAckMinutes, dutyDoctorIds: o.escalationDutyDoctorIds, sample: true as const,
+      doctors: (await tx.practitionerRole.findMany({ where: { organizationId: s.organizationId, role: "doctor", user: { active: true } }, select: { user: { select: { id: true, nameBn: true, nameEn: true } } } })).map((r) => r.user),
+    },
     sms: { testedAt: iso(o.smsTestedAt), phone: o.smsTestPhone ? `0${o.smsTestPhone}` : null, sentAt: iso(o.smsTestSentAt), awaitingConfirm: smsAwaitingConfirm(o, new Date()), error: o.smsTestError },
   };
 }
@@ -103,14 +108,23 @@ export async function updateSettings(tx: Tx, s: SessionData, req: SettingsUpdate
   if (!req.paymentMethods.length) throw err(400, "payment_method_required", "অন্তত একটি পেমেন্ট মাধ্যম চালু রাখুন", "Keep at least one payment method on", { field: "paymentMethods" });
   const limitsChanged = o.cashierDiscountLimitPaisa !== req.cashierLimitPaisa || o.cashierDiscountLimitBp !== req.cashierLimitBp || o.approverLimitPaisa !== req.approverLimitPaisa;
   const reason = req.reason?.trim() ?? "";
+  // ADR 0015 escalation reach: N minutes 5–120; the duty list only names active doctors of this facility
+  if (req.escalationAckMinutes !== undefined && !ackMinutesOk(req.escalationAckMinutes)) throw err(400, "ack_minutes", "স্বীকৃতির সময় ৫–১২০ মিনিট", "The acknowledgement time is 5–120 minutes", { field: "escalationAckMinutes" });
+  if (req.escalationDutyDoctorIds?.length) {
+    const ok = new Set((await tx.practitionerRole.findMany({ where: { organizationId: s.organizationId, role: "doctor", userId: { in: req.escalationDutyDoctorIds }, user: { active: true } }, select: { userId: true } })).map((r) => r.userId));
+    if (req.escalationDutyDoctorIds.some((d) => !ok.has(d))) throw err(400, "duty_doctor", "তালিকায় এই প্রতিষ্ঠানের সক্রিয় ডাক্তার রাখুন", "The duty list names active doctors of this facility", { field: "escalationDutyDoctorIds" });
+  }
   if (limitsChanged && reason.length < 10) throw err(400, "reason_required", "অনুমোদন সীমা বদলানোর কারণ লিখুন (অন্তত ১০ অক্ষর)", "Write why the approval limits change (at least 10 characters)", { field: "reason" });
+  const escBefore = { escalationAckMinutes: o.escalationAckMinutes, escalationDutyDoctorIds: o.escalationDutyDoctorIds };
+  const escAfter = { escalationAckMinutes: req.escalationAckMinutes ?? o.escalationAckMinutes, escalationDutyDoctorIds: req.escalationDutyDoctorIds ? [...new Set(req.escalationDutyDoctorIds)] : o.escalationDutyDoctorIds };
   const before = { cashierLimitPaisa: o.cashierDiscountLimitPaisa, cashierLimitBp: o.cashierDiscountLimitBp, approverLimitPaisa: o.approverLimitPaisa, labelWidthMm: o.labelWidthMm, labelHeightMm: o.labelHeightMm, receiptFormat: o.receiptFormat, rxFormat: o.rxFormat, paymentMethods: o.paymentMethods };
   const after = { cashierLimitPaisa: req.cashierLimitPaisa, cashierLimitBp: req.cashierLimitBp, approverLimitPaisa: req.approverLimitPaisa, labelWidthMm: req.labelWidthMm, labelHeightMm: req.labelHeightMm, receiptFormat: req.receiptFormat, rxFormat: req.rxFormat, paymentMethods: [...new Set(req.paymentMethods)] };
   await tx.organization.update({ where: { id: o.id }, data: {
     cashierDiscountLimitPaisa: after.cashierLimitPaisa, cashierDiscountLimitBp: after.cashierLimitBp, approverLimitPaisa: after.approverLimitPaisa,
     labelWidthMm: after.labelWidthMm, labelHeightMm: after.labelHeightMm, receiptFormat: after.receiptFormat, rxFormat: after.rxFormat, paymentMethods: after.paymentMethods,
+    ...escAfter,
   } });
-  return [{ action: "settings-change", entity: "Organization", entityId: o.id, detail: { before, after, reason: reason || null, limitsChanged } }];
+  return [{ action: "settings-change", entity: "Organization", entityId: o.id, detail: { before: { ...before, ...escBefore }, after: { ...after, ...escAfter }, reason: reason || null, limitsChanged } }];
 }
 /** ADR 0012: a test SMS the gateway accepted waits up to a day for the admin to confirm it arrived. */
 const SMS_CONFIRM_MS = 24 * 3600_000;

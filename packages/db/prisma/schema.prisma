@@ -118,6 +118,8 @@ model Organization {
   smsTestPhone              String?
   locations                 Location[]
   practitionerRoles         PractitionerRole[]
+  escalationAckMinutes      Int                @default(15)
+  escalationDutyDoctorIds   String[]           @default([])
 
   @@index([tenantId])
 }
@@ -2143,6 +2145,7 @@ model MedicationAdministration {
   route            String
   doseText         String
   amountGiven      String?
+  errorStockDrawn  String?
   doseQty          Int?
   /// ward-stock | patient-supplied
   source           String
@@ -2186,26 +2189,30 @@ enum EscalationStatus {
 
 /// NEWS2 escalation (ESCALATION): raised at or above the threshold or on a red score; one open per encounter.
 model EscalationEvent {
-  id             String           @id @default(cuid())
-  tenantId       String
-  organizationId String
-  encounterId    String
-  patientId      String
-  status         EscalationStatus
-  score          Int
-  peakScore      Int
-  peakRed        Boolean  @default(false)
-  red            Boolean
-  observationId  String
-  raisedAt       DateTime
-  raisedById     String
-  informedAt     DateTime?
-  informedById   String?
-  spokeTo        String?
-  instruction    String?
-  resolvedAt     DateTime?
-  resolvedById   String?
-  resolveNote    String?
+  id               String           @id @default(cuid())
+  tenantId         String
+  organizationId   String
+  encounterId      String
+  patientId        String
+  status           EscalationStatus
+  score            Int
+  peakScore        Int
+  peakRed          Boolean          @default(false)
+  ackDueAt         DateTime?
+  acknowledgedAt   DateTime?
+  acknowledgedById String?
+  widenedAt        DateTime?
+  red              Boolean
+  observationId    String
+  raisedAt         DateTime
+  raisedById       String
+  informedAt       DateTime?
+  informedById     String?
+  spokeTo          String?
+  instruction      String?
+  resolvedAt       DateTime?
+  resolvedById     String?
+  resolveNote      String?
 
   @@index([tenantId, encounterId])
 }
@@ -2309,6 +2316,7 @@ model ControlledDrugRegister {
   indentId         String?
   byId             String
   witnessId        String?
+  note             String?
   at               DateTime @default(now())
 
   @@index([tenantId, organizationId, medicineKey])

@@ -22,6 +22,9 @@ export const FacilityView = z.object({
     receiptFormat: z.enum(["a5", "thermal"]).nullable(), rxFormat: z.enum(["a5", "a4"]).nullable(),
     paymentMethods: z.array(PaymentMethodKey),
   }),
+  /** ADR 0015: escalation reach — an escalation no doctor acknowledges in the app within `ackMinutes` is raised to the
+      doctors on duty (the list, or every active doctor when it is empty). Samples: a clinician decides both. */
+  escalation: z.object({ ackMinutes: z.number().int(), dutyDoctorIds: z.array(z.string()), doctors: z.array(z.object({ id: z.string(), nameBn: z.string(), nameEn: z.string() })), sample: z.literal(true) }),
   /** ADR 0012: sentAt without testedAt = the gateway accepted the test SMS and the admin has not confirmed it arrived */
   sms: z.object({ testedAt: z.string().nullable(), phone: z.string().nullable(), sentAt: z.string().nullable(), awaitingConfirm: z.boolean(), error: z.string().nullable() }),
 });
@@ -37,6 +40,9 @@ export const SettingsUpdate = z.object({
   paymentMethods: z.array(PaymentMethodKey).max(5),
   /** required when an approval limit changes (flagged in the audit log) */
   reason: Reason.optional(),
+  /** ADR 0015 escalation reach (left out: unchanged) */
+  escalationAckMinutes: z.number().int().optional(),
+  escalationDutyDoctorIds: z.array(z.string().max(64)).max(100).optional(),
 });
 export type SettingsUpdate = z.infer<typeof SettingsUpdate>;
 export const SmsTestRequest = z.object({ phone: Phone });

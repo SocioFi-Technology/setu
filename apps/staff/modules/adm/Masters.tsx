@@ -6,6 +6,7 @@
    diagnosis lists stay read-only samples here. Writes keep their Idempotency-Key until they succeed. */
 import { useCallback, useEffect, useState } from "react";
 import type { FacilityView, PriceHistory, PriceItem, PriceList } from "@setu/contracts";
+import { format } from "@setu/domain";
 import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast } from "@setu/ui";
 import { adm } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -25,7 +26,7 @@ export function AdmMasters() {
         <span style={{ marginLeft: "auto" }} />
         <Segmented label={A("masters_title")} value={tab} onChange={setTab} options={[{ value: "prices", label: A("tab_prices") }, { value: "limits", label: A("tab_limits") }]} />
       </div>
-      {tab === "prices" ? <Prices /> : <Limits />}
+      {tab === "prices" ? <Prices /> : <><Limits /><EscalationReach /></>}
     </div>
   );
 }
@@ -206,3 +207,37 @@ function Limits() {
     </Card>
   );
 }
+
+/** ADR 0015 escalation reach: N minutes and the doctors on duty (samples — a clinician decides both before the pilot). */
+function EscalationReach() {
+  const s = useSession(); const A = useA(); const E = useErr(); const toast = useToast();
+  const [f, setF] = useState<FacilityView | null>(null); const [mins, setMins] = useState(""); const [duty, setDuty] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false); const [key, setKey] = useState(() => crypto.randomUUID());
+  const show = (x: FacilityView) => { setF(x); setMins(String(x.escalation.ackMinutes)); setDuty(x.escalation.dutyDoctorIds); };
+  useEffect(() => { let stale = false; adm.facility().then((x) => { if (!stale) show(x); }).catch(() => undefined); return () => { stale = true; }; }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!f) return null;
+  const n = /^\d+$/.test(format.toEn(mins)) ? Number(format.toEn(mins)) : null;
+  const ok = n !== null && n >= 5 && n <= 120;
+  return (
+    <Card style={{ display: "flex", flexDirection: "column", gap: 10, padding: 16, maxWidth: 720, marginTop: 14 }} data-testid="escalation-reach">
+      <b>{A("esc_title")}</b>
+      <span className="t-small t-secondary">{A("esc_note")}</span>
+      <TextField label={A("esc_minutes")} inputMode="numeric" value={mins} onChange={(e) => setMins(e.target.value)} data-testid="esc-minutes" />
+      <b className="t-small">{A("esc_duty")}</b>
+      <span className="t-small t-muted">{A("esc_duty_all")}</span>
+      {f.escalation.doctors.map((d) => (
+        <label key={d.id} className="t-small" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input type="checkbox" checked={duty.includes(d.id)} data-duty={d.id} onChange={(e) => setDuty(e.target.checked ? [...duty, d.id] : duty.filter((x) => x !== d.id))} /> {s.lang === "bn" ? d.nameBn : d.nameEn}
+        </label>
+      ))}
+      <span><Button variant="primary" icon="save" data-testid="esc-save" disabled={busy || !s.online || !ok}
+        onClick={async () => {
+          setBusy(true);
+          const x = f.settings;
+          try { show(await adm.settings({ cashierLimitPaisa: x.cashierLimitPaisa, cashierLimitBp: x.cashierLimitBp, approverLimitPaisa: x.approverLimitPaisa, labelWidthMm: x.labelWidthMm, labelHeightMm: x.labelHeightMm, receiptFormat: x.receiptFormat ?? "a5", rxFormat: x.rxFormat ?? "a5", paymentMethods: x.paymentMethods, escalationAckMinutes: n!, escalationDutyDoctorIds: duty }, key)); setKey(crypto.randomUUID()); toast(A("saved"), "check"); }
+          catch (e) { if (renewKey(e)) setKey(crypto.randomUUID()); toast(E(e), "triangle-alert"); } finally { setBusy(false); }
+        }}>{A("save")}</Button></span>
+    </Card>
+  );
+}
+

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ESCALATION, can, transition } from "./machines.js";
-import { NEWS2_THRESHOLD_SAMPLE, informBlockers, news2, nextObsMinutes, noteOk, rrPossible, shouldEscalate } from "./ward.js";
+import { NEWS2_THRESHOLD_SAMPLE, ackDueAt, ackMinutesOk, escalationUnacknowledged, onDutyDoctors, informBlockers, news2, nextObsMinutes, noteOk, rrPossible, shouldEscalate } from "./ward.js";
 
 describe("NEWS2 (RCP 2017, scale 1) — sample, pending clinician sign-off", () => {
   it("a well adult scores 0 and is complete", () => {
@@ -58,3 +58,24 @@ describe("the ward round note (walkthrough B7)", async () => {
     expect(roundNoteBlockers({ ...emptyRoundNote(), p: "Continue IV antibiotics" })).toEqual([]);
   });
 });
+
+describe("escalation reach — unacknowledged in the app within N minutes (sample 15)", () => {
+  const raised = new Date("2026-10-06T01:00:00Z");
+  it("falls due N minutes after the raise; a nurse's logged call does not count, a doctor's acknowledgement does", () => {
+    const due = ackDueAt(raised, 15);
+    expect(due.toISOString()).toBe("2026-10-06T01:15:00.000Z");
+    expect(escalationUnacknowledged({ status: "raised", acknowledgedAt: null, ackDueAt: due }, new Date("2026-10-06T01:14:59Z"))).toBe(false);
+    expect(escalationUnacknowledged({ status: "doctor-informed", acknowledgedAt: null, ackDueAt: due }, new Date("2026-10-06T01:15:00Z"))).toBe(true);
+    expect(escalationUnacknowledged({ status: "raised", acknowledgedAt: new Date("2026-10-06T01:10:00Z"), ackDueAt: due }, new Date("2026-10-06T02:00:00Z"))).toBe(false);
+    expect(escalationUnacknowledged({ status: "resolved", acknowledgedAt: null, ackDueAt: due }, new Date("2026-10-06T02:00:00Z"))).toBe(false);
+  });
+  it("N is a facility setting within 5–120 minutes", () => {
+    expect(ackMinutesOk(15)).toBe(true); expect(ackMinutesOk(4)).toBe(false); expect(ackMinutesOk(121)).toBe(false); expect(ackMinutesOk(7.5)).toBe(false);
+  });
+  it("on duty: the facility's list (active doctors only), else every active doctor", () => {
+    expect(onDutyDoctors(["d1", "d2", "d3"], [])).toEqual(["d1", "d2", "d3"]);
+    expect(onDutyDoctors(["d1", "d2", "d3"], ["d2", "gone"])).toEqual(["d2"]);
+    expect(onDutyDoctors(["d1"], ["gone"])).toEqual(["d1"]); // a list with nobody active falls back to everyone
+  });
+});
+

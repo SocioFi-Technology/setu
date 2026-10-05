@@ -116,6 +116,8 @@ function EscalationCard({ esc, onChanged }: { esc: WardPatientView["escalations"
   return (
     <Card style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14, borderColor: "var(--danger-border)" }} data-testid="escalation" data-escalation-status={esc.status}>
       <b>{N("news2_n", { n: esc.peakScore })} · {hhmm(esc.raisedAt, bnNum)}</b>
+      {esc.unacknowledged && <Pill tone="crit" icon="bell-ring">{N("unacknowledged")}</Pill>}
+      {esc.acknowledgedBy && <span className="t-small">{N("acknowledged_by", { name: s.lang === "bn" ? esc.acknowledgedBy.nameBn : esc.acknowledgedBy.nameEn, t: hhmm(esc.acknowledgedAt, bnNum) })}</span>}
       <span className="t-small t-muted">{N("sample_rule")}</span>
       {esc.status === "raised" ? (<>
         <TextField label={N("spoke_to")} value={spokeTo} onChange={(e) => setSpokeTo(e.target.value)} name="spokeTo" />

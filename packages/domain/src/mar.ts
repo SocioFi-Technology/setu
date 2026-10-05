@@ -197,3 +197,18 @@ export function indentLineProblems(lines: { medicineKey: string; qty: number }[]
 /** After an issue: every line issued in full → issued; something issued → partially-issued. */
 export const indentStateAfter = (lines: { requested: number; issued: number }[]): "issued" | "partially-issued" | "requested" =>
   lines.every((l) => l.issued >= l.requested) ? "issued" : lines.some((l) => l.issued > 0) ? "partially-issued" : "requested";
+
+/* ───── a dose marked entered-in-error (Kamrul, 06/10/2026): when it took ward stock the nurse is asked "was the stock
+   drawn?" — "no" returns the units to the ward batches they came from, with the error reason; "yes" or "not sure"
+   moves nothing (a count corrects the ward). A controlled register line is never changed: a linked dose-error line
+   notes the error (and adds back what was returned). ───── */
+export type StockDrawn = "yes" | "no" | "unsure";
+export const STOCK_DRAWN: readonly StockDrawn[] = ["yes", "no", "unsure"];
+/** The units to put back per batch: only on "no", and only what the dose took (less anything already returned). */
+export function doseErrorReturns(answer: StockDrawn | null, taken: { batchId: string; qty: number }[], returned: { batchId: string; qty: number }[] = []): { batchId: string; qty: number }[] {
+  if (answer !== "no") return [];
+  return taken.map((t) => ({ batchId: t.batchId, qty: t.qty - returned.filter((r) => r.batchId === t.batchId).reduce((a, r) => a + r.qty, 0) })).filter((x) => x.qty > 0);
+}
+/** The question is asked only when the dose took units from ward stock. */
+export const doseErrorNeedsAnswer = (unitsTaken: number) => unitsTaken > 0;
+

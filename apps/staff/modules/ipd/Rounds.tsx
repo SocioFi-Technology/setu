@@ -43,6 +43,7 @@ function Worklist() {
             <span style={{ flex: 1, minWidth: 180 }}><b>{bn ? i.patient.nameBn : i.patient.nameEn || i.patient.nameBn}</b> <span className="t-small t-muted num">{i.patient.facilityNo} · {L.age(i.patient)} {L.sex(i.patient.sex)} · {N("day_n", { n: i.day })}</span></span>
             <News2Pill n={i.news2} />
             {i.escalation && <Pill tone="crit" icon="siren">{N("news2_n", { n: i.escalation.peakScore })}</Pill>}
+            {i.escalation?.unacknowledged && <span data-unacknowledged="1"><Pill tone="crit" icon="bell-ring">{N("unacknowledged_short")}</Pill></span>}
             {i.missedLast24h > 0 && <Pill tone="bad" icon="pill">{N("missed_n", { n: i.missedLast24h })}</Pill>}
             {i.notesSinceRound > 0 && <Pill tone="info" icon="notebook-pen">{N("notes_since", { n: i.notesSinceRound })}</Pill>}
             {i.draftId && <Pill tone="draft">{N("continue_round")}</Pill>}

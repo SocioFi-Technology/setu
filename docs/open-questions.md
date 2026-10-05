@@ -1107,3 +1107,16 @@ Commit after each step, push at the end of each session.
   the same medicine key, not the same generic.
 - The preparer is taken from the request without their PIN (the "never the preparer" witness rule relies on it).
 
+### Decided by Kamrul (06/10/2026) — session 1 defaults and 264–269
+- Controlled drug always witnessed, even off the high-alert list — **keep**.
+- Dose marked entered-in-error — **ask "was the stock drawn?"**: "no" posts a return to the ward location with the
+  error reason (shown for the next count); "yes" / "not sure" move nothing; the controlled register line stays, the
+  error noted against it. Built (ADR 0015 amendment 2).
+- Stopping an order needs the doctor's PIN — **keep**.  Held / refused before due, missed after the window, PRN given
+  or refused — **keep**.  264–269 — **accepted as built**.
+- **Escalation reach** — the engineering half built now: an escalation no doctor acknowledges in the app within N
+  minutes (facility setting, default 15) goes to every doctor on duty and shows "unacknowledged" on the ward board.
+  **For the clinician before the pilot:** N, and who counts as on duty (today: the facility's duty list in
+  Admin › Masters, else every active doctor). Built on every NEWS2 escalation, not only red ones — say if it should be
+  narrowed.
+

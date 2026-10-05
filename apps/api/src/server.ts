@@ -13,10 +13,12 @@ if (config.dbEnabled) {
   const { sweepPayments } = await import("./modules/billing.js");
   const { sweepSms } = await import("./modules/lab.js");
   const { sweepRefunds } = await import("./modules/refunds.js");
+  const { sweepEscalations } = await import("./modules/ward.js");
   const t = setInterval(() => {
     sweepPayments(new Date()).then((r) => { if (r.failed || r.settled) app.log.info(r, "payments sweep"); }).catch((e) => app.log.error({ err: e }, "payments sweep failed"));
     sweepSms(new Date()).then((r) => { if (r.sent || r.interrupted) app.log.info(r, "sms sweep"); }).catch((e) => app.log.error({ err: e }, "sms sweep failed"));
     sweepRefunds(new Date()).then((r) => { if (r.checked) app.log.info(r, "refunds sweep"); }).catch((e) => app.log.error({ err: e }, "refunds sweep failed"));
+    sweepEscalations(new Date()).then((r) => { if (r.widened) app.log.info(r, "escalation sweep"); }).catch((e) => app.log.error({ err: e }, "escalation sweep failed"));
   }, 60_000);
   t.unref?.();
 }

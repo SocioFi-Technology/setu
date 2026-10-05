@@ -32388,6 +32388,49 @@
                                   "string",
                                   "null"
                                 ]
+                              },
+                              "ackDueAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "acknowledgedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "acknowledgedBy": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "widenedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "unacknowledged": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -32404,7 +32447,12 @@
                               "instruction",
                               "resolvedAt",
                               "resolvedBy",
-                              "resolveNote"
+                              "resolveNote",
+                              "ackDueAt",
+                              "acknowledgedAt",
+                              "acknowledgedBy",
+                              "widenedAt",
+                              "unacknowledged"
                             ]
                           },
                           "doses": {
@@ -32735,6 +32783,49 @@
                                   "string",
                                   "null"
                                 ]
+                              },
+                              "ackDueAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "acknowledgedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "acknowledgedBy": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "widenedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "unacknowledged": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -32751,7 +32842,12 @@
                               "instruction",
                               "resolvedAt",
                               "resolvedBy",
-                              "resolveNote"
+                              "resolveNote",
+                              "ackDueAt",
+                              "acknowledgedAt",
+                              "acknowledgedBy",
+                              "widenedAt",
+                              "unacknowledged"
                             ]
                           }
                         },
@@ -33631,6 +33727,49 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "ackDueAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "acknowledgedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "acknowledgedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "widenedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "unacknowledged": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -33647,7 +33786,12 @@
                           "instruction",
                           "resolvedAt",
                           "resolvedBy",
-                          "resolveNote"
+                          "resolveNote",
+                          "ackDueAt",
+                          "acknowledgedAt",
+                          "acknowledgedBy",
+                          "widenedAt",
+                          "unacknowledged"
                         ]
                       }
                     },
@@ -34347,6 +34491,49 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "ackDueAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "acknowledgedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "acknowledgedBy": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "nameBn": {
+                              "type": "string"
+                            },
+                            "nameEn": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "nameBn",
+                            "nameEn"
+                          ]
+                        },
+                        "widenedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "unacknowledged": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -34363,7 +34550,12 @@
                         "instruction",
                         "resolvedAt",
                         "resolvedBy",
-                        "resolveNote"
+                        "resolveNote",
+                        "ackDueAt",
+                        "acknowledgedAt",
+                        "acknowledgedBy",
+                        "widenedAt",
+                        "unacknowledged"
                       ]
                     },
                     "escalated": {
@@ -34825,6 +35017,49 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "ackDueAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "acknowledgedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "acknowledgedBy": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "nameBn": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "nameBn",
+                        "nameEn"
+                      ]
+                    },
+                    "widenedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "unacknowledged": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -34841,7 +35076,12 @@
                     "instruction",
                     "resolvedAt",
                     "resolvedBy",
-                    "resolveNote"
+                    "resolveNote",
+                    "ackDueAt",
+                    "acknowledgedAt",
+                    "acknowledgedBy",
+                    "widenedAt",
+                    "unacknowledged"
                   ]
                 }
               }
@@ -35248,6 +35488,49 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "ackDueAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "acknowledgedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "acknowledgedBy": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "nameBn": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "nameBn",
+                        "nameEn"
+                      ]
+                    },
+                    "widenedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "unacknowledged": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -35264,7 +35547,12 @@
                     "instruction",
                     "resolvedAt",
                     "resolvedBy",
-                    "resolveNote"
+                    "resolveNote",
+                    "ackDueAt",
+                    "acknowledgedAt",
+                    "acknowledgedBy",
+                    "widenedAt",
+                    "unacknowledged"
                   ]
                 }
               }
@@ -36920,6 +37208,23 @@
                                         "string",
                                         "null"
                                       ]
+                                    },
+                                    "stockTaken": {
+                                      "type": "integer"
+                                    },
+                                    "errorStockDrawn": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "enum": [
+                                        "yes",
+                                        "no",
+                                        "unsure"
+                                      ]
+                                    },
+                                    "returned": {
+                                      "type": "integer"
                                     }
                                   },
                                   "required": [
@@ -36935,7 +37240,10 @@
                                     "witness",
                                     "checks",
                                     "error",
-                                    "amountGiven"
+                                    "amountGiven",
+                                    "stockTaken",
+                                    "errorStockDrawn",
+                                    "returned"
                                   ]
                                 },
                                 "errored": {
@@ -37117,6 +37425,23 @@
                                           "string",
                                           "null"
                                         ]
+                                      },
+                                      "stockTaken": {
+                                        "type": "integer"
+                                      },
+                                      "errorStockDrawn": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ],
+                                        "enum": [
+                                          "yes",
+                                          "no",
+                                          "unsure"
+                                        ]
+                                      },
+                                      "returned": {
+                                        "type": "integer"
                                       }
                                     },
                                     "required": [
@@ -37132,7 +37457,10 @@
                                       "witness",
                                       "checks",
                                       "error",
-                                      "amountGiven"
+                                      "amountGiven",
+                                      "stockTaken",
+                                      "errorStockDrawn",
+                                      "returned"
                                     ]
                                   }
                                 }
@@ -37324,6 +37652,23 @@
                                     "string",
                                     "null"
                                   ]
+                                },
+                                "stockTaken": {
+                                  "type": "integer"
+                                },
+                                "errorStockDrawn": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "enum": [
+                                    "yes",
+                                    "no",
+                                    "unsure"
+                                  ]
+                                },
+                                "returned": {
+                                  "type": "integer"
                                 }
                               },
                               "required": [
@@ -37339,7 +37684,10 @@
                                 "witness",
                                 "checks",
                                 "error",
-                                "amountGiven"
+                                "amountGiven",
+                                "stockTaken",
+                                "errorStockDrawn",
+                                "returned"
                               ]
                             }
                           },
@@ -37636,6 +37984,23 @@
                               "null"
                             ]
                           },
+                          "stockTaken": {
+                            "type": "integer"
+                          },
+                          "errorStockDrawn": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "yes",
+                              "no",
+                              "unsure"
+                            ]
+                          },
+                          "returned": {
+                            "type": "integer"
+                          },
                           "orderId": {
                             "type": "string"
                           },
@@ -37657,6 +38022,9 @@
                           "checks",
                           "error",
                           "amountGiven",
+                          "stockTaken",
+                          "errorStockDrawn",
+                          "returned",
                           "orderId",
                           "medicine"
                         ]
@@ -38678,6 +39046,23 @@
                                         "string",
                                         "null"
                                       ]
+                                    },
+                                    "stockTaken": {
+                                      "type": "integer"
+                                    },
+                                    "errorStockDrawn": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "enum": [
+                                        "yes",
+                                        "no",
+                                        "unsure"
+                                      ]
+                                    },
+                                    "returned": {
+                                      "type": "integer"
                                     }
                                   },
                                   "required": [
@@ -38693,7 +39078,10 @@
                                     "witness",
                                     "checks",
                                     "error",
-                                    "amountGiven"
+                                    "amountGiven",
+                                    "stockTaken",
+                                    "errorStockDrawn",
+                                    "returned"
                                   ]
                                 },
                                 "errored": {
@@ -38875,6 +39263,23 @@
                                           "string",
                                           "null"
                                         ]
+                                      },
+                                      "stockTaken": {
+                                        "type": "integer"
+                                      },
+                                      "errorStockDrawn": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ],
+                                        "enum": [
+                                          "yes",
+                                          "no",
+                                          "unsure"
+                                        ]
+                                      },
+                                      "returned": {
+                                        "type": "integer"
                                       }
                                     },
                                     "required": [
@@ -38890,7 +39295,10 @@
                                       "witness",
                                       "checks",
                                       "error",
-                                      "amountGiven"
+                                      "amountGiven",
+                                      "stockTaken",
+                                      "errorStockDrawn",
+                                      "returned"
                                     ]
                                   }
                                 }
@@ -39082,6 +39490,23 @@
                                     "string",
                                     "null"
                                   ]
+                                },
+                                "stockTaken": {
+                                  "type": "integer"
+                                },
+                                "errorStockDrawn": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "enum": [
+                                    "yes",
+                                    "no",
+                                    "unsure"
+                                  ]
+                                },
+                                "returned": {
+                                  "type": "integer"
                                 }
                               },
                               "required": [
@@ -39097,7 +39522,10 @@
                                 "witness",
                                 "checks",
                                 "error",
-                                "amountGiven"
+                                "amountGiven",
+                                "stockTaken",
+                                "errorStockDrawn",
+                                "returned"
                               ]
                             }
                           },
@@ -39394,6 +39822,23 @@
                               "null"
                             ]
                           },
+                          "stockTaken": {
+                            "type": "integer"
+                          },
+                          "errorStockDrawn": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "yes",
+                              "no",
+                              "unsure"
+                            ]
+                          },
+                          "returned": {
+                            "type": "integer"
+                          },
                           "orderId": {
                             "type": "string"
                           },
@@ -39415,6 +39860,9 @@
                           "checks",
                           "error",
                           "amountGiven",
+                          "stockTaken",
+                          "errorStockDrawn",
+                          "returned",
                           "orderId",
                           "medicine"
                         ]
@@ -39943,6 +40391,14 @@
                   "reason": {
                     "type": "string",
                     "maxLength": 500
+                  },
+                  "stockDrawn": {
+                    "type": "string",
+                    "enum": [
+                      "yes",
+                      "no",
+                      "unsure"
+                    ]
                   }
                 },
                 "required": [
@@ -40664,6 +41120,23 @@
                                         "string",
                                         "null"
                                       ]
+                                    },
+                                    "stockTaken": {
+                                      "type": "integer"
+                                    },
+                                    "errorStockDrawn": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "enum": [
+                                        "yes",
+                                        "no",
+                                        "unsure"
+                                      ]
+                                    },
+                                    "returned": {
+                                      "type": "integer"
                                     }
                                   },
                                   "required": [
@@ -40679,7 +41152,10 @@
                                     "witness",
                                     "checks",
                                     "error",
-                                    "amountGiven"
+                                    "amountGiven",
+                                    "stockTaken",
+                                    "errorStockDrawn",
+                                    "returned"
                                   ]
                                 },
                                 "errored": {
@@ -40861,6 +41337,23 @@
                                           "string",
                                           "null"
                                         ]
+                                      },
+                                      "stockTaken": {
+                                        "type": "integer"
+                                      },
+                                      "errorStockDrawn": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ],
+                                        "enum": [
+                                          "yes",
+                                          "no",
+                                          "unsure"
+                                        ]
+                                      },
+                                      "returned": {
+                                        "type": "integer"
                                       }
                                     },
                                     "required": [
@@ -40876,7 +41369,10 @@
                                       "witness",
                                       "checks",
                                       "error",
-                                      "amountGiven"
+                                      "amountGiven",
+                                      "stockTaken",
+                                      "errorStockDrawn",
+                                      "returned"
                                     ]
                                   }
                                 }
@@ -41068,6 +41564,23 @@
                                     "string",
                                     "null"
                                   ]
+                                },
+                                "stockTaken": {
+                                  "type": "integer"
+                                },
+                                "errorStockDrawn": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "enum": [
+                                    "yes",
+                                    "no",
+                                    "unsure"
+                                  ]
+                                },
+                                "returned": {
+                                  "type": "integer"
                                 }
                               },
                               "required": [
@@ -41083,7 +41596,10 @@
                                 "witness",
                                 "checks",
                                 "error",
-                                "amountGiven"
+                                "amountGiven",
+                                "stockTaken",
+                                "errorStockDrawn",
+                                "returned"
                               ]
                             }
                           },
@@ -41380,6 +41896,23 @@
                               "null"
                             ]
                           },
+                          "stockTaken": {
+                            "type": "integer"
+                          },
+                          "errorStockDrawn": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "yes",
+                              "no",
+                              "unsure"
+                            ]
+                          },
+                          "returned": {
+                            "type": "integer"
+                          },
                           "orderId": {
                             "type": "string"
                           },
@@ -41401,6 +41934,9 @@
                           "checks",
                           "error",
                           "amountGiven",
+                          "stockTaken",
+                          "errorStockDrawn",
+                          "returned",
                           "orderId",
                           "medicine"
                         ]
@@ -42426,6 +42962,23 @@
                                         "string",
                                         "null"
                                       ]
+                                    },
+                                    "stockTaken": {
+                                      "type": "integer"
+                                    },
+                                    "errorStockDrawn": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "enum": [
+                                        "yes",
+                                        "no",
+                                        "unsure"
+                                      ]
+                                    },
+                                    "returned": {
+                                      "type": "integer"
                                     }
                                   },
                                   "required": [
@@ -42441,7 +42994,10 @@
                                     "witness",
                                     "checks",
                                     "error",
-                                    "amountGiven"
+                                    "amountGiven",
+                                    "stockTaken",
+                                    "errorStockDrawn",
+                                    "returned"
                                   ]
                                 },
                                 "errored": {
@@ -42623,6 +43179,23 @@
                                           "string",
                                           "null"
                                         ]
+                                      },
+                                      "stockTaken": {
+                                        "type": "integer"
+                                      },
+                                      "errorStockDrawn": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ],
+                                        "enum": [
+                                          "yes",
+                                          "no",
+                                          "unsure"
+                                        ]
+                                      },
+                                      "returned": {
+                                        "type": "integer"
                                       }
                                     },
                                     "required": [
@@ -42638,7 +43211,10 @@
                                       "witness",
                                       "checks",
                                       "error",
-                                      "amountGiven"
+                                      "amountGiven",
+                                      "stockTaken",
+                                      "errorStockDrawn",
+                                      "returned"
                                     ]
                                   }
                                 }
@@ -42830,6 +43406,23 @@
                                     "string",
                                     "null"
                                   ]
+                                },
+                                "stockTaken": {
+                                  "type": "integer"
+                                },
+                                "errorStockDrawn": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "enum": [
+                                    "yes",
+                                    "no",
+                                    "unsure"
+                                  ]
+                                },
+                                "returned": {
+                                  "type": "integer"
                                 }
                               },
                               "required": [
@@ -42845,7 +43438,10 @@
                                 "witness",
                                 "checks",
                                 "error",
-                                "amountGiven"
+                                "amountGiven",
+                                "stockTaken",
+                                "errorStockDrawn",
+                                "returned"
                               ]
                             }
                           },
@@ -43142,6 +43738,23 @@
                               "null"
                             ]
                           },
+                          "stockTaken": {
+                            "type": "integer"
+                          },
+                          "errorStockDrawn": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "yes",
+                              "no",
+                              "unsure"
+                            ]
+                          },
+                          "returned": {
+                            "type": "integer"
+                          },
                           "orderId": {
                             "type": "string"
                           },
@@ -43163,6 +43776,9 @@
                           "checks",
                           "error",
                           "amountGiven",
+                          "stockTaken",
+                          "errorStockDrawn",
+                          "returned",
                           "orderId",
                           "medicine"
                         ]
@@ -43642,11 +44258,62 @@
                           "batches"
                         ]
                       }
+                    },
+                    "returns": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "medicine": {
+                            "type": "string"
+                          },
+                          "batchNo": {
+                            "type": "string"
+                          },
+                          "qty": {
+                            "type": "integer"
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "by": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "at": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "medicine",
+                          "batchNo",
+                          "qty",
+                          "reason",
+                          "by",
+                          "at"
+                        ]
+                      }
                     }
                   },
                   "required": [
                     "ward",
-                    "items"
+                    "items",
+                    "returns"
                   ]
                 }
               }
@@ -46189,6 +46856,49 @@
                                   "string",
                                   "null"
                                 ]
+                              },
+                              "ackDueAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "acknowledgedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "acknowledgedBy": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "widenedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "unacknowledged": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -46205,7 +46915,12 @@
                               "instruction",
                               "resolvedAt",
                               "resolvedBy",
-                              "resolveNote"
+                              "resolveNote",
+                              "ackDueAt",
+                              "acknowledgedAt",
+                              "acknowledgedBy",
+                              "widenedAt",
+                              "unacknowledged"
                             ]
                           },
                           "missedLast24h": {
@@ -46915,6 +47630,49 @@
                                   "string",
                                   "null"
                                 ]
+                              },
+                              "ackDueAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "acknowledgedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "acknowledgedBy": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "widenedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "unacknowledged": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -46931,7 +47689,12 @@
                               "instruction",
                               "resolvedAt",
                               "resolvedBy",
-                              "resolveNote"
+                              "resolveNote",
+                              "ackDueAt",
+                              "acknowledgedAt",
+                              "acknowledgedBy",
+                              "widenedAt",
+                              "unacknowledged"
                             ]
                           }
                         },
@@ -48592,6 +49355,49 @@
                                   "string",
                                   "null"
                                 ]
+                              },
+                              "ackDueAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "acknowledgedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "acknowledgedBy": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "widenedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "unacknowledged": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -48608,7 +49414,12 @@
                               "instruction",
                               "resolvedAt",
                               "resolvedBy",
-                              "resolveNote"
+                              "resolveNote",
+                              "ackDueAt",
+                              "acknowledgedAt",
+                              "acknowledgedBy",
+                              "widenedAt",
+                              "unacknowledged"
                             ]
                           }
                         },
@@ -50410,6 +51221,49 @@
                                   "string",
                                   "null"
                                 ]
+                              },
+                              "ackDueAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "acknowledgedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "acknowledgedBy": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "widenedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "unacknowledged": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -50426,7 +51280,12 @@
                               "instruction",
                               "resolvedAt",
                               "resolvedBy",
-                              "resolveNote"
+                              "resolveNote",
+                              "ackDueAt",
+                              "acknowledgedAt",
+                              "acknowledgedBy",
+                              "widenedAt",
+                              "unacknowledged"
                             ]
                           }
                         },
@@ -52189,6 +53048,49 @@
                                   "string",
                                   "null"
                                 ]
+                              },
+                              "ackDueAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "acknowledgedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "acknowledgedBy": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "widenedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "unacknowledged": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -52205,7 +53107,12 @@
                               "instruction",
                               "resolvedAt",
                               "resolvedBy",
-                              "resolveNote"
+                              "resolveNote",
+                              "ackDueAt",
+                              "acknowledgedAt",
+                              "acknowledgedBy",
+                              "widenedAt",
+                              "unacknowledged"
                             ]
                           }
                         },
@@ -54121,6 +55028,49 @@
                                   "string",
                                   "null"
                                 ]
+                              },
+                              "ackDueAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "acknowledgedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "acknowledgedBy": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "widenedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "unacknowledged": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -54137,7 +55087,12 @@
                               "instruction",
                               "resolvedAt",
                               "resolvedBy",
-                              "resolveNote"
+                              "resolveNote",
+                              "ackDueAt",
+                              "acknowledgedAt",
+                              "acknowledgedBy",
+                              "widenedAt",
+                              "unacknowledged"
                             ]
                           }
                         },
@@ -55821,6 +56776,49 @@
                                   "string",
                                   "null"
                                 ]
+                              },
+                              "ackDueAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "acknowledgedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "acknowledgedBy": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "widenedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "unacknowledged": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -55837,7 +56835,12 @@
                               "instruction",
                               "resolvedAt",
                               "resolvedBy",
-                              "resolveNote"
+                              "resolveNote",
+                              "ackDueAt",
+                              "acknowledgedAt",
+                              "acknowledgedBy",
+                              "widenedAt",
+                              "unacknowledged"
                             ]
                           }
                         },

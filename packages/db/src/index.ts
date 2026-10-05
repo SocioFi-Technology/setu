@@ -102,6 +102,12 @@ export async function refundSweepTargets(before: Date): Promise<{ tenantId: stri
   return rows.map((r) => ({ tenantId: r.tenant_id, allocationId: r.allocation_id }));
 }
 
+/** Open escalations past their in-app acknowledgement time, not yet raised to the doctors on duty (ADR 0015). */
+export async function escalationSweepTargets(now: Date): Promise<{ tenantId: string; escalationId: string }[]> {
+  const rows = await prisma.$queryRaw<{ tenant_id: string; escalation_id: string }[]>`SELECT * FROM escalation_sweep_targets(${now}::timestamptz)`;
+  return rows.map((r) => ({ tenantId: r.tenant_id, escalationId: r.escalation_id }));
+}
+
 /** The public refund-voucher check (ADR 0013): facility, voucher number, date, amount only. */
 export async function refundVerifyLookup(code: string): Promise<{ facilityEn: string; facilityBn: string | null; number: string; createdAt: string; amountPaisa: number } | null> {
   const rows = await prisma.$queryRaw<{ hit: { facilityEn: string; facilityBn: string | null; number: string; createdAt: string; amountPaisa: number } | null }[]>`SELECT refund_verify_lookup(${code}::text) AS hit`;
