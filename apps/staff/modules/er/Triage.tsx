@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import type { ErArrivalRequest, ErBoard, ErBoardItem, PatientSummary } from "@setu/contracts";
 import { format, paediatricPrompt, triageOverdue } from "@setu/domain";
 import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast } from "@setu/ui";
-import { ApiFailure, er, fd } from "../../lib/api";
+import { ApiFailure, er } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { LEVEL_TONE, erBanner, useE, useErr, useLabels, waitedNow } from "./common";
 
@@ -168,7 +168,7 @@ function ArrivalDialog({ b, onClose, onDone }: { b: ErBoard; onClose: () => void
   const key = useRef(crypto.randomUUID());
   useEffect(() => {
     if (q.trim().length < 2) { setHits([]); return; }
-    const t = setTimeout(() => { fd.search(q.trim()).then((r) => setHits(r.items ?? [])).catch(() => setHits([])); }, 250);
+    const t = setTimeout(() => { er.search(q.trim()).then((r) => setHits(r.items ?? [])).catch(() => setHits([])); }, 250);
     return () => clearTimeout(t);
   }, [q]);
   const ready = complaint.trim().length >= 2 && (mode === "registered" ? Boolean(picked) : true);

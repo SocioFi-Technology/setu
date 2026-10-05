@@ -3,11 +3,12 @@
    transaction under RLS and audits what it reveals or changes. */
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { ErArrivalRequest, ErAssignRequest, ErCareOrderRequest, ErDispositionRequest, ErNotesRequest, ErOrderRequest, ErTriageRequest, type ErArrivalResponse, type ErBoard, type ErBoardItem, type ErVisitView } from "@setu/contracts";
+import { ErArrivalRequest, ErAssignRequest, ErCareOrderRequest, ErDispositionRequest, ErNotesRequest, ErOrderRequest, ErTriageRequest, PatientSearchQuery, type ErArrivalResponse, type ErBoard, type ErBoardItem, type ErVisitView, type PatientSearchResponse } from "@setu/contracts";
 import { authorize } from "@setu/domain";
 import { command, query } from "../command.js";
 import { err, forbidden } from "../errors.js";
 import { arrive, assign, erBoard, erVisitView, placeOrder, saveNotes, signDisposition, toggleCareOrder, triage } from "../modules/er.js";
+import { searchPatients } from "../modules/frontdesk.js";
 import { requireSession } from "../plugins/session.js";
 
 function requireEr(req: FastifyRequest, screen: "triage" | "orders") {
@@ -28,6 +29,12 @@ export async function erRoutes(app: FastifyInstance) {
       const b = await erBoard(tx, s, new Date());
       return { body: b, audit: [{ action: "view", entity: "Encounter", detail: { purpose: "er-board", count: b.items.length, patientIds: b.items.map((i) => i.patient.id) } }] };
     });
+  });
+  /* The ER team finds the patient for an arrival (the desk's search screen is not theirs); the same search, the same audit. */
+  app.get("/v1/er/patients", async (req): Promise<PatientSearchResponse> => {
+    requireClinical(requireEr(req, "triage"));
+    const { q } = PatientSearchQuery.parse(req.query);
+    return query(req, async (tx) => { const r = await searchPatients(tx, q); return { body: r, audit: [{ action: "view", entity: "Patient", detail: { purpose: "er-arrival-search", mode: r.mode, count: r.items.length } }] }; });
   });
   app.post("/v1/er/arrivals", { config: { ownTx: true } }, async (req, reply): Promise<ErArrivalResponse> => {
     requireClinical(requireEr(req, "triage"));

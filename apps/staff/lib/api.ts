@@ -304,6 +304,7 @@ export const adm = {
    the server's answers); `key`: one per filled-in form or per opening of the PIN sheet, so a retry is the same request. */
 export const er = {
   board: () => call<ErBoard>("GET", "/v1/er/board"),
+  search: (q: string) => call<PatientSearchResponse>("GET", "/v1/er/patients?q=" + encodeURIComponent(q)),
   arrive: (body: ErArrivalRequest, key: string) => call<ErArrivalResponse>("POST", "/v1/er/arrivals", body, key),
   triage: (id: string, body: ErTriageRequest) => call<ErBoardItem>("POST", `/v1/er/encounters/${enc(id)}/triage`, body, k()),
   assign: (id: string, body: ErAssignRequest) => call<ErBoardItem>("POST", `/v1/er/encounters/${enc(id)}/assign`, body, k()),
