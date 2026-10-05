@@ -12,3 +12,5 @@ export * from "./pharmacy.js";
 export * from "./purchasing.js";
 export * from "./admin.js";
 export * from "./refunds.js";
+export * from "./er.js";
+export * from "./ipd.js";
