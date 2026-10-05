@@ -283,3 +283,12 @@ export const SYNC: Table<SyncState, SyncEvent> = {
   conflict: { resolve: "pending" },
   "failed-retry": { retry: "pending" },
 };
+
+/* ADR 0016: care plan tasks and the shift handover. */
+export type CareTaskState = "requested" | "completed" | "cancelled";
+export type CareTaskEvent = "complete" | "cancel";
+export const CARE_TASK: Table<CareTaskState, CareTaskEvent> = { requested: { complete: "completed", cancel: "cancelled" }, completed: {}, cancelled: {} };
+export type HandoverState = "draft" | "outgoing-signed" | "accepted";
+export type HandoverEvent = "sign" | "accept" | "query";
+export const HANDOVER: Table<HandoverState, HandoverEvent> = { draft: { sign: "outgoing-signed" }, "outgoing-signed": { accept: "accepted", query: "draft" }, accepted: {} };
+

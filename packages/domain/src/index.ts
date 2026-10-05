@@ -25,3 +25,4 @@ export * from "./er.js";
 export * from "./ipd.js";
 export * from "./ward.js";
 export * from "./mar.js";
+export * from "./nursing.js";
