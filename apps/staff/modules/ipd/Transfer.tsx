@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { BedBoard, BedView } from "@setu/contracts";
 import { bedPickable, format } from "@setu/domain";
 import { Button, Callout, Card, PageState, Segmented, TextArea, useToast } from "@setu/ui";
-import { ipd, ward } from "../../lib/api";
+import { ApiFailure, ipd, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useErr, useLabels, useN } from "../nur/common";
 import { toBanner } from "../fd/common";
@@ -25,7 +25,7 @@ export function IpdTransfer() {
   const pending = all.find((b) => b.assignment?.status === "reserved" && b.assignment.encounterId === enc) ?? null;
   useEffect(() => {
     if (!current?.patient) { s.setPatient(null); return; }
-    s.setPatient({ ...toBanner(current.patient, `${L.age(current.patient)} ${L.sex(current.patient.sex)}`), location: `${current.ward.name} · ${current.name}` });
+    s.setPatient({ ...toBanner(current.patient, `${L.age(current.patient)} ${L.sex(current.patient.sex)}`), location: `${s.lang === "bn" ? current.ward.nameBn ?? current.ward.name : current.ward.name} · ${current.name}` });
   }, [current?.id, s.lang]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => s.setPatient(null), []); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <Callout tone="warn" icon="triangle-alert">{failed}</Callout>;
@@ -41,7 +41,7 @@ export function IpdTransfer() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8 }}>
           {occupied.map((b) => (
             <button key={b.id} type="button" className="card" data-pick-bed={b.name} onClick={() => router.push(`/m/ipd/transfer?enc=${encodeURIComponent(b.assignment!.encounterId)}`)} style={{ textAlign: "left", padding: 12, display: "flex", flexDirection: "column", gap: 4, cursor: "pointer" }}>
-              <b className="num">{b.ward.name} · {b.name}</b><span>{bn ? b.patient?.nameBn : b.patient?.nameEn || b.patient?.nameBn}</span>
+              <b className="num">{bn ? b.ward.nameBn ?? b.ward.name : b.ward.name} · {b.name}</b><span>{bn ? b.patient?.nameBn : b.patient?.nameEn || b.patient?.nameBn}</span>
             </button>
           ))}
         </div>
@@ -53,6 +53,7 @@ export function IpdTransfer() {
 
 function MoveForm({ board, current, pending, onDone }: { board: BedBoard; current: BedView; pending: BedView | null; onDone: (msg: string) => Promise<void> }) {
   const s = useSession(); const N = useN(); const err = useErr();
+  const wn = (b: BedView) => (s.lang === "bn" ? b.ward.nameBn ?? b.ward.name : b.ward.name);
   const admissionId = current.assignment?.admissionId ?? "";
   const patientId = current.patient?.id ?? "";
   const [cls, setCls] = useState(current.bedClass); const [bedId, setBedId] = useState<string | null>(null);
@@ -67,7 +68,7 @@ function MoveForm({ board, current, pending, onDone }: { board: BedBoard; curren
   const rate = (c: string) => board.classes.find((x) => x.key === c)?.perDayPaisa ?? 0;
   const diff = chosen ? rate(chosen.bedClass) - rate(current.bedClass) : 0;
   const ok = !!chosen && reason.trim().length >= 5 && !!admissionId && s.online && !busy && !pending;
-  const run = async (f: () => Promise<string>) => { setBusy(true); setMsg(null); try { await onDone(await f()); } catch (e) { key.current = crypto.randomUUID(); setMsg(err(e)); } finally { setBusy(false); } };
+  const run = async (f: () => Promise<string>) => { setBusy(true); setMsg(null); try { await onDone(await f()); } catch (e) { if (e instanceof ApiFailure) key.current = crypto.randomUUID(); setMsg(err(e)); } finally { setBusy(false); } };
   const move = () => run(async () => {
     const v = await ward.move(admissionId, { bedId: chosen!.id, reason: reason.trim(), handoverNote: handover.trim() || undefined, mode }, key.current);
     key.current = crypto.randomUUID();
@@ -76,10 +77,10 @@ function MoveForm({ board, current, pending, onDone }: { board: BedBoard; curren
   return (
     <div data-screen="ipd/transfer" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
       <h1 className="t-h2" style={{ margin: 0 }}>{N("move_title")}</h1>
-      <span data-testid="move-from">{N("move_from", { bed: `${current.ward.name} · ${current.name}` })}</span>
+      <span data-testid="move-from">{N("move_from", { bed: `${wn(current)} · ${current.name}` })}</span>
       {pending && (
         <Card style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14 }} data-testid="move-pending">
-          <b>{N("reserved", { bed: `${pending.ward.name} · ${pending.name}` })}</b>
+          <b>{N("reserved", { bed: `${wn(pending)} · ${pending.name}` })}</b>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
             <Button variant="primary" icon="badge-check" disabled={busy || !s.online} onClick={() => void run(async () => { const v = await ward.arrive(admissionId); return N("moved", { bed: v.bed.name }); })} data-testid="move-arrive">{N("arrived")}</Button>
             <TextArea label={N("reason")} value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} rows={1} name="cancelReason" />

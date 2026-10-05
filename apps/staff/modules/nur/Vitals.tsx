@@ -7,9 +7,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { WardPatientView, WardVitalsRequest } from "@setu/contracts";
-import { CONSCIOUSNESS, informBlockers, news2, shouldEscalate, type Consciousness } from "@setu/domain";
+import { CONSCIOUSNESS, format, informBlockers, news2, shouldEscalate, type Consciousness } from "@setu/domain";
 import { Button, Callout, Card, Pill, Segmented, TextArea, TextField, useToast } from "@setu/ui";
-import { ward } from "../../lib/api";
+import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { News2Pill, WardPatientPicker, hhmm, useErr, useN, useWardBanner } from "./common";
 
@@ -39,7 +39,7 @@ function VitalsFor({ enc }: { enc: string }) {
   const live = news2({ rr: num(f.rr), spo2: num(f.spo2), onOxygen: f.onOxygen, sbp: num(f.sbp), pulse: num(f.pulse), tempF: num(f.temp), consciousness: f.consciousness || undefined });
   const anyValue = [f.rr, f.spo2, f.sbp, f.pulse, f.temp].some((x) => x.trim() !== "") || f.consciousness !== "";
   const atThreshold = shouldEscalate(live, v.rule.threshold);
-  const set = (k: keyof Form) => (e: { target: { value: string } }) => { setF({ ...f, [k]: e.target.value.replace(/[^\d.]/g, "") }); setSave({ st: "idle" }); };
+  const set = (k: keyof Form) => (e: { target: { value: string } }) => { setF({ ...f, [k]: format.toEn(e.target.value).replace(/[^\d.]/g, "") }); setSave({ st: "idle" }); };
   const submit = async () => {
     if (!anyValue || save.st === "saving") return;
     setSave({ st: "saving" }); setMsg(null);
@@ -50,17 +50,17 @@ function VitalsFor({ enc }: { enc: string }) {
     try {
       const r = await ward.vitals(enc, body, key.current);
       key.current = crypto.randomUUID();
-      if (r.queued) { setSave({ st: "queued", score: live.total, escalated: atThreshold }); return; }
+      if (r.queued) { setSave({ st: "queued", score: live.total, escalated: atThreshold }); setF(EMPTY); return; }
       setSave({ st: "saved", at: r.data.batch.recordedAt, escalated: r.data.escalated, next: r.data.nextObsDueAt, score: r.data.news2.total });
       if (r.data.escalated) toast(N("escalated"), "siren");
       setF(EMPTY); await load();
-    } catch (e) { key.current = crypto.randomUUID(); setSave({ st: "idle" }); setMsg(err(e)); }
+    } catch (e) { if (e instanceof ApiFailure) key.current = crypto.randomUUID(); setSave({ st: "idle" }); setMsg(err(e)); }
   };
   const open = v.escalations.filter((x) => x.status !== "resolved");
   return (
     <div data-screen="nur/vitals" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
       <h1 className="t-h2" style={{ margin: 0 }}>{N("vitals_title")}</h1>
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: 14, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14, alignItems: "start" }}>
         <Card style={{ display: "flex", flexDirection: "column", gap: 12, padding: 16 }} data-testid="vitals-form">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
             <TextField label={N("rr")} value={f.rr} onChange={set("rr")} inputMode="numeric" name="rr" />

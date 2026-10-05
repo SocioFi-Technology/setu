@@ -132,7 +132,7 @@ export async function pharmacyIndents(tx: Tx, s: SessionData, status: string | u
 }
 export async function wardStock(tx: Tx, s: SessionData, wardId: string): Promise<WardStock> {
   const ward = await wardHere(tx, s, wardId);
-  const rows = await tx.stockBatch.findMany({ where: { organizationId: s.organizationId, location: wardStockLocation(ward.id), qtyOnHand: { gt: 0 } }, orderBy: [{ medicineKey: "asc" }, { expiry: "asc" }] });
+  const rows = await tx.stockBatch.findMany({ where: { organizationId: s.organizationId, location: wardStockLocation(ward.id), qtyOnHand: { gt: 0 }, expiry: { gte: dhakaDay(new Date()) } }, orderBy: [{ medicineKey: "asc" }, { expiry: "asc" }] });
   const meds = new Map((await tx.medicine.findMany({ where: { key: { in: [...new Set(rows.map((r) => r.medicineKey))] } } })).map((m) => [m.key, m]));
   const keys = [...new Set(rows.map((r) => r.medicineKey))];
   return { ward: { id: ward.id, name: ward.name }, items: keys.map((k) => { const b = rows.filter((r) => r.medicineKey === k), m = meds.get(k); return { medicineKey: k, name: m ? `${m.brand} ${m.strength}` : k, issueUnit: m?.issueUnit ?? "unit", controlled: Boolean(m?.controlled), qty: b.reduce((a, x) => a + x.qtyOnHand, 0), batches: b.map((x) => ({ batchNo: x.batchNo, expiry: x.expiry, qty: x.qtyOnHand })) }; }) };

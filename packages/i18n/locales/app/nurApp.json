@@ -894,5 +894,149 @@
   "acknowledge": [
     "জেনে রাখলাম",
     "Acknowledge"
+  ],
+  "rx_same-medicine": [
+    "একই ওষুধ আগে থেকেই চলছে — একটি সরান বা দুটোই রাখুন",
+    "the same medicine is already ordered — remove one or keep both"
+  ],
+  "rx_same-class": [
+    "একই শ্রেণির ওষুধ চলছে",
+    "a medicine of the same class is already ordered"
+  ],
+  "rx_interaction": [
+    "ওষুধের মিথস্ক্রিয়া",
+    "drug interaction"
+  ],
+  "lp_unknown_medicine": [
+    "ওষুধ বাছুন",
+    "pick a medicine"
+  ],
+  "lp_route": [
+    "এই ওষুধের পথ নয়",
+    "not a route of this medicine"
+  ],
+  "lp_dose_text": [
+    "ডোজ লিখুন",
+    "write the dose"
+  ],
+  "lp_dose_qty": [
+    "প্রতি ডোজে ইউনিট লিখুন",
+    "units per dose"
+  ],
+  "lp_times": [
+    "সময় HH:MM (অন্তত একটি)",
+    "times as HH:MM (at least one)"
+  ],
+  "lp_prn_max": [
+    "PRN-এ ২৪ ঘণ্টার সর্বোচ্চ লিখুন",
+    "the PRN maximum per 24 h"
+  ],
+  "lp_prn_with_times": [
+    "PRN-এ সময় নয়",
+    "no times on a PRN line"
+  ],
+  "ost_active": [
+    "সক্রিয়",
+    "active"
+  ],
+  "ost_stopped": [
+    "বন্ধ",
+    "stopped"
+  ],
+  "ost_superseded": [
+    "প্রতিস্থাপিত",
+    "superseded"
+  ],
+  "ost_completed": [
+    "সম্পন্ন",
+    "completed"
+  ],
+  "escalation_banner_informed": [
+    "এস্কেলেশন: {bed} · {name} · NEWS2 {n} — ডাক্তারকে জানানো হয়েছে",
+    "Escalation: {bed} · {name} · NEWS2 {n} — doctor informed"
+  ],
+  "blocker_line_stopped": [
+    "{drug}: খসড়া খোলার পর এই অর্ডার বন্ধ হয়েছে — লাইনটি সরান, নইলে ওষুধ আবার শুরু হবে",
+    "{drug}: this order was stopped after the draft opened — remove the line, or the drug restarts"
+  ],
+  "blocker_too_long": [
+    "লেখা খুব দীর্ঘ",
+    "Text too long"
+  ],
+  "b_vial_required": [
+    "আগে ভায়াল খুলুন (খোলার সময় নথিভুক্ত হবে)",
+    "Open a vial first (its opened-at is recorded)"
+  ],
+  "b_amount_required": [
+    "কত দেওয়া হলো লিখুন (যেমন ৬ IU)",
+    "Write the amount given (e.g. 6 IU)"
+  ],
+  "b_recent_dose": [
+    "এই ওষুধ আগের ডোজে কিছুক্ষণ আগে দেওয়া হয়েছে — কারণ লিখুন",
+    "This drug was given a short while ago under the earlier dose — give a reason"
+  ],
+  "b_prn_backdated": [
+    "PRN ডোজ দেওয়ার এক ঘণ্টার মধ্যে নথিভুক্ত করুন",
+    "Chart a PRN dose within the hour it is given"
+  ],
+  "b_slot_too_far": [
+    "১২ ঘণ্টার বেশি পরের ডোজ এখন নথিভুক্ত নয়",
+    "A dose more than 12 hours ahead is not charted now"
+  ],
+  "amount_given": [
+    "কত দেওয়া হলো",
+    "Amount given"
+  ],
+  "amount_ph": [
+    "৬ IU",
+    "6 IU"
+  ],
+  "recent_dose_warn": [
+    "সতর্কতা: {t}-এ আগের ডোজে ({dose}) দেওয়া হয়েছে",
+    "Caution: given at {t} under the earlier dose ({dose})"
+  ],
+  "vial_title": [
+    "নতুন ভায়াল খোলা",
+    "Open a new vial"
+  ],
+  "vial_open_now": [
+    "এখন খোলা আছে: {t} · {name}",
+    "Open now: {t} · {name}"
+  ],
+  "vial_confirm": [
+    "ভায়াল খুলুন",
+    "Open the vial"
+  ],
+  "vial_opened_toast": [
+    "ভায়াল খোলা নথিভুক্ত · {t}",
+    "Vial opened · {t}"
+  ],
+  "role_doctor": [
+    "ডাক্তার",
+    "Doctor"
+  ],
+  "role_nurse": [
+    "নার্স",
+    "Nurse"
+  ],
+  "errored_before": [
+    "আগে নথিভুক্ত, পরে ভুল চিহ্নিত: {t} · {name}",
+    "Charted then marked in error: {t} · {name}"
+  ],
+  "stopped_toast": [
+    "বন্ধ হয়েছে · {drug}",
+    "Stopped · {drug}"
+  ],
+  "draft_saved": [
+    "খসড়া সংরক্ষিত",
+    "Draft saved"
+  ],
+  "round_signed": [
+    "রাউন্ড নোট স্বাক্ষরিত",
+    "Round note signed"
+  ],
+  "stock_failed": [
+    "স্টক/ইনডেন্ট আনা যায়নি",
+    "Could not load stock or indents"
   ]
 }

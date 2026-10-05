@@ -56,6 +56,7 @@ function recordWire(a: Admin, who: Awaited<ReturnType<typeof peopleOf>>): DoseRe
     timing: a.timing as DoseRecord["timing"], reason: a.reason, source: a.source as DoseRecord["source"], by: who(a.administeredById), preparedBy: who(a.preparedById),
     witness: a.witnessedById ? who(a.witnessedById) : null, checks: { patient: a.checkPatient, drug: a.checkDrug, dose: a.checkDose, route: a.checkRoute, time: a.checkTime },
     error: a.errorAt ? { reason: a.errorReason ?? "", by: who(a.errorById), at: a.errorAt.toISOString() } : null,
+    amountGiven: a.amountGiven,
   };
 }
 async function wardStockOf(tx: Tx, s: SessionData, wardId: string | null, keys: string[], today: string): Promise<Map<string, number>> {
@@ -75,7 +76,8 @@ export async function marView(tx: Tx, s: SessionData, encounterId: string, now: 
   const meds = new Map((await tx.medicine.findMany({ where: { key: { in: [...new Set(orders.map((o) => o.medicineKey))] } } })).map((m) => [m.key, m]));
   const regimens = [...new Set(orders.map((o) => o.regimenId!))];
   const recs = regimens.length ? await tx.medicationAdministration.findMany({ where: { regimenId: { in: regimens } }, orderBy: { administeredAt: "asc" } }) : [];
-  const vials = regimens.length ? await tx.multiDoseVial.findMany({ where: { regimenId: { in: regimens } }, orderBy: { openedAt: "desc" } }) : [];
+  // vials belong to the patient's visit and the medicine, not the regimen: a dose change keeps the open vial
+  const vials = await tx.multiDoseVial.findMany({ where: { encounterId: ip.e.id }, orderBy: { openedAt: "desc" } });
   const allergies = await tx.allergyIntolerance.findMany({ where: { patientId: ip.e.patientId }, orderBy: [{ status: "asc" }, { recordedAt: "asc" }] });
   const facts = await activeAllergyFacts(tx, ip.e.patientId);
   const who = await peopleOf(tx, [...recs.flatMap((r) => [r.administeredById, r.preparedById, r.witnessedById, r.errorById]), ...orders.flatMap((o) => [o.composition.signedById, o.stoppedById]), ...vials.map((v) => v.openedById)]);
@@ -89,9 +91,10 @@ export async function marView(tx: Tx, s: SessionData, encounterId: string, now: 
     const range = marSlotRange(dayStart, now);
     const slots = active ? slotsBetween({ times: o.times, prn: o.prn, startAt: o.startAt! }, range.from, range.to).flatMap((at) => {
       const rec = mine.find((r) => r.scheduledFor?.getTime() === at.getTime());
-      return [{ at: at.toISOString(), state: (rec ? rec.status : slotState(at, now)) as MarOrder["slots"][number]["state"], record: rec ? recordWire(rec, who) : null }];
+      const errored = recs.filter((r) => r.regimenId === o.regimenId && r.status === "entered_in_error" && r.scheduledFor?.getTime() === at.getTime()).map((r) => recordWire(r, who));
+      return [{ at: at.toISOString(), state: (rec ? rec.status : slotState(at, now)) as MarOrder["slots"][number]["state"], record: rec ? recordWire(rec, who) : null, errored }];
     }) : [];
-    const vial = vials.find((v) => v.regimenId === o.regimenId);
+    const vial = vials.find((v) => v.medicineKey === o.medicineKey);
     return {
       id: o.id, regimenId: o.regimenId!, noteId: o.compositionId, medicine: medWire(m), route: o.route!, doseText: o.doseText!, doseQty: o.doseQty, times: o.times, prn: o.prn, prnMaxPer24h: o.prnMaxPer24h,
       startAt: o.startAt!.toISOString(), status: o.orderStatus, orderedBy: who(o.composition.signedById), stop: o.stoppedAt ? { by: who(o.stoppedById), at: o.stoppedAt.toISOString(), reason: o.stopReason ?? "" } : null,
@@ -155,13 +158,20 @@ export async function recordDose(tx: Tx, s: SessionData, encounterId: string, re
   const administeredAt = new Date(req.administeredAt), slot = req.scheduledFor ? new Date(req.scheduledFor) : null;
   const preparedById = req.preparedById ?? s.userId;
   const wRole = req.witness ? await witnessRole(tx, s, req.witness.userId) : null;
+  // the same medicine given under an earlier regimen near this dose (a changed order starts a new regimen and its slots)
+  const windowMs = DOSE_WINDOW_MIN * 60_000;
+  const earlierGivenNear = req.outcome === "given" && (await tx.medicationAdministration.count({ where: {
+    encounterId: ip.e.id, medicineKey: o.medicineKey, regimenId: { not: o.regimenId! }, status: "given",
+    administeredAt: { gte: new Date(administeredAt.getTime() - windowMs), lte: new Date(administeredAt.getTime() + windowMs) } } })) > 0;
+  const vialOpen = m.multiDose ? (await tx.multiDoseVial.count({ where: { encounterId: ip.e.id, medicineKey: o.medicineKey, source: "ward-stock", openedAt: { lte: new Date(administeredAt.getTime() + 120_000) } } })) > 0 : undefined;
   const blockers = doseBlockers(
     { status: o.orderStatus, noteCurrent: CURRENT.includes(o.composition.status), patientId: o.patientId, encounterId: o.encounterId, encounterOpen: ip.open, startAt: o.startAt ?? now,
-      times: o.times, prn: o.prn, prnMaxPer24h: o.prnMaxPer24h, medicineKey: o.medicineKey, highAlert: m.highAlert, controlled: m.controlled },
+      times: o.times, prn: o.prn, prnMaxPer24h: o.prnMaxPer24h, medicineKey: o.medicineKey, highAlert: m.highAlert, controlled: m.controlled, multiDose: m.multiDose },
     { patientId: ip.e.patientId, encounterId: ip.e.id, outcome: req.outcome as DoseOutcome, slot, administeredAt, now, checks: req.checks, reason: req.reason ?? null,
       recordedSlots: recorded.filter((r) => r.scheduledFor).map((r) => r.scheduledFor!.getTime()),
       givenLast24h: recorded.filter((r) => r.status === "given" && r.administeredAt.getTime() > administeredAt.getTime() - PRN_WINDOW_MS && r.administeredAt <= administeredAt).length,
-      nurseId: s.userId, preparedById, witnessId: req.witness?.userId ?? null, witnessRole: wRole, allergies: await activeAllergyFacts(tx, ip.e.patientId) },
+      nurseId: s.userId, preparedById, witnessId: req.witness?.userId ?? null, witnessRole: wRole, allergies: await activeAllergyFacts(tx, ip.e.patientId),
+      source: req.source, amountGiven: req.amountGiven ?? null, vialOpen, earlierGivenNear },
   );
   if (blockers.length) throw err(422, "dose_blocked", "নথিভুক্ত হয়নি — নিচের বিষয়গুলো ঠিক করুন", "Not recorded — resolve the items below", { blockers: blockers as unknown as Record<string, unknown>[] });
   if (preparedById !== s.userId && !(await witnessRole(tx, s, preparedById))) throw err(400, "preparer_unknown", "প্রস্তুতকারী এই প্রতিষ্ঠানের নার্স বা ডাক্তার নন", "The preparer is not a nurse or doctor of this facility", { field: "preparedById" });
@@ -182,7 +192,7 @@ export async function recordDose(tx: Tx, s: SessionData, encounterId: string, re
       id, tenantId: s.tenantId, organizationId: s.organizationId, encounterId: ip.e.id, patientId: ip.e.patientId, requestId: o.id, regimenId: o.regimenId!, medicineKey: o.medicineKey,
       scheduledFor: slot, status: req.outcome, administeredAt, administeredById: s.userId, preparedById,
       checkPatient: req.checks.patient, checkDrug: req.checks.drug, checkDose: req.checks.dose, checkRoute: req.checks.route, checkTime: req.checks.time,
-      timing, reason: req.reason?.trim() || null, route: o.route!, doseText: o.doseText!, doseQty: o.doseQty, source: req.source, stockRef: moves.length ? id : null,
+      timing, reason: req.reason?.trim() || null, route: o.route!, doseText: o.doseText!, doseQty: o.doseQty, amountGiven: m.multiDose && req.outcome === "given" ? req.amountGiven?.trim() || null : null, source: req.source, stockRef: moves.length ? id : null,
       highAlert: m.highAlert, controlled: m.controlled, witnessedById: witnessed ? req.witness!.userId : null, witnessedAt: witnessed ? now : null,
     } });
   } catch (x) {
@@ -192,7 +202,7 @@ export async function recordDose(tx: Tx, s: SessionData, encounterId: string, re
   if (m.controlled) for (const mv of moves) await tx.controlledDrugRegister.create({ data: {
     tenantId: s.tenantId, organizationId: s.organizationId, medicineKey: o.medicineKey, kind: "administer", stockMoveId: mv.moveId, batchId: mv.batchId, qty: -mv.qty, location: wardStockLocation(ip.ward!.id),
     balanceAfter: mv.after, encounterId: ip.e.id, patientId: ip.e.patientId, administrationId: id, byId: s.userId, witnessId: req.witness?.userId ?? null, at: now } });
-  audit.push({ action: "create", entity: "MedicationAdministration", entityId: id, patientId: ip.e.patientId, detail: { requestId: o.id, medicineKey: o.medicineKey, outcome: req.outcome, slot: iso(slot), timing, source: req.source, units, witness: witnessed ? req.witness!.userId : null, highAlert: m.highAlert, controlled: m.controlled } });
+  audit.push({ action: "create", entity: "MedicationAdministration", entityId: id, patientId: ip.e.patientId, detail: { requestId: o.id, medicineKey: o.medicineKey, outcome: req.outcome, slot: iso(slot), timing, source: req.source, units, witness: witnessed ? req.witness!.userId : null, highAlert: m.highAlert, controlled: m.controlled, amountGiven: req.amountGiven ?? null, earlierGivenNear } });
   return { view: (await marView(tx, s, ip.e.id, now)).view, audit };
 }
 
@@ -202,6 +212,9 @@ export async function markDoseError(tx: Tx, s: SessionData, id: string, reason: 
   if (!a) throw notFound();
   if (reason.trim().length < DOSE_REASON_MIN) throw err(400, "reason_required", "কারণ লিখুন (অন্তত ৫ অক্ষর)", "Give a reason (at least 5 characters)", { field: "reason" });
   if (a.status === "entered_in_error") throw err(409, "already_in_error", "আগেই ভুল হিসেবে চিহ্নিত", "Already marked entered-in-error");
+  if (a.administeredById !== s.userId) throw err(403, "forbidden", "যিনি নথিভুক্ত করেছেন শুধু তিনিই ভুল চিহ্নিত করেন", "Only the nurse who recorded it marks it entered-in-error", { reason: "role", canRequest: false });
+  const ip = await inpatientHere(tx, s, a.encounterId);
+  if (!ip.open) throw err(409, "closed_visit", "ভর্তি বন্ধ — নথি বদলানো যায় না", "The admission is closed — the record cannot change");
   const n = await tx.medicationAdministration.updateMany({ where: { id: a.id, status: a.status }, data: { status: "entered_in_error", errorReason: reason.trim(), errorById: s.userId, errorAt: now } });
   if (n.count !== 1) throw stale();
   return { view: (await marView(tx, s, a.encounterId, now)).view, audit: [{ action: "update", entity: "MedicationAdministration", entityId: a.id, patientId: a.patientId, detail: { event: "markError", from: a.status, reason: reason.trim() } }] };

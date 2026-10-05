@@ -181,7 +181,12 @@ export async function signRound(tx: Tx, s: SessionData, id: string, body: { rev:
   const rx = (l: typeof lines[number] | typeof others[number]): RxLine => ({ uid: l.id, medicine: { id: l.medicineKey, brand: l.brand, generic: l.generic, strength: l.strength, form: l.form, ingredients: l.ingredients, classes: l.classes }, dose: "1+0+0", meal: "any", days: 1, keepBoth: l.keepBoth, acks: l.acks });
   const mine = new Set(lines.map((l) => l.id));
   const warnings = rxWarnings([...others.map(rx), ...lines.map(rx)], await activeAllergyFacts(tx, ip.e.patientId)).filter((w) => mine.has(w.line) && w.block && w.kind !== "dose-invalid" && w.kind !== "days-invalid");
-  const blockers = [...roundNoteBlockers(c.sections as unknown as RoundNoteSections).map((code) => ({ code })), ...warnings.map((w) => ({ code: "rx", warning: w }))];
+  // an amendment's copied line whose source was stopped after the draft opened would restart the drug: the doctor
+  // removes it (or writes a changed line on purpose) — never a silent restart (clinical-safety review)
+  const stoppedSince = c.amendsId ? await tx.medicationRequest.findMany({ where: { compositionId: c.amendsId, kind: "inpatient", orderStatus: "stopped", stoppedAt: { gte: c.createdAt } } }) : [];
+  const restarts = lines.filter((l) => stoppedSince.some((p) => sameRegimen(toInput(p), toInput(l))));
+  const blockers = [...roundNoteBlockers(c.sections as unknown as RoundNoteSections).map((code) => ({ code })), ...warnings.map((w) => ({ code: "rx", warning: w })),
+    ...restarts.map((l) => ({ code: "line_stopped", line: l.id, drug: l.brand }))];
   if (blockers.length) throw err(422, "sign_blocked", `${blockers.length}টি সতর্কতা ঠিক করুন — স্বাক্ষর হয়নি`, `Resolve ${blockers.length} warning(s) — not signed`, { blockers: blockers as unknown as Record<string, unknown>[] });
   const u = await tx.user.findFirst({ where: { id: s.userId }, select: { pinHash: true } });
   await requirePin(s.userId, () => Boolean(u?.pinHash) && u!.pinHash === devHash(body.pin));

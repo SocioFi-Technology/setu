@@ -81,6 +81,7 @@ export const DoseRecord = z.object({
   id: z.string(), status: z.enum(["given", "held", "refused", "missed", "entered-in-error"]), administeredAt: z.string(), scheduledFor: z.string().nullable(),
   timing: z.enum(["on-time", "early", "late", "prn"]), reason: z.string().nullable(), source: DoseSource, by: Person, preparedBy: Person, witness: Person.nullable(),
   checks: FiveChecks, error: z.object({ reason: z.string(), by: Person, at: z.string() }).nullable(),
+  /** multi-dose drugs: the amount actually given ("6 IU") */ amountGiven: z.string().nullable(),
 });
 export type DoseRecord = z.infer<typeof DoseRecord>;
 export const WardMedicineWire = z.object({ key: z.string(), brand: z.string(), brandBn: z.string(), generic: z.string(), strength: z.string(), form: z.string(), issueUnit: z.string(), routes: z.array(z.string()), highAlert: z.boolean(), controlled: z.boolean(), multiDose: z.boolean(), inpatientOnly: z.boolean(), sample: z.literal(true) });
@@ -91,12 +92,17 @@ export const InpatientOrder = z.object({
   stop: z.object({ by: Person, at: z.string(), reason: z.string() }).nullable(),
 });
 export type InpatientOrder = z.infer<typeof InpatientOrder>;
-export const MarSlot = z.object({ at: z.string(), state: z.enum(["scheduled", "due", "overdue", "given", "held", "refused", "missed"]), record: DoseRecord.nullable() });
+export const MarSlot = z.object({
+  at: z.string(), state: z.enum(["scheduled", "due", "overdue", "given", "held", "refused", "missed"]), record: DoseRecord.nullable(),
+  /** records of this slot marked entered-in-error — shown in the cell so a nurse sees it was charted before */
+  errored: z.array(DoseRecord),
+});
 export const MarOrder = InpatientOrder.extend({
   slots: z.array(MarSlot), prnRecords: z.array(DoseRecord), givenLast24h: z.number().int(),
   vial: z.object({ openedAt: z.string(), by: Person, source: DoseSource }).nullable(),
   /** an active allergy now matches the drug: giving is blocked until the doctor reviews */
   allergyBlock: z.boolean(), wardStock: z.number().int(),
+  /** a vial of this medicine open for this patient (any regimen): see `vial` */
   /** doses of this drug recorded under an earlier regimen in the last 24 h (context when a change started a new one) */
   earlierRegimenGiven: z.array(z.object({ at: z.string(), doseText: z.string() })),
 });
@@ -113,6 +119,8 @@ export const DoseRequest = z.object({
   checks: FiveChecks, reason: z.string().trim().max(500).optional(), source: DoseSource.default("ward-stock"), preparedById: z.string().max(64).optional(),
   /** high-alert drugs: a second nurse or a doctor, never the giver or the preparer; the PIN is checked in the dose's transaction and never stored */
   witness: z.object({ userId: z.string().max(64), pin: z.string().regex(/^\d{4}$/) }).optional(),
+  /** multi-dose drugs (insulin by sliding scale): the amount actually given */
+  amountGiven: z.string().trim().max(40).optional(),
 });
 export type DoseRequest = z.infer<typeof DoseRequest>;
 export const VialOpenRequest = z.object({ requestId: z.string().max(64), openedAt: z.string().datetime(), source: DoseSource.default("ward-stock") });

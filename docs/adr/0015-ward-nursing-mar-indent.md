@@ -83,3 +83,24 @@ recorded. A move to another class shows the sample daily difference only — the
   `news2-escalation`. OPD prescription search hides inpatient-only medicines.
 - Pre-pilot, for a clinician: NEWS2 threshold and intervals, the dose window, the high-alert list, discard-after-opening
   periods, SpO₂ scale 2.
+
+## Amendment — session 2 reviews (06/10/2026)
+The code and clinical-safety reviews of the screens changed these rules (domain `doseBlockers`, the API and the database
+guard; migrations `20261006090600_ward_review`, `20261006090700_escalation_worse`):
+- **ESCALATION gains `worsen`** (doctor-informed → raised): a patient worse after the doctor was informed — a higher
+  score, or a first red parameter at any total (`peakRed`) — notifies the doctor again and asks the nurse for a new
+  contact log. Before, only a higher total notified, and the status stayed "informed".
+- **Multi-dose vials:** a dose from ward stock needs an opened vial of that medicine for this patient (any regimen — a
+  dose change keeps the open vial); the amount actually given is recorded (`amountGiven`, e.g. "4 IU" for a sliding
+  scale). Opening a vial is a confirmed dialog with its source.
+- **Doses:** the same medicine given under an earlier regimen within the window of a new slot needs a reason (a changed
+  order starts a new regimen and could otherwise double a dose just given); a PRN dose is charted within the hour it is
+  given (no backdating between the 24-hour cap windows); no slot more than 12 hours ahead is charted; the guard
+  requires a witness for controlled as well as high-alert drugs and refuses the giver or preparer as witness.
+- **Amendments:** a copied line whose order was stopped after the amendment draft opened blocks signing (`line_stopped`)
+  — the doctor removes it, never a silent restart.
+- **Entered-in-error:** only the nurse who recorded the dose, only on an open admission; the MAR cell shows a slot's
+  errored record.
+- **The MAR day:** today's grid carries the last 24 hours' slots (`marSlotRange`), so every dose the ward board counts as
+  overdue is on the MAR (just after midnight yesterday's 22:00 dose).
+

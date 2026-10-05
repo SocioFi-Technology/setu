@@ -75,7 +75,7 @@ describe.runIf(db)("the walkthrough cases (B5)", () => {
     const hhmm = dhakaHHMM(2), hhmm2 = dhakaHHMM(4);
     const r = await h.signRound(a.encounterId, [line("insulin", { route: "sc", doseText: "6 IU SC by sliding scale", doseQty: null, times: [hhmm, hhmm2] })]);
     const o = orderOf(r, "insulin");
-    const base = { requestId: o.id, scheduledFor: slotAt(hhmm), outcome: "given", administeredAt: now(), checks: TICKS, source: "patient-supplied" };
+    const base = { requestId: o.id, scheduledFor: slotAt(hhmm), outcome: "given", administeredAt: now(), checks: TICKS, source: "patient-supplied", amountGiven: "6 IU" };
     expect((await dose(a.encounterId, base)).json().blockers).toEqual(["witness_required"]);
     expect((await dose(a.encounterId, { ...base, witness: { userId: "u_e2l_nurse", pin: "1234" } })).json().blockers).toEqual(["witness_self"]);
     const wrong = await dose(a.encounterId, { ...base, witness: { userId: "u_e2l_nurse2", pin: "0000" } });
@@ -178,10 +178,82 @@ describe.runIf(db)("stock, vials, the register, corrections", () => {
     const body = { requestId: o.id, scheduledFor: slotAt(hhmm), outcome: "given", administeredAt: now(), checks: TICKS, source: "patient-supplied" };
     const recId = (await dose(a.encounterId, body)).json().orders.find((x: { id: string }) => x.id === o.id).slots[0].record.id;
     expect((await c.post(`/v1/nursing/doses/${recId}/entered-in-error`, { reason: "x" })).statusCode).toBe(400);
+    // another nurse cannot mark it
+    expect((await c.post(`/v1/nursing/doses/${recId}/entered-in-error`, { reason: "Not mine to correct" }, "nurse2")).statusCode).toBe(403);
     const err = await c.post(`/v1/nursing/doses/${recId}/entered-in-error`, { reason: "Recorded on the wrong patient chart" });
     expect(err.statusCode, err.body).toBe(200);
     await expect(db!.forTenant(T, (tx) => tx.medicationAdministration.update({ where: { id: recId }, data: { reason: "edited" } }), { userId: "u_e2l_nurse" })).rejects.toThrow(/never changed/);
-    expect((await dose(a.encounterId, { ...body, administeredAt: now() })).statusCode).toBe(201);
+    // the cell shows it was charted before
+    const again = await dose(a.encounterId, { ...body, administeredAt: now() });
+    expect(again.statusCode).toBe(201);
+    const slot = again.json().orders.find((x: { id: string }) => x.id === o.id).slots[0];
+    expect(slot.state).toBe("given"); expect(slot.errored).toHaveLength(1); expect(slot.errored[0]).toMatchObject({ id: recId, status: "entered-in-error" });
     expect(randomUUID()).toBeTruthy();
+  });
+});
+
+describe.runIf(db)("clinical-safety review fixes (B3–B4 session 2)", () => {
+  it("insulin from ward stock: no dose without an opened vial; the amount given is recorded; a dose change keeps the open vial", async () => {
+    const w = await h.ownWard(1); const a = await h.admit(w);
+    const hhmm = dhakaHHMM(2), hhmm2 = dhakaHHMM(5);
+    const r = await h.signRound(a.encounterId, [line("insulin", { route: "sc", doseText: "SC by sliding scale (CBG)", doseQty: null, times: [hhmm, hhmm2] })]);
+    const o = orderOf(r, "insulin");
+    const ind = await c.post(`/v1/nursing/wards/${a.wardId}/indents`, { lines: [{ medicineKey: "insulin", qty: 1 }] });
+    expect((await c.post(`/v1/pharmacy/indents/${ind.json().id}/issue`, { lines: [{ lineId: ind.json().lines[0].id, qty: 1 }] }, "pharm")).statusCode).toBe(200);
+    const base = { requestId: o.id, scheduledFor: slotAt(hhmm), outcome: "given", administeredAt: now(), checks: TICKS, source: "ward-stock", witness: { userId: "u_e2l_nurse2", pin: "1234" } };
+    const noVial = await dose(a.encounterId, { ...base, amountGiven: "4 IU" });
+    expect(noVial.statusCode).toBe(422); expect(noVial.json().blockers).toContain("vial_required");
+    // the database refuses it too, whatever the route does
+    expect((await c.post(`/v1/nursing/encounters/${a.encounterId}/vials`, { requestId: o.id, openedAt: now(), source: "ward-stock" })).statusCode).toBe(201);
+    const noAmount = await dose(a.encounterId, base);
+    expect(noAmount.statusCode).toBe(422); expect(noAmount.json().blockers).toEqual(["amount_required"]);
+    const ok = await dose(a.encounterId, { ...base, amountGiven: "4 IU" });
+    expect(ok.statusCode, ok.body).toBe(201);
+    expect(ok.json().orders.find((x: { id: string }) => x.id === o.id).slots.find((x: { at: string }) => x.at === slotAt(hhmm)).record).toMatchObject({ amountGiven: "4 IU" });
+  });
+  it("a changed order: the same drug given minutes earlier under the old regimen — the new slot needs a reason", async () => {
+    const w = await h.ownWard(1); const a = await h.admit(w);
+    const hhmm = dhakaHHMM(2);
+    const r = await h.signRound(a.encounterId, [line("ceftriaxone", { doseText: "1 g IV", times: [hhmm] })]);
+    const o = orderOf(r, "ceftriaxone");
+    const first = await dose(a.encounterId, { requestId: o.id, scheduledFor: slotAt(hhmm), outcome: "given", administeredAt: now(), checks: TICKS, source: "patient-supplied", reason: "Given at the round" });
+    expect(first.statusCode, first.body).toBe(201);
+    // the doctor amends the note: 2 g instead of 1 g → a new regimen with the same slot
+    const note = (await c.get(`/v1/ipd/encounters/${a.encounterId}/round`, "surgeon")).json().signed[0];
+    const amend = await c.post(`/v1/ipd/round-notes/${note.id}/amend`, { reason: "Dose increased after review" }, "surgeon");
+    expect(amend.statusCode, amend.body).toBe(201);
+    const d = amend.json().draft;
+    const saved = await c.put(`/v1/ipd/round-notes/${d.id}`, { rev: d.rev, sections: { ...d.sections, p: "Ceftriaxone 2 g" }, lines: [line("ceftriaxone", { doseText: "2 g IV", doseQty: 2, times: [hhmm] })], orders: [] }, "surgeon");
+    expect(saved.statusCode, saved.body).toBe(200);
+    const signed = await c.post(`/v1/ipd/round-notes/${d.id}/sign`, { rev: saved.json().draft.rev, pin: "1234" }, "surgeon");
+    expect(signed.statusCode, signed.body).toBe(200);
+    const o2 = orderOf(signed.json(), "ceftriaxone");
+    expect(o2.id).not.toBe(o.id);
+    const body = { requestId: o2.id, scheduledFor: slotAt(hhmm), outcome: "given", administeredAt: now(), checks: TICKS, source: "patient-supplied" };
+    const near = await dose(a.encounterId, body);
+    expect(near.statusCode).toBe(422); expect(near.json().blockers).toContain("recent_dose");
+  });
+  it("an amendment's copied line is not silently restarted when its order was stopped after the draft opened", async () => {
+    const w = await h.ownWard(1); const a = await h.admit(w);
+    const r = await h.signRound(a.encounterId, [line("heparin", { route: "sc", doseText: "5000 IU SC", doseQty: null, times: [dhakaHHMM(3)] })]);
+    const o = orderOf(r, "heparin");
+    const note = r.signed[0];
+    const amend = await c.post(`/v1/ipd/round-notes/${note.id}/amend`, { reason: "Adding the plan for tomorrow" }, "surgeon");
+    expect(amend.statusCode, amend.body).toBe(201);
+    expect((await c.post(`/v1/ipd/orders/${o.id}/stop`, { reason: "Bleeding from the wound", pin: "1234" }, "surgeon")).statusCode).toBe(200);
+    const d = (await c.get(`/v1/ipd/encounters/${a.encounterId}/round`, "surgeon")).json().draft;
+    const sign = await c.post(`/v1/ipd/round-notes/${d.id}/sign`, { rev: d.rev, pin: "1234" }, "surgeon");
+    expect(sign.statusCode).toBe(422);
+    expect(sign.json().blockers.map((b: { code: string }) => b.code)).toContain("line_stopped");
+  });
+  it("a PRN dose is charted within the hour; a slot more than 12 hours ahead is not charted", async () => {
+    const w = await h.ownWard(1); const a = await h.admit(w);
+    const r = await h.signRound(a.encounterId, [line("napa", { route: "oral", doseText: "500 mg", times: [], prn: true, prnMaxPer24h: 4, doseQty: 1 }), line("pantoprazole-iv", { doseText: "40 mg", times: [dhakaHHMM(-60)] })]);
+    const back = await dose(a.encounterId, { requestId: orderOf(r, "napa").id, scheduledFor: null, outcome: "given", administeredAt: new Date(Date.now() - 3 * 3600_000).toISOString(), checks: TICKS, source: "patient-supplied" });
+    expect(back.statusCode).toBe(422); expect(back.json().blockers).toContain("prn_backdated");
+    // tomorrow's slot of the same time (more than 12 h ahead)
+    const tomorrow = new Date(new Date(slotAt(dhakaHHMM(-60))).getTime() + 864e5).toISOString();
+    const far = await dose(a.encounterId, { requestId: orderOf(r, "pantoprazole-iv").id, scheduledFor: tomorrow, outcome: "held", administeredAt: now(), checks: TICKS, reason: "Going to theatre tomorrow", source: "patient-supplied" });
+    expect(far.statusCode).toBe(422); expect(far.json().blockers).toContain("slot_too_far");
   });
 });

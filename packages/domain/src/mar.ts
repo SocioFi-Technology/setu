@@ -93,6 +93,8 @@ export interface OrderFacts {
   startAt: Date; times: string[]; prn: boolean; prnMaxPer24h: number | null; medicineKey: string; highAlert: boolean;
   /** a controlled drug is witnessed too: its register line records the witness (ADR 0015) */
   controlled?: boolean;
+  /** a multi-dose vial (insulin, heparin): given only from an opened vial, with the amount given */
+  multiDose?: boolean;
 }
 export interface DoseFacts {
   patientId: string; encounterId: string; outcome: DoseOutcome; slot: Date | null; administeredAt: Date; now: Date;
@@ -101,12 +103,22 @@ export interface DoseFacts {
   /** given doses of the regimen in the 24 hours up to administeredAt (not entered-in-error) */ givenLast24h: number;
   nurseId: string; preparedById: string; witnessId: string | null; witnessRole: string | null;
   allergies: AllergyFact[];
+  source?: DoseSource;
+  /** multi-dose drugs: the amount actually given ("6 IU") — the order may say "sliding scale" */
+  amountGiven?: string | null;
+  /** a vial of this medicine is open for this patient (any regimen) */
+  vialOpen?: boolean;
+  /** the same medicine was given under another (earlier) regimen within the window of this dose */
+  earlierGivenNear?: boolean;
 }
+/** How far ahead a slot may be charted (held / refused before due): within the shift. */
+export const SLOT_AHEAD_MAX_MS = 12 * 3600_000;
 export type DoseBlocker =
   | "order_not_active" | "wrong_patient" | "encounter_closed" | "future_time" | "before_start"
   | "slot_required" | "slot_on_prn" | "not_a_slot" | "slot_recorded" | "missed_too_early" | "prn_outcome"
   | "checks_incomplete" | "reason_required" | "prn_cap"
-  | "witness_required" | "witness_self" | "witness_role" | "allergy";
+  | "witness_required" | "witness_self" | "witness_role" | "allergy"
+  | "vial_required" | "amount_required" | "recent_dose" | "prn_backdated" | "slot_too_far";
 export function doseBlockers(o: OrderFacts, d: DoseFacts, windowMin = DOSE_WINDOW_MIN): DoseBlocker[] {
   const out: DoseBlocker[] = [];
   if (o.status !== "active" || !o.noteCurrent) out.push("order_not_active");
@@ -122,7 +134,10 @@ export function doseBlockers(o: OrderFacts, d: DoseFacts, windowMin = DOSE_WINDO
     if (!isSlotOf({ times: o.times, prn: false, startAt: o.startAt }, d.slot)) out.push("not_a_slot");
     if (d.recordedSlots.includes(d.slot.getTime())) out.push("slot_recorded");
     if (d.outcome === "missed" && d.now.getTime() - d.slot.getTime() <= windowMin * 60_000) out.push("missed_too_early");
+    if (d.slot.getTime() - d.now.getTime() > SLOT_AHEAD_MAX_MS) out.push("slot_too_far");
   }
+  // a PRN dose is charted when it is given: backdating beyond the window would slip past the 24-hour cap
+  if (o.prn && d.now.getTime() - d.administeredAt.getTime() > windowMin * 60_000) out.push("prn_backdated");
   const reasonOk = (d.reason ?? "").trim().length >= DOSE_REASON_MIN;
   if (d.outcome === "given") {
     if (!FIVE_CHECKS.every((k) => d.checks[k])) out.push("checks_incomplete");
@@ -138,6 +153,11 @@ export function doseBlockers(o: OrderFacts, d: DoseFacts, windowMin = DOSE_WINDO
     }
     const med = wardMedicine(o.medicineKey);
     if (med && allergyMatches(med, d.allergies).length) out.push("allergy");
+    if (o.multiDose) {
+      if (!(d.amountGiven ?? "").trim()) out.push("amount_required");
+      if ((d.source ?? "ward-stock") === "ward-stock" && d.vialOpen === false) out.push("vial_required");
+    }
+    if (d.earlierGivenNear && !reasonOk) out.push("recent_dose");
   } else if (!reasonOk) out.push("reason_required");
   return out;
 }

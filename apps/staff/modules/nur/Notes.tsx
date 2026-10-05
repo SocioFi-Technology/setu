@@ -7,7 +7,7 @@ import { useSearchParams } from "next/navigation";
 import type { NursingNoteView, WardPatientView } from "@setu/contracts";
 import { noteOk } from "@setu/domain";
 import { Button, Callout, Card, Pill, TextArea } from "@setu/ui";
-import { ward } from "../../lib/api";
+import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { WardPatientPicker, hhmm, useErr, useN, useWardBanner } from "./common";
 
@@ -34,7 +34,7 @@ function NotesFor({ enc }: { enc: string }) {
       key.current = crypto.randomUUID();
       if (r.queued) setQueued((q) => [text.trim(), ...q]); else await load();
       setText("");
-    } catch (e) { key.current = crypto.randomUUID(); setMsg(err(e)); } finally { setBusy(false); }
+    } catch (e) { if (e instanceof ApiFailure) key.current = crypto.randomUUID(); setMsg(err(e)); } finally { setBusy(false); }
   };
   return (
     <div data-screen="nur/io" style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 820 }}>
@@ -53,9 +53,9 @@ function NotesFor({ enc }: { enc: string }) {
 
 function NoteCard({ n, mine, onChanged }: { n: NursingNoteView; mine: boolean; onChanged: () => Promise<void> }) {
   const s = useSession(); const N = useN(); const err = useErr();
-  const [open, setOpen] = useState(false); const [reason, setReason] = useState(""); const [msg, setMsg] = useState<string | null>(null);
+  const [open, setOpen] = useState(false); const [reason, setReason] = useState(""); const [msg, setMsg] = useState<string | null>(null); const [busy, setBusy] = useState(false);
   const bad = n.status === "entered-in-error";
-  const mark = async () => { try { await ward.noteError(n.id, reason.trim()); await onChanged(); } catch (e) { setMsg(err(e)); } };
+  const mark = async () => { if (busy) return; setBusy(true); try { await ward.noteError(n.id, reason.trim()); await onChanged(); } catch (e) { setMsg(err(e)); } finally { setBusy(false); } };
   return (
     <Card style={{ padding: 12, display: "flex", flexDirection: "column", gap: 4, opacity: bad ? 0.7 : 1 }} data-note={n.id} data-note-status={n.status}>
       <span style={{ textDecoration: bad ? "line-through" : undefined, whiteSpace: "pre-wrap" }}>{n.text}</span>
@@ -65,7 +65,7 @@ function NoteCard({ n, mine, onChanged }: { n: NursingNoteView; mine: boolean; o
       {open && (
         <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
           <TextArea label={N("reason")} value={reason} onChange={(e) => setReason(e.target.value)} rows={2} name="reason" />
-          <Button size="sm" variant="danger" disabled={reason.trim().length < 5} onClick={() => void mark()} data-testid="note-error">{N("mark_error")}</Button>
+          <Button size="sm" variant="danger" disabled={reason.trim().length < 5 || busy || !s.online} onClick={() => void mark()} data-testid="note-error">{N("mark_error")}</Button>
         </div>
       )}
       {msg && <Callout tone="warn" icon="triangle-alert">{msg}</Callout>}

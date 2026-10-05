@@ -43,6 +43,19 @@ describe.runIf(db)("NEWS2 rounds and escalation (walkthrough B6)", () => {
     expect(await tenant((tx) => tx.communication.count({ where: { encounterId: a.encounterId, kind: "news2-escalation" } }))).toBe(2);
     expect((await tenant((tx) => tx.escalationEvent.findFirst({ where: { encounterId: a.encounterId } })))!.peakScore).toBe(11);
   });
+  it("worse after the doctor was informed: back to raised, the doctor told again; a first red parameter re-notifies at the same total", async () => {
+    const w = await h.ownWard(1); const a = await h.admit(w);
+    // RR 22 (2), SpO2 94 (1), SBP 105 (1), pulse 105 (1), temp 99 F (0), alert → 5, no red
+    const five = { rr: 22, spo2: 94, onOxygen: false, bpSys: 105, bpDia: 70, pulse: 105, temp: 99, consciousness: "A" };
+    const esc = (await c.post(`/v1/nursing/encounters/${a.encounterId}/vitals`, { values: five, effectiveAt: now() })).json().escalation;
+    expect(esc).toMatchObject({ status: "raised", score: 5, red: false });
+    expect((await c.post(`/v1/nursing/escalations/${esc.id}/inform`, { spokeTo: "Dr. Surgeon", instruction: "Fluids, repeat obs" })).statusCode).toBe(200);
+    // lower total (4) but a first red parameter (new confusion = 3) → told again, raised again
+    const red = { ...five, rr: 18, spo2: 96, pulse: 95, bpSys: 115, consciousness: "C" };
+    const r = await c.post(`/v1/nursing/encounters/${a.encounterId}/vitals`, { values: red, effectiveAt: now() });
+    expect(r.json()).toMatchObject({ news2: { red: true }, escalated: true, escalation: { status: "raised" } });
+    expect(await tenant((tx) => tx.communication.count({ where: { encounterId: a.encounterId, kind: "news2-escalation" } }))).toBe(2);
+  });
   it("the log: inform needs whom and the instruction; resolve needs a note and comes after inform", async () => {
     const w = await h.ownWard(1); const a = await h.admit(w);
     const esc = (await c.post(`/v1/nursing/encounters/${a.encounterId}/vitals`, { values: B6, effectiveAt: now() })).json().escalation;

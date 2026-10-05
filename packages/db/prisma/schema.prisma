@@ -97,8 +97,8 @@ model Organization {
   cashierDiscountLimitBp    Int                @default(500)
   approverLimitPaisa        Int                @default(1000000)
   /// dose label page (ADR 0009): printed through the browser on this page size, so any thermal printer with a driver works
-  labelWidthMm               Int       @default(50)
-  labelHeightMm              Int       @default(30)
+  labelWidthMm              Int                @default(50)
+  labelHeightMm             Int                @default(30)
   /// Lab (ADR 0006): may one person both technically verify and clinically validate a result? null = by plan
   /// (Clinic: yes; Hospital Lite / Pro: no) — @setu/domain lab.ts samePersonAllowed; the database checks it too.
   labSamePersonAllowed      Boolean?
@@ -112,9 +112,9 @@ model Organization {
   paymentMethods            String[]           @default([])
   smsTestedAt               DateTime?
   /// ADR 0012: a test SMS the gateway accepted (no delivery reports) — done only when the admin confirms it arrived
-  smsTestSentAt   DateTime?
+  smsTestSentAt             DateTime?
   /// the last test SMS failed (why); a failure clears sent / tested — go-live needs a test that works now
-  smsTestError    String?
+  smsTestError              String?
   smsTestPhone              String?
   locations                 Location[]
   practitionerRoles         PractitionerRole[]
@@ -124,13 +124,13 @@ model Organization {
 
 /// Branch → department → ward → room → bed.
 model Location {
-  id             String       @id @default(cuid())
+  id             String          @id @default(cuid())
   tenantId       String
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  organization   Organization    @relation(fields: [organizationId], references: [id])
   parentId       String?
-  parent         Location?    @relation("tree", fields: [parentId], references: [id])
-  children       Location[]   @relation("tree")
+  parent         Location?       @relation("tree", fields: [parentId], references: [id])
+  children       Location[]      @relation("tree")
   kind           LocationKind
   name           String
   nameBn         String?
@@ -147,30 +147,30 @@ model Location {
 
 /// Login identity. A receptionist is a User with a role but no Practitioner record.
 model User {
-  id           String             @id @default(cuid())
-  tenantId     String
-  tenant       Tenant             @relation(fields: [tenantId], references: [id])
-  phone        String?
-  email        String?
-  nameBn       String
-  nameEn       String
-  passwordHash String
-  pinHash      String?
-  active       Boolean            @default(true)
+  id                    String             @id @default(cuid())
+  tenantId              String
+  tenant                Tenant             @relation(fields: [tenantId], references: [id])
+  phone                 String?
+  email                 String?
+  nameBn                String
+  nameEn                String
+  passwordHash          String
+  pinHash               String?
+  active                Boolean            @default(true)
   /// ADR 0010: signed in with a one-time password — sets their own password and PIN before anything else
-  mustChangePassword    Boolean   @default(false)
+  mustChangePassword    Boolean            @default(false)
   tempPasswordExpiresAt DateTime?
   /// a one-time password works for one sign-in (ADR 0010 review)
   tempPasswordUsedAt    DateTime?
   /// every session carries it; deactivation, a role change and a password reset bump it (signed out everywhere)
-  sessionGeneration     Int       @default(0)
+  sessionGeneration     Int                @default(0)
   lastLoginAt           DateTime?
   deactivatedAt         DateTime?
   deactivatedReason     String?
-  roles        PractitionerRole[]
-  sessions     Session[]
-  practitioner Practitioner?
-  createdAt    DateTime           @default(now())
+  roles                 PractitionerRole[]
+  sessions              Session[]
+  practitioner          Practitioner?
+  createdAt             DateTime           @default(now())
 
   @@unique([tenantId, phone])
   @@unique([tenantId, email])
@@ -288,22 +288,22 @@ model RelatedPerson {
 
 /// Rule 5: every PHI-revealing action. Append-only; no updates or deletes (enforced in migration SQL).
 model AuditEvent {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  at        DateTime @default(now())
-  userId    String?
-  role      Role?
-  action    String // view | create | update | sign | print | reprint | break-glass | login
-  entity    String // model name
-  entityId  String?
-  patientId String?
-  deviceId  String?
-  ip        String?
-  basis     String? // patient | referral | policy | emergency
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  at             DateTime @default(now())
+  userId         String?
+  role           Role?
+  action         String // view | create | update | sign | print | reprint | break-glass | login
+  entity         String // model name
+  entityId       String?
+  patientId      String?
+  deviceId       String?
+  ip             String?
+  basis          String? // patient | referral | policy | emergency
   /// ADR 0010 review: the facility the event happened at (the admin's audit log is per facility); null = tenant-level
   organizationId String?
-  detail    Json?
+  detail         Json?
 
   @@index([tenantId, patientId, at])
   @@index([tenantId, at])
@@ -669,32 +669,32 @@ enum MealTiming {
 }
 
 model Medicine {
-  id           String     @id @default(cuid())
-  tenantId     String
+  id            String     @id @default(cuid())
+  tenantId      String
   /// Setu key from the sample list (e.g. "seclo"); never a DGDA number
-  key          String
-  brand        String
-  brandBn      String     @default("")
-  generic      String
-  strength     String
-  form         String
-  manufacturer String
-  ingredients  String[]
-  classes      String[]
-  defaultDose  String
-  defaultMeal  MealTiming
-  defaultDays  Int
+  key           String
+  brand         String
+  brandBn       String     @default("")
+  generic       String
+  strength      String
+  form          String
+  manufacturer  String
+  ingredients   String[]
+  classes       String[]
+  defaultDose   String
+  defaultMeal   MealTiming
+  defaultDays   Int
   /// true for every row until a licensed database replaces the sample list (decision D3)
-  sample       Boolean    @default(true)
-  active       Boolean    @default(true)
+  sample        Boolean    @default(true)
+  active        Boolean    @default(true)
   /// ADR 0015 (sample, pending clinician sign-off): ward use — hidden from OPD search, high-alert (witness), controlled
   /// (register), multi-dose vial (consumed when opened), the unit the pharmacy issues, the routes it may be given by
-  inpatientOnly Boolean   @default(false)
-  highAlert     Boolean   @default(false)
-  controlled    Boolean   @default(false)
-  multiDose     Boolean   @default(false)
-  issueUnit     String    @default("tablet")
-  routes        String[]  @default(["oral"])
+  inpatientOnly Boolean    @default(false)
+  highAlert     Boolean    @default(false)
+  controlled    Boolean    @default(false)
+  multiDose     Boolean    @default(false)
+  issueUnit     String     @default("tablet")
+  routes        String[]   @default(["oral"])
 
   @@unique([tenantId, key])
 }
@@ -846,12 +846,12 @@ model Condition {
 /// A prescription line on one version of a note. Medicine data is copied from the tenant's Medicine row by the server
 /// (the screen sends only the medicine key), so the sign check uses the server's ingredients and classes.
 model MedicationRequest {
-  id            String      @id @default(cuid())
+  id            String                @id @default(cuid())
   tenantId      String
   patientId     String
   encounterId   String
   compositionId String
-  composition   Composition @relation(fields: [compositionId], references: [id])
+  composition   Composition           @relation(fields: [compositionId], references: [id])
   position      Int
   medicineKey   String
   brand         String
@@ -860,26 +860,26 @@ model MedicationRequest {
   form          String
   ingredients   String[]
   classes       String[]
-  sample        Boolean     @default(true)
+  sample        Boolean               @default(true)
   /// dose pattern m+n+e[+bed], e.g. 1+0+1
   dose          String
   meal          MealTiming
   days          Int
   quantity      Int
   note          String?
-  keepBoth      Boolean     @default(false)
+  keepBoth      Boolean               @default(false)
   /// interaction rule ids the doctor acknowledged on this line
   acks          String[]
-  createdAt     DateTime    @default(now())
+  createdAt     DateTime              @default(now())
   /// ── ADR 0015: an inpatient order on a ward round note (kind inpatient); opd lines leave these at their defaults ──
-  kind          String      @default("opd")
+  kind          String                @default("opd")
   route         String?
   doseText      String?
   /// issue units one dose takes from ward stock; null for a multi-dose vial
   doseQty       Int?
   /// Dhaka times of day (HH:MM); empty for PRN
-  times         String[]    @default([])
-  prn           Boolean     @default(false)
+  times         String[]              @default([])
+  prn           Boolean               @default(false)
   prnMaxPer24h  Int?
   /// set at signing: when the order started, and its regimen (the first line of a chain of unchanged continuations)
   startAt       DateTime?
@@ -927,33 +927,33 @@ enum OrderPriority {
 /// orders but never removes one already placed (cancelling is ORDER `revoke`, in the lab slice). In-house only;
 /// network labs come with Journey E. No price until price lists exist (decision 29).
 model ServiceRequest {
-  id             String        @id @default(cuid())
-  tenantId       String
-  organizationId String
-  branchId       String
-  patientId      String
-  encounterId    String
-  compositionId  String
-  composition    Composition   @relation(fields: [compositionId], references: [id])
-  testCode       String
-  nameEn         String
-  nameBn         String
-  group          String
-  priority       OrderPriority @default(routine)
-  status         OrderStatus   @default(draft)
-  note           String?
-  orderedById    String
-  createdAt      DateTime      @default(now())
-  orderedAt      DateTime?
-  statusAt       DateTime      @default(now())
+  id                String        @id @default(cuid())
+  tenantId          String
+  organizationId    String
+  branchId          String
+  patientId         String
+  encounterId       String
+  compositionId     String
+  composition       Composition   @relation(fields: [compositionId], references: [id])
+  testCode          String
+  nameEn            String
+  nameBn            String
+  group             String
+  priority          OrderPriority @default(routine)
+  status            OrderStatus   @default(draft)
+  note              String?
+  orderedById       String
+  createdAt         DateTime      @default(now())
+  orderedAt         DateTime?
+  statusAt          DateTime      @default(now())
   /// ADR 0014 addendum (decision 243): a nurse's protocol order in the ER, countersigned by the doctor's disposition sign
-  protocol         Boolean   @default(false)
+  protocol          Boolean       @default(false)
   countersignedById String?
-  countersignedAt  DateTime?
+  countersignedAt   DateTime?
   /// ORDER revoke (cancel before collection, decision D5): who, when, why (at least 10 characters)
-  revokedById    String?
-  revokedAt      DateTime?
-  revokeReason   String?
+  revokedById       String?
+  revokedAt         DateTime?
+  revokeReason      String?
 
   @@index([tenantId, encounterId])
   @@index([tenantId, compositionId])
@@ -1158,45 +1158,45 @@ enum PaymentMethod {
 /// Money against an invoice (FHIR PaymentNotice). Cash/card/bank confirm when the cashier records them; a wallet
 /// payment confirms only from the provider (callback or TrxID check). A confirmed payment is never edited or deleted.
 model Payment {
-  id             String        @id @default(cuid())
-  tenantId       String
-  organizationId String
-  invoiceId      String
-  invoice        Invoice       @relation(fields: [invoiceId], references: [id])
-  patientId      String?
-  method         PaymentMethod
-  status         PaymentStatus
-  amountPaisa    Int
-  tenderedPaisa  Int?
-  changePaisa    Int?
+  id                  String        @id @default(cuid())
+  tenantId            String
+  organizationId      String
+  invoiceId           String
+  invoice             Invoice       @relation(fields: [invoiceId], references: [id])
+  patientId           String?
+  method              PaymentMethod
+  status              PaymentStatus
+  amountPaisa         Int
+  tenderedPaisa       Int?
+  changePaisa         Int?
   /// card approval code or bank reference
-  reference      String?
+  reference           String?
   /// fake | bkash | nagad (wallets only)
-  provider       String?
+  provider            String?
   /// the provider's id for the current attempt; earlier attempts' ids move to supersededRefs on retry
-  providerRef    String?
-  supersededRefs String[]      @default([])
-  linkUrl        String?
-  linkExpiresAt  DateTime?
+  providerRef         String?
+  supersededRefs      String[]      @default([])
+  linkUrl             String?
+  linkExpiresAt       DateTime?
   /// our short link (/v1/pay/<code>) to the current link; a new one on each attempt (ADR 0011)
-  linkCode       String?       @unique
+  linkCode            String?       @unique
   /// earlier attempts' short links: they lead to "this link has ended", never to "not found"
-  supersededLinkCodes String[] @default([])
+  supersededLinkCodes String[]      @default([])
   /// what the gateway returned at create; the patient's return must carry the same (bKash, ADR 0011)
-  providerSignature String?
+  providerSignature   String?
   /// the one execute for the current attempt was claimed (bKash: money moves at execute, once)
-  executeClaimedAt DateTime?
+  executeClaimedAt    DateTime?
   /// the number the payment link went to
-  phone          String?
-  trxId          String?
-  attempt        Int           @default(1)
-  failReason     String?
-  createdById    String
-  createdAt      DateTime      @default(now())
-  confirmedAt    DateTime?
+  phone               String?
+  trxId               String?
+  attempt             Int           @default(1)
+  failReason          String?
+  createdById         String
+  createdAt           DateTime      @default(now())
+  confirmedAt         DateTime?
   /// the cashier for cash/card/bank; null when the provider confirmed
-  confirmedById  String?
-  statusAt       DateTime      @default(now())
+  confirmedById       String?
+  statusAt            DateTime      @default(now())
 
   @@unique([provider, providerRef])
   @@index([tenantId, invoiceId])
@@ -1470,39 +1470,39 @@ enum CommunicationChannel {
 /// Every message (ADR 0006). `id` is the message id a retry reuses. SMS text is a fixed template (no values, tests,
 /// diagnosis or name); in-app deliveries (doctor's inbox, patient app) carry no text, only what they point at.
 model Communication {
-  id               String               @id
-  tenantId         String
-  organizationId   String
-  patientId        String
-  encounterId      String?
+  id                String               @id
+  tenantId          String
+  organizationId    String
+  patientId         String
+  encounterId       String?
   /// recollect | report-ready | report-app | report-inbox | correction-notice | results-withdrawn | order-cancelled |
   /// report-reviewed (SMS, ADR 0007) | critical-vital (doctor-inbox, ADR 0007)
-  kind             String
-  channel          CommunicationChannel
-  recipientUserId  String?
-  toPhone          String?
-  templateKey      String?
-  text             String?
-  reportId         String?
-  specimenId       String?
-  serviceRequestId String?
-  observationId    String?
+  kind              String
+  channel           CommunicationChannel
+  recipientUserId   String?
+  toPhone           String?
+  templateKey       String?
+  text              String?
+  reportId          String?
+  specimenId        String?
+  serviceRequestId  String?
+  observationId     String?
   /// substitution-notice (ADR 0009): the dispense it is about
-  dispenseId       String?
+  dispenseId        String?
   /// payment-link (ADR 0012): the payment whose short link it carries
-  paymentId        String?
+  paymentId         String?
   /// completed and confirmed by the gateway as delivered; false = the gateway only accepted it ("Sent", ADR 0012)
-  deliveryConfirmed Boolean            @default(false)
-  status           CommunicationStatus  @default(preparation)
-  attempts         Int                  @default(0)
-  lastError        String?
-  providerRef      String?
-  createdById      String
-  createdAt        DateTime             @default(now())
-  sentAt           DateTime?
-  completedAt      DateTime?
-  statusAt         DateTime             @default(now())
-  ack              InboxAck?            @relation("InboxAckItem")
+  deliveryConfirmed Boolean              @default(false)
+  status            CommunicationStatus  @default(preparation)
+  attempts          Int                  @default(0)
+  lastError         String?
+  providerRef       String?
+  createdById       String
+  createdAt         DateTime             @default(now())
+  sentAt            DateTime?
+  completedAt       DateTime?
+  statusAt          DateTime             @default(now())
+  ack               InboxAck?            @relation("InboxAckItem")
 
   @@index([tenantId, encounterId])
   @@index([tenantId, reportId])
@@ -1723,7 +1723,9 @@ model MedicationDispense {
   @@index([tenantId, requestId])
 }
 
-/* ───── pharmacy purchasing and counts (ADR 0009, pharmacy session 2) ───── */
+/**
+ * ───── pharmacy purchasing and counts (ADR 0009, pharmacy session 2) ─────
+ */
 
 model Supplier {
   id             String   @id @default(cuid())
@@ -1919,7 +1921,9 @@ model GatewayToken {
   updatedAt        DateTime
 }
 
-/* ───── refunds (ADR 0013) ───── */
+/**
+ * ───── refunds (ADR 0013) ─────
+ */
 /// REFUND machine states (@setu/domain machines.ts). withdrawn = approved, then not paid (never shown as rejected).
 enum RefundStatus {
   requested
@@ -2100,7 +2104,9 @@ model StockResale {
   @@index([tenantId, fromBatchId])
 }
 
-/* ───── ADR 0015: the ward ───── */
+/**
+ * ───── ADR 0015: the ward ─────
+ */
 enum MarDoseStatus {
   given
   held
@@ -2136,6 +2142,7 @@ model MedicationAdministration {
   reason           String?
   route            String
   doseText         String
+  amountGiven      String?
   doseQty          Int?
   /// ward-stock | patient-supplied
   source           String
@@ -2187,6 +2194,7 @@ model EscalationEvent {
   status         EscalationStatus
   score          Int
   peakScore      Int
+  peakRed        Boolean  @default(false)
   red            Boolean
   observationId  String
   raisedAt       DateTime

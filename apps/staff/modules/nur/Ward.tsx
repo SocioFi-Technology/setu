@@ -7,9 +7,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Escalation, IndentList, WardBoard, WardBoardBed, WardList, WardStock } from "@setu/contracts";
-import { informBlockers } from "@setu/domain";
+import { format, informBlockers } from "@setu/domain";
 import { Button, Callout, Card, Dialog, Pill, SelectField, TextArea, TextField, useToast } from "@setu/ui";
-import { ward } from "../../lib/api";
+import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { News2Pill, hhmm, rememberWard, rememberedWard, useErr, useLabels, useN } from "./common";
 
@@ -27,7 +27,9 @@ export function NurWard() {
       setWardId(w.wards.find((x) => x.id === saved)?.id ?? w.wards.find((x) => x.occupied > 0)?.id ?? w.wards[0]?.id ?? null);
     }).catch((e) => setFailed(err(e)));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const load = useCallback(async () => { if (!wardId) return; try { setBoard(await ward.board(wardId)); setFailed(null); } catch (e) { setFailed(err(e)); } }, [wardId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const current = useRef<string | null>(null); current.current = wardId;
+  // a late answer for the ward just left never paints over the one picked
+  const load = useCallback(async () => { if (!wardId) return; try { const b = await ward.board(wardId); if (current.current === wardId) { setBoard(b); setFailed(null); } } catch (e) { setFailed(err(e)); } }, [wardId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { void load(); const t = setInterval(() => void load(), 60_000); return () => clearInterval(t); }, [load]);
   if (failed && !board) return <Callout tone="warn" icon="triangle-alert">{failed}</Callout>;
   if (!wards) return <div aria-busy="true" className="t-muted">{N("loading")}</div>;
@@ -51,7 +53,7 @@ export function NurWard() {
         {board.escalations.map((x) => (
           <Callout key={x.escalation.id} tone="bad" icon="siren" data-testid="escalation-banner" data-escalation={x.escalation.id} data-escalation-status={x.escalation.status}>
             <span style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <b style={{ flex: 1 }}>{N("escalation_banner", { bed: x.bed, name: name(x.patient, bn), n: x.escalation.peakScore })}</b>
+              <b style={{ flex: 1 }}>{N(x.escalation.status === "raised" ? "escalation_banner" : "escalation_banner_informed", { bed: x.bed, name: name(x.patient, bn), n: x.escalation.peakScore })}</b>
               {x.escalation.status === "raised"
                 ? <Button size="sm" variant="primary" icon="phone" onClick={() => setInform(x.escalation)} data-testid="log-inform">{N("log_inform")}</Button>
                 : <Pill tone="info" icon="phone">{N("escalation_informed")} · {x.escalation.spokeTo}</Pill>}
@@ -59,7 +61,7 @@ export function NurWard() {
             </span>
           </Callout>
         ))}
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: 14, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14, alignItems: "start" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }} data-testid="ward-board">
             {board.beds.map((b) => <BedCard key={b.bed.id} b={b} go={go} onArrive={arrive} />)}
           </div>
@@ -142,7 +144,8 @@ function StockPanel({ wardId }: { wardId: string }) {
   const s = useSession(); const N = useN(); const err = useErr(); const toast = useToast();
   const [stock, setStock] = useState<WardStock | null>(null); const [indents, setIndents] = useState<IndentList | null>(null);
   const [adding, setAdding] = useState(false); const [cancelling, setCancelling] = useState<string | null>(null); const [reason, setReason] = useState("");
-  const load = useCallback(async () => { try { const [a, b] = await Promise.all([ward.stock(wardId), ward.indents(wardId)]); setStock(a); setIndents(b); } catch { /* the board shows the error */ } }, [wardId]);
+  const [failed, setFailed] = useState(false);
+  const load = useCallback(async () => { try { const [a, b] = await Promise.all([ward.stock(wardId), ward.indents(wardId)]); setStock(a); setIndents(b); setFailed(false); } catch { setFailed(true); } }, [wardId]);
   useEffect(() => { void load(); }, [load]);
   const cancel = async (id: string) => {
     if (reason.trim().length < 5) return;
@@ -151,6 +154,7 @@ function StockPanel({ wardId }: { wardId: string }) {
   return (<>
     <Card style={{ display: "flex", flexDirection: "column", gap: 6, padding: 14 }} data-testid="ward-stock">
       <b>{N("stock_title")}</b>
+      {failed && <Callout tone="warn" icon="triangle-alert">{N("stock_failed")}</Callout>}
       {stock && stock.items.length === 0 && <span className="t-small t-muted">{N("stock_empty")}</span>}
       {stock?.items.map((i) => (
         <span key={i.medicineKey} className="t-small" data-stock={i.medicineKey} data-stock-qty={i.qty} style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
@@ -193,7 +197,7 @@ function IndentForm({ wardId, onDone }: { wardId: string; onDone: (number: strin
   const send = async () => {
     if (!ok || busy) return; setBusy(true); setMsg(null);
     try { const v = await ward.indent(wardId, { lines: parsed, note: note.trim() || undefined }, key.current); await onDone(v.number); }
-    catch (e) { key.current = crypto.randomUUID(); setMsg(err(e)); } finally { setBusy(false); }
+    catch (e) { if (e instanceof ApiFailure) key.current = crypto.randomUUID(); setMsg(err(e)); } finally { setBusy(false); }
   };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }} data-testid="indent-form">
@@ -203,7 +207,7 @@ function IndentForm({ wardId, onDone }: { wardId: string; onDone: (number: strin
             <option value="">—</option>
             {meds.map((m) => <option key={m.key} value={m.key}>{m.brand} {m.strength}{m.controlled ? ` · ${N("controlled")}` : ""}</option>)}
           </SelectField>
-          <TextField label={N("indent_qty")} value={l.qty} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, qty: e.target.value.replace(/\D/g, "") } : x)))} inputMode="numeric" data-testid="indent-qty" />
+          <TextField label={N("indent_qty")} value={l.qty} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, qty: format.toEn(e.target.value).replace(/\D/g, "") } : x)))} inputMode="numeric" data-testid="indent-qty" />
         </div>
       ))}
       <div><Button size="sm" icon="plus" onClick={() => setLines([...lines, { medicineKey: "", qty: "" }])}>{N("indent_add_line")}</Button></div>

@@ -48,7 +48,7 @@ export function IpdMap() {
           {STATES.map((st) => <option key={st} value={st}>{N(`bst_${st}`)}</option>)}
         </SelectField></div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: sel ? "minmax(0, 1fr) 320px" : "minmax(0, 1fr)", gap: 14, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: sel ? "repeat(auto-fit, minmax(320px, 1fr))" : "minmax(0, 1fr)", gap: 14, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {wards.map((w) => (
             <div key={w.id} style={{ display: "flex", flexDirection: "column", gap: 6 }} data-map-ward={w.name}>

@@ -1082,3 +1082,28 @@ Commit after each step, push at the end of each session.
 - **Stopping an order needs the doctor's PIN**, like signing. Keep?
 - **Held and refused can be recorded on a slot before it falls due** (nil by mouth for theatre); missed only after the
   window. A PRN order takes given or refused only.
+
+## Slice B3–B4, session 2 (screens, journey, reviews) — 06/10/2026
+### Decided in the session from the reviews (defaults — Kamrul to confirm)
+264. **Re-escalation:** worse after the doctor was informed (higher score or a first red parameter) → raised again, the
+     doctor told again, a new contact logged. Built (ADR 0015 amendment).
+265. **Insulin and other multi-dose drugs record the amount given** ("4 IU"); a ward-stock dose needs an opened vial.
+     Built. The structured sliding scale is for a clinician (below).
+266. **A changed order's first slot near a dose just given needs a reason** (warning in the dialog). Built.
+267. **PRN doses are charted within the hour** they are given; **no slot more than 12 hours ahead** is charted. Built.
+268. **Only the recording nurse marks a dose entered-in-error**, while the admission is open. Built.
+269. **An amendment cannot silently restart an order stopped after its draft opened.** Built.
+
+### For the clinician pre-pilot list (known gap 14)
+- A structured insulin sliding scale (CBG bands → units), or "units + CBG" required on every insulin dose.
+- A daily maximum per medicine across regimens and "keep both" lines (today the PRN cap counts per regimen, so a dose
+  change resets it; two orders of the same drug each have their own cap).
+- Escalation reach: only the admitting doctor is told; no duty-doctor fallback and no acknowledgement timeout; a nurse
+  can raise, log and resolve without the doctor acknowledging in the app.
+- Controlled-drug register: no line for a controlled drug from the patient's own supply; no receiving-nurse
+  countersignature when an indent is issued; an errored dose does not reverse its stock or register line (decided
+  default above — a count corrects it).
+- Regimen identity compares the dose wording ("1 g" vs "1000 mg" is a new regimen); the earlier-dose warning matches
+  the same medicine key, not the same generic.
+- The preparer is taken from the request without their PIN (the "never the preparer" witness rule relies on it).
+

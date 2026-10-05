@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 session 1 done (06/10/2026); next: see Next)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); next: see Next)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -933,6 +933,30 @@ frequency are unchanged (9).
   only; `journeys/b3-b4.spec.ts`; code and clinical-safety reviews; hands-on as ward nurse, doctor and pharmacist.
   Open questions 254–263.
 
+## Done (slice B3–B4, session 2 of 2, 06/10/2026) — the ward screens, journey B4–B7, reviews, hands-on ✅
+- **Screens (`apps/staff/modules/nur`, `ipd`, `ph`; strings `nurApp`):** `nur/ward` (ward picked once per device, the
+  escalation banner with the contact log, a card per bed: NEWS2, next obs, doses due/overdue, allergies, arrivals; ward
+  stock and indents), `nur/vitals` (NEWS2 live on the device; offline the set waits in the outbox and at or above the
+  threshold says "call the doctor now — not yet synced"; escalation inform/resolve; 72 h), `nur/mar` (slot grid incl.
+  the last 24 h, PRN caps, vial dialog and opened-at, allergy block, stopped/superseded struck through; dose dialog:
+  outcome, five checks, time never future, source with the patient's own shown distinctly, amount for multi-dose,
+  reason, witness + PIN; online only; entered-in-error), `nur/io` (append-only notes, outbox), `ipd/map` (legend, filters,
+  block/unblock/ready), `ipd/transfer` (two-leg move now/reserve, arrive, cancel, sample price difference), `ipd/rounds`
+  (worklist by risk, last 24 h, stop with PIN, SOAP + order lines, sign with PIN, per-line sign warnings, amend),
+  `ph/indent` (issue, PIN for controlled). The doctor inbox renders the NEWS2 escalation with a link to the round.
+- **Journey:** `e2e/journeys/b3-b4.spec.ts` (5 tests; issues #1, #7, #24) — escalation to the inbox, the round (the A5
+  duplicate check blocks IV paracetamol beside PRN Napa), stop, MAR (stopped order, five checks, insulin vial + amount +
+  witness, morphine wrong witness PIN then witnessed, patient's own supply, entered-in-error), notes, indent issued with
+  the pharmacist's PIN, a bed move, offline vitals and doses. Hands-on: `e2e/walk-ward.mjs <outDir>` (Bangla, 26 shots).
+- **Reviews:** clinical safety (13 findings) and code (11) — fixed: re-escalation, vial and amount, recent-dose reason,
+  PRN backdating, far slots, witness for controlled in the guard, stopped-line restart on amend, entered-in-error by the
+  recorder only and shown in the cell, ward stock without expired batches; retry keys kept on network errors (no double
+  PRN dose), the round editor after a conflict, Bangla digits in number fields, a late board answer for another ward,
+  wrapping layouts, past-tense toasts. ADR 0015 amendment; open questions 264–269 and the pre-pilot list.
+- **Found by running it:** just after midnight the board counted overdue doses the MAR could not show (fixed:
+  `marSlotRange`); re-picking the same ward left the board on "Loading…".
+- **Tests:** domain 388, api 327 (mar 15, ward 12), b3-b4 5/5, typecheck 13/13.
+
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
 2. ~~MinIO image cannot be pulled~~ — dev and tests store receipts with `LocalFolderStorage` (A6–A7). Before staging: an S3-compatible adapter behind the same `Storage` interface.
@@ -979,7 +1003,9 @@ frequency are unchanged (9).
     how an admitted patient's ER charges move to the IPD bill. Pre-pilot, with gap 12.
 14. **Ward clinical content (ADR 0015, pre-pilot, a clinician):** the NEWS2 threshold, red-score rule and observation
     intervals; the ±60-minute dose window; the high-alert list; discard-after-opening periods for insulin, heparin and
-    other multi-dose vials (until then the MAR shows opened-at only); SpO₂ scale 2 for hypercapnic patients.
+    other multi-dose vials (until then the MAR shows opened-at only); SpO₂ scale 2 for hypercapnic patients; the
+    structured insulin sliding scale, a daily maximum per medicine across regimens, escalation reach (duty doctor,
+    acknowledgement), controlled-drug register gaps (open questions, B3–B4 session 2).
 11. **Patients are per tenant** (decided 02/10/2026, open question 21): one record shared across an owner's branches; between different owners only through Connected Care with consent (Journey E), never by default.
 
 ## Next (in order)
@@ -991,7 +1017,7 @@ frequency are unchanged (9).
 5. ~~`/slice A12-A13`~~ — done 03/10/2026 (two sessions); **Journey A complete**. Kamrul to confirm open questions
    135–149.
 6. **Phase 2 pilot clinic, split in four slices (Kamrul, 03/10/2026):** ~~`/slice C1-C4`~~ owner dashboard + shift close
-   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → ~~SMS + bKash~~ (done 04/10/2026, two sessions; questions 205–219). **The four Phase 2 pilot-clinic slices are done.** ~~**Refunds**~~ done 05/10/2026 (two sessions + the 233–235 follow-up; ADR 0013; questions 220–239, 233–235 decided). **Phase 3 Journey B started:** ~~`/slice B1-B2`~~ done 05/10/2026 (two sessions; ADR 0014; questions 240–253). `/slice B3-B4` session 1 done 06/10/2026 (ADR 0015; questions 254–263); session 2 = the ward screens, journey B3–B4, reviews, hands-on. Then (bed map, transfer, the ward's view) and on per `docs/CLAUDE-CODE-GUIDE.md`. Or Kamrul's call — the pre-pilot hardening (known gaps 3, 4, 10, 12: argon2id, PIN tries in Redis, composite keys, clinical sign-offs), real credentials (bKash sandbox, BulkSMSBD), then the pilot; or Phase 3 per `docs/BUILD-PLAN.md`. See open questions "Phase 2 plan".
+   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → ~~SMS + bKash~~ (done 04/10/2026, two sessions; questions 205–219). **The four Phase 2 pilot-clinic slices are done.** ~~**Refunds**~~ done 05/10/2026 (two sessions + the 233–235 follow-up; ADR 0013; questions 220–239, 233–235 decided). **Phase 3 Journey B started:** ~~`/slice B1-B2`~~ done 05/10/2026 (two sessions; ADR 0014; questions 240–253). ~~`/slice B3-B4`~~ done 06/10/2026 (two sessions; ADR 0015 + amendment; questions 254–269). Next: `/slice B5-B6` per `docs/CLAUDE-CODE-GUIDE.md` (OT / discharge per the build plan). Or Kamrul's call — the pre-pilot hardening (known gaps 3, 4, 10, 12: argon2id, PIN tries in Redis, composite keys, clinical sign-offs), real credentials (bKash sandbox, BulkSMSBD), then the pilot; or Phase 3 per `docs/BUILD-PLAN.md`. See open questions "Phase 2 plan".
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

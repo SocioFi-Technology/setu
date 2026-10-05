@@ -119,14 +119,17 @@ export async function recordWardVitals(tx: Tx, s: SessionData, encounterId: stri
   let escalated = false;
   if (shouldEscalate(n)) {
     if (!esc) {
-      esc = await tx.escalationEvent.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, encounterId: ip.e.id, patientId: ip.e.patientId, status: "raised", score: n.total, peakScore: n.total, red: n.red, observationId: news2Id, raisedAt: now, raisedById: s.userId } });
+      esc = await tx.escalationEvent.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, encounterId: ip.e.id, patientId: ip.e.patientId, status: "raised", score: n.total, peakScore: n.total, red: n.red, peakRed: n.red, observationId: news2Id, raisedAt: now, raisedById: s.userId } });
       escalated = true;
       audit.push({ action: "create", entity: "EscalationEvent", entityId: esc.id, patientId: ip.e.patientId, detail: { score: n.total, red: n.red, doctorId: ip.e.practitionerId } });
       if (ip.e.practitionerId) await deliverInApp(tx, s, { patientId: ip.e.patientId, encounterId: ip.e.id }, { kind: "news2-escalation", channel: "doctor_inbox", recipientUserId: ip.e.practitionerId, observationId: news2Id }, now);
-    } else if (n.total > esc.peakScore) {
-      esc = await tx.escalationEvent.update({ where: { id: esc.id }, data: { peakScore: n.total } });
+    } else if (n.total > esc.peakScore || (n.red && !esc.peakRed)) {
+      // worse: a higher score, or a first red parameter at any total — the doctor is told again; after a logged
+      // contact the escalation goes back to raised so the nurse logs a new one (ESCALATION worsen)
+      const status = esc.status === "doctor_informed" ? (transition("escalation", ESCALATION, "doctor-informed", "worsen") as "raised") : esc.status;
+      esc = await tx.escalationEvent.update({ where: { id: esc.id }, data: { peakScore: Math.max(n.total, esc.peakScore), peakRed: esc.peakRed || n.red, status } });
       escalated = true;
-      audit.push({ action: "update", entity: "EscalationEvent", entityId: esc.id, patientId: ip.e.patientId, detail: { event: "worse", score: n.total } });
+      audit.push({ action: "update", entity: "EscalationEvent", entityId: esc.id, patientId: ip.e.patientId, detail: { event: "worse", score: n.total, red: n.red, status } });
       if (ip.e.practitionerId) await deliverInApp(tx, s, { patientId: ip.e.patientId, encounterId: ip.e.id }, { kind: "news2-escalation", channel: "doctor_inbox", recipientUserId: ip.e.practitionerId, observationId: news2Id }, now);
     }
   }

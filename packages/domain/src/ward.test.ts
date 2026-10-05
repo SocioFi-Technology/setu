@@ -45,6 +45,9 @@ describe("escalation log (walkthrough B6: 'spoke to' and the instruction are req
     expect(informBlockers({ spokeTo: "Dr. Lite Surgeon", instruction: "Repeat obs q15 min, start IV fluids" })).toEqual([]);
     expect(transition("escalation", ESCALATION, "raised", "inform")).toBe("doctor-informed");
     expect(can(ESCALATION, "raised", "resolve")).toBe(false);
+    // review: worse after the doctor was informed → raised again (a new contact is logged)
+    expect(transition("escalation", ESCALATION, "doctor-informed", "worsen")).toBe("raised");
+    expect(can(ESCALATION, "resolved", "worsen")).toBe(false);
   });
   it("a nursing note is 3–4000 characters", () => { expect(noteOk("ok")).toBe(false); expect(noteOk("Patient settled, eating well")).toBe(true); });
 });

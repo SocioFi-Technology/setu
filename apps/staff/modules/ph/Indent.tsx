@@ -5,6 +5,7 @@
    and what the store holds; the balance can be issued later or cancelled by the ward. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { IndentList, IndentView } from "@setu/contracts";
+import { format } from "@setu/domain";
 import { Button, Callout, Card, Pill, Segmented, TextField, useToast } from "@setu/ui";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -50,7 +51,8 @@ function IndentCard({ x, onIssued }: { x: IndentView; onIssued: (v: IndentView) 
     try { const v = await ward.issue(x.id, { lines: lines.map(({ l, q }) => ({ lineId: l.id, qty: q })), pin: p }, key.current); key.current = crypto.randomUUID(); setPin(false); await onIssued(v); }
     catch (e) {
       if (e instanceof ApiFailure && (e.body.code === "pin_wrong" || e.body.code === "pin_locked")) throw e;
-      key.current = crypto.randomUUID(); setPin(false); setMsg(err(e));
+      if (e instanceof ApiFailure) key.current = crypto.randomUUID();
+      setPin(false); setMsg(err(e));
     } finally { setBusy(false); }
   };
   return (
@@ -68,7 +70,7 @@ function IndentCard({ x, onIssued }: { x: IndentView; onIssued: (v: IndentView) 
             <span className="t-muted">{N("store_n", { n: l.storeAvailable })}</span>
             {l.controlled && <Pill tone="crit" icon="lock">{N("controlled")}</Pill>}
           </span>
-          {open && l.issued < l.requested && <TextField label={N("issue_qty")} value={qty[l.id] ?? ""} onChange={(e) => setQty({ ...qty, [l.id]: e.target.value.replace(/\D/g, "") })} inputMode="numeric" data-testid="issue-qty" />}
+          {open && l.issued < l.requested && <TextField label={N("issue_qty")} value={qty[l.id] ?? ""} onChange={(e) => setQty({ ...qty, [l.id]: format.toEn(e.target.value).replace(/\D/g, "") })} inputMode="numeric" data-testid="issue-qty" />}
         </div>
       ))}
       {x.cancel && <span className="t-small t-muted">{N("ist_cancelled")}: {x.cancel.reason}</span>}

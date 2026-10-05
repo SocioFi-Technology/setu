@@ -224,8 +224,9 @@ export type NoteEntryState = "active" | "entered-in-error";
 export const NURSING_NOTE: Table<NoteEntryState, "markError"> = { active: { markError: "entered-in-error" }, "entered-in-error": {} };
 
 export type EscalationState = "raised" | "doctor-informed" | "resolved";
-export type EscalationEvent = "inform" | "resolve";
-export const ESCALATION: Table<EscalationState, EscalationEvent> = { raised: { inform: "doctor-informed" }, "doctor-informed": { resolve: "resolved" }, resolved: {} };
+export type EscalationEvent = "inform" | "resolve" | "worsen";
+/** ADR 0015 (review): a patient worse after the doctor was informed goes back to raised — the nurse logs a new contact. */
+export const ESCALATION: Table<EscalationState, EscalationEvent> = { raised: { inform: "doctor-informed" }, "doctor-informed": { resolve: "resolved", worsen: "raised" }, resolved: {} };
 
 export type ConsentState = "proposed" | "active" | "revoked" | "expired" | "ended" | "reviewed";
 export type ConsentEvent = "activate" | "revoke" | "expire" | "end" | "review";

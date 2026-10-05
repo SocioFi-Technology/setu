@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { InpatientLineInput, InpatientOrder, RoundNote, RoundView, RoundWorklist } from "@setu/contracts";
-import { lineProblems, roundNoteBlockers, wardMedicine } from "@setu/domain";
+import { format, lineProblems, roundNoteBlockers, wardMedicine } from "@setu/domain";
 import { Button, Callout, Card, PageState, Pill, SelectField, TextArea, TextField, useToast } from "@setu/ui";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -104,7 +104,7 @@ function RoundFor({ enc }: { enc: string }) {
               <b>{N("signed_by", { name: n.signedBy ? (bn ? n.signedBy.nameBn : n.signedBy.nameEn) : "—", t: hhmm(n.signedAt, bnNum) })} · v{s.n(n.version)}</b>
               {n.amendReason && <span className="t-small t-muted">{N("amend_reason")}: {n.amendReason}</span>}
               {(["a", "p"] as const).map((k) => n.sections[k] && <span key={k} className="t-small"><b>{k.toUpperCase()}</b> {n.sections[k]}</span>)}
-              {n.lines.map((l) => <span key={l.id} className="t-small" data-signed-line={l.medicineKey} data-line-status={l.status}>{wardMedicine(l.medicineKey)?.brand ?? l.medicineKey} {l.doseText} · {l.route} · {l.prn ? N("prn") : l.times.join(", ")} · {l.status}</span>)}
+              {n.lines.map((l) => <span key={l.id} className="t-small" data-signed-line={l.medicineKey} data-line-status={l.status}>{wardMedicine(l.medicineKey)?.brand ?? l.medicineKey} {l.doseText} · {l.route} · {l.prn ? N("prn") : l.times.join(", ")} · {N(`ost_${l.status}`)}</span>)}
               {s.me?.role === "doctor" && !v.draft && n.status !== "superseded" && (
                 <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
                   <TextArea label={N("amend_reason")} rows={1} name={`amend-${n.id}`} defaultValue="" />
@@ -121,7 +121,7 @@ function RoundFor({ enc }: { enc: string }) {
       </div>
       {stop && stopPin && (
         <PinSheet title={`${N("stop")} · ${stop.medicine.brand} ${stop.medicine.strength}`} action={N("stop")} icon="octagon-x" onClose={() => setStopPin(false)}
-          submit={async (pin) => { setV(await ward.stopOrder(stop.id, { reason: stopReason.trim(), pin }, crypto.randomUUID())); setStop(null); setStopPin(false); toast(N("order_stopped", { name: "", reason: stopReason.trim() }), "octagon-x"); }} />
+          submit={async (pin) => { setV(await ward.stopOrder(stop.id, { reason: stopReason.trim(), pin }, crypto.randomUUID())); setStop(null); setStopPin(false); toast(N("stopped_toast", { drug: `${stop.medicine.brand} ${stop.medicine.strength}` }), "octagon-x"); }} />
       )}
     </div>
   );
@@ -141,7 +141,7 @@ function Editor({ v, draft, onChanged }: { v: RoundView; draft: RoundNote; onCha
   const [lines, setLines] = useState<Line[]>(draft.lines.map(toLine));
   const [meds, setMeds] = useState<Med[]>([]);
   const [busy, setBusy] = useState(false); const [msg, setMsg] = useState<string | null>(null);
-  const [signBlockers, setSignBlockers] = useState<{ code: string; warning?: { line: string; kind: string; allergy?: { labelEn?: string; labelBn?: string }; ruleId?: string; textBn?: string; textEn?: string } }[]>([]);
+  const [signBlockers, setSignBlockers] = useState<{ code: string; drug?: string; warning?: { line: string; kind: string; allergy?: { labelEn?: string; labelBn?: string }; ruleId?: string; textBn?: string; textEn?: string } }[]>([]);
   const [signing, setSigning] = useState(false);
   const rev = useRef(draft.rev); const signKey = useRef(crypto.randomUUID());
   useEffect(() => { ward.medicines("").then((r) => setMeds(r.items)).catch(() => setMeds([])); }, []);
@@ -159,7 +159,12 @@ function Editor({ v, draft, onChanged }: { v: RoundView; draft: RoundNote; onCha
       return true;
     } catch (e) {
       setMsg(err(e));
-      if (e instanceof ApiFailure && e.body.code === "stale") { toast(N("stale_refresh"), "refresh-cw"); onChanged(await ward.round(v.encounterId)); }
+      if (e instanceof ApiFailure && e.body.code === "stale") {
+        // someone saved first: take the server's draft (its rev, sections and lines) so the next save can succeed
+        toast(N("stale_refresh"), "refresh-cw");
+        const fresh = await ward.round(v.encounterId); onChanged(fresh);
+        if (fresh.draft) { rev.current = fresh.draft.rev; setSec(fresh.draft.sections); setLines(fresh.draft.lines.map(toLine)); }
+      }
       return false;
     } finally { setBusy(false); }
   };
@@ -187,18 +192,18 @@ function Editor({ v, draft, onChanged }: { v: RoundView; draft: RoundNote; onCha
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8 }}>
               <TextField label={N("dose_text")} value={l.doseText} onChange={(e) => set(i, { doseText: e.target.value })} data-testid="line-dose" />
-              <TextField label={`${N("dose_qty")}${m ? ` (${m.issueUnit})` : ""}`} value={l.qtyText} onChange={(e) => set(i, { qtyText: e.target.value.replace(/\D/g, "") })} inputMode="numeric" data-testid="line-qty" />
+              <TextField label={`${N("dose_qty")}${m ? ` (${m.issueUnit})` : ""}`} value={l.qtyText} onChange={(e) => set(i, { qtyText: format.toEn(e.target.value).replace(/\D/g, "") })} inputMode="numeric" data-testid="line-qty" />
             </div>
             <label className="t-small" style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={l.prn} onChange={(e) => set(i, { prn: e.target.checked })} data-testid="line-prn" /> {N("prn")}</label>
-            {l.prn ? <TextField label={N("prn_max")} value={l.maxText} onChange={(e) => set(i, { maxText: e.target.value.replace(/\D/g, "") })} inputMode="numeric" data-testid="line-prn-max" />
+            {l.prn ? <TextField label={N("prn_max")} value={l.maxText} onChange={(e) => set(i, { maxText: format.toEn(e.target.value).replace(/\D/g, "") })} inputMode="numeric" data-testid="line-prn-max" />
               : <TextField label={N("times")} value={l.timesText} onChange={(e) => set(i, { timesText: e.target.value })} placeholder="08:00, 20:00" data-testid="line-times" />}
-            {problems[i]!.length > 0 && l.medicineKey && <span className="t-small" style={{ color: "var(--warning-fg)" }} data-line-problems={problems[i]!.join(",")}>{problems[i]!.join(" · ")}</span>}
+            {problems[i]!.length > 0 && l.medicineKey && <span className="t-small" style={{ color: "var(--warning-fg)" }} data-line-problems={problems[i]!.join(",")}>{problems[i]!.map((p) => N(`lp_${p}`)).join(" · ")}</span>}
             {warn.map((b, j) => {
               const w = b.warning!;
               return (
                 <div key={j} className="t-small" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", color: "var(--danger-fg)" }} data-sign-warning={w.kind}>
                   {w.kind === "allergy" ? N("blocker_allergy", { drug: m?.brand ?? l.medicineKey, allergy: s.lang === "bn" ? w.allergy?.labelBn ?? "" : w.allergy?.labelEn ?? "" })
-                    : w.kind === "interaction" ? `${m?.brand ?? l.medicineKey}: ${s.L(w.textBn ?? "", w.textEn ?? "")}` : N("blocker_rx", { drug: m?.brand ?? l.medicineKey, kind: w.kind })}
+                    : w.kind === "interaction" ? `${m?.brand ?? l.medicineKey}: ${s.L(w.textBn ?? "", w.textEn ?? "")}` : N("blocker_rx", { drug: m?.brand ?? l.medicineKey, kind: N(`rx_${w.kind}`) })}
                   {w.kind === "same-medicine" && <label><input type="checkbox" checked={Boolean(l.keepBoth)} onChange={(e) => set(i, { keepBoth: e.target.checked })} /> {N("keep_both")}</label>}
                   {(w.kind === "interaction" || w.kind === "same-class") && <label><input type="checkbox" checked={(l.acks ?? []).includes(w.ruleId ?? w.kind)} onChange={(e) => set(i, { acks: e.target.checked ? [...(l.acks ?? []), w.ruleId ?? w.kind] : (l.acks ?? []).filter((x) => x !== (w.ruleId ?? w.kind)) })} /> {N("acknowledge")}</label>}
                 </div>
@@ -209,10 +214,10 @@ function Editor({ v, draft, onChanged }: { v: RoundView; draft: RoundNote; onCha
         );
       })}
       <div><Button size="sm" icon="plus" onClick={() => setLines([...lines, toLine({ medicineKey: "", route: "", doseText: "", doseQty: null, times: [], prn: false, prnMaxPer24h: null })])} data-testid="add-line">{N("add_order")}</Button></div>
-      {signBlockers.filter((b) => !b.warning).map((b, i) => <Callout key={i} tone="warn" icon="triangle-alert" data-sign-blocker={b.code}>{N(`blocker_${b.code}`)}</Callout>)}
+      {signBlockers.filter((b) => !b.warning).map((b, i) => <Callout key={i} tone="warn" icon="triangle-alert" data-sign-blocker={b.code}>{N(`blocker_${b.code}`, { drug: b.drug ?? "" })}</Callout>)}
       {msg && <Callout tone="warn" icon="triangle-alert" data-testid="round-error">{msg}</Callout>}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <Button icon="save" disabled={busy || !linesOk || !s.online} onClick={() => void save().then((ok) => ok && toast(N("save_draft"), "save"))} data-testid="save-round">{N("save_draft")}</Button>
+        <Button icon="save" disabled={busy || !linesOk || !s.online} onClick={() => void save().then((ok) => ok && toast(N("draft_saved"), "save"))} data-testid="save-round">{N("save_draft")}</Button>
         <Button variant="primary" icon="pen-line" disabled={busy || !linesOk || !noteOk || !s.online} onClick={() => void save().then((ok) => { if (ok) setSigning(true); })} data-testid="sign-round">{N("sign_round")}</Button>
         {!noteOk && <span className="t-small t-muted">{N("blocker_assessment_or_plan")}</span>}
       </div>
@@ -220,7 +225,7 @@ function Editor({ v, draft, onChanged }: { v: RoundView; draft: RoundNote; onCha
         <PinSheet title={N("sign_round")} action={N("sign")} onClose={() => setSigning(false)} submit={async (pin) => {
           try {
             const nv = await ward.signRound(draft.id, { rev: rev.current, pin }, signKey.current);
-            setSigning(false); setSignBlockers([]); onChanged(nv); toast(N("sign_round"), "badge-check");
+            setSigning(false); setSignBlockers([]); onChanged(nv); toast(N("round_signed"), "badge-check");
           } catch (e) {
             signKey.current = crypto.randomUUID();
             if (e instanceof ApiFailure && e.body.code === "sign_blocked") { setSigning(false); setSignBlockers((e.body as unknown as { blockers: typeof signBlockers }).blockers ?? []); setMsg(err(e)); return; }

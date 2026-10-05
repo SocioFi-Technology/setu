@@ -36914,6 +36914,12 @@
                                         "by",
                                         "at"
                                       ]
+                                    },
+                                    "amountGiven": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
                                     }
                                   },
                                   "required": [
@@ -36928,14 +36934,214 @@
                                     "preparedBy",
                                     "witness",
                                     "checks",
-                                    "error"
+                                    "error",
+                                    "amountGiven"
                                   ]
+                                },
+                                "errored": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "status": {
+                                        "type": "string",
+                                        "enum": [
+                                          "given",
+                                          "held",
+                                          "refused",
+                                          "missed",
+                                          "entered-in-error"
+                                        ]
+                                      },
+                                      "administeredAt": {
+                                        "type": "string"
+                                      },
+                                      "scheduledFor": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "timing": {
+                                        "type": "string",
+                                        "enum": [
+                                          "on-time",
+                                          "early",
+                                          "late",
+                                          "prn"
+                                        ]
+                                      },
+                                      "reason": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "source": {
+                                        "type": "string",
+                                        "enum": [
+                                          "ward-stock",
+                                          "patient-supplied"
+                                        ]
+                                      },
+                                      "by": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "nameBn": {
+                                            "type": "string"
+                                          },
+                                          "nameEn": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "nameBn",
+                                          "nameEn"
+                                        ]
+                                      },
+                                      "preparedBy": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "nameBn": {
+                                            "type": "string"
+                                          },
+                                          "nameEn": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "nameBn",
+                                          "nameEn"
+                                        ]
+                                      },
+                                      "witness": {
+                                        "type": [
+                                          "object",
+                                          "null"
+                                        ],
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "nameBn": {
+                                            "type": "string"
+                                          },
+                                          "nameEn": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "nameBn",
+                                          "nameEn"
+                                        ]
+                                      },
+                                      "checks": {
+                                        "type": "object",
+                                        "properties": {
+                                          "patient": {
+                                            "type": "boolean"
+                                          },
+                                          "drug": {
+                                            "type": "boolean"
+                                          },
+                                          "dose": {
+                                            "type": "boolean"
+                                          },
+                                          "route": {
+                                            "type": "boolean"
+                                          },
+                                          "time": {
+                                            "type": "boolean"
+                                          }
+                                        },
+                                        "required": [
+                                          "patient",
+                                          "drug",
+                                          "dose",
+                                          "route",
+                                          "time"
+                                        ]
+                                      },
+                                      "error": {
+                                        "type": [
+                                          "object",
+                                          "null"
+                                        ],
+                                        "properties": {
+                                          "reason": {
+                                            "type": "string"
+                                          },
+                                          "by": {
+                                            "type": "object",
+                                            "properties": {
+                                              "id": {
+                                                "type": "string"
+                                              },
+                                              "nameBn": {
+                                                "type": "string"
+                                              },
+                                              "nameEn": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "id",
+                                              "nameBn",
+                                              "nameEn"
+                                            ]
+                                          },
+                                          "at": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "reason",
+                                          "by",
+                                          "at"
+                                        ]
+                                      },
+                                      "amountGiven": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "status",
+                                      "administeredAt",
+                                      "scheduledFor",
+                                      "timing",
+                                      "reason",
+                                      "source",
+                                      "by",
+                                      "preparedBy",
+                                      "witness",
+                                      "checks",
+                                      "error",
+                                      "amountGiven"
+                                    ]
+                                  }
                                 }
                               },
                               "required": [
                                 "at",
                                 "state",
-                                "record"
+                                "record",
+                                "errored"
                               ]
                             }
                           },
@@ -37112,6 +37318,12 @@
                                     "by",
                                     "at"
                                   ]
+                                },
+                                "amountGiven": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
@@ -37126,7 +37338,8 @@
                                 "preparedBy",
                                 "witness",
                                 "checks",
-                                "error"
+                                "error",
+                                "amountGiven"
                               ]
                             }
                           },
@@ -37417,6 +37630,12 @@
                               "at"
                             ]
                           },
+                          "amountGiven": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "orderId": {
                             "type": "string"
                           },
@@ -37437,6 +37656,7 @@
                           "witness",
                           "checks",
                           "error",
+                          "amountGiven",
                           "orderId",
                           "medicine"
                         ]
@@ -37729,6 +37949,10 @@
                       "userId",
                       "pin"
                     ]
+                  },
+                  "amountGiven": {
+                    "type": "string",
+                    "maxLength": 40
                   }
                 },
                 "required": [
@@ -38448,6 +38672,12 @@
                                         "by",
                                         "at"
                                       ]
+                                    },
+                                    "amountGiven": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
                                     }
                                   },
                                   "required": [
@@ -38462,14 +38692,214 @@
                                     "preparedBy",
                                     "witness",
                                     "checks",
-                                    "error"
+                                    "error",
+                                    "amountGiven"
                                   ]
+                                },
+                                "errored": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "status": {
+                                        "type": "string",
+                                        "enum": [
+                                          "given",
+                                          "held",
+                                          "refused",
+                                          "missed",
+                                          "entered-in-error"
+                                        ]
+                                      },
+                                      "administeredAt": {
+                                        "type": "string"
+                                      },
+                                      "scheduledFor": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "timing": {
+                                        "type": "string",
+                                        "enum": [
+                                          "on-time",
+                                          "early",
+                                          "late",
+                                          "prn"
+                                        ]
+                                      },
+                                      "reason": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "source": {
+                                        "type": "string",
+                                        "enum": [
+                                          "ward-stock",
+                                          "patient-supplied"
+                                        ]
+                                      },
+                                      "by": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "nameBn": {
+                                            "type": "string"
+                                          },
+                                          "nameEn": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "nameBn",
+                                          "nameEn"
+                                        ]
+                                      },
+                                      "preparedBy": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "nameBn": {
+                                            "type": "string"
+                                          },
+                                          "nameEn": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "nameBn",
+                                          "nameEn"
+                                        ]
+                                      },
+                                      "witness": {
+                                        "type": [
+                                          "object",
+                                          "null"
+                                        ],
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "nameBn": {
+                                            "type": "string"
+                                          },
+                                          "nameEn": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "nameBn",
+                                          "nameEn"
+                                        ]
+                                      },
+                                      "checks": {
+                                        "type": "object",
+                                        "properties": {
+                                          "patient": {
+                                            "type": "boolean"
+                                          },
+                                          "drug": {
+                                            "type": "boolean"
+                                          },
+                                          "dose": {
+                                            "type": "boolean"
+                                          },
+                                          "route": {
+                                            "type": "boolean"
+                                          },
+                                          "time": {
+                                            "type": "boolean"
+                                          }
+                                        },
+                                        "required": [
+                                          "patient",
+                                          "drug",
+                                          "dose",
+                                          "route",
+                                          "time"
+                                        ]
+                                      },
+                                      "error": {
+                                        "type": [
+                                          "object",
+                                          "null"
+                                        ],
+                                        "properties": {
+                                          "reason": {
+                                            "type": "string"
+                                          },
+                                          "by": {
+                                            "type": "object",
+                                            "properties": {
+                                              "id": {
+                                                "type": "string"
+                                              },
+                                              "nameBn": {
+                                                "type": "string"
+                                              },
+                                              "nameEn": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "id",
+                                              "nameBn",
+                                              "nameEn"
+                                            ]
+                                          },
+                                          "at": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "reason",
+                                          "by",
+                                          "at"
+                                        ]
+                                      },
+                                      "amountGiven": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "status",
+                                      "administeredAt",
+                                      "scheduledFor",
+                                      "timing",
+                                      "reason",
+                                      "source",
+                                      "by",
+                                      "preparedBy",
+                                      "witness",
+                                      "checks",
+                                      "error",
+                                      "amountGiven"
+                                    ]
+                                  }
                                 }
                               },
                               "required": [
                                 "at",
                                 "state",
-                                "record"
+                                "record",
+                                "errored"
                               ]
                             }
                           },
@@ -38646,6 +39076,12 @@
                                     "by",
                                     "at"
                                   ]
+                                },
+                                "amountGiven": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
@@ -38660,7 +39096,8 @@
                                 "preparedBy",
                                 "witness",
                                 "checks",
-                                "error"
+                                "error",
+                                "amountGiven"
                               ]
                             }
                           },
@@ -38951,6 +39388,12 @@
                               "at"
                             ]
                           },
+                          "amountGiven": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "orderId": {
                             "type": "string"
                           },
@@ -38971,6 +39414,7 @@
                           "witness",
                           "checks",
                           "error",
+                          "amountGiven",
                           "orderId",
                           "medicine"
                         ]
@@ -40214,6 +40658,12 @@
                                         "by",
                                         "at"
                                       ]
+                                    },
+                                    "amountGiven": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
                                     }
                                   },
                                   "required": [
@@ -40228,14 +40678,214 @@
                                     "preparedBy",
                                     "witness",
                                     "checks",
-                                    "error"
+                                    "error",
+                                    "amountGiven"
                                   ]
+                                },
+                                "errored": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "status": {
+                                        "type": "string",
+                                        "enum": [
+                                          "given",
+                                          "held",
+                                          "refused",
+                                          "missed",
+                                          "entered-in-error"
+                                        ]
+                                      },
+                                      "administeredAt": {
+                                        "type": "string"
+                                      },
+                                      "scheduledFor": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "timing": {
+                                        "type": "string",
+                                        "enum": [
+                                          "on-time",
+                                          "early",
+                                          "late",
+                                          "prn"
+                                        ]
+                                      },
+                                      "reason": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "source": {
+                                        "type": "string",
+                                        "enum": [
+                                          "ward-stock",
+                                          "patient-supplied"
+                                        ]
+                                      },
+                                      "by": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "nameBn": {
+                                            "type": "string"
+                                          },
+                                          "nameEn": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "nameBn",
+                                          "nameEn"
+                                        ]
+                                      },
+                                      "preparedBy": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "nameBn": {
+                                            "type": "string"
+                                          },
+                                          "nameEn": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "nameBn",
+                                          "nameEn"
+                                        ]
+                                      },
+                                      "witness": {
+                                        "type": [
+                                          "object",
+                                          "null"
+                                        ],
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "nameBn": {
+                                            "type": "string"
+                                          },
+                                          "nameEn": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "nameBn",
+                                          "nameEn"
+                                        ]
+                                      },
+                                      "checks": {
+                                        "type": "object",
+                                        "properties": {
+                                          "patient": {
+                                            "type": "boolean"
+                                          },
+                                          "drug": {
+                                            "type": "boolean"
+                                          },
+                                          "dose": {
+                                            "type": "boolean"
+                                          },
+                                          "route": {
+                                            "type": "boolean"
+                                          },
+                                          "time": {
+                                            "type": "boolean"
+                                          }
+                                        },
+                                        "required": [
+                                          "patient",
+                                          "drug",
+                                          "dose",
+                                          "route",
+                                          "time"
+                                        ]
+                                      },
+                                      "error": {
+                                        "type": [
+                                          "object",
+                                          "null"
+                                        ],
+                                        "properties": {
+                                          "reason": {
+                                            "type": "string"
+                                          },
+                                          "by": {
+                                            "type": "object",
+                                            "properties": {
+                                              "id": {
+                                                "type": "string"
+                                              },
+                                              "nameBn": {
+                                                "type": "string"
+                                              },
+                                              "nameEn": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "id",
+                                              "nameBn",
+                                              "nameEn"
+                                            ]
+                                          },
+                                          "at": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "reason",
+                                          "by",
+                                          "at"
+                                        ]
+                                      },
+                                      "amountGiven": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "status",
+                                      "administeredAt",
+                                      "scheduledFor",
+                                      "timing",
+                                      "reason",
+                                      "source",
+                                      "by",
+                                      "preparedBy",
+                                      "witness",
+                                      "checks",
+                                      "error",
+                                      "amountGiven"
+                                    ]
+                                  }
                                 }
                               },
                               "required": [
                                 "at",
                                 "state",
-                                "record"
+                                "record",
+                                "errored"
                               ]
                             }
                           },
@@ -40412,6 +41062,12 @@
                                     "by",
                                     "at"
                                   ]
+                                },
+                                "amountGiven": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
@@ -40426,7 +41082,8 @@
                                 "preparedBy",
                                 "witness",
                                 "checks",
-                                "error"
+                                "error",
+                                "amountGiven"
                               ]
                             }
                           },
@@ -40717,6 +41374,12 @@
                               "at"
                             ]
                           },
+                          "amountGiven": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "orderId": {
                             "type": "string"
                           },
@@ -40737,6 +41400,7 @@
                           "witness",
                           "checks",
                           "error",
+                          "amountGiven",
                           "orderId",
                           "medicine"
                         ]
@@ -41756,6 +42420,12 @@
                                         "by",
                                         "at"
                                       ]
+                                    },
+                                    "amountGiven": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
                                     }
                                   },
                                   "required": [
@@ -41770,14 +42440,214 @@
                                     "preparedBy",
                                     "witness",
                                     "checks",
-                                    "error"
+                                    "error",
+                                    "amountGiven"
                                   ]
+                                },
+                                "errored": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "status": {
+                                        "type": "string",
+                                        "enum": [
+                                          "given",
+                                          "held",
+                                          "refused",
+                                          "missed",
+                                          "entered-in-error"
+                                        ]
+                                      },
+                                      "administeredAt": {
+                                        "type": "string"
+                                      },
+                                      "scheduledFor": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "timing": {
+                                        "type": "string",
+                                        "enum": [
+                                          "on-time",
+                                          "early",
+                                          "late",
+                                          "prn"
+                                        ]
+                                      },
+                                      "reason": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "source": {
+                                        "type": "string",
+                                        "enum": [
+                                          "ward-stock",
+                                          "patient-supplied"
+                                        ]
+                                      },
+                                      "by": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "nameBn": {
+                                            "type": "string"
+                                          },
+                                          "nameEn": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "nameBn",
+                                          "nameEn"
+                                        ]
+                                      },
+                                      "preparedBy": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "nameBn": {
+                                            "type": "string"
+                                          },
+                                          "nameEn": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "nameBn",
+                                          "nameEn"
+                                        ]
+                                      },
+                                      "witness": {
+                                        "type": [
+                                          "object",
+                                          "null"
+                                        ],
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "nameBn": {
+                                            "type": "string"
+                                          },
+                                          "nameEn": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "nameBn",
+                                          "nameEn"
+                                        ]
+                                      },
+                                      "checks": {
+                                        "type": "object",
+                                        "properties": {
+                                          "patient": {
+                                            "type": "boolean"
+                                          },
+                                          "drug": {
+                                            "type": "boolean"
+                                          },
+                                          "dose": {
+                                            "type": "boolean"
+                                          },
+                                          "route": {
+                                            "type": "boolean"
+                                          },
+                                          "time": {
+                                            "type": "boolean"
+                                          }
+                                        },
+                                        "required": [
+                                          "patient",
+                                          "drug",
+                                          "dose",
+                                          "route",
+                                          "time"
+                                        ]
+                                      },
+                                      "error": {
+                                        "type": [
+                                          "object",
+                                          "null"
+                                        ],
+                                        "properties": {
+                                          "reason": {
+                                            "type": "string"
+                                          },
+                                          "by": {
+                                            "type": "object",
+                                            "properties": {
+                                              "id": {
+                                                "type": "string"
+                                              },
+                                              "nameBn": {
+                                                "type": "string"
+                                              },
+                                              "nameEn": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "id",
+                                              "nameBn",
+                                              "nameEn"
+                                            ]
+                                          },
+                                          "at": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "reason",
+                                          "by",
+                                          "at"
+                                        ]
+                                      },
+                                      "amountGiven": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "status",
+                                      "administeredAt",
+                                      "scheduledFor",
+                                      "timing",
+                                      "reason",
+                                      "source",
+                                      "by",
+                                      "preparedBy",
+                                      "witness",
+                                      "checks",
+                                      "error",
+                                      "amountGiven"
+                                    ]
+                                  }
                                 }
                               },
                               "required": [
                                 "at",
                                 "state",
-                                "record"
+                                "record",
+                                "errored"
                               ]
                             }
                           },
@@ -41954,6 +42824,12 @@
                                     "by",
                                     "at"
                                   ]
+                                },
+                                "amountGiven": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
@@ -41968,7 +42844,8 @@
                                 "preparedBy",
                                 "witness",
                                 "checks",
-                                "error"
+                                "error",
+                                "amountGiven"
                               ]
                             }
                           },
@@ -42259,6 +43136,12 @@
                               "at"
                             ]
                           },
+                          "amountGiven": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "orderId": {
                             "type": "string"
                           },
@@ -42279,6 +43162,7 @@
                           "witness",
                           "checks",
                           "error",
+                          "amountGiven",
                           "orderId",
                           "medicine"
                         ]

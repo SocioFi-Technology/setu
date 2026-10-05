@@ -165,3 +165,34 @@ describe("marSlotRange — every dose the board counts is on the MAR", () => {
     expect(r.from.getTime()).toBe(dayStart.getTime());
   });
 });
+
+describe("review fixes (clinical safety, B3–B4 session 2)", () => {
+  const insulin: OrderFacts = { ...metro, medicineKey: "insulin", highAlert: true, multiDose: true, times: ["06:00", "12:00", "18:00"] };
+  const witnessed = { witnessId: "n2", witnessRole: "nurse" } as const;
+  it("a multi-dose drug from ward stock is not given without an opened vial", () => {
+    const s = at("2026-10-05T06:00:00Z");
+    expect(doseBlockers(insulin, dose({ slot: s, administeredAt: s, now: s, ...witnessed, amountGiven: "6 IU", vialOpen: false }))).toContain("vial_required");
+    expect(doseBlockers(insulin, dose({ slot: s, administeredAt: s, now: s, ...witnessed, amountGiven: "6 IU", vialOpen: true }))).toEqual([]);
+    // the patient's own pen or vial needs no ward vial
+    expect(doseBlockers(insulin, dose({ slot: s, administeredAt: s, now: s, ...witnessed, amountGiven: "6 IU", vialOpen: false, source: "patient-supplied" }))).toEqual([]);
+  });
+  it("a multi-dose drug records the amount actually given (sliding scale: the units)", () => {
+    const s = at("2026-10-05T06:00:00Z");
+    expect(doseBlockers(insulin, dose({ slot: s, administeredAt: s, now: s, ...witnessed, vialOpen: true, amountGiven: " " }))).toContain("amount_required");
+    expect(doseBlockers(insulin, dose({ slot: s, administeredAt: s, now: s, outcome: "held", reason: "CBG 4.8, scale nil", vialOpen: true }))).not.toContain("amount_required");
+  });
+  it("the same drug given minutes earlier under the previous regimen: a new slot needs a reason", () => {
+    expect(doseBlockers(metro, dose({ earlierGivenNear: true }))).toContain("recent_dose");
+    expect(doseBlockers(metro, dose({ earlierGivenNear: true, reason: "Dose increased by the doctor, top-up agreed" }))).toEqual([]);
+  });
+  it("a PRN dose is charted within the window, never backdated beyond it (the 24-hour cap counts backwards)", () => {
+    const prn: OrderFacts = { ...metro, times: [], prn: true, prnMaxPer24h: 4 };
+    expect(doseBlockers(prn, dose({ slot: null, administeredAt: at("2026-10-05T06:00:00Z"), now: at("2026-10-05T08:06:00Z") }))).toContain("prn_backdated");
+    expect(doseBlockers(prn, dose({ slot: null, administeredAt: at("2026-10-05T07:30:00Z"), now: at("2026-10-05T08:06:00Z") }))).toEqual([]);
+  });
+  it("a slot more than 12 hours ahead is not charted (held / refused before due stays possible within the shift)", () => {
+    const far = at("2026-10-06T08:00:00Z");
+    expect(doseBlockers(metro, dose({ slot: far, outcome: "held", reason: "Patient going to theatre" }))).toContain("slot_too_far");
+    expect(doseBlockers(metro, dose({ slot: at("2026-10-05T16:00:00Z"), outcome: "held", reason: "Patient going to theatre" }))).not.toContain("slot_too_far");
+  });
+});

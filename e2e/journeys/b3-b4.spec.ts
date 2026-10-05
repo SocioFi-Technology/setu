@@ -177,6 +177,28 @@ test.describe("Journey B4–B7: the patient on the ward", () => {
     await dlg.getByTestId("dose-record").click();
     await expect(dlg).toHaveCount(0);
     await expect(mor.locator("[data-prn-count]")).toHaveAttribute("data-prn-count", "1");
+    // insulin (high-alert, multi-dose): no dose until a vial is opened; the amount given is recorded
+    const ins = page.locator('[data-order="insulin"]');
+    await ins.locator("[data-slot]:not([disabled])").first().click();
+    for (const c of ["patient", "drug", "dose", "route", "time"]) await dlg.locator(`[data-check="${c}"]`).check();
+    await expect(dlg.locator('[data-blocker="vial_required"]')).toBeVisible();
+    await dlg.getByRole("button", { name: "Cancel" }).click();
+    await ins.getByTestId("open-vial").click();
+    await page.getByTestId("vial-confirm").click();
+    await expect(ins.getByTestId("vial")).toContainText("Opened");
+    const insSlot = ins.locator("[data-slot]:not([disabled])").first();
+    const insAt = await insSlot.getAttribute("data-slot-at");
+    await insSlot.click();
+    for (const c of ["patient", "drug", "dose", "route", "time"]) await dlg.locator(`[data-check="${c}"]`).check();
+    await expect(dlg.locator('[data-blocker="amount_required"]')).toBeVisible();
+    await dlg.getByTestId("amount-given").fill("4 IU");
+    if (await dlg.getByTestId("dose-reason").isVisible()) await dlg.getByTestId("dose-reason").fill("CBG 11.2 at the night round");
+    await dlg.getByTestId("witness-pick").selectOption("u_e2l_nurse");
+    await dlg.getByTestId("witness-pin").fill("1234");
+    await dlg.getByTestId("dose-record").click();
+    await expect(dlg).toHaveCount(0);
+    await expect(ins.locator(`[data-slot-at="${insAt}"]`)).toHaveAttribute("data-slot-state", "given");
+    await expect(ins.locator(`[data-slot-at="${insAt}"]`)).toContainText("4 IU");
     // Napa PRN from the patient's own supply: shown distinctly
     const napa = page.locator('[data-order="napa"]');
     await napa.getByTestId("give-prn").click();
@@ -238,8 +260,10 @@ test.describe("Journey B4–B7: the patient on the ward", () => {
     const targetName = (await target.getAttribute("data-bed"))!;
     await target.click();
     await page.getByTestId("move-reason").fill("Closer to the nursing station for observation");
+    const moved = page.waitForResponse((r) => r.url().includes("/transfer") && r.request().method() === "POST");
     await page.getByTestId("move-submit").click();
-    await pickWard(page, ip.wardId).catch(async () => { await page.goto("/m/nur/ward"); });
+    expect((await moved).ok()).toBe(true);
+    await pickWard(page, ip.wardId);
     await expect(page.locator(`[data-bed="${targetName}"][data-bed-patient="${SHAHIDUL}"]`)).toBeVisible();
     await expect(page.locator(`[data-bed="${ip.bed}"]`)).toHaveAttribute("data-bed-state", "cleaning");
   });
