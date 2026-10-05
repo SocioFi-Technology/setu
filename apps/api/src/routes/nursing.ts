@@ -126,8 +126,8 @@ export async function nursingRoutes(app: FastifyInstance) {
     requireAny(req, ["ipd", "rounds"]); const { id } = pid.parse(req.params); const body = StopOrderRequest.parse(req.body ?? {});
     return command(req, reply, async (tx, s) => { const r = await stopOrder(tx, s, id, body, new Date()); return { body: r.view, audit: r.audit }; }, { hashOmit: ["pin"] });
   });
-  app.get("/v1/ipd/medicines", async (req) => {
-    requireAny(req, ["ipd", "rounds"]); const { q } = z.object({ q: z.string().max(60).optional() }).parse(req.query ?? {});
+  app.get("/v1/ipd/medicines", async (req) => { /* the nurse's indent picks from the same list */
+    requireAny(req, ["ipd", "rounds"], ["nur", "ward"]); const { q } = z.object({ q: z.string().max(60).optional() }).parse(req.query ?? {});
     return query(req, async (tx) => ({ body: await wardMedicines(tx, q ?? ""), audit: [] }));
   });
   /* ── bed moves ── */

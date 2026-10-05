@@ -1,0 +1,890 @@
+{
+  "_about": [
+    "ওয়ার্ডের অ্যাপ স্ট্রিং (ADR 0015, B3–B4)",
+    "Ward app strings (ADR 0015, B3–B4)"
+  ],
+  "loading": [
+    "লোড হচ্ছে…",
+    "Loading…"
+  ],
+  "error_generic": [
+    "সার্ভারে সমস্যা — আবার চেষ্টা করুন",
+    "Something went wrong — try again"
+  ],
+  "needs_connection": [
+    "এই কাজে সার্ভার লাগে — সংযোগ নেই",
+    "This needs the server — you are offline"
+  ],
+  "stale_refresh": [
+    "অন্য কেউ আগেই বদলেছেন — নতুন করে আনা হলো",
+    "Someone else changed this first — refreshed"
+  ],
+  "sample_rule": [
+    "ক্লিনিশিয়ানের অনুমোদন বাকি (নমুনা নিয়ম)",
+    "Pending clinician sign-off (sample rule)"
+  ],
+  "cancel": [
+    "বাতিল",
+    "Cancel"
+  ],
+  "save": [
+    "সংরক্ষণ",
+    "Save"
+  ],
+  "close": [
+    "বন্ধ",
+    "Close"
+  ],
+  "reason": [
+    "কারণ",
+    "Reason"
+  ],
+  "ward": [
+    "ওয়ার্ড",
+    "Ward"
+  ],
+  "pick_ward": [
+    "ওয়ার্ড বাছুন",
+    "Pick a ward"
+  ],
+  "board_title": [
+    "আমার ওয়ার্ড",
+    "My ward"
+  ],
+  "beds_occupied": [
+    "{occ}/{n} শয্যা ভর্তি",
+    "{occ} of {n} beds occupied"
+  ],
+  "bed_empty": [
+    "খালি",
+    "Empty"
+  ],
+  "day_n": [
+    "দিন {n}",
+    "Day {n}"
+  ],
+  "news2_n": [
+    "NEWS2 {n}",
+    "NEWS2 {n}"
+  ],
+  "news2_none": [
+    "পর্যবেক্ষণ নেই",
+    "No observations yet"
+  ],
+  "obs_due": [
+    "পরের পর্যবেক্ষণ {t}",
+    "Next obs {t}"
+  ],
+  "obs_overdue": [
+    "পর্যবেক্ষণ বাকি",
+    "Obs overdue"
+  ],
+  "doses_due": [
+    "{n}টি ডোজ এখন",
+    "{n} dose(s) due"
+  ],
+  "doses_overdue": [
+    "{n}টি ডোজ বাকি — কারণ লিখুন",
+    "{n} dose(s) overdue — reason needed"
+  ],
+  "escalation_banner": [
+    "এস্কেলেশন: {bed} · {name} · NEWS2 {n} — ডাক্তারকে জানানো লগ করুন",
+    "Escalation: {bed} · {name} · NEWS2 {n} — log the doctor's contact"
+  ],
+  "escalation_informed": [
+    "ডাক্তারকে জানানো হয়েছে",
+    "Doctor informed"
+  ],
+  "arriving": [
+    "আসছেন: {name} ({from} থেকে)",
+    "Arriving: {name} (from {from})"
+  ],
+  "arrived": [
+    "পৌঁছেছেন",
+    "Arrived"
+  ],
+  "open_vitals": [
+    "ভাইটাল",
+    "Vitals"
+  ],
+  "open_mar": [
+    "ওষুধ",
+    "MAR"
+  ],
+  "open_notes": [
+    "নোট",
+    "Notes"
+  ],
+  "open_move": [
+    "শয্যা বদল",
+    "Move bed"
+  ],
+  "allergies_none": [
+    "অ্যালার্জি জানা নেই",
+    "No known allergy"
+  ],
+  "allergies_unknown": [
+    "অ্যালার্জি অজানা",
+    "Allergies unknown"
+  ],
+  "stock_title": [
+    "ওয়ার্ড স্টক",
+    "Ward stock"
+  ],
+  "stock_empty": [
+    "ওয়ার্ডে স্টক নেই",
+    "No ward stock"
+  ],
+  "indent_title": [
+    "ইনডেন্ট",
+    "Indents"
+  ],
+  "indent_new": [
+    "নতুন ইনডেন্ট",
+    "New indent"
+  ],
+  "indent_add_line": [
+    "লাইন যোগ",
+    "Add line"
+  ],
+  "indent_medicine": [
+    "ওষুধ",
+    "Medicine"
+  ],
+  "indent_qty": [
+    "পরিমাণ",
+    "Quantity"
+  ],
+  "indent_note": [
+    "নোট",
+    "Note"
+  ],
+  "indent_send": [
+    "ইনডেন্ট পাঠান",
+    "Send indent"
+  ],
+  "indent_sent": [
+    "{n} · পাঠানো হয়েছে",
+    "{n} · sent"
+  ],
+  "indent_none": [
+    "কোনো ইনডেন্ট নেই",
+    "No indents"
+  ],
+  "ist_requested": [
+    "অনুরোধ",
+    "Requested"
+  ],
+  "ist_partially-issued": [
+    "আংশিক দেওয়া",
+    "Partially issued"
+  ],
+  "ist_issued": [
+    "দেওয়া হয়েছে",
+    "Issued"
+  ],
+  "ist_cancelled": [
+    "বাতিল",
+    "Cancelled"
+  ],
+  "indent_line": [
+    "{name} · চাওয়া {req} · দেওয়া {iss}",
+    "{name} · requested {req} · issued {iss}"
+  ],
+  "indent_cancel": [
+    "বাকি বাতিল",
+    "Cancel the balance"
+  ],
+  "vitals_title": [
+    "ভাইটাল ও NEWS2",
+    "Vitals and NEWS2"
+  ],
+  "rr": [
+    "শ্বাস (প্রতি মিনিট)",
+    "Respiratory rate (/min)"
+  ],
+  "spo2": [
+    "SpO₂ (%)",
+    "SpO₂ (%)"
+  ],
+  "on_oxygen": [
+    "অক্সিজেনে আছেন",
+    "On supplemental oxygen"
+  ],
+  "sbp": [
+    "সিস্টোলিক",
+    "Systolic"
+  ],
+  "dbp": [
+    "ডায়াস্টোলিক",
+    "Diastolic"
+  ],
+  "pulse": [
+    "পালস",
+    "Pulse"
+  ],
+  "temp": [
+    "তাপমাত্রা (°F)",
+    "Temperature (°F)"
+  ],
+  "consciousness": [
+    "চেতনা (ACVPU)",
+    "Consciousness (ACVPU)"
+  ],
+  "cs_A": [
+    "সজাগ",
+    "Alert"
+  ],
+  "cs_C": [
+    "নতুন বিভ্রান্তি",
+    "New confusion"
+  ],
+  "cs_V": [
+    "ডাকলে সাড়া",
+    "Voice"
+  ],
+  "cs_P": [
+    "ব্যথায় সাড়া",
+    "Pain"
+  ],
+  "cs_U": [
+    "সাড়া নেই",
+    "Unresponsive"
+  ],
+  "scale1": [
+    "SpO₂ স্কেল ১ — সব রোগীর জন্য (স্কেল ২ এখনো নেই)",
+    "SpO₂ scale 1 for every patient (scale 2 not supported yet)"
+  ],
+  "news2_live": [
+    "NEWS2 {n} · {risk}",
+    "NEWS2 {n} · {risk}"
+  ],
+  "risk_low": [
+    "কম ঝুঁকি",
+    "low risk"
+  ],
+  "risk_low-medium": [
+    "কম–মাঝারি (একটি মান ৩)",
+    "low–medium (a single 3)"
+  ],
+  "risk_medium": [
+    "মাঝারি ঝুঁকি",
+    "medium risk"
+  ],
+  "risk_high": [
+    "উচ্চ ঝুঁকি",
+    "high risk"
+  ],
+  "news2_incomplete": [
+    "অসম্পূর্ণ — বাকি: {list}",
+    "Incomplete — missing: {list}"
+  ],
+  "call_doctor_offline": [
+    "এখনই ডাক্তারকে ফোন করুন — এখনো সিঙ্ক হয়নি",
+    "Call the doctor now — not yet synced"
+  ],
+  "save_vitals": [
+    "ভাইটাল সংরক্ষণ",
+    "Save vitals"
+  ],
+  "saved_synced": [
+    "সংরক্ষিত · {t}",
+    "Saved · {t}"
+  ],
+  "saved_queued": [
+    "এই ডিভাইসে রাখা — সিঙ্ক হয়নি",
+    "Saved on this device — not synced"
+  ],
+  "escalated": [
+    "এস্কেলেশন — ডাক্তারের ইনবক্সে পাঠানো হয়েছে",
+    "Escalated — sent to the doctor's inbox"
+  ],
+  "next_obs": [
+    "পরের পর্যবেক্ষণ {t}",
+    "Next observations {t}"
+  ],
+  "inform_title": [
+    "ডাক্তারকে জানানো লগ",
+    "Log the doctor's contact"
+  ],
+  "spoke_to": [
+    "কার সাথে কথা হয়েছে",
+    "Spoke to"
+  ],
+  "instruction": [
+    "নির্দেশনা",
+    "Instruction"
+  ],
+  "log_inform": [
+    "লগ করুন",
+    "Log contact"
+  ],
+  "resolve": [
+    "সমাধান",
+    "Resolve"
+  ],
+  "resolve_note": [
+    "সমাধানের নোট",
+    "Resolution note"
+  ],
+  "history_72h": [
+    "গত ৭২ ঘণ্টা",
+    "Last 72 hours"
+  ],
+  "mar_title": [
+    "ওষুধ দেওয়ার রেকর্ড (MAR)",
+    "Medication administration record"
+  ],
+  "mar_window": [
+    "সময়ের সীমা ±{n} মিনিট · নমুনা",
+    "Window ±{n} min · sample"
+  ],
+  "st_scheduled": [
+    "নির্ধারিত",
+    "Scheduled"
+  ],
+  "st_due": [
+    "এখন",
+    "Due"
+  ],
+  "st_overdue": [
+    "বাকি — কারণ লিখুন",
+    "Overdue — reason needed"
+  ],
+  "st_given": [
+    "দেওয়া",
+    "Given"
+  ],
+  "st_held": [
+    "স্থগিত",
+    "Held"
+  ],
+  "st_refused": [
+    "অস্বীকার",
+    "Refused"
+  ],
+  "st_missed": [
+    "বাদ",
+    "Missed"
+  ],
+  "st_entered-in-error": [
+    "ভুল নথি",
+    "Entered in error"
+  ],
+  "prn": [
+    "প্রয়োজনে (PRN)",
+    "As needed (PRN)"
+  ],
+  "prn_cap": [
+    "২৪ ঘণ্টায় {n}/{max}",
+    "{n} of {max} in 24 h"
+  ],
+  "give_prn": [
+    "PRN ডোজ",
+    "PRN dose"
+  ],
+  "high_alert": [
+    "উচ্চ-সতর্কতা",
+    "High-alert"
+  ],
+  "controlled": [
+    "নিয়ন্ত্রিত",
+    "Controlled"
+  ],
+  "multi_dose": [
+    "বহু-ডোজ ভায়াল",
+    "Multi-dose vial"
+  ],
+  "vial_opened": [
+    "খোলা হয়েছে {t} · {name}",
+    "Opened {t} · {name}"
+  ],
+  "open_vial": [
+    "নতুন ভায়াল খোলা",
+    "Open a new vial"
+  ],
+  "allergy_block": [
+    "অ্যালার্জি — ডাক্তার পর্যালোচনা না করা পর্যন্ত দেওয়া যাবে না",
+    "Allergy — not to be given until the doctor reviews"
+  ],
+  "ward_stock_n": [
+    "ওয়ার্ডে {n}",
+    "{n} on the ward"
+  ],
+  "source_patient": [
+    "রোগীর নিজের",
+    "Patient's own"
+  ],
+  "order_stopped": [
+    "বন্ধ · {name} · {reason}",
+    "Stopped · {name} · {reason}"
+  ],
+  "order_superseded": [
+    "প্রতিস্থাপিত",
+    "Superseded"
+  ],
+  "earlier_regimen": [
+    "আগের ডোজে দেওয়া {t} ({dose})",
+    "Given under the earlier dose {t} ({dose})"
+  ],
+  "rec_title": [
+    "ডোজ নথিভুক্ত",
+    "Record a dose"
+  ],
+  "outcome": [
+    "ফল",
+    "Outcome"
+  ],
+  "oc_given": [
+    "দেওয়া",
+    "Given"
+  ],
+  "oc_held": [
+    "স্থগিত",
+    "Held"
+  ],
+  "oc_refused": [
+    "অস্বীকার",
+    "Refused"
+  ],
+  "oc_missed": [
+    "বাদ",
+    "Missed"
+  ],
+  "five_checks": [
+    "পাঁচটি যাচাই",
+    "The five checks"
+  ],
+  "ck_patient": [
+    "ঠিক রোগী",
+    "Right patient"
+  ],
+  "ck_drug": [
+    "ঠিক ওষুধ",
+    "Right drug"
+  ],
+  "ck_dose": [
+    "ঠিক ডোজ",
+    "Right dose"
+  ],
+  "ck_route": [
+    "ঠিক পথ",
+    "Right route"
+  ],
+  "ck_time": [
+    "ঠিক সময়",
+    "Right time"
+  ],
+  "given_at": [
+    "দেওয়ার সময়",
+    "Given at"
+  ],
+  "source": [
+    "কোথা থেকে",
+    "Source"
+  ],
+  "src_ward-stock": [
+    "ওয়ার্ড স্টক",
+    "Ward stock"
+  ],
+  "src_patient-supplied": [
+    "রোগীর নিজের",
+    "Patient's own supply"
+  ],
+  "witness": [
+    "সাক্ষী (দ্বিতীয় নার্স বা ডাক্তার)",
+    "Witness (a second nurse or a doctor)"
+  ],
+  "witness_pin": [
+    "সাক্ষীর পিন",
+    "Witness's PIN"
+  ],
+  "witness_pick": [
+    "সাক্ষী বাছুন",
+    "Pick a witness"
+  ],
+  "record": [
+    "নথিভুক্ত করুন",
+    "Record"
+  ],
+  "recording": [
+    "সার্ভারের উত্তরের অপেক্ষায়…",
+    "Waiting for the server…"
+  ],
+  "recorded": [
+    "নথিভুক্ত",
+    "Recorded"
+  ],
+  "b_order_not_active": [
+    "অর্ডারটি সক্রিয় নয়",
+    "The order is not active"
+  ],
+  "b_wrong_patient": [
+    "অন্য রোগীর অর্ডার",
+    "Another patient's order"
+  ],
+  "b_encounter_closed": [
+    "ভর্তি খোলা নেই",
+    "The admission is closed"
+  ],
+  "b_future_time": [
+    "ভবিষ্যতের সময় নয়",
+    "Not a future time"
+  ],
+  "b_before_start": [
+    "অর্ডার শুরুর আগে নয়",
+    "Not before the order started"
+  ],
+  "b_slot_required": [
+    "সময়সূচির ঘর বাছুন",
+    "Pick the scheduled slot"
+  ],
+  "b_slot_on_prn": [
+    "PRN-এ সময়সূচি নেই",
+    "A PRN dose has no slot"
+  ],
+  "b_not_a_slot": [
+    "অর্ডারের সময় নয়",
+    "Not a time of the order"
+  ],
+  "b_slot_recorded": [
+    "এই সময়ের ডোজ আগেই নথিভুক্ত (দ্বিগুণ ডোজ)",
+    "This slot is already recorded (double dose)"
+  ],
+  "b_missed_too_early": [
+    "সময়সীমা পার না হলে 'বাদ' নয়",
+    "Missed only after the window"
+  ],
+  "b_prn_outcome": [
+    "PRN শুধু দেওয়া বা অস্বীকার",
+    "A PRN dose is given or refused"
+  ],
+  "b_checks_incomplete": [
+    "পাঁচটি যাচাই সম্পূর্ণ করুন",
+    "Tick all five checks"
+  ],
+  "b_reason_required": [
+    "কারণ লিখুন (অন্তত ৫ অক্ষর)",
+    "Give a reason (at least 5 characters)"
+  ],
+  "b_prn_cap": [
+    "২৪ ঘণ্টার সর্বোচ্চ পূর্ণ",
+    "The 24-hour maximum is reached"
+  ],
+  "b_witness_required": [
+    "সাক্ষী লাগবে",
+    "A witness is needed"
+  ],
+  "b_witness_self": [
+    "দাতা বা প্রস্তুতকারী সাক্ষী হতে পারেন না",
+    "The giver or preparer cannot witness"
+  ],
+  "b_witness_role": [
+    "সাক্ষী নার্স বা ডাক্তার হবেন",
+    "The witness is a nurse or a doctor"
+  ],
+  "b_allergy": [
+    "অ্যালার্জি — দেওয়া যাবে না",
+    "Allergy — not to be given"
+  ],
+  "mark_error": [
+    "ভুল নথি হিসেবে চিহ্নিত",
+    "Mark entered in error"
+  ],
+  "history": [
+    "আজকের নথি",
+    "Today's records"
+  ],
+  "notes_title": [
+    "নার্সিং নোট",
+    "Nursing notes"
+  ],
+  "note_ph": [
+    "ড্রেসিং বদলানো হয়েছে…",
+    "Dressing changed…"
+  ],
+  "add_note": [
+    "নোট যোগ",
+    "Add note"
+  ],
+  "note_none": [
+    "কোনো নোট নেই",
+    "No notes yet"
+  ],
+  "note_by": [
+    "{name} · {t}",
+    "{name} · {t}"
+  ],
+  "rounds_title": [
+    "ডাক্তারের রাউন্ড",
+    "Doctor's round"
+  ],
+  "rounds_none": [
+    "কোনো ভর্তি রোগী নেই",
+    "No inpatients"
+  ],
+  "missed_n": [
+    "{n}টি ডোজ বাদ/স্থগিত",
+    "{n} dose(s) missed or held"
+  ],
+  "notes_since": [
+    "রাউন্ডের পর {n}টি নোট",
+    "{n} note(s) since the round"
+  ],
+  "open_round": [
+    "রাউন্ড শুরু",
+    "Start round"
+  ],
+  "continue_round": [
+    "খসড়া চালিয়ে যান",
+    "Continue draft"
+  ],
+  "overnight": [
+    "গত ২৪ ঘণ্টা",
+    "Last 24 hours"
+  ],
+  "active_orders": [
+    "সক্রিয় অর্ডার",
+    "Active orders"
+  ],
+  "stop": [
+    "বন্ধ",
+    "Stop"
+  ],
+  "stop_reason": [
+    "বন্ধের কারণ",
+    "Reason to stop"
+  ],
+  "soap_s": [
+    "S · রোগীর কথা",
+    "S · Subjective"
+  ],
+  "soap_o": [
+    "O · পরীক্ষা",
+    "O · Objective"
+  ],
+  "soap_a": [
+    "A · মূল্যায়ন",
+    "A · Assessment"
+  ],
+  "soap_p": [
+    "P · পরিকল্পনা",
+    "P · Plan"
+  ],
+  "new_orders": [
+    "নতুন অর্ডার",
+    "New orders"
+  ],
+  "add_order": [
+    "অর্ডার যোগ",
+    "Add order"
+  ],
+  "route": [
+    "পথ",
+    "Route"
+  ],
+  "dose_text": [
+    "ডোজ",
+    "Dose"
+  ],
+  "dose_qty": [
+    "প্রতি ডোজে ইউনিট",
+    "Units per dose"
+  ],
+  "times": [
+    "সময় (HH:MM, কমা দিয়ে)",
+    "Times (HH:MM, comma-separated)"
+  ],
+  "prn_max": [
+    "২৪ ঘণ্টায় সর্বোচ্চ",
+    "Max per 24 h"
+  ],
+  "remove": [
+    "সরান",
+    "Remove"
+  ],
+  "save_draft": [
+    "খসড়া সংরক্ষণ",
+    "Save draft"
+  ],
+  "sign": [
+    "স্বাক্ষর",
+    "Sign"
+  ],
+  "sign_round": [
+    "রাউন্ড নোট স্বাক্ষর",
+    "Sign the round note"
+  ],
+  "pin_label": [
+    "৪ সংখ্যার পিন",
+    "4-digit PIN"
+  ],
+  "pin_wrong": [
+    "পিন ভুল — {n}টি চেষ্টা বাকি",
+    "Wrong PIN — {n} tries left"
+  ],
+  "amend": [
+    "সংশোধন",
+    "Amend"
+  ],
+  "amend_reason": [
+    "সংশোধনের কারণ",
+    "Reason for the amendment"
+  ],
+  "signed_by": [
+    "স্বাক্ষর: {name} · {t}",
+    "Signed by {name} · {t}"
+  ],
+  "blocker_assessment_or_plan": [
+    "মূল্যায়ন বা পরিকল্পনা লিখুন",
+    "Write the assessment or the plan"
+  ],
+  "blocker_allergy": [
+    "{drug}: অ্যালার্জি ({allergy})",
+    "{drug}: allergy ({allergy})"
+  ],
+  "blocker_rx": [
+    "{drug}: {kind}",
+    "{drug}: {kind}"
+  ],
+  "map_title": [
+    "শয্যা ম্যাপ",
+    "Bed map"
+  ],
+  "legend": [
+    "চিহ্ন",
+    "Legend"
+  ],
+  "bst_vacant": [
+    "খালি",
+    "Vacant"
+  ],
+  "bst_reserved": [
+    "সংরক্ষিত",
+    "Reserved"
+  ],
+  "bst_occupied": [
+    "ভর্তি",
+    "Occupied"
+  ],
+  "bst_discharge-pending": [
+    "ছাড়পত্র বাকি",
+    "Discharge pending"
+  ],
+  "bst_cleaning": [
+    "পরিষ্কার",
+    "Cleaning"
+  ],
+  "bst_blocked": [
+    "বন্ধ",
+    "Blocked"
+  ],
+  "all_wards": [
+    "সব ওয়ার্ড",
+    "All wards"
+  ],
+  "all_states": [
+    "সব অবস্থা",
+    "All states"
+  ],
+  "block": [
+    "বন্ধ করুন",
+    "Block"
+  ],
+  "unblock": [
+    "চালু করুন",
+    "Unblock"
+  ],
+  "mark_ready": [
+    "প্রস্তুত",
+    "Mark ready"
+  ],
+  "block_reason": [
+    "বন্ধের কারণ",
+    "Reason to block"
+  ],
+  "move_title": [
+    "শয্যা বদল",
+    "Move bed"
+  ],
+  "move_from": [
+    "বর্তমান: {bed}",
+    "Now: {bed}"
+  ],
+  "move_to": [
+    "নতুন শয্যা",
+    "New bed"
+  ],
+  "move_reason": [
+    "কারণ",
+    "Reason"
+  ],
+  "handover": [
+    "হ্যান্ডওভার নোট",
+    "Handover note"
+  ],
+  "move_now": [
+    "এখনই বদল",
+    "Move now"
+  ],
+  "move_reserve": [
+    "শয্যা সংরক্ষণ (পৌঁছালে নিশ্চিত)",
+    "Reserve (confirm on arrival)"
+  ],
+  "price_diff": [
+    "দৈনিক পার্থক্য {amount} (নমুনা — বিল B8-এ)",
+    "Daily difference {amount} (sample — billing in B8)"
+  ],
+  "moved": [
+    "শয্যা বদল হয়েছে · {bed}",
+    "Moved · {bed}"
+  ],
+  "reserved": [
+    "সংরক্ষিত · {bed} — পৌঁছালে নিশ্চিত করুন",
+    "Reserved · {bed} — confirm on arrival"
+  ],
+  "cancel_move": [
+    "সংরক্ষণ বাতিল",
+    "Cancel the reservation"
+  ],
+  "pick_patient": [
+    "রোগী বাছুন",
+    "Pick a patient"
+  ],
+  "ph_indent_title": [
+    "ওয়ার্ড ইনডেন্ট",
+    "Ward indents"
+  ],
+  "issue": [
+    "ওয়ার্ডে দিন",
+    "Issue to ward"
+  ],
+  "issue_qty": [
+    "দিন",
+    "Issue"
+  ],
+  "store_n": [
+    "স্টোরে {n}",
+    "{n} in store"
+  ],
+  "controlled_pin": [
+    "নিয়ন্ত্রিত ওষুধ — আপনার পিন",
+    "Controlled drug — your PIN"
+  ],
+  "issued_toast": [
+    "{n} · দেওয়া হয়েছে",
+    "{n} · issued"
+  ],
+  "filter_open": [
+    "খোলা",
+    "Open"
+  ],
+  "filter_issued": [
+    "দেওয়া",
+    "Issued"
+  ],
+  "filter_cancelled": [
+    "বাতিল",
+    "Cancelled"
+  ]
+}

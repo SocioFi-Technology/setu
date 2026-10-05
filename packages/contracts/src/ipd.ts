@@ -14,7 +14,7 @@ export const BedView = z.object({
   bedClass: z.string(), state: BedStateWire, note: z.string().nullable(),
   /** the occupant, or who it is reserved for */
   patient: ErPatient.nullable(),
-  assignment: z.object({ id: z.string(), status: z.enum(["reserved", "occupied"]), encounterId: z.string(), since: z.string() }).nullable(),
+  assignment: z.object({ id: z.string(), status: z.enum(["reserved", "occupied"]), encounterId: z.string(), since: z.string(), /** the admission behind it (bed moves act on it) */ admissionId: z.string().nullable() }).nullable(),
 });
 export type BedView = z.infer<typeof BedView>;
 /* GET /v1/ipd/beds?class= */

@@ -26,14 +26,14 @@ async function people(tx: Tx, ids: (string | null | undefined)[]) {
 }
 
 /* ───── beds ───── */
-function bedView(b: Bed, wards: Map<string, Bed>, live: Map<string, Live>, patients: Map<string, PatientRow>): BedView {
+function bedView(b: Bed, wards: Map<string, Bed>, live: Map<string, Live>, patients: Map<string, PatientRow>, admissions: Map<string, string> = new Map()): BedView {
   const a = live.get(b.id);
   const w = b.parentId ? wards.get(b.parentId) : undefined;
   const p = a ? patients.get(a.patientId) : undefined;
   return {
     id: b.id, name: b.name, nameBn: b.nameBn, ward: { id: w?.id ?? "", name: w?.name ?? "", nameBn: w?.nameBn ?? null }, bedClass: b.bedClass ?? "", state: dash<"vacant">(b.bedState ?? "vacant"), note: b.bedNote,
     patient: p ? erPatient(p) : null,
-    assignment: a ? { id: a.id, status: a.status as "reserved" | "occupied", encounterId: a.encounterId, since: (a.status === "occupied" ? a.occupiedAt : a.reservedAt)?.toISOString() ?? a.createdAt.toISOString() } : null,
+    assignment: a ? { id: a.id, status: a.status as "reserved" | "occupied", encounterId: a.encounterId, since: (a.status === "occupied" ? a.occupiedAt : a.reservedAt)?.toISOString() ?? a.createdAt.toISOString(), admissionId: admissions.get(a.encounterId) ?? null } : null,
   };
 }
 async function bedContext(tx: Tx, s: SessionData) {
@@ -45,12 +45,14 @@ async function bedContext(tx: Tx, s: SessionData) {
   const live = new Map(liveRows.map((r) => [r.bedId, r]));
   const pids = [...new Set(liveRows.map((r) => r.patientId))];
   const patients = new Map((pids.length ? await tx.patient.findMany({ where: { id: { in: pids } } }) : []).map((p) => [p.id, p]));
-  return { beds: locs.filter((l) => l.kind === "bed"), wards, live, patients };
+  const eids = [...new Set(liveRows.map((r) => r.encounterId))];
+  const admissions = new Map((eids.length ? await tx.admission.findMany({ where: { encounterId: { in: eids } }, select: { id: true, encounterId: true } }) : []).map((a) => [a.encounterId!, a.id]));
+  return { beds: locs.filter((l) => l.kind === "bed"), wards, live, patients, admissions };
 }
 export async function bedBoard(tx: Tx, s: SessionData, cls?: string): Promise<{ board: BedBoard; patientIds: string[] }> {
   const c = await bedContext(tx, s);
   const beds = c.beds.filter((b) => !cls || b.bedClass === cls);
-  const views = beds.map((b) => bedView(b, c.wards, c.live, c.patients));
+  const views = beds.map((b) => bedView(b, c.wards, c.live, c.patients, c.admissions));
   const counts = { vacant: 0, reserved: 0, occupied: 0, dischargePending: 0, cleaning: 0, blocked: 0 };
   for (const v of views) counts[v.state === "discharge-pending" ? "dischargePending" : v.state]++;
   const wards = [...c.wards.values()].map((w) => ({ id: w.id, name: w.name, nameBn: w.nameBn, beds: views.filter((v) => v.ward.id === w.id) })).filter((w) => w.beds.length);
@@ -69,7 +71,7 @@ export async function bedAction(tx: Tx, s: SessionData, bedId: string, req: BedA
   if (n.count !== 1) throw stale();
   const c = await bedContext(tx, s);
   const after = c.beds.find((x) => x.id === b.id)!;
-  return { bed: bedView(after, c.wards, c.live, c.patients), audit: [{ action: "update", entity: "Location", entityId: b.id, detail: { event: req.action, bed: b.name, from, to, reason: req.reason ?? null } }] };
+  return { bed: bedView(after, c.wards, c.live, c.patients, c.admissions), audit: [{ action: "update", entity: "Location", entityId: b.id, detail: { event: req.action, bed: b.name, from, to, reason: req.reason ?? null } }] };
 }
 
 /* ───── admissions ───── */
@@ -121,7 +123,7 @@ export async function admissionView(tx: Tx, s: SessionData, id: string): Promise
     id: a.id, number: a.number, status: a.status as AdmissionView["status"], source: a.source as AdmissionView["source"], patient: toSummary(await getPatient(tx, a.patientId)),
     encounter: enc ? { id: enc.id, status: dash(enc.status), token: enc.token } : null,
     sourceEncounter: src ? { id: src.id, class: src.class, status: dash(src.status), token: src.token } : null,
-    bed: bedView(bed, c.wards, c.live, c.patients),
+    bed: bedView(bed, c.wards, c.live, c.patients, c.admissions),
     admittingDoctor: { id: a.admittingDoctorId, nameBn: doctor?.nameBn ?? "—", nameEn: doctor?.nameEn ?? "—", speciality: doctor?.practitioner?.speciality ?? null },
     department: a.department, diagnosis: a.diagnosis, bedClass: a.bedClass,
     guardian: a.guardianName ? { name: a.guardianName, relationship: a.guardianRelationship ?? "", phone: a.guardianPhone ?? "" } : null, consents: a.consents,

@@ -1,4 +1,5 @@
 import type {
+  WardList, WardBoard, WardPatientView, WardVitalsRequest, WardVitalsResponse, Escalation, NursingNoteView, MarView, DoseRequest, WitnessList, RoundWorklist, RoundView, SaveRoundRequest, IndentCreate, IndentView, IndentList, IndentIssueRequest, WardStock, BedMoveRequest,
   AdmissionList, AdmissionView, AdmitRequest, BedActionRequest, BedBoard, BedView, ErArrivalRequest, ErArrivalResponse, ErAssignRequest, ErBoard, ErBoardItem, ErDispositionRequest, ErTriageRequest, ErVisitView,
   RefundableView, RefundRequest, RefundView, RefundDecisionRequest, RefundPayRequest, RefundReleaseRequest, RefundPayResponse, RefundList, RefundVoucherView, RefundVoucherPrintResponse, ReconcileRefundRequest, ResaleRequest,
   FacilityView, FacilityUpdate, SettingsUpdate, UserList, UserView, UserCreate, UserCredentialResponse, PriceList, PriceCreate, PriceHistory, AuditPage, AuditQuery,
@@ -322,4 +323,39 @@ export const ipd = {
   admit: (body: AdmitRequest, key: string) => call<AdmissionView>("POST", "/v1/ipd/admissions", body, key),
   admission: (id: string) => call<AdmissionView>("GET", `/v1/ipd/admissions/${enc(id)}`),
   cancel: (id: string, reason: string, key: string) => call<AdmissionView>("POST", `/v1/ipd/admissions/${enc(id)}/cancel`, { reason }, key),
+};
+
+/* The ward (ADR 0015, slice B3–B4). Vitals and nursing notes may wait in the outbox with their device time (`write`);
+   doses, signatures, stops, issues and bed moves need the server (`call`) — a queued dose would be a dose nobody can see. */
+export const ward = {
+  wards: () => call<WardList>("GET", "/v1/nursing/wards"),
+  board: (wardId: string) => call<WardBoard>("GET", `/v1/nursing/wards/${enc(wardId)}/board`),
+  patient: (encounterId: string) => call<WardPatientView>("GET", `/v1/nursing/encounters/${enc(encounterId)}`),
+  vitals: (encounterId: string, body: WardVitalsRequest, key: string) => write<WardVitalsResponse>("POST", `/v1/nursing/encounters/${enc(encounterId)}/vitals`, body, "ward-vitals", key),
+  inform: (id: string, body: { spokeTo: string; instruction: string }) => call<Escalation>("POST", `/v1/nursing/escalations/${enc(id)}/inform`, body, k()),
+  resolve: (id: string, note: string) => call<Escalation>("POST", `/v1/nursing/escalations/${enc(id)}/resolve`, { note }, k()),
+  note: (encounterId: string, body: { text: string; effectiveAt: string }, key: string) => write<NursingNoteView>("POST", `/v1/nursing/encounters/${enc(encounterId)}/notes`, body, "nursing-note", key),
+  noteError: (id: string, reason: string) => call<NursingNoteView>("POST", `/v1/nursing/notes/${enc(id)}/entered-in-error`, { reason }, k()),
+  mar: (encounterId: string, day?: string) => call<MarView>("GET", `/v1/nursing/encounters/${enc(encounterId)}/mar${day ? `?day=${day}` : ""}`),
+  dose: (encounterId: string, body: DoseRequest, key: string) => call<MarView>("POST", `/v1/nursing/encounters/${enc(encounterId)}/doses`, body, key),
+  doseError: (id: string, reason: string) => call<MarView>("POST", `/v1/nursing/doses/${enc(id)}/entered-in-error`, { reason }, k()),
+  vial: (encounterId: string, body: { requestId: string; openedAt: string; source: "ward-stock" | "patient-supplied" }) => call<MarView>("POST", `/v1/nursing/encounters/${enc(encounterId)}/vials`, body, k()),
+  witnesses: () => call<WitnessList>("GET", "/v1/nursing/witnesses"),
+  stock: (wardId: string) => call<WardStock>("GET", `/v1/nursing/wards/${enc(wardId)}/stock`),
+  indents: (wardId: string) => call<IndentList>("GET", `/v1/nursing/wards/${enc(wardId)}/indents`),
+  indent: (wardId: string, body: IndentCreate, key: string) => call<IndentView>("POST", `/v1/nursing/wards/${enc(wardId)}/indents`, body, key),
+  cancelIndent: (id: string, reason: string) => call<IndentView>("POST", `/v1/indents/${enc(id)}/cancel`, { reason }, k()),
+  pharmacyIndents: (status?: string) => call<IndentList>("GET", "/v1/pharmacy/indents" + (status ? `?status=${status}` : "")),
+  issue: (id: string, body: IndentIssueRequest, key: string) => call<IndentView>("POST", `/v1/pharmacy/indents/${enc(id)}/issue`, body, key),
+  rounds: () => call<RoundWorklist>("GET", "/v1/ipd/rounds"),
+  round: (encounterId: string) => call<RoundView>("GET", `/v1/ipd/encounters/${enc(encounterId)}/round`),
+  openRound: (encounterId: string) => call<RoundView>("POST", `/v1/ipd/encounters/${enc(encounterId)}/round/open`, {}, k()),
+  saveRound: (id: string, body: SaveRoundRequest) => call<RoundView>("PUT", `/v1/ipd/round-notes/${enc(id)}`, body, k()),
+  signRound: (id: string, body: { rev: number; pin: string }, key: string) => call<RoundView>("POST", `/v1/ipd/round-notes/${enc(id)}/sign`, body, key),
+  amendRound: (id: string, reason: string) => call<RoundView>("POST", `/v1/ipd/round-notes/${enc(id)}/amend`, { reason }, k()),
+  stopOrder: (id: string, body: { reason: string; pin: string }, key: string) => call<RoundView>("POST", `/v1/ipd/orders/${enc(id)}/stop`, body, key),
+  medicines: (q: string) => call<{ items: MarView["orders"][number]["medicine"][] }>("GET", `/v1/ipd/medicines?q=${enc(q)}`),
+  move: (admissionId: string, body: BedMoveRequest, key: string) => call<AdmissionView>("POST", `/v1/ipd/admissions/${enc(admissionId)}/transfer`, body, key),
+  arrive: (admissionId: string) => call<AdmissionView>("POST", `/v1/ipd/admissions/${enc(admissionId)}/transfer/arrive`, {}, k()),
+  cancelMove: (admissionId: string, reason: string) => call<AdmissionView>("POST", `/v1/ipd/admissions/${enc(admissionId)}/transfer/cancel`, { reason }, k()),
 };
