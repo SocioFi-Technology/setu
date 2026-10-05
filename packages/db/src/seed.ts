@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import { ANALYTES_SAMPLE, ICD11_SAMPLE, MEDICINES_SAMPLE, MRP_SAMPLE, RANGES_SAMPLE, TESTS_SAMPLE, emptySections, labFlag, patientAgeYears, priceListSample, rangeFor, rxQuantity } from "@setu/domain";
 import { owner as prisma } from "./owner.ts";
+import { SEED_BED_STATES, SEED_WARDS } from "./wards.ts";
 
 const hash = (s: string) => createHash("sha256").update("dev-only:" + s).digest("hex"); // replaced by argon2 in the auth slice
 /** ADR 0010: the demo facilities were set up before go-live existed — live, A5 formats, every payment method. */
@@ -41,6 +42,22 @@ export async function seedStock(tenantId: string, organizationId: string, byId: 
     if (await prisma.stockBatch.findUnique({ where })) continue;
     const b = await prisma.stockBatch.create({ data: { tenantId, organizationId, medicineKey: key, batchNo, expiry: day(expiresIn), location, costPaisa: Math.round(mrp * 0.85), mrpPaisa: mrp, vatRateBp: 0, sample: true } });
     await prisma.stockMove.create({ data: { tenantId, organizationId, batchId: b.id, kind: "receive", qty, refType: "seed", reason: "sample opening stock", byId } });
+  }
+}
+
+/* ADR 0014: wards and beds like the admin masters make them (a ward under the branch, beds with a class, vacant),
+   for the Hospital Lite demo and the E2E Lite hospital: an ER ward of bays, a general ward, cabins and an HDU.
+   Walkthrough B3 wants a bed being cleaned and a blocked one on the picker; a re-seed keeps the states a run left. */
+export async function seedWards(tenantId: string, organizationId: string, branchId: string, idPrefix: string, only?: string[]) {
+  for (const [key, name, nameBn, bedClass, n, bedName] of SEED_WARDS) {
+    if (only && !only.includes(key)) continue;
+    const wid = `${idPrefix}l_ward_${key}`;
+    await prisma.location.upsert({ where: { id: wid }, update: {}, create: { id: wid, tenantId, organizationId, parentId: branchId, kind: "ward", name, nameBn } });
+    for (let i = 0; i < n; i++) {
+      const bid = `${idPrefix}l_bed_${key}_${i + 1}`;
+      const st = SEED_BED_STATES[bedName(i)] ?? { bedState: "vacant" as const, bedNote: null };
+      await prisma.location.upsert({ where: { id: bid }, update: {}, create: { id: bid, tenantId, organizationId, parentId: wid, kind: "bed", name: bedName(i), bedClass, ...st } });
+    }
   }
 }
 
@@ -288,8 +305,41 @@ async function main() {
   await seedLastVisit(E2E.tenant, E2E.org, E2E.branch, "e2e_", "u_e2e_nurse");
   await seedLastNote(E2E.tenant, E2E.org, E2E.branch, "e2e_", "u_e2e_doctor");
   await seedLabHistory(E2E.tenant, E2E.org, E2E.branch, "e2e_", "u_e2e_labtech", "u_e2e_path");
-  for (const t of [tenant.id, "t_clinicdemo", "t_litedemo", E2E.tenant]) { await seedCatalogues(t); await seedLabCatalogues(t); }
-  for (const [t, o] of [[tenant.id, org.id], ["t_clinicdemo", "o_clinicdemo"], ["t_litedemo", "o_litedemo"], [E2E.tenant, E2E.org]] as const) await seedPriceList(t, o);
+  /* ADR 0014 (slice B1–B2): the E2E Lite hospital — a Hospital Lite tenant of its own, on its own phone numbers
+     (017980000xx), with wards and beds for the ER and admission journeys and API tests. The same walkthrough family.
+     Doctors carry a speciality (walkthrough issue #24: an adult assigned to the paediatrician gets a prompt). */
+  const LITE = { tenant: "t_e2e_lite", org: "o_e2e_lite", branch: "l_branch_e2e_lite" };
+  await prisma.tenant.upsert({ where: { id: LITE.tenant }, update: { patientNoPrefix: "E2L" }, create: { id: LITE.tenant, name: "E2E Lite Hospital", plan: "lite", patientNoPrefix: "E2L" } });
+  await prisma.organization.upsert({ where: { id: LITE.org }, update: {}, create: { id: LITE.org, tenantId: LITE.tenant, name: "E2E Lite Hospital", nameBn: "ই২ই লাইট হাসপাতাল", ...LIVE } });
+  await prisma.location.upsert({ where: { id: LITE.branch }, update: {}, create: { id: LITE.branch, tenantId: LITE.tenant, organizationId: LITE.org, kind: "branch", name: "Main branch", nameBn: "প্রধান শাখা" } });
+  const liteUsers: [string, string, string, string, "receptionist" | "doctor" | "nurse" | "cashier" | "owner" | "admin", string | null][] = [
+    ["u_e2l_desk", "লাইট রিসেপশন", "Lite Receptionist", "01798000001", "receptionist", null],
+    ["u_e2l_doctor", "ডা. লাইট ইমার্জেন্সি", "Dr. Lite Emergency", "01798000002", "doctor", "Emergency medicine"],
+    ["u_e2l_paed", "ডা. লাইট শিশু", "Dr. Lite Paediatrics", "01798000003", "doctor", "Paediatrics"],
+    ["u_e2l_surgeon", "ডা. লাইট সার্জন", "Dr. Lite Surgeon", "01798000005", "doctor", "Surgery"],
+    ["u_e2l_nurse", "লাইট নার্স", "Lite Nurse", "01798000004", "nurse", null],
+    ["u_e2l_cashier", "লাইট ক্যাশিয়ার", "Lite Cashier", "01798000008", "cashier", null],
+    ["u_e2l_owner", "লাইট মালিক", "Lite Owner", "01798000009", "owner", null],
+    ["u_e2l_admin", "লাইট অ্যাডমিন", "Lite Admin", "01798000010", "admin", null],
+  ];
+  for (const [id, nameBn, nameEn, phone, role, speciality] of liteUsers) {
+    await prisma.user.upsert({ where: { id }, update: {}, create: { id, tenantId: LITE.tenant, nameBn, nameEn, phone, passwordHash: hash("setu1234"), pinHash: hash("1234") } });
+    await prisma.practitionerRole.upsert({ where: { userId_organizationId_role: { userId: id, organizationId: LITE.org, role } }, update: {}, create: { tenantId: LITE.tenant, userId: id, organizationId: LITE.org, role } });
+    if (speciality) await prisma.practitioner.upsert({ where: { userId: id }, update: { speciality }, create: { tenantId: LITE.tenant, userId: id, speciality } });
+  }
+  await seedFamily(LITE.tenant, "e2l_", "E2L");
+  await seedWards(LITE.tenant, LITE.org, LITE.branch, "e2l_");
+  await prisma.sequence.upsert({ where: { tenantId_name: { tenantId: LITE.tenant, name: "patient" } }, update: {}, create: { tenantId: LITE.tenant, name: "patient", value: 240210 } });
+  /* The Hospital Lite demo gets the same wards for the hands-on walkthrough; Green Life (already has ward 2A) gets an
+     ER ward of bays and an HDU. The demo doctors' specialities are the prototype's. */
+  await seedWards("t_litedemo", "o_litedemo", "l_branch_t_litedemo", "lite_");
+  await seedWards(tenant.id, org.id, "l_branch_mirpur", "", ["er", "hdu"]);
+  for (const [userId, speciality] of [["u_imran", "Emergency medicine"], ["u_selina", "Obs & Gynae"], ["u_lite_doctor", "Medicine"]] as const) {
+    const u = await prisma.user.findUnique({ where: { id: userId } });
+    if (u) await prisma.practitioner.upsert({ where: { userId }, update: { speciality }, create: { tenantId: u.tenantId, userId, speciality } });
+  }
+  for (const t of [tenant.id, "t_clinicdemo", "t_litedemo", E2E.tenant, LITE.tenant]) { await seedCatalogues(t); await seedLabCatalogues(t); }
+  for (const [t, o] of [[tenant.id, org.id], ["t_clinicdemo", "o_clinicdemo"], ["t_litedemo", "o_litedemo"], [E2E.tenant, E2E.org], [LITE.tenant, LITE.org]] as const) await seedPriceList(t, o);
   for (const [t, o, by] of [[tenant.id, org.id, "u_jewel"], [E2E.tenant, E2E.org, "u_e2e_pharm"]] as const) await seedStock(t, o, by);
   /* Pharmacy session 2 (ADR 0009): sample suppliers (distributors) for purchase orders — names are samples. */
   for (const [t, o] of [[tenant.id, org.id], [E2E.tenant, E2E.org]] as const)
@@ -298,7 +348,7 @@ async function main() {
   /* The prototype's sample seller BIN (receipt header), marked sample; the plan demos have none, so no Mushak-6.3 line. */
   for (const id of [org.id, E2E.org]) await prisma.organization.update({ where: { id }, data: { vatBin: "000123456-0101", vatBinSample: true } });
   await prisma.sequence.upsert({ where: { tenantId_name: { tenantId: E2E.tenant, name: "patient" } }, update: {}, create: { tenantId: E2E.tenant, name: "patient", value: 240210 } });
-  console.log("seeded demo tenant: Green Life Clinic, Mirpur — 10 users (password setu1234, PIN 1234), 8 patients (5 share 01711-234567), Mirpur branch, ward 2A; plan demos: Clinic-plan nurse 01722000004, Lite-plan doctor 01733000002; E2E Test Clinic (tests only): 017990000xx; Rahima Khatun's previous visit 12/08/2026 with vitals");
+  console.log("seeded demo tenant: Green Life Clinic, Mirpur — 10 users (password setu1234, PIN 1234), 8 patients (5 share 01711-234567), Mirpur branch, ward 2A; plan demos: Clinic-plan nurse 01722000004, Lite-plan doctor 01733000002; E2E Test Clinic (tests only): 017990000xx; E2E Lite Hospital (tests only, Hospital Lite, wards and beds): 017980000xx; Rahima Khatun's previous visit 12/08/2026 with vitals");
 }
 
 main().finally(() => prisma.$disconnect());

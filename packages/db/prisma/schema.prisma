@@ -137,6 +137,9 @@ model Location {
   /// bed class (General/Cabin/HDU/ICU) and state apply when kind = bed
   bedClass       String?
   bedState       BedState?
+  /// why a bed is blocked / what cleaning is under way (ADR 0014); cleared when it is vacant again
+  bedNote        String?
+  bedAssignments BedAssignment[]
 
   @@index([tenantId, organizationId])
   @@index([parentId])
@@ -373,10 +376,128 @@ model Encounter {
   createdAt      DateTime        @default(now())
   observations   Observation[]
   compositions   Composition[]
+  erVisit        ErVisit?
+  admission      Admission?
+  bedAssignments BedAssignment[]
 
-  @@unique([tenantId, branchId, tokenDay, tokenNo])
+  /// ADR 0014: tokens are numbered per class (OPD A-nnn, ER E-nnn) per branch per day
+  @@unique([tenantId, branchId, tokenDay, class, tokenNo])
   @@index([tenantId, branchId, tokenDay])
   @@index([tenantId, patientId])
+}
+
+/// ADR 0014: the ER visit's own facts, one to one with an Encounter of class er. The triage level is on the sample
+/// scale in @setu/domain er.ts (pending clinician sign-off); the disposition is signed on the ER note (Composition
+/// kind er-note) and copied here.
+model ErVisit {
+  id                    String    @id @default(cuid())
+  tenantId              String
+  organizationId        String
+  branchId              String
+  encounterId           String    @unique
+  encounter             Encounter @relation(fields: [encounterId], references: [id])
+  patientId             String
+  /// walk-in | ambulance | police | public | referral
+  arrivalMode           String
+  broughtBy             String?
+  complaint             String
+  /// identifying features of an unknown patient (quick provisional registration)
+  features              String?
+  triageLevel           Int?
+  triageTargetMinutes   Int?
+  triagedAt             DateTime?
+  triagedById           String?
+  /// admit | discharge | refer | death — set when the disposition is signed
+  dispositionKind       String?
+  dispositionDetail     Json?
+  dispositionSignedAt   DateTime?
+  dispositionSignedById String?
+  /// the ER note
+  compositionId         String?
+  createdById           String
+  createdAt             DateTime  @default(now())
+
+  @@index([tenantId, organizationId, branchId])
+  @@index([tenantId, patientId])
+}
+
+enum BedAssignmentStatus {
+  reserved
+  occupied
+  ended
+}
+
+/// ADR 0014: a patient's hold on a bed — the Encounter's location history. A bed move is two rows (legs) with one
+/// transferId, like a stock transfer: the destination is reserved, then occupied while the source is ended (vacated
+/// into cleaning, or released). The database allows one live row per bed, one occupied and one reserved per patient,
+/// and keeps Location.bedState in step with the live row.
+model BedAssignment {
+  id             String              @id @default(cuid())
+  tenantId       String
+  organizationId String
+  encounterId    String
+  encounter      Encounter           @relation(fields: [encounterId], references: [id])
+  patientId      String
+  bedId          String
+  bed            Location            @relation(fields: [bedId], references: [id])
+  status         BedAssignmentStatus
+  transferId     String
+  reservedAt     DateTime?
+  reservedById   String?
+  occupiedAt     DateTime?
+  occupiedById   String?
+  endedAt        DateTime?
+  endedById      String?
+  /// vacated | released | discharged | cancelled | reset
+  endReason      String?
+  createdAt      DateTime            @default(now())
+
+  @@index([tenantId, bedId])
+  @@index([tenantId, patientId])
+  @@index([tenantId, encounterId])
+}
+
+/// ADR 0014: an admission — requested by the ER's admit disposition (bed reserved), completed by the desk's Admit,
+/// which creates the IPD encounter, occupies the bed, draws ADM/yy/nnnn and opens the IPD bill draft.
+model Admission {
+  id                   String     @id @default(cuid())
+  tenantId             String
+  organizationId       String
+  branchId             String
+  patientId            String
+  /// the IPD encounter, once admitted
+  encounterId          String?    @unique
+  encounter            Encounter? @relation(fields: [encounterId], references: [id])
+  /// the ER (or OPD) visit this admission came from
+  sourceEncounterId    String?
+  /// opd | er | direct
+  source               String
+  /// requested | admitted | cancelled
+  status               String
+  number               String?
+  admittingDoctorId    String
+  department           String
+  diagnosis            String
+  bedClass             String
+  /// the bed reserved (requested) / occupied (admitted)
+  bedId                String
+  guardianName         String?
+  guardianRelationship String?
+  guardianPhone        String?
+  consents             String[]   @default([])
+  /// the IPD bill draft (Invoice kind ipd)
+  invoiceId            String?
+  requestedById        String
+  requestedAt          DateTime   @default(now())
+  admittedById         String?
+  admittedAt           DateTime?
+  cancelledById        String?
+  cancelledAt          DateTime?
+  cancelReason         String?
+
+  @@unique([tenantId, organizationId, number])
+  @@index([tenantId, patientId])
+  @@index([tenantId, organizationId, status])
 }
 
 /// APPROVAL machine states (@setu/domain machines.ts).
@@ -932,6 +1053,8 @@ enum InvoiceKind {
   opd
   pharmacy
   otc
+  /// ADR 0014: the inpatient running bill, opened by the admission and nowhere else
+  ipd
 }
 
 /// A bill line (FHIR ChargeItem). Name, price and VAT rate are copied from the price list when the line is added, so a
