@@ -36,7 +36,7 @@ export function LabWorklist({ stage }: { stage: Worklist["stage"] }) {
               </span>
               <b>{F.name(i.patient)}</b>
               <span className="t-small t-muted num">{i.patient.facilityNo} · {L.age(i.patient)} {L.sex(i.patient.sex)} · {F.date(i.encounter.day)}</span>
-              <span className="t-small">{i.tests.map((t) => t.status === "revoked" ? `${t.nameEn} (${T("cancelled")})` : t.nameEn).join(" · ")}</span>
+              <span className="t-small">{i.tests.map((t) => t.status === "revoked" ? `${t.nameEn} (${T("cancelled")})` : t.awaitingDoctor ? `${t.nameEn} (${T("protocol_awaiting")})` : t.nameEn).join(" · ")}</span>
               <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {i.counts.tubesNeeded > 0 && <Pill tone="neu" icon="test-tube">{T("wl_tubes", { n: i.counts.tubesNeeded })}</Pill>}
                 {i.counts.toEnter > 0 && <Pill tone="pend" icon="keyboard">{T("wl_to_enter", { n: i.counts.toEnter })}</Pill>}

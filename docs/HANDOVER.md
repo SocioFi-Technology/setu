@@ -862,6 +862,20 @@ bill draft created by the admission and nowhere else).
   the IPD running bill, deposit and package (B8), ER billing, the unknown-patient merge, the referral letter and the
   death certificate, discharge from the ward (B9–B12).
 
+## Done (slice B1–B2, follow-up, 05/10/2026) — Kamrul's decisions 240–253 ✅
+ADR 0014 addendum; migration `20261005233000_er_protocol_orders`.
+- **240 Bay ready:** bays go to cleaning between patients; the nurse's "Bay ready" on the board (`POST
+  /v1/er/bays/:id/ready`, BED markReady, no timer).
+- **243 Protocol orders:** a nurse's lab or care order is a protocol order, marked "protocol order — awaiting doctor"
+  on the note, the lab worklist and the collection screen (`ServiceRequest.protocol`); the doctor's disposition sign
+  countersigns every open one (`countersignedById / At`, audited; a countersignature never changes — database); the
+  orders screen counts what the sign will countersign.
+- **244:** "ER fee and ER billing rules" on the owner / accountant pre-pilot list (known gap 13).
+- **248 / 253 Phones at arrival:** the unknown patient's family phone and the brought-by phone are optional, normalised
+  (Bangla or Latin digits; an invalid one is refused), stored patient-reported (`ErVisit.broughtByPhone`; the
+  provisional record's phone with a `phone-reported` provenance); the provisional record still goes to review.
+- **Tests:** domain 348, api 298 (er 16, the suite with the dev API stopped), journey B 7/7, typecheck 13/13; **full Playwright run 5: 96 passed, 4 skipped, 0 failed** (8.4 min, 2 workers) — the second clean full run on this machine. Servers stopped afterwards.
+
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
 2. ~~MinIO image cannot be pulled~~ — dev and tests store receipts with `LocalFolderStorage` (A6–A7). Before staging: an S3-compatible adapter behind the same `Storage` interface.
@@ -903,6 +917,9 @@ bill draft created by the admission and nowhere else).
       classes (OTC / Rx / controlled) of the demo list (`packages/domain/src/pharmacy.ts`, all `sample`); whether
       controlled drugs need a register entry or a second check; substitution rules (same ingredients, strength and form)
       and the dose-label wording.
+13. **ER fee and ER billing rules** (Kamrul, 05/10/2026, decision 244): an ER visit discharged home is billed like an OPD
+    visit until the owner and the accountant decide the ER fee, what the ER bill carries (bay, drugs, procedures) and
+    how an admitted patient's ER charges move to the IPD bill. Pre-pilot, with gap 12.
 11. **Patients are per tenant** (decided 02/10/2026, open question 21): one record shared across an owner's branches; between different owners only through Connected Care with consent (Journey E), never by default.
 
 ## Next (in order)

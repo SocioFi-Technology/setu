@@ -167,6 +167,57 @@ describe.runIf(db)("B2 orders and the signed disposition", () => {
     expect(items[idx]!.priority).toBe("stat");
     expect(items.slice(0, idx).every((i) => i.priority === "stat")).toBe(true);
   });
+  it("decision 243: a nurse's order is a protocol order awaiting the doctor (note and lab worklist); the doctor's sign countersigns it", async () => {
+    const [bay] = await ownBays(1);
+    const a = await arrival({ bayId: bay });
+    const r = await post(`/v1/er/encounters/${a.item.id}/orders`, { testCode: "cbc" }, "nurse");
+    expect(r.statusCode, r.body).toBe(201);
+    expect(r.json().orders[0]).toMatchObject({ protocol: true, countersigned: null });
+    expect(r.json().awaitingCountersign).toBe(1);
+    const care = await post(`/v1/er/encounters/${a.item.id}/care-orders`, { key: "o2", on: true }, "nurse");
+    expect(care.json().careOrders.find((c: { key: string }) => c.key === "o2")).toMatchObject({ on: true, protocol: true, countersigned: null });
+    expect(care.json().awaitingCountersign).toBe(2);
+    const doc = await post(`/v1/er/encounters/${a.item.id}/orders`, { testCode: "rbs" }, "doctor");
+    expect(doc.json().orders.find((o: { testCode: string }) => o.testCode === "rbs")).toMatchObject({ protocol: false, countersigned: null });
+    const wl = await get("/v1/lab/worklist?stage=collect", "tech");
+    const item = wl.json().items.find((i: { encounter: { id: string } }) => i.encounter.id === a.item.id);
+    expect(item.tests.find((t: { testCode: string }) => t.testCode === "cbc").awaitingDoctor).toBe(true);
+    expect(item.tests.find((t: { testCode: string }) => t.testCode === "rbs").awaitingDoctor).toBe(false);
+    const visit = await get(`/v1/lab/visits/${a.item.id}`, "tech");
+    expect(visit.json().orders.find((o: { testCode: string }) => o.testCode === "cbc")).toMatchObject({ protocol: true, countersigned: null });
+    // the doctor's discharge sign countersigns every open protocol order (recorded: who, when)
+    const rev = care.json().note.rev;
+    const signed = await post(`/v1/er/encounters/${a.item.id}/disposition`, { rev, pin: "1234", disposition: { kind: "discharge", advice: "Rest; return if worse" } }, "doctor");
+    expect(signed.statusCode, signed.body).toBe(200);
+    expect(signed.json().awaitingCountersign).toBe(0);
+    expect(signed.json().orders.find((o: { testCode: string }) => o.testCode === "cbc").countersigned).toMatchObject({ by: { id: "u_e2l_doctor" } });
+    expect(signed.json().careOrders.find((c: { key: string }) => c.key === "o2").countersigned).toMatchObject({ by: { id: "u_e2l_doctor" } });
+    expect((await get("/v1/lab/worklist?stage=collect", "tech")).json().items.find((i: { encounter: { id: string } }) => i.encounter.id === a.item.id).tests.every((t: { awaitingDoctor: boolean }) => !t.awaitingDoctor)).toBe(true);
+    // a countersignature never changes (database)
+    const row = await tenant((tx) => tx.serviceRequest.findFirst({ where: { encounterId: a.item.id, testCode: "cbc" } }));
+    await expect(tenant((tx) => tx.serviceRequest.update({ where: { id: row!.id }, data: { countersignedById: "u_e2l_paed" } }))).rejects.toThrow(/countersignature never changes/);
+  });
+  it("decision 240: the nurse marks a bay ready (cleaning → vacant); a vacant bay refuses", async () => {
+    const [bay] = await ownBays(1);
+    const a = await arrival({ bayId: bay });
+    await post(`/v1/er/encounters/${a.item.id}/triage`, { level: 4, bayId: null }); // leaves the bay → cleaning
+    expect(await bedState(bay!)).toBe("cleaning");
+    const r = await post(`/v1/er/bays/${bay}/ready`, {});
+    expect(r.statusCode, r.body).toBe(200); expect(r.json()).toMatchObject({ id: bay, state: "vacant" });
+    expect((await post(`/v1/er/bays/${bay}/ready`, {})).json().code).toBe("bed_state");
+    expect((await post(`/v1/er/bays/${bay}/ready`, {}, "desk")).statusCode).toBe(403);
+  });
+  it("decisions 248 / 253: the family's phone and the brought-by phone are optional, normalised, patient-reported; the provisional record still goes to review", async () => {
+    const a = await post("/v1/er/arrivals", { unknown: { sex: "female", approxAgeYears: 60, phone: "০১৭১১-৯০৮৮১২" }, arrivalMode: "public", broughtBy: "Neighbour", broughtByPhone: "+880 1811 223344", complaint: "Fall at home" });
+    expect(a.statusCode, a.body).toBe(201);
+    expect(a.json().patient).toMatchObject({ phone: "1711908812", phoneOwner: "family", identityConfidence: "provisional" });
+    expect(a.json().item.broughtByPhone).toBe("1811223344");
+    expect(a.json().review).toBe(true);
+    const prov = await tenant((tx) => tx.provenance.findMany({ where: { targetType: "Patient", targetId: a.json().patient.id } }));
+    expect(prov.map((p) => [p.activity, p.source]).sort()).toEqual([["phone-reported", "patient_reported"], ["register-provisional", "provider_verified"]]);
+    const bad = await post("/v1/er/arrivals", { unknown: { sex: "male", approxAgeYears: 30, phone: "12345" }, arrivalMode: "walk-in", complaint: "Cough" });
+    expect(bad.statusCode).toBe(400); expect(bad.json().code).toBe("phone_invalid");
+  });
   it("care orders (sample list) toggle on the note; notes save with the rev; a stale rev is refused", async () => {
     const a = await arrival();
     const on = await post(`/v1/er/encounters/${a.item.id}/care-orders`, { key: "ct", on: true }, "doctor");

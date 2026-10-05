@@ -108,6 +108,8 @@ function OrdersScreen({ encounterId }: { encounterId: string }) {
                     style={{ padding: "6px 10px", display: "flex", gap: 6, alignItems: "center", cursor: o || !canWrite ? "default" : "pointer", background: o ? "var(--surface-selected)" : undefined, borderColor: o ? "var(--brand-primary)" : undefined }}>
                     <span>{s.lang === "bn" ? t.nameBn : t.nameEn}</span>
                     {o ? <Pill tone="crit" icon="zap">{E("ordered")}</Pill> : <Pill tone="neu" icon="plus">{E("add")}</Pill>}
+                    {o?.protocol && !o.countersigned && <span data-protocol={t.code}><Pill tone="warn" icon="user-round-check" wrap>{E("protocol_awaiting")}</Pill></span>}
+                    {o?.countersigned && <span data-countersigned={t.code}><Pill tone="ok" icon="user-round-check" wrap>{E("countersigned_by", { name: s.lang === "bn" ? o.countersigned.by.nameBn : o.countersigned.by.nameEn })}</Pill></span>}
                   </button>
                 );
               })}
@@ -121,6 +123,8 @@ function OrdersScreen({ encounterId }: { encounterId: string }) {
                   style={{ padding: "6px 10px", display: "flex", gap: 6, alignItems: "center", cursor: canWrite ? "pointer" : "default", background: c.on ? "var(--surface-selected)" : undefined, borderColor: c.on ? "var(--brand-primary)" : undefined }}>
                   <span>{s.lang === "bn" ? c.nameBn : c.nameEn}</span><span className="t-small t-muted">{c.detail}</span>
                   {c.on && <Pill tone="pend" icon="clock">{E("on")}</Pill>}
+                  {c.on && c.protocol && !c.countersigned && <Pill tone="warn" icon="user-round-check" wrap>{E("protocol_awaiting")}</Pill>}
+                  {c.countersigned && <Pill tone="ok" icon="user-round-check" wrap>{E("countersigned_by", { name: s.lang === "bn" ? c.countersigned.by.nameBn : c.countersigned.by.nameEn })}</Pill>}
                 </button>
               ))}
             </div>
@@ -135,6 +139,7 @@ function OrdersScreen({ encounterId }: { encounterId: string }) {
         </div>
         <Card style={{ display: "flex", flexDirection: "column", gap: 10, padding: 14 }} data-testid="disposition">
           <b>{E("disposition")}</b>
+          {v.awaitingCountersign > 0 && !dispLocked && <Callout tone="warn" icon="user-round-check" data-testid="countersign-note">{E("countersign_note", { n: v.awaitingCountersign })}</Callout>}
           {v.canRedispose && <Callout tone="warn" icon="undo-2" data-testid="redispose">{E("redispose")}</Callout>}
           {dispLocked && v.disposition && <Callout tone="info" icon="badge-check" data-testid="disposition-signed">{E(`d_${v.disposition.kind}`)} · {E("signed_by", { name: s.lang === "bn" ? v.note.signedBy?.nameBn ?? "—" : v.note.signedBy?.nameEn ?? "—", at: hhmm(v.note.signedAt, s.numerals === "bn") })}{v.item.admission ? ` · ${E("admission_status", { status: E(`adm_${v.item.admission.status}`) })} · ${v.item.admission.bed.name}` : ""}</Callout>}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>

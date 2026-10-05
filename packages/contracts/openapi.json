@@ -16704,6 +16704,12 @@
                               "null"
                             ]
                           },
+                          "broughtByPhone": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "arrivedAt": {
                             "type": "string"
                           },
@@ -16888,6 +16894,7 @@
                           "ageYears",
                           "arrivalMode",
                           "broughtBy",
+                          "broughtByPhone",
                           "arrivedAt",
                           "waited",
                           "complaint",
@@ -17538,6 +17545,10 @@
                       "features": {
                         "type": "string",
                         "maxLength": 300
+                      },
+                      "phone": {
+                        "type": "string",
+                        "maxLength": 30
                       }
                     },
                     "required": [
@@ -17558,6 +17569,10 @@
                   "broughtBy": {
                     "type": "string",
                     "maxLength": 120
+                  },
+                  "broughtByPhone": {
+                    "type": "string",
+                    "maxLength": 30
                   },
                   "complaint": {
                     "type": "string",
@@ -17699,6 +17714,12 @@
                           ]
                         },
                         "broughtBy": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "broughtByPhone": {
                           "type": [
                             "string",
                             "null"
@@ -17888,6 +17909,7 @@
                         "ageYears",
                         "arrivalMode",
                         "broughtBy",
+                        "broughtByPhone",
                         "arrivedAt",
                         "waited",
                         "complaint",
@@ -18317,6 +18339,322 @@
         }
       }
     },
+    "/v1/er/bays/{id}/ready": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "bay ready: cleaning → vacant (decision 240)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "nameBn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "vacant",
+                        "reserved",
+                        "occupied",
+                        "discharge-pending",
+                        "cleaning",
+                        "blocked"
+                      ]
+                    },
+                    "note": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "patientId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "nameBn",
+                    "state",
+                    "note",
+                    "patientId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
+                    },
+                    "shortfall": {
+                      "type": "integer"
+                    },
+                    "remaining": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
+                    },
+                    "shortfall": {
+                      "type": "integer"
+                    },
+                    "remaining": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
+                    },
+                    "shortfall": {
+                      "type": "integer"
+                    },
+                    "remaining": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/er/encounters/{id}/triage": {
       "post": {
         "parameters": [
@@ -18482,6 +18820,12 @@
                       ]
                     },
                     "broughtBy": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "broughtByPhone": {
                       "type": [
                         "string",
                         "null"
@@ -18671,6 +19015,7 @@
                     "ageYears",
                     "arrivalMode",
                     "broughtBy",
+                    "broughtByPhone",
                     "arrivedAt",
                     "waited",
                     "complaint",
@@ -19094,6 +19439,12 @@
                         "null"
                       ]
                     },
+                    "broughtByPhone": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "arrivedAt": {
                       "type": "string"
                     },
@@ -19278,6 +19629,7 @@
                     "ageYears",
                     "arrivalMode",
                     "broughtBy",
+                    "broughtByPhone",
                     "arrivedAt",
                     "waited",
                     "complaint",
@@ -19754,6 +20106,12 @@
                             "null"
                           ]
                         },
+                        "broughtByPhone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "arrivedAt": {
                           "type": "string"
                         },
@@ -19938,6 +20296,7 @@
                         "ageYears",
                         "arrivalMode",
                         "broughtBy",
+                        "broughtByPhone",
                         "arrivedAt",
                         "waited",
                         "complaint",
@@ -20376,6 +20735,43 @@
                               "nameBn",
                               "nameEn"
                             ]
+                          },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
                           }
                         },
                         "required": [
@@ -20386,7 +20782,9 @@
                           "priority",
                           "status",
                           "orderedAt",
-                          "orderedBy"
+                          "orderedBy",
+                          "protocol",
+                          "countersigned"
                         ]
                       }
                     },
@@ -20418,6 +20816,43 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
                           }
                         },
                         "required": [
@@ -20427,7 +20862,9 @@
                           "detail",
                           "icon",
                           "on",
-                          "at"
+                          "at",
+                          "protocol",
+                          "countersigned"
                         ]
                       }
                     },
@@ -20567,6 +21004,9 @@
                       "required": [
                         "kind"
                       ]
+                    },
+                    "awaitingCountersign": {
+                      "type": "integer"
                     },
                     "canRedispose": {
                       "type": "boolean"
@@ -20755,6 +21195,7 @@
                     "careOrders",
                     "tests",
                     "disposition",
+                    "awaitingCountersign",
                     "canRedispose",
                     "beds",
                     "consultants",
@@ -21091,6 +21532,12 @@
                             "null"
                           ]
                         },
+                        "broughtByPhone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "arrivedAt": {
                           "type": "string"
                         },
@@ -21275,6 +21722,7 @@
                         "ageYears",
                         "arrivalMode",
                         "broughtBy",
+                        "broughtByPhone",
                         "arrivedAt",
                         "waited",
                         "complaint",
@@ -21713,6 +22161,43 @@
                               "nameBn",
                               "nameEn"
                             ]
+                          },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
                           }
                         },
                         "required": [
@@ -21723,7 +22208,9 @@
                           "priority",
                           "status",
                           "orderedAt",
-                          "orderedBy"
+                          "orderedBy",
+                          "protocol",
+                          "countersigned"
                         ]
                       }
                     },
@@ -21755,6 +22242,43 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
                           }
                         },
                         "required": [
@@ -21764,7 +22288,9 @@
                           "detail",
                           "icon",
                           "on",
-                          "at"
+                          "at",
+                          "protocol",
+                          "countersigned"
                         ]
                       }
                     },
@@ -21904,6 +22430,9 @@
                       "required": [
                         "kind"
                       ]
+                    },
+                    "awaitingCountersign": {
+                      "type": "integer"
                     },
                     "canRedispose": {
                       "type": "boolean"
@@ -22092,6 +22621,7 @@
                     "careOrders",
                     "tests",
                     "disposition",
+                    "awaitingCountersign",
                     "canRedispose",
                     "beds",
                     "consultants",
@@ -22511,6 +23041,12 @@
                             "null"
                           ]
                         },
+                        "broughtByPhone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "arrivedAt": {
                           "type": "string"
                         },
@@ -22695,6 +23231,7 @@
                         "ageYears",
                         "arrivalMode",
                         "broughtBy",
+                        "broughtByPhone",
                         "arrivedAt",
                         "waited",
                         "complaint",
@@ -23133,6 +23670,43 @@
                               "nameBn",
                               "nameEn"
                             ]
+                          },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
                           }
                         },
                         "required": [
@@ -23143,7 +23717,9 @@
                           "priority",
                           "status",
                           "orderedAt",
-                          "orderedBy"
+                          "orderedBy",
+                          "protocol",
+                          "countersigned"
                         ]
                       }
                     },
@@ -23175,6 +23751,43 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
                           }
                         },
                         "required": [
@@ -23184,7 +23797,9 @@
                           "detail",
                           "icon",
                           "on",
-                          "at"
+                          "at",
+                          "protocol",
+                          "countersigned"
                         ]
                       }
                     },
@@ -23324,6 +23939,9 @@
                       "required": [
                         "kind"
                       ]
+                    },
+                    "awaitingCountersign": {
+                      "type": "integer"
                     },
                     "canRedispose": {
                       "type": "boolean"
@@ -23512,6 +24130,7 @@
                     "careOrders",
                     "tests",
                     "disposition",
+                    "awaitingCountersign",
                     "canRedispose",
                     "beds",
                     "consultants",
@@ -23853,6 +24472,12 @@
                             "null"
                           ]
                         },
+                        "broughtByPhone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "arrivedAt": {
                           "type": "string"
                         },
@@ -24037,6 +24662,7 @@
                         "ageYears",
                         "arrivalMode",
                         "broughtBy",
+                        "broughtByPhone",
                         "arrivedAt",
                         "waited",
                         "complaint",
@@ -24475,6 +25101,43 @@
                               "nameBn",
                               "nameEn"
                             ]
+                          },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
                           }
                         },
                         "required": [
@@ -24485,7 +25148,9 @@
                           "priority",
                           "status",
                           "orderedAt",
-                          "orderedBy"
+                          "orderedBy",
+                          "protocol",
+                          "countersigned"
                         ]
                       }
                     },
@@ -24517,6 +25182,43 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
                           }
                         },
                         "required": [
@@ -24526,7 +25228,9 @@
                           "detail",
                           "icon",
                           "on",
-                          "at"
+                          "at",
+                          "protocol",
+                          "countersigned"
                         ]
                       }
                     },
@@ -24666,6 +25370,9 @@
                       "required": [
                         "kind"
                       ]
+                    },
+                    "awaitingCountersign": {
+                      "type": "integer"
                     },
                     "canRedispose": {
                       "type": "boolean"
@@ -24854,6 +25561,7 @@
                     "careOrders",
                     "tests",
                     "disposition",
+                    "awaitingCountersign",
                     "canRedispose",
                     "beds",
                     "consultants",
@@ -25299,6 +26007,12 @@
                             "null"
                           ]
                         },
+                        "broughtByPhone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "arrivedAt": {
                           "type": "string"
                         },
@@ -25483,6 +26197,7 @@
                         "ageYears",
                         "arrivalMode",
                         "broughtBy",
+                        "broughtByPhone",
                         "arrivedAt",
                         "waited",
                         "complaint",
@@ -25921,6 +26636,43 @@
                               "nameBn",
                               "nameEn"
                             ]
+                          },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
                           }
                         },
                         "required": [
@@ -25931,7 +26683,9 @@
                           "priority",
                           "status",
                           "orderedAt",
-                          "orderedBy"
+                          "orderedBy",
+                          "protocol",
+                          "countersigned"
                         ]
                       }
                     },
@@ -25963,6 +26717,43 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
                           }
                         },
                         "required": [
@@ -25972,7 +26763,9 @@
                           "detail",
                           "icon",
                           "on",
-                          "at"
+                          "at",
+                          "protocol",
+                          "countersigned"
                         ]
                       }
                     },
@@ -26112,6 +26905,9 @@
                       "required": [
                         "kind"
                       ]
+                    },
+                    "awaitingCountersign": {
+                      "type": "integer"
                     },
                     "canRedispose": {
                       "type": "boolean"
@@ -26300,6 +27096,7 @@
                     "careOrders",
                     "tests",
                     "disposition",
+                    "awaitingCountersign",
                     "canRedispose",
                     "beds",
                     "consultants",
@@ -66365,13 +67162,17 @@
                                     "complete",
                                     "revoked"
                                   ]
+                                },
+                                "awaitingDoctor": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
                                 "orderId",
                                 "testCode",
                                 "nameEn",
-                                "status"
+                                "status",
+                                "awaitingDoctor"
                               ]
                             }
                           },
@@ -66826,6 +67627,43 @@
                               "fluoride",
                               "plain",
                               "urine"
+                            ]
+                          },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
                             ]
                           },
                           "specimen": {
@@ -67479,6 +68317,8 @@
                           "orderedBy",
                           "orderedAt",
                           "tube",
+                          "protocol",
+                          "countersigned",
                           "specimen",
                           "template",
                           "results",
@@ -68393,6 +69233,43 @@
                               "urine"
                             ]
                           },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
+                          },
                           "specimen": {
                             "type": [
                               "object",
@@ -69044,6 +69921,8 @@
                           "orderedBy",
                           "orderedAt",
                           "tube",
+                          "protocol",
+                          "countersigned",
                           "specimen",
                           "template",
                           "results",
@@ -69951,6 +70830,43 @@
                               "urine"
                             ]
                           },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
+                          },
                           "specimen": {
                             "type": [
                               "object",
@@ -70602,6 +71518,8 @@
                           "orderedBy",
                           "orderedAt",
                           "tube",
+                          "protocol",
+                          "countersigned",
                           "specimen",
                           "template",
                           "results",
@@ -71509,6 +72427,43 @@
                               "urine"
                             ]
                           },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
+                          },
                           "specimen": {
                             "type": [
                               "object",
@@ -72160,6 +73115,8 @@
                           "orderedBy",
                           "orderedAt",
                           "tube",
+                          "protocol",
+                          "countersigned",
                           "specimen",
                           "template",
                           "results",
@@ -73067,6 +74024,43 @@
                               "urine"
                             ]
                           },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
+                          },
                           "specimen": {
                             "type": [
                               "object",
@@ -73718,6 +74712,8 @@
                           "orderedBy",
                           "orderedAt",
                           "tube",
+                          "protocol",
+                          "countersigned",
                           "specimen",
                           "template",
                           "results",
@@ -74641,6 +75637,43 @@
                               "urine"
                             ]
                           },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
+                          },
                           "specimen": {
                             "type": [
                               "object",
@@ -75292,6 +76325,8 @@
                           "orderedBy",
                           "orderedAt",
                           "tube",
+                          "protocol",
+                          "countersigned",
                           "specimen",
                           "template",
                           "results",
@@ -76301,6 +77336,43 @@
                               "urine"
                             ]
                           },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
+                          },
                           "specimen": {
                             "type": [
                               "object",
@@ -76952,6 +78024,8 @@
                           "orderedBy",
                           "orderedAt",
                           "tube",
+                          "protocol",
+                          "countersigned",
                           "specimen",
                           "template",
                           "results",
@@ -77947,6 +79021,43 @@
                               "urine"
                             ]
                           },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
+                          },
                           "specimen": {
                             "type": [
                               "object",
@@ -78598,6 +79709,8 @@
                           "orderedBy",
                           "orderedAt",
                           "tube",
+                          "protocol",
+                          "countersigned",
                           "specimen",
                           "template",
                           "results",
@@ -79599,6 +80712,43 @@
                               "urine"
                             ]
                           },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
+                          },
                           "specimen": {
                             "type": [
                               "object",
@@ -80250,6 +81400,8 @@
                           "orderedBy",
                           "orderedAt",
                           "tube",
+                          "protocol",
+                          "countersigned",
                           "specimen",
                           "template",
                           "results",
@@ -81429,6 +82581,43 @@
                               "urine"
                             ]
                           },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
+                          },
                           "specimen": {
                             "type": [
                               "object",
@@ -82080,6 +83269,8 @@
                           "orderedBy",
                           "orderedAt",
                           "tube",
+                          "protocol",
+                          "countersigned",
                           "specimen",
                           "template",
                           "results",
@@ -83077,6 +84268,43 @@
                               "urine"
                             ]
                           },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
+                          },
                           "specimen": {
                             "type": [
                               "object",
@@ -83728,6 +84956,8 @@
                           "orderedBy",
                           "orderedAt",
                           "tube",
+                          "protocol",
+                          "countersigned",
                           "specimen",
                           "template",
                           "results",
@@ -84872,6 +86102,43 @@
                               "urine"
                             ]
                           },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
+                          },
                           "specimen": {
                             "type": [
                               "object",
@@ -85523,6 +86790,8 @@
                           "orderedBy",
                           "orderedAt",
                           "tube",
+                          "protocol",
+                          "countersigned",
                           "specimen",
                           "template",
                           "results",
@@ -86588,6 +87857,43 @@
                               "urine"
                             ]
                           },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
+                          },
                           "specimen": {
                             "type": [
                               "object",
@@ -87239,6 +88545,8 @@
                           "orderedBy",
                           "orderedAt",
                           "tube",
+                          "protocol",
+                          "countersigned",
                           "specimen",
                           "template",
                           "results",
@@ -88310,6 +89618,43 @@
                               "urine"
                             ]
                           },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
+                          },
                           "specimen": {
                             "type": [
                               "object",
@@ -88961,6 +90306,8 @@
                           "orderedBy",
                           "orderedAt",
                           "tube",
+                          "protocol",
+                          "countersigned",
                           "specimen",
                           "template",
                           "results",
@@ -90907,6 +92254,43 @@
                               "urine"
                             ]
                           },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
+                          },
                           "specimen": {
                             "type": [
                               "object",
@@ -91558,6 +92942,8 @@
                           "orderedBy",
                           "orderedAt",
                           "tube",
+                          "protocol",
+                          "countersigned",
                           "specimen",
                           "template",
                           "results",
@@ -92541,6 +93927,43 @@
                               "urine"
                             ]
                           },
+                          "protocol": {
+                            "type": "boolean"
+                          },
+                          "countersigned": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "by": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nameBn": {
+                                    "type": "string"
+                                  },
+                                  "nameEn": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "nameBn",
+                                  "nameEn"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "by",
+                              "at"
+                            ]
+                          },
                           "specimen": {
                             "type": [
                               "object",
@@ -93192,6 +94615,8 @@
                           "orderedBy",
                           "orderedAt",
                           "tube",
+                          "protocol",
+                          "countersigned",
                           "specimen",
                           "template",
                           "results",

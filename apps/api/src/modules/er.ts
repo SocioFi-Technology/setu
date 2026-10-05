@@ -6,9 +6,9 @@ import { randomUUID } from "node:crypto";
 import type { Disposition, ErArrivalRequest, ErAssignRequest, ErBoard, ErBoardItem, ErDispositionRequest, ErTriageRequest, ErVisitView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
-  BED, BED_ASSIGNMENT, CARE_ORDERS_SAMPLE, DOCUMENT, ENCOUNTER, ORDER, TRIAGE_SCALE, TRIAGE_SCALE_NOTE, TRIAGE_SCALE_SAMPLE, UNTRIAGED_TARGET_MINUTES, assignTransition, bayTake, bedPickable,
+  BED, BED_ASSIGNMENT, type BedState, CARE_ORDERS_SAMPLE, DOCUMENT, ENCOUNTER, ORDER, TRIAGE_SCALE, TRIAGE_SCALE_NOTE, TRIAGE_SCALE_SAMPLE, UNTRIAGED_TARGET_MINUTES, assignTransition, bayTake, bedPickable,
   boardOrder, careOrder, closesOnSign, dhakaDay, dispositionBlockers, erOpen, erToken, erTokenSequenceName, isAdmissionClass, isPaediatric, isTriageLevel, paediatricPrompt,
-  departmentForSpeciality, patientAgeYears, reserveLeg, signDocument, transition, triageLevel, triageOverdue, triageTransition, unknownPatientName, waitedMinutes, type EncounterState,
+  awaitingCountersign, departmentForSpeciality, isProtocolOrder, normalizePhone, patientAgeYears, reserveLeg, signDocument, transition, triageLevel, triageOverdue, triageTransition, unknownPatientName, waitedMinutes, type EncounterState,
 } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
@@ -43,7 +43,7 @@ export async function endAssignment(tx: Tx, s: SessionData, a: { id: string; sta
   const to = transition("bed-assignment", BED_ASSIGNMENT, a.status, "end");
   await tx.bedAssignment.update({ where: { id: a.id }, data: { status: to, endedAt: now, endedById: s.userId, endReason: reason } });
 }
-export interface ErNoteSections { notes: string; careOrders: { key: string; at: string; by: string }[]; disposition: Disposition | null }
+export interface ErNoteSections { notes: string; careOrders: { key: string; at: string; by: string; protocol?: boolean; countersignedBy?: string; countersignedAt?: string }[]; disposition: Disposition | null }
 
 /* ───── context ───── */
 export async function erDoctors(tx: Tx, s: SessionData) {
@@ -120,7 +120,7 @@ function toItem(e: Enc, c: Ctx, now: Date): ErBoardItem {
   const signer = v.dispositionSignedById ? c.people.get(v.dispositionSignedById) : undefined;
   return {
     id: e.id, token: e.token, day: e.tokenDay, status: dash<EncounterState>(e.status), patient: erPatient(e.patient), ageYears: ageOf(e.patient, now),
-    arrivalMode: v.arrivalMode as ErBoardItem["arrivalMode"], broughtBy: v.broughtBy, arrivedAt: (e.arrivedAt ?? e.createdAt).toISOString(), waited, complaint: v.complaint,
+    arrivalMode: v.arrivalMode as ErBoardItem["arrivalMode"], broughtBy: v.broughtBy, broughtByPhone: v.broughtByPhone, arrivedAt: (e.arrivedAt ?? e.createdAt).toISOString(), waited, complaint: v.complaint,
     level: (v.triageLevel as ErBoardItem["level"]) ?? null, targetMinutes: v.triageTargetMinutes, triagedAt: iso(v.triagedAt),
     overdue: erOpen(dash<EncounterState>(e.status)) && triageOverdue(v.triageLevel, waited, Boolean(e.practitionerId)),
     doctor, bay: bay ? { id: bay.id, name: bay.name } : null, vitals: c.vitals.get(e.id) ?? null,
@@ -190,6 +190,21 @@ export async function leaveBay(tx: Tx, s: SessionData, encounterId: string, now:
   return [{ action: "update", entity: "Location", entityId: bay.id, patientId: a.patientId, detail: { event: "vacate", bed: bay.name, to: dash(to), encounterId, transferId: a.transferId } }];
 }
 
+/** Decision 240: the ER nurse's "Bay ready" — cleaning → vacant (BED markReady) on a bay (class ER). */
+export async function bayReady(tx: Tx, s: SessionData, bayId: string) {
+  const bay = await tx.location.findFirst({ where: { id: bayId, organizationId: s.organizationId, kind: "bed", bedClass: "ER" } });
+  if (!bay) throw err(404, "bay_not_found", "এই বে পাওয়া যায়নি", "No such ER bay");
+  const from = dash<BedState>(bay.bedState ?? "vacant");
+  let to: BedState;
+  try { to = transition("bed", BED, from, "markReady"); }
+  catch { throw err(409, "bed_state", `${bay.name}: পরিষ্কার চলছে না`, `${bay.name} is not being cleaned`); }
+  const n = await tx.location.updateMany({ where: { id: bay.id, bedState: bay.bedState }, data: { bedState: under<DbBedState>(to), bedNote: null } });
+  if (n.count !== 1) throw stale();
+  const live = await liveByBed(tx, s);
+  const b = (await baysOf(tx, s, live)).find((x) => x.id === bay.id)!;
+  return { bay: b, audit: [{ action: "update", entity: "Location", entityId: bay.id, detail: { event: "markReady", bed: bay.name, from, to } }] as AuditEntry[] };
+}
+
 export async function arrive(tx: Tx, s: SessionData, req: ErArrivalRequest, now: Date) {
   const branch = await branchOf(tx, s);
   const audit: AuditEntry[] = [];
@@ -203,11 +218,16 @@ export async function arrive(tx: Tx, s: SessionData, req: ErArrivalRequest, now:
     if (!tenant) throw notFound();
     const seq = await tx.sequence.upsert({ where: { tenantId_name: { tenantId: s.tenantId, name: "patient" } }, create: { tenantId: s.tenantId, name: "patient", value: 1 }, update: { value: { increment: 1 } } });
     const name = unknownPatientName(u.sex, u.approxAgeYears);
+    // decision 248: a phone the family gives is patient-reported, normalised like any phone (Bangla or Latin digits)
+    const phone = u.phone ? normalizePhone(u.phone) : null;
+    if (u.phone && !phone) throw err(400, "phone_invalid", "মোবাইল নম্বরটি ঠিক নেই", "That mobile number is not valid", { field: "unknown.phone" });
     const p = await tx.patient.create({ data: {
       tenantId: s.tenantId, facilityNo: `${tenant.patientNoPrefix}-${seq.value}`, nameBn: name.bn, nameEn: name.en, sex: u.sex,
       approxAgeYears: u.approxAgeYears, approxAgeAt: u.approxAgeYears === null ? null : now, identityConfidence: "provisional", identityMethod: "er-quick",
+      phone, phoneOwner: phone ? "family" : null,
     } });
     await tx.provenance.create({ data: { tenantId: s.tenantId, targetType: "Patient", targetId: p.id, activity: "register-provisional", agentId: s.userId, onBehalfOf: s.organizationId, recorded: now, source: "provider_verified", detail: { arrivalMode: req.arrivalMode, features: u.features ?? null } } });
+    if (phone) await tx.provenance.create({ data: { tenantId: s.tenantId, targetType: "Patient", targetId: p.id, activity: "phone-reported", agentId: s.userId, onBehalfOf: s.organizationId, recorded: now, source: "patient_reported", detail: { phone, by: req.broughtBy ?? null } } });
     const task = await tx.task.create({ data: { tenantId: s.tenantId, kind: "patient-link-review", status: "requested", focusId: p.id, reason: "ER provisional registration — identity to be confirmed at the desk", detail: { provisional: true, features: u.features ?? null, broughtBy: req.broughtBy ?? null }, requestedById: s.userId, requestedAt: now } });
     audit.push({ action: "create", entity: "Patient", entityId: p.id, patientId: p.id, detail: { provisional: true, reviewTaskId: task.id } });
     patientId = p.id; review = true;
@@ -226,8 +246,10 @@ export async function arrive(tx: Tx, s: SessionData, req: ErArrivalRequest, now:
     tenantId: s.tenantId, organizationId: s.organizationId, branchId: branch.id, patientId, encounterId: e.id, kind: ER_NOTE, version: 1, status: "draft",
     sections: { notes: "", careOrders: [], disposition: null } as object, sectionSources: {}, authorId: s.userId,
   } });
+  const broughtByPhone = req.broughtByPhone ? normalizePhone(req.broughtByPhone) : null;
+  if (req.broughtByPhone && !broughtByPhone) throw err(400, "phone_invalid", "মোবাইল নম্বরটি ঠিক নেই", "That mobile number is not valid", { field: "broughtByPhone" });
   await tx.erVisit.create({ data: {
-    tenantId: s.tenantId, organizationId: s.organizationId, branchId: branch.id, encounterId: e.id, patientId, arrivalMode: req.arrivalMode, broughtBy: req.broughtBy?.trim() || null,
+    tenantId: s.tenantId, organizationId: s.organizationId, branchId: branch.id, encounterId: e.id, patientId, arrivalMode: req.arrivalMode, broughtBy: req.broughtBy?.trim() || null, broughtByPhone,
     complaint: req.complaint.trim(), features: req.unknown?.features?.trim() || null, compositionId: note.id, createdById: s.userId,
   } });
   audit.push({ action: "create", entity: "Encounter", entityId: e.id, patientId, detail: { class: "er", token: e.token, arrivalMode: req.arrivalMode, noteId: note.id } });
@@ -300,7 +322,7 @@ export async function erVisitView(tx: Tx, s: SessionData, id: string, now: Date)
   ]);
   const doctors = [...ctx.doctors.values()], live = ctx.live;
   const item = toItem(e, ctx, now);
-  const people = new Map((await tx.user.findMany({ where: { id: { in: [...new Set([...orders.map((o) => o.orderedById), c.signedById].filter((x): x is string => Boolean(x)))] } }, select: { id: true, nameBn: true, nameEn: true } })).map((u) => [u.id, u]));
+  const people = new Map((await tx.user.findMany({ where: { id: { in: [...new Set([...orders.map((o) => o.orderedById), ...orders.map((o) => o.countersignedById), ...(sec.careOrders ?? []).map((x) => x.countersignedBy), c.signedById].filter((x): x is string => Boolean(x)))] } }, select: { id: true, nameBn: true, nameEn: true } })).map((u) => [u.id, u]));
   const person = (uid: string | null) => (uid && people.get(uid)) || { id: uid ?? "", nameBn: "—", nameEn: "—" };
   const wards = ctx.beds;
   const beds = [...ctx.beds.values()].filter((b) => b.kind === "bed" && b.bedClass !== "ER").sort((a, b) => a.name.localeCompare(b.name));
@@ -308,8 +330,9 @@ export async function erVisitView(tx: Tx, s: SessionData, id: string, now: Date)
     view: {
       item, patient: toSummary(await getPatient(tx, e.patientId)), allergies: await toAllergyView(tx, allergies),
       note: { id: c.id, status: dash<"draft">(c.status), rev: c.rev, version: c.version, signedAt: iso(c.signedAt), signedBy: c.signedById ? person(c.signedById) : null, notes: sec.notes ?? "" },
-      orders: orders.map((o) => ({ id: o.id, testCode: o.testCode, nameEn: o.nameEn, nameBn: o.nameBn, priority: o.priority, status: dash<"active">(o.status), orderedAt: iso(o.orderedAt), orderedBy: person(o.orderedById) })),
-      careOrders: CARE_ORDERS_SAMPLE.map((o) => { const on = (sec.careOrders ?? []).find((x) => x.key === o.key); return { ...o, on: Boolean(on), at: on?.at ?? null }; }),
+      orders: orders.map((o) => ({ id: o.id, testCode: o.testCode, nameEn: o.nameEn, nameBn: o.nameBn, priority: o.priority, status: dash<"active">(o.status), orderedAt: iso(o.orderedAt), orderedBy: person(o.orderedById), protocol: o.protocol, countersigned: o.countersignedById && o.countersignedAt ? { by: person(o.countersignedById), at: o.countersignedAt.toISOString() } : null })),
+      careOrders: CARE_ORDERS_SAMPLE.map((o) => { const on = (sec.careOrders ?? []).find((x) => x.key === o.key); return { ...o, on: Boolean(on), at: on?.at ?? null, protocol: Boolean(on?.protocol), countersigned: on?.countersignedBy && on.countersignedAt ? { by: person(on.countersignedBy), at: on.countersignedAt } : null }; }),
+      awaitingCountersign: awaitingCountersign(orders.map((o) => ({ protocol: o.protocol, countersignedAt: iso(o.countersignedAt) }))).length + (sec.careOrders ?? []).filter((x) => x.protocol && !x.countersignedAt).length,
       tests: tests.map((t) => ({ code: t.code, nameEn: t.nameEn, nameBn: t.nameBn, group: t.group as "lab" })),
       disposition: sec.disposition ?? null,
       canRedispose: canRedispose(e, c),
@@ -338,11 +361,11 @@ export async function placeOrder(tx: Tx, s: SessionData, id: string, testCode: s
   const status = transition("order", ORDER, "draft", "order");
   const o = await tx.serviceRequest.create({ data: {
     tenantId: s.tenantId, organizationId: s.organizationId, branchId: e.branchId, patientId: e.patientId, encounterId: e.id, compositionId: c.id,
-    testCode: t.code, nameEn: t.nameEn, nameBn: t.nameBn, group: t.group, priority: "stat", status: "draft", orderedById: s.userId, orderedAt: now, statusAt: now,
+    testCode: t.code, nameEn: t.nameEn, nameBn: t.nameBn, group: t.group, priority: "stat", status: "draft", orderedById: s.userId, orderedAt: now, statusAt: now, protocol: isProtocolOrder(s.role),
   } });
   await tx.serviceRequest.update({ where: { id: o.id }, data: { status: under<"active">(status), statusAt: now } });
   await tx.provenance.create({ data: { tenantId: s.tenantId, targetType: "ServiceRequest", targetId: o.id, activity: "er-order", agentId: s.userId, onBehalfOf: s.organizationId, recorded: now, source: "provider_verified", detail: { encounterId: e.id, priority: "stat" } } });
-  const audit: AuditEntry[] = [{ action: "create", entity: "ServiceRequest", entityId: o.id, patientId: e.patientId, detail: { encounterId: e.id, testCode: t.code, priority: "stat", status } }];
+  const audit: AuditEntry[] = [{ action: "create", entity: "ServiceRequest", entityId: o.id, patientId: e.patientId, detail: { encounterId: e.id, testCode: t.code, priority: "stat", status, protocol: isProtocolOrder(s.role) } }];
   return { ...(await erVisitView(tx, s, e.id, now)), audit };
 }
 export async function toggleCareOrder(tx: Tx, s: SessionData, id: string, key: string, on: boolean, now: Date) {
@@ -353,7 +376,7 @@ export async function toggleCareOrder(tx: Tx, s: SessionData, id: string, key: s
   if (!o) throw err(400, "unknown_care_order", "এই অর্ডার তালিকায় নেই", "No such care order", { field: "key" });
   const sec = c.sections as unknown as ErNoteSections;
   const list = (sec.careOrders ?? []).filter((x) => x.key !== key);
-  if (on) list.push({ key, at: now.toISOString(), by: s.userId });
+  if (on) list.push({ key, at: now.toISOString(), by: s.userId, protocol: isProtocolOrder(s.role) });
   const n = await tx.composition.updateMany({ where: { id: c.id, status: "draft", rev: c.rev }, data: { rev: c.rev + 1, sections: { ...sec, careOrders: list } as object } });
   if (n.count !== 1) throw stale();
   const audit: AuditEntry[] = [{ action: "update", entity: "Composition", entityId: c.id, patientId: e.patientId, detail: { event: on ? "care-order-on" : "care-order-off", key, sample: true } }];
@@ -444,7 +467,14 @@ export async function signDisposition(tx: Tx, s: SessionData, id: string, body: 
   }
   const to = signDocument({ status: dash(c.status), amendsId: c.amendsId, amendReason: c.amendReason });
   const sec = c.sections as unknown as ErNoteSections;
-  const signed = await tx.composition.updateMany({ where: { id: c.id, status: "draft", rev: c.rev }, data: { status: under<"final">(to), signedAt: now, signedById: s.userId, sections: { ...sec, disposition: d } as object } });
+  // decision 243: the sign countersigns every open protocol order of the visit (lab orders on the rows, care orders on the note)
+  const openProtocol = await tx.serviceRequest.findMany({ where: { encounterId: e.id, protocol: true, countersignedById: null, status: { not: "revoked" } }, select: { id: true, testCode: true } });
+  if (openProtocol.length) {
+    await tx.serviceRequest.updateMany({ where: { id: { in: openProtocol.map((o) => o.id) } }, data: { countersignedById: s.userId, countersignedAt: now } });
+    audit.push(...openProtocol.map((o) => ({ action: "update", entity: "ServiceRequest", entityId: o.id, patientId: e.patientId, detail: { event: "countersign", testCode: o.testCode } })));
+  }
+  const careOrders = (sec.careOrders ?? []).map((x) => (x.protocol && !x.countersignedAt ? { ...x, countersignedBy: s.userId, countersignedAt: now.toISOString() } : x));
+  const signed = await tx.composition.updateMany({ where: { id: c.id, status: "draft", rev: c.rev }, data: { status: under<"final">(to), signedAt: now, signedById: s.userId, sections: { ...sec, careOrders, disposition: d } as object } });
   if (signed.count !== 1) throw stale();
   await tx.erVisit.update({ where: { encounterId: e.id }, data: { dispositionKind: d.kind, dispositionDetail: d as object, dispositionSignedAt: now, dispositionSignedById: s.userId } });
   await tx.provenance.create({ data: { tenantId: s.tenantId, targetType: "Composition", targetId: c.id, activity: c.amendsId ? "sign-amendment" : "sign", agentId: s.userId, onBehalfOf: s.organizationId, recorded: now, source: "provider_verified", detail: { kind: ER_NOTE, disposition: d.kind, version: c.version, amends: c.amendsId } } });

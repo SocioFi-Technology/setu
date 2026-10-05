@@ -7,7 +7,7 @@ import { ErArrivalRequest, ErAssignRequest, ErCareOrderRequest, ErDispositionReq
 import { authorize } from "@setu/domain";
 import { command, query } from "../command.js";
 import { err, forbidden } from "../errors.js";
-import { arrive, assign, erBoard, erVisitView, placeOrder, saveNotes, signDisposition, toggleCareOrder, triage } from "../modules/er.js";
+import { arrive, assign, bayReady, erBoard, erVisitView, placeOrder, saveNotes, signDisposition, toggleCareOrder, triage } from "../modules/er.js";
 import { searchPatients } from "../modules/frontdesk.js";
 import { requireSession } from "../plugins/session.js";
 
@@ -40,6 +40,11 @@ export async function erRoutes(app: FastifyInstance) {
     requireClinical(requireEr(req, "triage"));
     const body = ErArrivalRequest.parse(req.body ?? {});
     return command(req, reply, async (tx, s) => { const r = await arrive(tx, s, body, new Date()); return { status: 201, body: { item: r.item, patient: r.patient, review: r.review }, audit: r.audit }; });
+  });
+  app.post("/v1/er/bays/:id/ready", { config: { ownTx: true } }, async (req, reply) => {
+    requireClinical(requireEr(req, "triage"));
+    const { id } = pid.parse(req.params);
+    return command(req, reply, async (tx, s) => { const r = await bayReady(tx, s, id); return { body: r.bay, audit: r.audit }; });
   });
   app.post("/v1/er/encounters/:id/triage", { config: { ownTx: true } }, async (req, reply): Promise<ErBoardItem> => {
     requireClinical(requireEr(req, "triage"));

@@ -219,4 +219,45 @@ test.describe("Journey B — B1 arrival and triage, B2 orders and disposition, t
     const board = await getJ<{ items: { id: string; status: string }[] }>(request, "/v1/er/board");
     expect(board.items.find((i) => i.id === id)?.status).toBe("finished");
   });
+
+  test("decisions 240 and 243: a nurse's protocol order waits for the doctor and is countersigned by the sign; the nurse marks a bay ready", async ({ page, request }) => {
+    const p = await newPatient(request, "Protocol");
+    await login(page, NURSE);
+    await page.goto("/m/er/triage");
+    await page.getByTestId("new-arrival").click();
+    await page.getByTestId("arrival-search").fill(p.facilityNo);
+    await page.locator(`[role=option][data-patient="${p.facilityNo}"]`).click();
+    await page.getByTestId("arrival-complaint").fill("Fever 3 days, vomiting");
+    await page.getByTestId("arrival-bay").selectOption({ label: "ER-2" });
+    await page.getByTestId("arrival-submit").click();
+    await expect(page.getByTestId("triage-panel")).toContainText(p.nameEn);
+    await page.getByTestId("open-orders").click();
+    await page.waitForURL(/\/m\/er\/orders\?enc=/);
+    await page.locator('[data-order="cbc"]').click();
+    await expect(page.locator('[data-protocol="cbc"]')).toContainText("protocol order — awaiting doctor");
+    const id = new URL(page.url()).searchParams.get("enc")!;
+    // the lab sees it as awaiting the doctor
+    await login(page, TECH);
+    await page.goto("/m/lab/collect");
+    await expect(page.locator(`[data-encounter="${id}"]`)).toContainText("protocol order — awaiting doctor");
+    // the doctor's sign countersigns it
+    await login(page, DOCTOR);
+    await page.goto(`/m/er/orders?enc=${id}`);
+    await expect(page.getByTestId("countersign-note")).toContainText("1 protocol order(s) awaiting the doctor");
+    await page.locator('[data-disposition="discharge"]').click();
+    await page.getByTestId("advice").fill("Fluids; return if fever persists");
+    await page.getByTestId("sign-disposition").click();
+    await page.getByTestId("pin").fill("1234");
+    await page.getByTestId("pin-sign").click();
+    await expect(page.locator('[data-countersigned="cbc"]')).toContainText("countersigned by Dr. Lite Emergency");
+    await expect(page.getByTestId("countersign-note")).toHaveCount(0);
+    // the bay went to cleaning with the discharge; the nurse marks it ready
+    await login(page, NURSE);
+    await page.goto("/m/er/triage");
+    await page.locator('[data-bay-ready="ER-2"]').click();
+    await expect(page.locator('[data-bay-ready="ER-2"]')).toHaveCount(0);
+    await as(request, NURSE);
+    const board = await getJ<{ bays: { name: string; state: string }[] }>(request, "/v1/er/board");
+    expect(board.bays.find((b) => b.name === "ER-2")?.state).toBe("vacant");
+  });
 });

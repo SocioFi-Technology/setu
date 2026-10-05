@@ -1,314 +1,1254 @@
 {
-  "cs_maybe_sent": ["উত্তর আসেনি — হয়তো গেছে", "No answer — it may have been sent"],
-  "dup_warn": ["রোগী হয়তো এই SMS আগেই পেয়েছেন। আবার পাঠালে দুবার পেতে পারেন। পাঠাবেন?", "The patient may already have this SMS. Sending again may give it twice. Send?"],
-  "send_again": ["আবার পাঠান", "Send again"],
-  "_about": ["ল্যাবের লেখা (স্লাইস A8–A11), প্রোটোটাইপ Setu Lab থেকে", "Lab strings (slice A8–A11), from the prototype Setu Lab"],
-  "sms_report_ready": ["{facility}: আপনার ল্যাব রিপোর্ট তৈরি। অনুগ্রহ করে ল্যাব কাউন্টার থেকে সংগ্রহ করুন।", "{facility}: Your lab report is ready. Please collect it at the lab counter."],
-  "sms_report_reviewed": ["{facility}: আপনার ডাক্তার আপনার ল্যাব রিপোর্ট দেখেছেন। অনুগ্রহ করে {facility}-এ যোগাযোগ করুন।", "{facility}: Your doctor has reviewed your lab report. Please contact {facility}."],
-  "sms_recollect": ["{facility}: আপনার নমুনা আবার নিতে হবে। অনুগ্রহ করে ল্যাব কাউন্টারে আসুন।", "{facility}: We need to take your sample again. Please come to the lab counter."],
-  "loading": ["লোড হচ্ছে…", "Loading…"],
-  "error_generic": ["কিছু একটা ভুল হয়েছে — আবার চেষ্টা করুন", "Something went wrong — try again"],
-  "not_found": ["এই শাখায় এই ভিজিটের কোনো ল্যাব অর্ডার নেই", "No lab order for this visit at this branch"],
-  "online_needed": ["এর জন্য সংযোগ দরকার — কিছুই যাচাই, অনুমোদন, প্রকাশ বা পাঠানো হয়নি", "This needs a connection — nothing is verified, validated, released or sent"],
-  "offline_collect": ["সংযোগ নেই — সংগ্রহ, গ্রহণ ও বাতিল এই ডিভাইসে থাকবে, সংযোগ ফিরলে পাঠানো হবে", "Offline — collect, receive and reject stay on this device and are sent when back online"],
-  "not_synced": ["সিঙ্ক হয়নি", "Not yet synced"],
-  "back_to_list": ["তালিকায় ফিরুন", "Back to the list"],
-  "cancel": ["বাতিল করুন", "Cancel"],
-  "choose": ["বেছে নিন", "Choose"],
-  "reason": ["কারণ", "Reason"],
-  "reason_min": ["অন্তত {n} অক্ষর", "At least {n} characters"],
-  "sample_list": ["নমুনা তালিকা (প্রোটোটাইপ) — ক্লিনিশিয়ানের অনুমোদন বাকি", "Sample list (prototype) — pending clinician sign-off"],
-  "sample_ranges_note": ["রেফারেন্স রেঞ্জ ও জরুরি সীমা নমুনা — ক্লিনিশিয়ানের অনুমোদন বাকি", "Reference ranges and critical limits are a sample — pending clinician sign-off"],
-  "wl_collect": ["নমুনা সংগ্রহ", "Sample collection"],
-  "wl_collect_hint": ["যেসব ভিজিটে টিউব লাগবে — আজ ও গত ৩০ দিন", "Visits that still need a tube — today and the last 30 days"],
-  "wl_accession": ["গ্রহণ ও বিভাগ", "Accession"],
-  "wl_accession_hint": ["সংগৃহীত নমুনা — গ্রহণ করুন, প্রক্রিয়া শুরু করুন", "Collected samples — receive them and start processing"],
-  "wl_result": ["ফলাফল এন্ট্রি", "Result entry"],
-  "wl_result_hint": ["প্রক্রিয়াধীন নমুনার পরীক্ষা ও ফেরত পাঠানো পরীক্ষা", "Tests with a sample in process, and tests sent back"],
-  "wl_verify": ["যাচাই ও অনুমোদন", "Verification"],
-  "wl_verify_hint": ["জরুরি মান আগে · যাচাই, অনুমোদন ও প্রকাশের অপেক্ষায়", "Critical first · waiting for verification, validation or release"],
-  "wl_delivery": ["রিপোর্ট বিতরণ", "Report delivery"],
-  "wl_delivery_hint": ["প্রকাশিত রিপোর্ট — প্রতিটি মাধ্যমের অবস্থা", "Released reports — each channel's status"],
-  "wl_empty": ["এখন কিছু নেই", "Nothing here right now"],
-  "wl_critical": ["{n}টি জরুরি মান", "{n} critical"],
-  "wl_tubes": ["{n}টি টিউব লাগবে", "{n} tube(s) needed"],
-  "wl_to_enter": ["{n}টি পরীক্ষা লিখতে হবে", "{n} test(s) to enter"],
-  "wl_to_verify": ["{n}টি যাচাই বাকি", "{n} to verify"],
-  "wl_to_validate": ["{n}টি অনুমোদন বাকি", "{n} to validate"],
-  "wl_releasable": ["{n}টি পরীক্ষা প্রকাশযোগ্য", "{n} test(s) ready to release"],
-  "wl_failed": ["{n}টি পাঠানো ব্যর্থ", "{n} send(s) failed"],
-  "bill_status": ["বিল: {status}", "Bill: {status}"],
-  "bill_none": ["বিল এখনো হয়নি", "Not billed yet"],
-  "bill_not_required": ["নমুনা নিতে পেমেন্ট লাগে না (তথ্যের জন্য)", "Payment is not required before collection (for information)"],
-  "pr_routine": ["সাধারণ", "Routine"],
-  "pr_urgent": ["জরুরি", "Urgent"],
-  "pr_stat": ["STAT", "STAT"],
-  "col_none": ["টিউব লাগবে না", "No tube needed"],
-  "col_pending": ["বাকি", "Pending"],
-  "col_partial": ["আংশিক", "Partial"],
-  "col_collected": ["সংগৃহীত", "Collected"],
-  "col_rejected": ["প্রত্যাখ্যাত — আবার নিতে হবে", "Rejected — recollect"],
-  "cancelled": ["বাতিল", "cancelled"],
-  "cancelled_reason": ["বাতিল — {reason}", "Cancelled — {reason}"],
-  "returned_line": ["ফেরত — {test}: {reason}", "Returned — {test}: {reason}"],
-  "collect_title": ["নমুনা সংগ্রহ", "Sample collection"],
-  "col_test": ["পরীক্ষা", "Test"],
-  "col_tube": ["টিউব", "Tube"],
-  "col_status": ["অবস্থা", "Status"],
-  "col_result": ["ফলাফল", "Result"],
-  "col_unit": ["একক", "Unit"],
-  "col_ref": ["রেফারেন্স", "Reference"],
-  "col_flag": ["ফ্ল্যাগ", "Flag"],
-  "col_prev": ["আগের", "Previous"],
-  "col_delta": ["ডেল্টা", "Δ"],
-  "ordered_by": ["অর্ডার: {name} · {at}", "Ordered by {name} · {at}"],
-  "tubes_title": ["টিউব নির্দেশিকা", "Tube guidance"],
-  "tubes_none": ["আর কোনো টিউব লাগবে না", "No more tubes needed"],
-  "tube_edta": ["EDTA (বেগুনি ঢাকনা)", "EDTA (purple top)"],
-  "tube_fluoride": ["ফ্লোরাইড (ধূসর ঢাকনা)", "Fluoride (grey top)"],
-  "tube_plain": ["প্লেইন/ক্লট (লাল ঢাকনা)", "Plain / clot (red top)"],
-  "tube_urine": ["জীবাণুমুক্ত পাত্র", "Sterile container"],
-  "recollect": ["আবার নিতে হবে", "Recollect"],
-  "label_printed": ["লেবেল প্রিন্ট হয়েছে", "Label printed"],
-  "print_labels": ["লেবেল প্রিন্ট ({n})", "Print labels ({n})"],
-  "reprint_labels": ["লেবেল আবার প্রিন্ট ({n})", "Reprint labels ({n})"],
-  "labels_sent": ["{n}টি লেবেল প্রিন্টারে পাঠানো হয়েছে", "{n} label(s) sent to the printer"],
-  "tubes_labelled": ["লেবেল করা টিউব", "Labelled tubes"],
-  "no_labels": ["এখনো কোনো লেবেল প্রিন্ট হয়নি", "No labels printed yet"],
-  "collected_by": ["সংগ্রহ: {name} · {at}", "Collected by {name} · {at}"],
-  "rejected_line": ["প্রত্যাখ্যাত: {reason} {note} · {name} · {at}", "Rejected: {reason} {note} · {name} · {at}"],
-  "collected": ["সংগৃহীত", "Collected"],
-  "reject": ["প্রত্যাখ্যান", "Reject"],
-  "next_accession": ["পরের ধাপ: গ্রহণ", "Next: accession"],
-  "label_preview": ["লেবেল", "Labels"],
-  "label_preview_none": ["প্রিন্ট করা লেবেল এখানে দেখা যাবে", "Printed labels show here"],
-  "copy_n": ["কপি {n}", "copy {n}"],
-  "recollect_sms": ["পুনরায় নমুনার SMS", "Recollection SMS"],
-  "recollect_sms_none": ["কোনো SMS পাঠানো হয়নি (নমুনা নেওয়ার আগে প্রত্যাখ্যাত হলে SMS যায় না)", "No SMS sent (none for a tube rejected before the sample was taken)"],
-  "no_mobile_tell": ["রোগীর সঠিক মোবাইল নম্বর নেই — নমুনা বাতিল হলে রোগীকে নিজে জানান", "The patient has no valid mobile number — tell them yourself if a sample is rejected"],
-  "sms_no_results": ["SMS-এ কোনো ফলাফল, পরীক্ষার নাম বা রোগীর নাম থাকে না", "The SMS never carries a result, a test name or the patient's name"],
-  "cancel_test": ["পরীক্ষা বাতিল", "Cancel test"],
-  "cancel_title": ["পরীক্ষা বাতিল করবেন?", "Cancel this test?"],
-  "cancel_body": ["নমুনা নেওয়ার আগেই শুধু বাতিল করা যায়। অর্ডারকারী ডাক্তারকে জানানো হবে এবং খসড়া বিল থেকে লাইনটি বাদ যাবে।", "A test can be cancelled only before its sample is taken. The ordering doctor is told and the draft bill drops the line."],
-  "cancel_confirm": ["পরীক্ষা বাতিল করুন", "Cancel the test"],
-  "cancelled_done": ["{test} বাতিল হয়েছে", "{test} cancelled"],
-  "sp_needed": ["টিউব লাগবে", "Tube needed"],
-  "sp_pending": ["লেবেল হয়েছে", "Labelled"],
-  "sp_collected": ["সংগৃহীত", "Collected"],
-  "sp_received": ["গৃহীত", "Received"],
-  "sp_in-process": ["প্রক্রিয়াধীন", "Processing"],
-  "sp_done": ["ফলাফল লেখা হয়েছে", "Results entered"],
-  "sp_rejected": ["প্রত্যাখ্যাত", "Rejected"],
-  "reject_title": ["নমুনা প্রত্যাখ্যান", "Reject sample"],
-  "reject_body": ["পরীক্ষাগুলোর জন্য নতুন টিউব লাগবে। নমুনা নেওয়া হয়ে থাকলে রোগীকে আবার আসতে SMS যাবে; এই টিউবের কোনো ফলাফল লেখা থাকলে আগে তা প্রত্যাহার করুন।", "The tests need a new tube. If the sample had been taken, the patient gets an SMS to come back; results already entered from this tube must be withdrawn first."],
-  "reject_reason": ["কারণ", "Reason"],
-  "reject_note": ["কারণের বিবরণ", "Describe the reason"],
-  "reject_confirm": ["নমুনা প্রত্যাখ্যান করুন", "Reject sample"],
-  "rr_haemolysed": ["হিমোলাইসিস", "Haemolysed"],
-  "rr_clotted": ["জমাট (EDTA)", "Clotted (EDTA)"],
-  "rr_insufficient": ["পরিমাণ কম", "Insufficient volume"],
-  "rr_label-mismatch": ["লেবেল মেলেনি", "Label mismatch"],
-  "rr_wrong-container": ["ভুল টিউব", "Wrong container"],
-  "rr_other": ["অন্য কারণ", "Other"],
-  "rr_results-withdrawn": ["ফলাফল প্রত্যাহার", "Results withdrawn"],
-  "accession_title": ["গ্রহণ ও বিভাগ", "Accession"],
-  "scan_label": ["নমুনা বারকোড স্ক্যান করুন", "Scan the sample barcode to receive"],
-  "scan_unknown": ["{code} এই ভিজিটের টিউব নয়", "{code} is not a tube of this visit"],
-  "scan_state": ["{code}: {status} — গ্রহণ করা যায় না", "{code}: {status} — cannot be received"],
-  "scan_received": ["{code} গ্রহণ করা হচ্ছে", "Receiving {code}"],
-  "step_collected": ["সংগ্রহ {at}", "collected {at}"],
-  "step_received": ["গ্রহণ {at}", "received {at}"],
-  "step_started": ["শুরু {at}", "started {at}"],
-  "receive": ["গ্রহণ", "Receive"],
-  "start": ["প্রক্রিয়া শুরু", "Start"],
-  "next_result": ["পরের ধাপ: ফলাফল এন্ট্রি", "Next: result entry"],
-  "result_title": ["ফলাফল এন্ট্রি", "Result entry"],
-  "enter_hint": ["Enter বা ↓ পরের ঘর · ↑ আগের ঘর", "Enter or ↓ next field · ↑ previous field"],
-  "delta_banner": ["ডেল্টা চেক: {parts} — আগের ফলাফল {date}। যাচাইয়ের আগে নমুনার পরিচয় নিশ্চিত করুন।", "Delta check: {parts} vs {date}. Confirm sample identity before verifying."],
-  "go_verify": ["যাচাইয়ে যান", "Go to verification"],
-  "withdraw": ["ফলাফল প্রত্যাহার", "Withdraw results"],
-  "returned_banner": ["ফেরত — {reason} · {name} · {at}। মানগুলো দেখুন, ভুল হলে সংশোধন করুন; তারপর যাচাই স্ক্রিনে আবার যাচাই হবে।", "Returned — {reason} · {name} · {at}. Check the values and correct any that are wrong; it is then verified again on the Verification screen."],
-  "withdrawn_banner": ["ফলাফল প্রত্যাহার — {reason} · {name} · {at}। নতুন টিউব লাগবে।", "Results withdrawn — {reason} · {name} · {at}. A new tube is needed."],
-  "no_template": ["নমুনা তালিকায় এই পরীক্ষার ফলাফল-ছক নেই — এখনো লেখা যাবে না (ক্লিনিশিয়ানের অনুমোদন বাকি)", "The sample list has no result template for this test — it cannot be entered yet (pending clinician sign-off)"],
-  "wait_in_process": ["নমুনা গ্রহণ করে প্রক্রিয়া শুরু হলে ফলাফল লেখা যাবে", "Results can be entered once the sample is received and processing has started"],
-  "wait_tube": ["এই পরীক্ষার টিউব এখনো সংগ্রহ হয়নি", "This test's tube has not been collected yet"],
-  "confirm_again": ["জরুরি মান — আবার লিখুন", "Critical value — type it again"],
-  "confirm_again_for": ["{test} আবার লিখুন", "Type {test} again"],
-  "crit_line": ["জরুরি: {low} / {high} (প্রাপ্তবয়স্ক)", "Critical: {low} / {high} (adult)"],
-  "source_manual": ["উৎস: হাতে লেখা", "Source: manual entry"],
-  "send_for_verification": ["যাচাইয়ে পাঠান", "Send for verification"],
-  "sent_for_verification": ["{test} যাচাইয়ে পাঠানো হয়েছে", "{test} sent for verification"],
-  "correction_of_previous": ["আগের মানের সংশোধন", "corrects an earlier value"],
-  "withdrawn_short": ["প্রত্যাহার", "Withdrawn"],
-  "corrected_short": ["সংশোধিত", "Corrected"],
-  "entered_by": ["লিখেছেন {name} · {at}", "Entered by {name} · {at}"],
-  "correct": ["সংশোধন", "Correct"],
-  "correct_title": ["{test} সংশোধন", "Correct {test}"],
-  "correct_body": ["আগের মান {old} মুছে যাবে না — ভুল হিসেবে চিহ্নিত থাকবে; নতুন মান আবার যাচাই ও অনুমোদন লাগবে।", "The old value {old} is kept, marked entered in error; the new value needs verification and validation again."],
-  "correct_released": ["এই মান প্রকাশিত হয়েছিল — অর্ডারকারী ডাক্তারকে জানানো হবে এবং নতুন সংস্করণ 'সংশোধিত' হবে।", "This value was released — the ordering doctor is told and the next version is marked Corrected."],
-  "correct_confirm": ["সংশোধন সংরক্ষণ", "Save correction"],
-  "new_value": ["নতুন মান ({unit})", "New value ({unit})"],
-  "withdraw_title": ["{test}-এর ফলাফল প্রত্যাহার", "Withdraw the results of {test}"],
-  "withdraw_body": ["এই পরীক্ষার সব বর্তমান মান ভুল হিসেবে চিহ্নিত হবে (নতুন মান ছাড়া), যে টিউবে মাপা হয়েছিল তা প্রত্যাখ্যাত হবে, নতুন টিউব লাগবে এবং রোগীকে SMS যাবে।", "Every current value of this test is marked entered in error (no new value), the tube it was measured in is rejected, a new tube is needed and the patient gets an SMS."],
-  "withdraw_released": ["এই ফলাফল প্রকাশিত হয়েছিল — ডাক্তারকে জানানো হবে এবং রিপোর্টে 'প্রত্যাহার — ব্যবহার করবেন না' দেখাবে।", "These results were released — the doctor is told and the report shows 'withdrawn — do not act on it'."],
-  "withdraw_confirm": ["প্রত্যাহার করুন", "Withdraw results"],
-  "ve_required": ["মান লিখুন", "Enter a value"],
-  "ve_not_a_number": ["শুধু সংখ্যা (দশমিক বিন্দু চলবে, কমা নয়)", "Numbers only (a decimal point, no commas)"],
-  "ve_negative": ["ঋণাত্মক মান হয় না", "A value cannot be negative"],
-  "ve_unknown_analyte": ["এই পরীক্ষার অংশ নয়", "Not part of this test"],
-  "ve_duplicate": ["দুইবার দেওয়া হয়েছে", "Given twice"],
-  "ve_confirm_required": ["জরুরি মান — আবার লিখুন", "Critical value — type it again"],
-  "ve_confirm_mismatch": ["দুইবার লেখা মান মেলেনি", "The two values do not match"],
-  "flag_N": ["স্বাভাবিক", "Normal"],
-  "flag_H": ["H · বেশি", "H · High"],
-  "flag_L": ["L · কম", "L · Low"],
-  "flag_HH": ["HH · জরুরি বেশি", "HH · Critical high"],
-  "flag_LL": ["LL · জরুরি কম", "LL · Critical low"],
-  "flag_none": ["ফ্ল্যাগ নেই — নমুনা তালিকায় রেঞ্জ নেই", "Not flagged — no range in the sample list"],
-  "range_none": ["নমুনা তালিকায় রেফারেন্স রেঞ্জ নেই", "No reference range in the sample list"],
-  "range_adult": ["প্রাপ্তবয়স্ক রেঞ্জ", "adult range"],
-  "range_adult-female": ["প্রাপ্তবয়স্ক নারীর রেঞ্জ", "adult female range"],
-  "range_adult-male": ["প্রাপ্তবয়স্ক পুরুষের রেঞ্জ", "adult male range"],
-  "rs_preliminary": ["যাচাই বাকি", "To verify"],
-  "rs_verified": ["যাচাই হয়েছে", "Verified"],
-  "rs_final": ["অনুমোদিত", "Validated"],
-  "rs_amended": ["সংশোধিত", "Amended"],
-  "rs_entered-in-error": ["ভুল হিসেবে চিহ্নিত", "Entered in error"],
-  "verify_title": ["যাচাই ও অনুমোদন", "Verification"],
-  "step_verify": ["১. টেকনিক্যাল যাচাই", "1. Technical verification"],
-  "step_verify_hint": ["QC ঠিক, নমুনা ঠিক, মান সম্ভব", "QC passed, sample OK, values plausible"],
-  "step_validate": ["২. ক্লিনিক্যাল অনুমোদন", "2. Clinical validation"],
-  "step_validate_hint": ["প্যাথলজিস্ট ব্যাখ্যা করে স্বাক্ষর করেন", "The pathologist interprets and signs"],
-  "n_waiting": ["{n}টি অপেক্ষায়", "{n} waiting"],
-  "nothing_waiting": ["কিছু বাকি নেই", "Nothing waiting"],
-  "locked": ["বন্ধ — কল-ব্যাক বাকি", "Locked — call-back needed"],
-  "delta_tick": ["ডেল্টা চেক দেখেছি — নমুনার পরিচয় নিশ্চিত করেছি", "I checked the delta warning — the sample identity is confirmed"],
-  "pin": ["পিন", "PIN"],
-  "verify": ["যাচাই", "Verify"],
-  "validate": ["অনুমোদন", "Validate"],
-  "waiting_server": ["সার্ভারের অপেক্ষায়…", "Waiting for the server…"],
-  "verify_as": ["যাচাই করছেন: {name}", "Verifying as {name}"],
-  "pin_wrong": ["পিন ভুল — আর {n} বার চেষ্টা করা যাবে", "Wrong PIN — {n} tries left"],
-  "pin_locked": ["পিন ১৫ মিনিটের জন্য বন্ধ", "PIN locked for 15 minutes"],
-  "callback_first": ["জরুরি মান — আগে কল-ব্যাক লগ করুন: {tests}", "Critical value: log the call-back first — {tests}"],
-  "same_person_note": ["আপনি এগুলো যাচাই করেছেন — এখানে অন্য একজন প্যাথলজিস্টকে অনুমোদন করতে হবে", "You verified these — another pathologist must validate them here"],
-  "send_back": ["ফেরত পাঠান", "Send back"],
-  "send_back_title": ["{test} টেকনোলজিস্টের কাছে ফেরত পাঠাবেন?", "Send {test} back to the technologist?"],
-  "send_back_body": ["যাচাই মুছে যাবে; টেকনোলজিস্ট দেখে আবার যাচাইয়ে পাঠাবেন। কারণটি তাঁর তালিকায় দেখাবে।", "The verification is cleared; the technologist checks it and sends it for verification again. The reason shows on their list."],
-  "send_back_confirm": ["ফেরত পাঠান", "Send back"],
-  "verified_by": ["যাচাই: {name} · {at}", "Verified by {name} · {at}"],
-  "validated_by": ["অনুমোদন: {name} · {at}", "Validated by {name} · {at}"],
-  "not_verified_yet": ["এখনো যাচাই হয়নি", "Not verified yet"],
-  "no_critical": ["এই ভিজিটে খোলা কোনো জরুরি মান নেই", "No open critical value on this visit"],
-  "callback_title": ["জরুরি মান কল-ব্যাক", "Critical call-back"],
-  "ref_short": ["রেফ", "ref"],
-  "cb_reached": ["জানানো হয়েছে", "Reached"],
-  "cb_attempt": ["চেষ্টা — কেউ ধরেননি", "Attempt — no answer"],
-  "cb_line": ["{name} ({role}) · {at} · {via} · রিড-ব্যাক {rb} · লগ: {by}", "{name} ({role}) · {at} · {via} · read-back {rb} · logged by {by}"],
-  "rb_yes": ["✓", "✓"],
-  "rb_no": ["—", "—"],
-  "cb_outcome": ["ফলাফল", "Outcome"],
-  "cbo_reached": ["জানানো গেছে", "Reached"],
-  "cbo_no-answer": ["কেউ ধরেননি", "No answer"],
-  "cb_informed": ["কাকে জানিয়েছেন", "Informed"],
-  "cr_ordering-doctor": ["অর্ডারকারী ডাক্তার", "Ordering doctor"],
-  "cr_duty-doctor": ["ডিউটি ডাক্তার", "Duty doctor"],
-  "cr_patient": ["রোগী নিজে (কোনো ডাক্তার পাওয়া যায়নি)", "Patient (no doctor reachable)"],
-  "cb_name": ["নাম", "Name"],
-  "cb_time": ["সময়", "Time"],
-  "cb_via": ["মাধ্যম", "Via"],
-  "via_phone": ["ফোন", "Phone"],
-  "via_app": ["Setu অ্যাপ", "App alert"],
-  "via_in-person": ["সরাসরি", "In person"],
-  "cb_readback": ["রিড-ব্যাক নিশ্চিত — তিনি মানটি পড়ে শুনিয়েছেন", "Read-back confirmed — they read the value back"],
-  "cb_log": ["কল লগ করুন", "Log call"],
-  "cb_log_attempt": ["চেষ্টা লগ করুন", "Log attempt"],
-  "cb_attempt_note": ["চেষ্টা লগ থাকে, কিন্তু অনুমোদন খোলে না", "An attempt is kept on record but does not unlock validation"],
-  "bl_role": ["এই ভূমিকায় করা যায় না", "Not for this role"],
-  "bl_callback_missing": ["কল-ব্যাক বাকি", "call-back missing"],
-  "bl_same_person": ["একই ব্যক্তি", "same person"],
-  "bl_not_verified": ["যাচাই হয়নি", "not verified"],
-  "bl_not_preliminary": ["যাচাইয়ের অবস্থায় নেই", "not waiting for verification"],
-  "bl_delta_unchecked": ["ডেল্টা টিক বাকি", "delta tick missing"],
-  "bl_nothing_to_verify": ["যাচাইয়ের কিছু নেই", "nothing to verify"],
-  "bl_nothing_to_validate": ["অনুমোদনের কিছু নেই", "nothing to validate"],
-  "bl_nothing_validated": ["অনুমোদিত কিছু নেই", "nothing validated"],
-  "bl_nothing_new": ["নতুন কিছু নেই", "nothing new"],
-  "release_title": ["রিপোর্ট প্রকাশ", "Release the report"],
-  "rel_next": ["পরের সংস্করণ:", "Next version:"],
-  "rel_preliminary": ["প্রাথমিক — {m}টির মধ্যে {n}টি পরীক্ষা বাকি", "PRELIMINARY — {n} of {m} tests pending"],
-  "rel_final": ["চূড়ান্ত — সব পরীক্ষা অনুমোদিত", "FINAL — every test validated"],
-  "rel_corrected": ["সংশোধিত", "CORRECTED"],
-  "release_note": ["প্রকাশ কখনো নিজে থেকে হয় না; প্রতিটি প্রকাশ নতুন সংস্করণ। ডাক্তারের ইনবক্সে সাথে সাথে যাবে।", "Nothing is released automatically; each release is a new version. The doctor's inbox is told at once."],
-  "release": ["প্রকাশ", "Release"],
-  "released_toast": ["প্রকাশিত — বিতরণ খোলা হচ্ছে", "Released — opening delivery"],
-  "relb_nothing_validated": ["প্রকাশের মতো অনুমোদিত কোনো পরীক্ষা নেই", "No validated test to release yet"],
-  "relb_nothing_new": ["শেষ সংস্করণের পর নতুন কিছু অনুমোদিত হয়নি", "Nothing new has been validated since the last version"],
-  "rep_preliminary": ["প্রাথমিক", "Preliminary"],
-  "rep_final": ["চূড়ান্ত", "Final"],
-  "rep_corrected": ["সংশোধিত", "Corrected"],
-  "rep_superseded": ["বদলে গেছে", "Superseded"],
-  "report_title": ["ল্যাব রিপোর্ট", "Lab report"],
-  "no_report": ["এই ভিজিটের কোনো রিপোর্ট এখনো প্রকাশ হয়নি", "No report has been released for this visit yet"],
-  "go_delivery": ["বিতরণ", "Delivery"],
-  "wm_preliminary": ["প্রাথমিক — {m}টির মধ্যে {n}টি পরীক্ষা বাকি", "PRELIMINARY — {n} of {m} tests pending"],
-  "wm_corrected": ["সংশোধিত রিপোর্ট", "CORRECTED"],
-  "wm_final": ["চূড়ান্ত", "FINAL"],
-  "replaced_by_newer": ["নতুন সংস্করণে বদলে গেছে", "replaced by a newer version"],
-  "r_patient": ["রোগী", "Patient"],
-  "r_age_sex": ["বয়স/লিঙ্গ", "Age/Sex"],
-  "r_patient_no": ["রোগী নং", "Patient no."],
-  "r_released": ["প্রকাশ", "Released"],
-  "r_visit": ["ভিজিট", "Visit"],
-  "r_version": ["সংস্করণ", "Version"],
-  "withdrawn_marker": ["প্রত্যাহার — এই ফলাফল ব্যবহার করবেন না", "Withdrawn — do not act on it"],
-  "withdrawn_dna": ["প্রত্যাহার — ব্যবহার করবেন না", "Withdrawn — do not act on it"],
-  "under_correction_dna": ["সংশোধন চলছে — ব্যবহার করবেন না", "Under correction — do not act on it"],
-  "pending_tests": ["বাকি পরীক্ষা:", "Pending tests:"],
-  "legend": ["H = রেঞ্জের বেশি · L = রেঞ্জের কম · HH/LL = জরুরি", "H = above range · L = below range · HH/LL = critical"],
-  "legend_call": ["{test}: {name}-কে {at}-এ জানানো (রিড-ব্যাক)", "{test}: called to {name} at {at} (read-back)"],
-  "delivery_title": ["রিপোর্ট বিতরণ", "Report delivery"],
-  "not_released": ["রিপোর্ট অনুমোদন ও প্রকাশের পরই পাঠানো যায়", "A report can be sent only after it is validated and released"],
-  "released_line": ["{number} v{v} প্রকাশিত · {at} · {name}", "{number} v{v} released · {at} · {name}"],
-  "resend_new": ["আগের সংস্করণ যারা পেয়েছেন তাদের v{v} আবার পাঠান", "Send v{v} again to everyone who received the earlier version"],
-  "ch_sms": ["SMS", "SMS"],
-  "ch_app": ["রোগীর অ্যাপ", "Patient app"],
-  "ch_app_to": ["হেলথ পাসপোর্ট", "Health Passport"],
-  "ch_app_note": ["জার্নি D পর্যন্ত 'অ্যাপে আছে' হিসেবে লেখা থাকে", "Recorded as 'available in the app' until Journey D"],
-  "ch_inbox": ["ডাক্তারের ইনবক্স", "Doctor's inbox"],
-  "ch_inbox_note": ["প্রতিটি প্রকাশে নিজে থেকে লেখা হয়; ডাক্তারের ইনবক্স স্ক্রিন আসবে A12-এ", "Recorded automatically on every release; the doctor's inbox screen comes with A12"],
-  "ch_doctor-inbox": ["ডাক্তারের ইনবক্স", "Doctor's inbox"],
-  "ch_patient-app": ["রোগীর অ্যাপ", "Patient app"],
-  "no_mobile": ["সঠিক মোবাইল নম্বর নেই", "No valid mobile number"],
-  "send": ["পাঠান", "Send"],
-  "retry": ["আবার চেষ্টা", "Retry"],
-  "cs_not_sent": ["পাঠানো হয়নি", "Not sent"],
-  "cs_preparation": ["পাঠানোর অপেক্ষায়", "Queued"],
-  "cs_in-progress": ["পাঠানো হচ্ছে…", "Sending…"],
-  "cs_completed": ["পৌঁছেছে", "Delivered"],
-  "cs_sent": ["পাঠানো হয়েছে (পৌঁছানো নিশ্চিত নয়)", "Sent (delivery not confirmed)"],
-  "cs_failed": ["ব্যর্থ", "Failed"],
-  "failed_why": ["ব্যর্থ — {why}", "Failed — {why}"],
-  "attempts": ["{n} বার চেষ্টা", "{n} attempts"],
-  "dev_only": ["শুধু ডেভ/টেস্ট:", "Dev and tests only:"],
-  "dev_fail_next": ["পরের SMS ব্যর্থ করুন", "Make the next SMS fail"],
-  "dev_fail_next_done": ["পরের SMS ব্যর্থ হবে (নকল গেটওয়ে)", "The next SMS will fail (fake gateway)"],
-  "ev_event": ["ঘটনা", "Event"],
-  "ev_channel": ["মাধ্যম", "Channel"],
-  "ev_time": ["সময়", "Time"],
-  "ev_to": ["কাকে / কে", "To / by"],
-  "ev_released": ["{number} v{v} প্রকাশিত ({status})", "{number} v{v} released ({status})"],
-  "ck_recollect": ["আবার নমুনার SMS", "Recollection SMS"],
-  "ck_report-ready": ["রিপোর্ট তৈরি SMS", "Report-ready SMS"],
-  "ck_report-app": ["রোগীর অ্যাপে রিপোর্ট", "Report in the patient app"],
-  "ck_report-inbox": ["ডাক্তারের ইনবক্সে রিপোর্ট", "Report to the doctor's inbox"],
-  "ck_correction-notice": ["সংশোধনের নোটিশ", "Correction notice"],
-  "ck_results-withdrawn": ["ফলাফল প্রত্যাহারের নোটিশ", "Results-withdrawn notice"],
-  "ck_order-cancelled": ["পরীক্ষা বাতিলের নোটিশ", "Test-cancelled notice"],
-  "open_report": ["রিপোর্ট দেখুন", "Open the report"],
-  "withdraw_others": ["একই টিউবের অন্য পরীক্ষার ফলাফল থেকে যাবে: {tests} — টিউব ভুল হলে সেগুলোও প্রত্যাহার করুন।", "Other tests on the same tube keep their results: {tests} — if the tube was wrong, withdraw those too."],
-  "cs_inbox_recorded": ["ইনবক্সে লেখা হয়েছে (স্ক্রিন A12-এ)", "Recorded for the inbox (screen in A12)"],
-  "cb_ordering": ["অর্ডারকারী ডাক্তার: {name}", "Ordering doctor: {name}"],
-  "validate_ready": ["প্রস্তুত {n}টি পরীক্ষা অনুমোদন", "Validate the {n} ready test(s)"],
-  "ve_too_many_decimals": ["এই পরীক্ষায় এত দশমিক ঘর হয় না", "Too many decimal places for this test"]
+  "cs_maybe_sent": [
+    "উত্তর আসেনি — হয়তো গেছে",
+    "No answer — it may have been sent"
+  ],
+  "dup_warn": [
+    "রোগী হয়তো এই SMS আগেই পেয়েছেন। আবার পাঠালে দুবার পেতে পারেন। পাঠাবেন?",
+    "The patient may already have this SMS. Sending again may give it twice. Send?"
+  ],
+  "send_again": [
+    "আবার পাঠান",
+    "Send again"
+  ],
+  "_about": [
+    "ল্যাবের লেখা (স্লাইস A8–A11), প্রোটোটাইপ Setu Lab থেকে",
+    "Lab strings (slice A8–A11), from the prototype Setu Lab"
+  ],
+  "sms_report_ready": [
+    "{facility}: আপনার ল্যাব রিপোর্ট তৈরি। অনুগ্রহ করে ল্যাব কাউন্টার থেকে সংগ্রহ করুন।",
+    "{facility}: Your lab report is ready. Please collect it at the lab counter."
+  ],
+  "sms_report_reviewed": [
+    "{facility}: আপনার ডাক্তার আপনার ল্যাব রিপোর্ট দেখেছেন। অনুগ্রহ করে {facility}-এ যোগাযোগ করুন।",
+    "{facility}: Your doctor has reviewed your lab report. Please contact {facility}."
+  ],
+  "sms_recollect": [
+    "{facility}: আপনার নমুনা আবার নিতে হবে। অনুগ্রহ করে ল্যাব কাউন্টারে আসুন।",
+    "{facility}: We need to take your sample again. Please come to the lab counter."
+  ],
+  "loading": [
+    "লোড হচ্ছে…",
+    "Loading…"
+  ],
+  "error_generic": [
+    "কিছু একটা ভুল হয়েছে — আবার চেষ্টা করুন",
+    "Something went wrong — try again"
+  ],
+  "not_found": [
+    "এই শাখায় এই ভিজিটের কোনো ল্যাব অর্ডার নেই",
+    "No lab order for this visit at this branch"
+  ],
+  "online_needed": [
+    "এর জন্য সংযোগ দরকার — কিছুই যাচাই, অনুমোদন, প্রকাশ বা পাঠানো হয়নি",
+    "This needs a connection — nothing is verified, validated, released or sent"
+  ],
+  "offline_collect": [
+    "সংযোগ নেই — সংগ্রহ, গ্রহণ ও বাতিল এই ডিভাইসে থাকবে, সংযোগ ফিরলে পাঠানো হবে",
+    "Offline — collect, receive and reject stay on this device and are sent when back online"
+  ],
+  "not_synced": [
+    "সিঙ্ক হয়নি",
+    "Not yet synced"
+  ],
+  "back_to_list": [
+    "তালিকায় ফিরুন",
+    "Back to the list"
+  ],
+  "cancel": [
+    "বাতিল করুন",
+    "Cancel"
+  ],
+  "choose": [
+    "বেছে নিন",
+    "Choose"
+  ],
+  "reason": [
+    "কারণ",
+    "Reason"
+  ],
+  "reason_min": [
+    "অন্তত {n} অক্ষর",
+    "At least {n} characters"
+  ],
+  "sample_list": [
+    "নমুনা তালিকা (প্রোটোটাইপ) — ক্লিনিশিয়ানের অনুমোদন বাকি",
+    "Sample list (prototype) — pending clinician sign-off"
+  ],
+  "sample_ranges_note": [
+    "রেফারেন্স রেঞ্জ ও জরুরি সীমা নমুনা — ক্লিনিশিয়ানের অনুমোদন বাকি",
+    "Reference ranges and critical limits are a sample — pending clinician sign-off"
+  ],
+  "wl_collect": [
+    "নমুনা সংগ্রহ",
+    "Sample collection"
+  ],
+  "wl_collect_hint": [
+    "যেসব ভিজিটে টিউব লাগবে — আজ ও গত ৩০ দিন",
+    "Visits that still need a tube — today and the last 30 days"
+  ],
+  "wl_accession": [
+    "গ্রহণ ও বিভাগ",
+    "Accession"
+  ],
+  "wl_accession_hint": [
+    "সংগৃহীত নমুনা — গ্রহণ করুন, প্রক্রিয়া শুরু করুন",
+    "Collected samples — receive them and start processing"
+  ],
+  "wl_result": [
+    "ফলাফল এন্ট্রি",
+    "Result entry"
+  ],
+  "wl_result_hint": [
+    "প্রক্রিয়াধীন নমুনার পরীক্ষা ও ফেরত পাঠানো পরীক্ষা",
+    "Tests with a sample in process, and tests sent back"
+  ],
+  "wl_verify": [
+    "যাচাই ও অনুমোদন",
+    "Verification"
+  ],
+  "wl_verify_hint": [
+    "জরুরি মান আগে · যাচাই, অনুমোদন ও প্রকাশের অপেক্ষায়",
+    "Critical first · waiting for verification, validation or release"
+  ],
+  "wl_delivery": [
+    "রিপোর্ট বিতরণ",
+    "Report delivery"
+  ],
+  "wl_delivery_hint": [
+    "প্রকাশিত রিপোর্ট — প্রতিটি মাধ্যমের অবস্থা",
+    "Released reports — each channel's status"
+  ],
+  "wl_empty": [
+    "এখন কিছু নেই",
+    "Nothing here right now"
+  ],
+  "wl_critical": [
+    "{n}টি জরুরি মান",
+    "{n} critical"
+  ],
+  "wl_tubes": [
+    "{n}টি টিউব লাগবে",
+    "{n} tube(s) needed"
+  ],
+  "wl_to_enter": [
+    "{n}টি পরীক্ষা লিখতে হবে",
+    "{n} test(s) to enter"
+  ],
+  "wl_to_verify": [
+    "{n}টি যাচাই বাকি",
+    "{n} to verify"
+  ],
+  "wl_to_validate": [
+    "{n}টি অনুমোদন বাকি",
+    "{n} to validate"
+  ],
+  "wl_releasable": [
+    "{n}টি পরীক্ষা প্রকাশযোগ্য",
+    "{n} test(s) ready to release"
+  ],
+  "wl_failed": [
+    "{n}টি পাঠানো ব্যর্থ",
+    "{n} send(s) failed"
+  ],
+  "bill_status": [
+    "বিল: {status}",
+    "Bill: {status}"
+  ],
+  "bill_none": [
+    "বিল এখনো হয়নি",
+    "Not billed yet"
+  ],
+  "bill_not_required": [
+    "নমুনা নিতে পেমেন্ট লাগে না (তথ্যের জন্য)",
+    "Payment is not required before collection (for information)"
+  ],
+  "pr_routine": [
+    "সাধারণ",
+    "Routine"
+  ],
+  "pr_urgent": [
+    "জরুরি",
+    "Urgent"
+  ],
+  "pr_stat": [
+    "STAT",
+    "STAT"
+  ],
+  "col_none": [
+    "টিউব লাগবে না",
+    "No tube needed"
+  ],
+  "col_pending": [
+    "বাকি",
+    "Pending"
+  ],
+  "col_partial": [
+    "আংশিক",
+    "Partial"
+  ],
+  "col_collected": [
+    "সংগৃহীত",
+    "Collected"
+  ],
+  "col_rejected": [
+    "প্রত্যাখ্যাত — আবার নিতে হবে",
+    "Rejected — recollect"
+  ],
+  "cancelled": [
+    "বাতিল",
+    "cancelled"
+  ],
+  "cancelled_reason": [
+    "বাতিল — {reason}",
+    "Cancelled — {reason}"
+  ],
+  "returned_line": [
+    "ফেরত — {test}: {reason}",
+    "Returned — {test}: {reason}"
+  ],
+  "collect_title": [
+    "নমুনা সংগ্রহ",
+    "Sample collection"
+  ],
+  "col_test": [
+    "পরীক্ষা",
+    "Test"
+  ],
+  "col_tube": [
+    "টিউব",
+    "Tube"
+  ],
+  "col_status": [
+    "অবস্থা",
+    "Status"
+  ],
+  "col_result": [
+    "ফলাফল",
+    "Result"
+  ],
+  "col_unit": [
+    "একক",
+    "Unit"
+  ],
+  "col_ref": [
+    "রেফারেন্স",
+    "Reference"
+  ],
+  "col_flag": [
+    "ফ্ল্যাগ",
+    "Flag"
+  ],
+  "col_prev": [
+    "আগের",
+    "Previous"
+  ],
+  "col_delta": [
+    "ডেল্টা",
+    "Δ"
+  ],
+  "ordered_by": [
+    "অর্ডার: {name} · {at}",
+    "Ordered by {name} · {at}"
+  ],
+  "tubes_title": [
+    "টিউব নির্দেশিকা",
+    "Tube guidance"
+  ],
+  "tubes_none": [
+    "আর কোনো টিউব লাগবে না",
+    "No more tubes needed"
+  ],
+  "tube_edta": [
+    "EDTA (বেগুনি ঢাকনা)",
+    "EDTA (purple top)"
+  ],
+  "tube_fluoride": [
+    "ফ্লোরাইড (ধূসর ঢাকনা)",
+    "Fluoride (grey top)"
+  ],
+  "tube_plain": [
+    "প্লেইন/ক্লট (লাল ঢাকনা)",
+    "Plain / clot (red top)"
+  ],
+  "tube_urine": [
+    "জীবাণুমুক্ত পাত্র",
+    "Sterile container"
+  ],
+  "recollect": [
+    "আবার নিতে হবে",
+    "Recollect"
+  ],
+  "label_printed": [
+    "লেবেল প্রিন্ট হয়েছে",
+    "Label printed"
+  ],
+  "print_labels": [
+    "লেবেল প্রিন্ট ({n})",
+    "Print labels ({n})"
+  ],
+  "reprint_labels": [
+    "লেবেল আবার প্রিন্ট ({n})",
+    "Reprint labels ({n})"
+  ],
+  "labels_sent": [
+    "{n}টি লেবেল প্রিন্টারে পাঠানো হয়েছে",
+    "{n} label(s) sent to the printer"
+  ],
+  "tubes_labelled": [
+    "লেবেল করা টিউব",
+    "Labelled tubes"
+  ],
+  "no_labels": [
+    "এখনো কোনো লেবেল প্রিন্ট হয়নি",
+    "No labels printed yet"
+  ],
+  "collected_by": [
+    "সংগ্রহ: {name} · {at}",
+    "Collected by {name} · {at}"
+  ],
+  "rejected_line": [
+    "প্রত্যাখ্যাত: {reason} {note} · {name} · {at}",
+    "Rejected: {reason} {note} · {name} · {at}"
+  ],
+  "collected": [
+    "সংগৃহীত",
+    "Collected"
+  ],
+  "reject": [
+    "প্রত্যাখ্যান",
+    "Reject"
+  ],
+  "next_accession": [
+    "পরের ধাপ: গ্রহণ",
+    "Next: accession"
+  ],
+  "label_preview": [
+    "লেবেল",
+    "Labels"
+  ],
+  "label_preview_none": [
+    "প্রিন্ট করা লেবেল এখানে দেখা যাবে",
+    "Printed labels show here"
+  ],
+  "copy_n": [
+    "কপি {n}",
+    "copy {n}"
+  ],
+  "recollect_sms": [
+    "পুনরায় নমুনার SMS",
+    "Recollection SMS"
+  ],
+  "recollect_sms_none": [
+    "কোনো SMS পাঠানো হয়নি (নমুনা নেওয়ার আগে প্রত্যাখ্যাত হলে SMS যায় না)",
+    "No SMS sent (none for a tube rejected before the sample was taken)"
+  ],
+  "no_mobile_tell": [
+    "রোগীর সঠিক মোবাইল নম্বর নেই — নমুনা বাতিল হলে রোগীকে নিজে জানান",
+    "The patient has no valid mobile number — tell them yourself if a sample is rejected"
+  ],
+  "sms_no_results": [
+    "SMS-এ কোনো ফলাফল, পরীক্ষার নাম বা রোগীর নাম থাকে না",
+    "The SMS never carries a result, a test name or the patient's name"
+  ],
+  "cancel_test": [
+    "পরীক্ষা বাতিল",
+    "Cancel test"
+  ],
+  "cancel_title": [
+    "পরীক্ষা বাতিল করবেন?",
+    "Cancel this test?"
+  ],
+  "cancel_body": [
+    "নমুনা নেওয়ার আগেই শুধু বাতিল করা যায়। অর্ডারকারী ডাক্তারকে জানানো হবে এবং খসড়া বিল থেকে লাইনটি বাদ যাবে।",
+    "A test can be cancelled only before its sample is taken. The ordering doctor is told and the draft bill drops the line."
+  ],
+  "cancel_confirm": [
+    "পরীক্ষা বাতিল করুন",
+    "Cancel the test"
+  ],
+  "cancelled_done": [
+    "{test} বাতিল হয়েছে",
+    "{test} cancelled"
+  ],
+  "sp_needed": [
+    "টিউব লাগবে",
+    "Tube needed"
+  ],
+  "sp_pending": [
+    "লেবেল হয়েছে",
+    "Labelled"
+  ],
+  "sp_collected": [
+    "সংগৃহীত",
+    "Collected"
+  ],
+  "sp_received": [
+    "গৃহীত",
+    "Received"
+  ],
+  "sp_in-process": [
+    "প্রক্রিয়াধীন",
+    "Processing"
+  ],
+  "sp_done": [
+    "ফলাফল লেখা হয়েছে",
+    "Results entered"
+  ],
+  "sp_rejected": [
+    "প্রত্যাখ্যাত",
+    "Rejected"
+  ],
+  "reject_title": [
+    "নমুনা প্রত্যাখ্যান",
+    "Reject sample"
+  ],
+  "reject_body": [
+    "পরীক্ষাগুলোর জন্য নতুন টিউব লাগবে। নমুনা নেওয়া হয়ে থাকলে রোগীকে আবার আসতে SMS যাবে; এই টিউবের কোনো ফলাফল লেখা থাকলে আগে তা প্রত্যাহার করুন।",
+    "The tests need a new tube. If the sample had been taken, the patient gets an SMS to come back; results already entered from this tube must be withdrawn first."
+  ],
+  "reject_reason": [
+    "কারণ",
+    "Reason"
+  ],
+  "reject_note": [
+    "কারণের বিবরণ",
+    "Describe the reason"
+  ],
+  "reject_confirm": [
+    "নমুনা প্রত্যাখ্যান করুন",
+    "Reject sample"
+  ],
+  "rr_haemolysed": [
+    "হিমোলাইসিস",
+    "Haemolysed"
+  ],
+  "rr_clotted": [
+    "জমাট (EDTA)",
+    "Clotted (EDTA)"
+  ],
+  "rr_insufficient": [
+    "পরিমাণ কম",
+    "Insufficient volume"
+  ],
+  "rr_label-mismatch": [
+    "লেবেল মেলেনি",
+    "Label mismatch"
+  ],
+  "rr_wrong-container": [
+    "ভুল টিউব",
+    "Wrong container"
+  ],
+  "rr_other": [
+    "অন্য কারণ",
+    "Other"
+  ],
+  "rr_results-withdrawn": [
+    "ফলাফল প্রত্যাহার",
+    "Results withdrawn"
+  ],
+  "accession_title": [
+    "গ্রহণ ও বিভাগ",
+    "Accession"
+  ],
+  "scan_label": [
+    "নমুনা বারকোড স্ক্যান করুন",
+    "Scan the sample barcode to receive"
+  ],
+  "scan_unknown": [
+    "{code} এই ভিজিটের টিউব নয়",
+    "{code} is not a tube of this visit"
+  ],
+  "scan_state": [
+    "{code}: {status} — গ্রহণ করা যায় না",
+    "{code}: {status} — cannot be received"
+  ],
+  "scan_received": [
+    "{code} গ্রহণ করা হচ্ছে",
+    "Receiving {code}"
+  ],
+  "step_collected": [
+    "সংগ্রহ {at}",
+    "collected {at}"
+  ],
+  "step_received": [
+    "গ্রহণ {at}",
+    "received {at}"
+  ],
+  "step_started": [
+    "শুরু {at}",
+    "started {at}"
+  ],
+  "receive": [
+    "গ্রহণ",
+    "Receive"
+  ],
+  "start": [
+    "প্রক্রিয়া শুরু",
+    "Start"
+  ],
+  "next_result": [
+    "পরের ধাপ: ফলাফল এন্ট্রি",
+    "Next: result entry"
+  ],
+  "result_title": [
+    "ফলাফল এন্ট্রি",
+    "Result entry"
+  ],
+  "enter_hint": [
+    "Enter বা ↓ পরের ঘর · ↑ আগের ঘর",
+    "Enter or ↓ next field · ↑ previous field"
+  ],
+  "delta_banner": [
+    "ডেল্টা চেক: {parts} — আগের ফলাফল {date}। যাচাইয়ের আগে নমুনার পরিচয় নিশ্চিত করুন।",
+    "Delta check: {parts} vs {date}. Confirm sample identity before verifying."
+  ],
+  "go_verify": [
+    "যাচাইয়ে যান",
+    "Go to verification"
+  ],
+  "withdraw": [
+    "ফলাফল প্রত্যাহার",
+    "Withdraw results"
+  ],
+  "returned_banner": [
+    "ফেরত — {reason} · {name} · {at}। মানগুলো দেখুন, ভুল হলে সংশোধন করুন; তারপর যাচাই স্ক্রিনে আবার যাচাই হবে।",
+    "Returned — {reason} · {name} · {at}. Check the values and correct any that are wrong; it is then verified again on the Verification screen."
+  ],
+  "withdrawn_banner": [
+    "ফলাফল প্রত্যাহার — {reason} · {name} · {at}। নতুন টিউব লাগবে।",
+    "Results withdrawn — {reason} · {name} · {at}. A new tube is needed."
+  ],
+  "no_template": [
+    "নমুনা তালিকায় এই পরীক্ষার ফলাফল-ছক নেই — এখনো লেখা যাবে না (ক্লিনিশিয়ানের অনুমোদন বাকি)",
+    "The sample list has no result template for this test — it cannot be entered yet (pending clinician sign-off)"
+  ],
+  "wait_in_process": [
+    "নমুনা গ্রহণ করে প্রক্রিয়া শুরু হলে ফলাফল লেখা যাবে",
+    "Results can be entered once the sample is received and processing has started"
+  ],
+  "wait_tube": [
+    "এই পরীক্ষার টিউব এখনো সংগ্রহ হয়নি",
+    "This test's tube has not been collected yet"
+  ],
+  "confirm_again": [
+    "জরুরি মান — আবার লিখুন",
+    "Critical value — type it again"
+  ],
+  "confirm_again_for": [
+    "{test} আবার লিখুন",
+    "Type {test} again"
+  ],
+  "crit_line": [
+    "জরুরি: {low} / {high} (প্রাপ্তবয়স্ক)",
+    "Critical: {low} / {high} (adult)"
+  ],
+  "source_manual": [
+    "উৎস: হাতে লেখা",
+    "Source: manual entry"
+  ],
+  "send_for_verification": [
+    "যাচাইয়ে পাঠান",
+    "Send for verification"
+  ],
+  "sent_for_verification": [
+    "{test} যাচাইয়ে পাঠানো হয়েছে",
+    "{test} sent for verification"
+  ],
+  "correction_of_previous": [
+    "আগের মানের সংশোধন",
+    "corrects an earlier value"
+  ],
+  "withdrawn_short": [
+    "প্রত্যাহার",
+    "Withdrawn"
+  ],
+  "corrected_short": [
+    "সংশোধিত",
+    "Corrected"
+  ],
+  "entered_by": [
+    "লিখেছেন {name} · {at}",
+    "Entered by {name} · {at}"
+  ],
+  "correct": [
+    "সংশোধন",
+    "Correct"
+  ],
+  "correct_title": [
+    "{test} সংশোধন",
+    "Correct {test}"
+  ],
+  "correct_body": [
+    "আগের মান {old} মুছে যাবে না — ভুল হিসেবে চিহ্নিত থাকবে; নতুন মান আবার যাচাই ও অনুমোদন লাগবে।",
+    "The old value {old} is kept, marked entered in error; the new value needs verification and validation again."
+  ],
+  "correct_released": [
+    "এই মান প্রকাশিত হয়েছিল — অর্ডারকারী ডাক্তারকে জানানো হবে এবং নতুন সংস্করণ 'সংশোধিত' হবে।",
+    "This value was released — the ordering doctor is told and the next version is marked Corrected."
+  ],
+  "correct_confirm": [
+    "সংশোধন সংরক্ষণ",
+    "Save correction"
+  ],
+  "new_value": [
+    "নতুন মান ({unit})",
+    "New value ({unit})"
+  ],
+  "withdraw_title": [
+    "{test}-এর ফলাফল প্রত্যাহার",
+    "Withdraw the results of {test}"
+  ],
+  "withdraw_body": [
+    "এই পরীক্ষার সব বর্তমান মান ভুল হিসেবে চিহ্নিত হবে (নতুন মান ছাড়া), যে টিউবে মাপা হয়েছিল তা প্রত্যাখ্যাত হবে, নতুন টিউব লাগবে এবং রোগীকে SMS যাবে।",
+    "Every current value of this test is marked entered in error (no new value), the tube it was measured in is rejected, a new tube is needed and the patient gets an SMS."
+  ],
+  "withdraw_released": [
+    "এই ফলাফল প্রকাশিত হয়েছিল — ডাক্তারকে জানানো হবে এবং রিপোর্টে 'প্রত্যাহার — ব্যবহার করবেন না' দেখাবে।",
+    "These results were released — the doctor is told and the report shows 'withdrawn — do not act on it'."
+  ],
+  "withdraw_confirm": [
+    "প্রত্যাহার করুন",
+    "Withdraw results"
+  ],
+  "ve_required": [
+    "মান লিখুন",
+    "Enter a value"
+  ],
+  "ve_not_a_number": [
+    "শুধু সংখ্যা (দশমিক বিন্দু চলবে, কমা নয়)",
+    "Numbers only (a decimal point, no commas)"
+  ],
+  "ve_negative": [
+    "ঋণাত্মক মান হয় না",
+    "A value cannot be negative"
+  ],
+  "ve_unknown_analyte": [
+    "এই পরীক্ষার অংশ নয়",
+    "Not part of this test"
+  ],
+  "ve_duplicate": [
+    "দুইবার দেওয়া হয়েছে",
+    "Given twice"
+  ],
+  "ve_confirm_required": [
+    "জরুরি মান — আবার লিখুন",
+    "Critical value — type it again"
+  ],
+  "ve_confirm_mismatch": [
+    "দুইবার লেখা মান মেলেনি",
+    "The two values do not match"
+  ],
+  "flag_N": [
+    "স্বাভাবিক",
+    "Normal"
+  ],
+  "flag_H": [
+    "H · বেশি",
+    "H · High"
+  ],
+  "flag_L": [
+    "L · কম",
+    "L · Low"
+  ],
+  "flag_HH": [
+    "HH · জরুরি বেশি",
+    "HH · Critical high"
+  ],
+  "flag_LL": [
+    "LL · জরুরি কম",
+    "LL · Critical low"
+  ],
+  "flag_none": [
+    "ফ্ল্যাগ নেই — নমুনা তালিকায় রেঞ্জ নেই",
+    "Not flagged — no range in the sample list"
+  ],
+  "range_none": [
+    "নমুনা তালিকায় রেফারেন্স রেঞ্জ নেই",
+    "No reference range in the sample list"
+  ],
+  "range_adult": [
+    "প্রাপ্তবয়স্ক রেঞ্জ",
+    "adult range"
+  ],
+  "range_adult-female": [
+    "প্রাপ্তবয়স্ক নারীর রেঞ্জ",
+    "adult female range"
+  ],
+  "range_adult-male": [
+    "প্রাপ্তবয়স্ক পুরুষের রেঞ্জ",
+    "adult male range"
+  ],
+  "rs_preliminary": [
+    "যাচাই বাকি",
+    "To verify"
+  ],
+  "rs_verified": [
+    "যাচাই হয়েছে",
+    "Verified"
+  ],
+  "rs_final": [
+    "অনুমোদিত",
+    "Validated"
+  ],
+  "rs_amended": [
+    "সংশোধিত",
+    "Amended"
+  ],
+  "rs_entered-in-error": [
+    "ভুল হিসেবে চিহ্নিত",
+    "Entered in error"
+  ],
+  "verify_title": [
+    "যাচাই ও অনুমোদন",
+    "Verification"
+  ],
+  "step_verify": [
+    "১. টেকনিক্যাল যাচাই",
+    "1. Technical verification"
+  ],
+  "step_verify_hint": [
+    "QC ঠিক, নমুনা ঠিক, মান সম্ভব",
+    "QC passed, sample OK, values plausible"
+  ],
+  "step_validate": [
+    "২. ক্লিনিক্যাল অনুমোদন",
+    "2. Clinical validation"
+  ],
+  "step_validate_hint": [
+    "প্যাথলজিস্ট ব্যাখ্যা করে স্বাক্ষর করেন",
+    "The pathologist interprets and signs"
+  ],
+  "n_waiting": [
+    "{n}টি অপেক্ষায়",
+    "{n} waiting"
+  ],
+  "nothing_waiting": [
+    "কিছু বাকি নেই",
+    "Nothing waiting"
+  ],
+  "locked": [
+    "বন্ধ — কল-ব্যাক বাকি",
+    "Locked — call-back needed"
+  ],
+  "delta_tick": [
+    "ডেল্টা চেক দেখেছি — নমুনার পরিচয় নিশ্চিত করেছি",
+    "I checked the delta warning — the sample identity is confirmed"
+  ],
+  "pin": [
+    "পিন",
+    "PIN"
+  ],
+  "verify": [
+    "যাচাই",
+    "Verify"
+  ],
+  "validate": [
+    "অনুমোদন",
+    "Validate"
+  ],
+  "waiting_server": [
+    "সার্ভারের অপেক্ষায়…",
+    "Waiting for the server…"
+  ],
+  "verify_as": [
+    "যাচাই করছেন: {name}",
+    "Verifying as {name}"
+  ],
+  "pin_wrong": [
+    "পিন ভুল — আর {n} বার চেষ্টা করা যাবে",
+    "Wrong PIN — {n} tries left"
+  ],
+  "pin_locked": [
+    "পিন ১৫ মিনিটের জন্য বন্ধ",
+    "PIN locked for 15 minutes"
+  ],
+  "callback_first": [
+    "জরুরি মান — আগে কল-ব্যাক লগ করুন: {tests}",
+    "Critical value: log the call-back first — {tests}"
+  ],
+  "same_person_note": [
+    "আপনি এগুলো যাচাই করেছেন — এখানে অন্য একজন প্যাথলজিস্টকে অনুমোদন করতে হবে",
+    "You verified these — another pathologist must validate them here"
+  ],
+  "send_back": [
+    "ফেরত পাঠান",
+    "Send back"
+  ],
+  "send_back_title": [
+    "{test} টেকনোলজিস্টের কাছে ফেরত পাঠাবেন?",
+    "Send {test} back to the technologist?"
+  ],
+  "send_back_body": [
+    "যাচাই মুছে যাবে; টেকনোলজিস্ট দেখে আবার যাচাইয়ে পাঠাবেন। কারণটি তাঁর তালিকায় দেখাবে।",
+    "The verification is cleared; the technologist checks it and sends it for verification again. The reason shows on their list."
+  ],
+  "send_back_confirm": [
+    "ফেরত পাঠান",
+    "Send back"
+  ],
+  "verified_by": [
+    "যাচাই: {name} · {at}",
+    "Verified by {name} · {at}"
+  ],
+  "validated_by": [
+    "অনুমোদন: {name} · {at}",
+    "Validated by {name} · {at}"
+  ],
+  "not_verified_yet": [
+    "এখনো যাচাই হয়নি",
+    "Not verified yet"
+  ],
+  "no_critical": [
+    "এই ভিজিটে খোলা কোনো জরুরি মান নেই",
+    "No open critical value on this visit"
+  ],
+  "callback_title": [
+    "জরুরি মান কল-ব্যাক",
+    "Critical call-back"
+  ],
+  "ref_short": [
+    "রেফ",
+    "ref"
+  ],
+  "cb_reached": [
+    "জানানো হয়েছে",
+    "Reached"
+  ],
+  "cb_attempt": [
+    "চেষ্টা — কেউ ধরেননি",
+    "Attempt — no answer"
+  ],
+  "cb_line": [
+    "{name} ({role}) · {at} · {via} · রিড-ব্যাক {rb} · লগ: {by}",
+    "{name} ({role}) · {at} · {via} · read-back {rb} · logged by {by}"
+  ],
+  "rb_yes": [
+    "✓",
+    "✓"
+  ],
+  "rb_no": [
+    "—",
+    "—"
+  ],
+  "cb_outcome": [
+    "ফলাফল",
+    "Outcome"
+  ],
+  "cbo_reached": [
+    "জানানো গেছে",
+    "Reached"
+  ],
+  "cbo_no-answer": [
+    "কেউ ধরেননি",
+    "No answer"
+  ],
+  "cb_informed": [
+    "কাকে জানিয়েছেন",
+    "Informed"
+  ],
+  "cr_ordering-doctor": [
+    "অর্ডারকারী ডাক্তার",
+    "Ordering doctor"
+  ],
+  "cr_duty-doctor": [
+    "ডিউটি ডাক্তার",
+    "Duty doctor"
+  ],
+  "cr_patient": [
+    "রোগী নিজে (কোনো ডাক্তার পাওয়া যায়নি)",
+    "Patient (no doctor reachable)"
+  ],
+  "cb_name": [
+    "নাম",
+    "Name"
+  ],
+  "cb_time": [
+    "সময়",
+    "Time"
+  ],
+  "cb_via": [
+    "মাধ্যম",
+    "Via"
+  ],
+  "via_phone": [
+    "ফোন",
+    "Phone"
+  ],
+  "via_app": [
+    "Setu অ্যাপ",
+    "App alert"
+  ],
+  "via_in-person": [
+    "সরাসরি",
+    "In person"
+  ],
+  "cb_readback": [
+    "রিড-ব্যাক নিশ্চিত — তিনি মানটি পড়ে শুনিয়েছেন",
+    "Read-back confirmed — they read the value back"
+  ],
+  "cb_log": [
+    "কল লগ করুন",
+    "Log call"
+  ],
+  "cb_log_attempt": [
+    "চেষ্টা লগ করুন",
+    "Log attempt"
+  ],
+  "cb_attempt_note": [
+    "চেষ্টা লগ থাকে, কিন্তু অনুমোদন খোলে না",
+    "An attempt is kept on record but does not unlock validation"
+  ],
+  "bl_role": [
+    "এই ভূমিকায় করা যায় না",
+    "Not for this role"
+  ],
+  "bl_callback_missing": [
+    "কল-ব্যাক বাকি",
+    "call-back missing"
+  ],
+  "bl_same_person": [
+    "একই ব্যক্তি",
+    "same person"
+  ],
+  "bl_not_verified": [
+    "যাচাই হয়নি",
+    "not verified"
+  ],
+  "bl_not_preliminary": [
+    "যাচাইয়ের অবস্থায় নেই",
+    "not waiting for verification"
+  ],
+  "bl_delta_unchecked": [
+    "ডেল্টা টিক বাকি",
+    "delta tick missing"
+  ],
+  "bl_nothing_to_verify": [
+    "যাচাইয়ের কিছু নেই",
+    "nothing to verify"
+  ],
+  "bl_nothing_to_validate": [
+    "অনুমোদনের কিছু নেই",
+    "nothing to validate"
+  ],
+  "bl_nothing_validated": [
+    "অনুমোদিত কিছু নেই",
+    "nothing validated"
+  ],
+  "bl_nothing_new": [
+    "নতুন কিছু নেই",
+    "nothing new"
+  ],
+  "release_title": [
+    "রিপোর্ট প্রকাশ",
+    "Release the report"
+  ],
+  "rel_next": [
+    "পরের সংস্করণ:",
+    "Next version:"
+  ],
+  "rel_preliminary": [
+    "প্রাথমিক — {m}টির মধ্যে {n}টি পরীক্ষা বাকি",
+    "PRELIMINARY — {n} of {m} tests pending"
+  ],
+  "rel_final": [
+    "চূড়ান্ত — সব পরীক্ষা অনুমোদিত",
+    "FINAL — every test validated"
+  ],
+  "rel_corrected": [
+    "সংশোধিত",
+    "CORRECTED"
+  ],
+  "release_note": [
+    "প্রকাশ কখনো নিজে থেকে হয় না; প্রতিটি প্রকাশ নতুন সংস্করণ। ডাক্তারের ইনবক্সে সাথে সাথে যাবে।",
+    "Nothing is released automatically; each release is a new version. The doctor's inbox is told at once."
+  ],
+  "release": [
+    "প্রকাশ",
+    "Release"
+  ],
+  "released_toast": [
+    "প্রকাশিত — বিতরণ খোলা হচ্ছে",
+    "Released — opening delivery"
+  ],
+  "relb_nothing_validated": [
+    "প্রকাশের মতো অনুমোদিত কোনো পরীক্ষা নেই",
+    "No validated test to release yet"
+  ],
+  "relb_nothing_new": [
+    "শেষ সংস্করণের পর নতুন কিছু অনুমোদিত হয়নি",
+    "Nothing new has been validated since the last version"
+  ],
+  "rep_preliminary": [
+    "প্রাথমিক",
+    "Preliminary"
+  ],
+  "rep_final": [
+    "চূড়ান্ত",
+    "Final"
+  ],
+  "rep_corrected": [
+    "সংশোধিত",
+    "Corrected"
+  ],
+  "rep_superseded": [
+    "বদলে গেছে",
+    "Superseded"
+  ],
+  "report_title": [
+    "ল্যাব রিপোর্ট",
+    "Lab report"
+  ],
+  "no_report": [
+    "এই ভিজিটের কোনো রিপোর্ট এখনো প্রকাশ হয়নি",
+    "No report has been released for this visit yet"
+  ],
+  "go_delivery": [
+    "বিতরণ",
+    "Delivery"
+  ],
+  "wm_preliminary": [
+    "প্রাথমিক — {m}টির মধ্যে {n}টি পরীক্ষা বাকি",
+    "PRELIMINARY — {n} of {m} tests pending"
+  ],
+  "wm_corrected": [
+    "সংশোধিত রিপোর্ট",
+    "CORRECTED"
+  ],
+  "wm_final": [
+    "চূড়ান্ত",
+    "FINAL"
+  ],
+  "replaced_by_newer": [
+    "নতুন সংস্করণে বদলে গেছে",
+    "replaced by a newer version"
+  ],
+  "r_patient": [
+    "রোগী",
+    "Patient"
+  ],
+  "r_age_sex": [
+    "বয়স/লিঙ্গ",
+    "Age/Sex"
+  ],
+  "r_patient_no": [
+    "রোগী নং",
+    "Patient no."
+  ],
+  "r_released": [
+    "প্রকাশ",
+    "Released"
+  ],
+  "r_visit": [
+    "ভিজিট",
+    "Visit"
+  ],
+  "r_version": [
+    "সংস্করণ",
+    "Version"
+  ],
+  "withdrawn_marker": [
+    "প্রত্যাহার — এই ফলাফল ব্যবহার করবেন না",
+    "Withdrawn — do not act on it"
+  ],
+  "withdrawn_dna": [
+    "প্রত্যাহার — ব্যবহার করবেন না",
+    "Withdrawn — do not act on it"
+  ],
+  "under_correction_dna": [
+    "সংশোধন চলছে — ব্যবহার করবেন না",
+    "Under correction — do not act on it"
+  ],
+  "pending_tests": [
+    "বাকি পরীক্ষা:",
+    "Pending tests:"
+  ],
+  "legend": [
+    "H = রেঞ্জের বেশি · L = রেঞ্জের কম · HH/LL = জরুরি",
+    "H = above range · L = below range · HH/LL = critical"
+  ],
+  "legend_call": [
+    "{test}: {name}-কে {at}-এ জানানো (রিড-ব্যাক)",
+    "{test}: called to {name} at {at} (read-back)"
+  ],
+  "delivery_title": [
+    "রিপোর্ট বিতরণ",
+    "Report delivery"
+  ],
+  "not_released": [
+    "রিপোর্ট অনুমোদন ও প্রকাশের পরই পাঠানো যায়",
+    "A report can be sent only after it is validated and released"
+  ],
+  "released_line": [
+    "{number} v{v} প্রকাশিত · {at} · {name}",
+    "{number} v{v} released · {at} · {name}"
+  ],
+  "resend_new": [
+    "আগের সংস্করণ যারা পেয়েছেন তাদের v{v} আবার পাঠান",
+    "Send v{v} again to everyone who received the earlier version"
+  ],
+  "ch_sms": [
+    "SMS",
+    "SMS"
+  ],
+  "ch_app": [
+    "রোগীর অ্যাপ",
+    "Patient app"
+  ],
+  "ch_app_to": [
+    "হেলথ পাসপোর্ট",
+    "Health Passport"
+  ],
+  "ch_app_note": [
+    "জার্নি D পর্যন্ত 'অ্যাপে আছে' হিসেবে লেখা থাকে",
+    "Recorded as 'available in the app' until Journey D"
+  ],
+  "ch_inbox": [
+    "ডাক্তারের ইনবক্স",
+    "Doctor's inbox"
+  ],
+  "ch_inbox_note": [
+    "প্রতিটি প্রকাশে নিজে থেকে লেখা হয়; ডাক্তারের ইনবক্স স্ক্রিন আসবে A12-এ",
+    "Recorded automatically on every release; the doctor's inbox screen comes with A12"
+  ],
+  "ch_doctor-inbox": [
+    "ডাক্তারের ইনবক্স",
+    "Doctor's inbox"
+  ],
+  "ch_patient-app": [
+    "রোগীর অ্যাপ",
+    "Patient app"
+  ],
+  "no_mobile": [
+    "সঠিক মোবাইল নম্বর নেই",
+    "No valid mobile number"
+  ],
+  "send": [
+    "পাঠান",
+    "Send"
+  ],
+  "retry": [
+    "আবার চেষ্টা",
+    "Retry"
+  ],
+  "cs_not_sent": [
+    "পাঠানো হয়নি",
+    "Not sent"
+  ],
+  "cs_preparation": [
+    "পাঠানোর অপেক্ষায়",
+    "Queued"
+  ],
+  "cs_in-progress": [
+    "পাঠানো হচ্ছে…",
+    "Sending…"
+  ],
+  "cs_completed": [
+    "পৌঁছেছে",
+    "Delivered"
+  ],
+  "cs_sent": [
+    "পাঠানো হয়েছে (পৌঁছানো নিশ্চিত নয়)",
+    "Sent (delivery not confirmed)"
+  ],
+  "cs_failed": [
+    "ব্যর্থ",
+    "Failed"
+  ],
+  "failed_why": [
+    "ব্যর্থ — {why}",
+    "Failed — {why}"
+  ],
+  "attempts": [
+    "{n} বার চেষ্টা",
+    "{n} attempts"
+  ],
+  "dev_only": [
+    "শুধু ডেভ/টেস্ট:",
+    "Dev and tests only:"
+  ],
+  "dev_fail_next": [
+    "পরের SMS ব্যর্থ করুন",
+    "Make the next SMS fail"
+  ],
+  "dev_fail_next_done": [
+    "পরের SMS ব্যর্থ হবে (নকল গেটওয়ে)",
+    "The next SMS will fail (fake gateway)"
+  ],
+  "ev_event": [
+    "ঘটনা",
+    "Event"
+  ],
+  "ev_channel": [
+    "মাধ্যম",
+    "Channel"
+  ],
+  "ev_time": [
+    "সময়",
+    "Time"
+  ],
+  "ev_to": [
+    "কাকে / কে",
+    "To / by"
+  ],
+  "ev_released": [
+    "{number} v{v} প্রকাশিত ({status})",
+    "{number} v{v} released ({status})"
+  ],
+  "ck_recollect": [
+    "আবার নমুনার SMS",
+    "Recollection SMS"
+  ],
+  "ck_report-ready": [
+    "রিপোর্ট তৈরি SMS",
+    "Report-ready SMS"
+  ],
+  "ck_report-app": [
+    "রোগীর অ্যাপে রিপোর্ট",
+    "Report in the patient app"
+  ],
+  "ck_report-inbox": [
+    "ডাক্তারের ইনবক্সে রিপোর্ট",
+    "Report to the doctor's inbox"
+  ],
+  "ck_correction-notice": [
+    "সংশোধনের নোটিশ",
+    "Correction notice"
+  ],
+  "ck_results-withdrawn": [
+    "ফলাফল প্রত্যাহারের নোটিশ",
+    "Results-withdrawn notice"
+  ],
+  "ck_order-cancelled": [
+    "পরীক্ষা বাতিলের নোটিশ",
+    "Test-cancelled notice"
+  ],
+  "open_report": [
+    "রিপোর্ট দেখুন",
+    "Open the report"
+  ],
+  "withdraw_others": [
+    "একই টিউবের অন্য পরীক্ষার ফলাফল থেকে যাবে: {tests} — টিউব ভুল হলে সেগুলোও প্রত্যাহার করুন।",
+    "Other tests on the same tube keep their results: {tests} — if the tube was wrong, withdraw those too."
+  ],
+  "cs_inbox_recorded": [
+    "ইনবক্সে লেখা হয়েছে (স্ক্রিন A12-এ)",
+    "Recorded for the inbox (screen in A12)"
+  ],
+  "cb_ordering": [
+    "অর্ডারকারী ডাক্তার: {name}",
+    "Ordering doctor: {name}"
+  ],
+  "validate_ready": [
+    "প্রস্তুত {n}টি পরীক্ষা অনুমোদন",
+    "Validate the {n} ready test(s)"
+  ],
+  "ve_too_many_decimals": [
+    "এই পরীক্ষায় এত দশমিক ঘর হয় না",
+    "Too many decimal places for this test"
+  ],
+  "protocol_awaiting": [
+    "প্রটোকল অর্ডার — ডাক্তারের অপেক্ষায়",
+    "protocol order — awaiting doctor"
+  ]
 }

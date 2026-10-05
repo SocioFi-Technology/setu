@@ -31,7 +31,7 @@ export type Disposition = z.infer<typeof Disposition>;
 export const ErBoardItem = z.object({
   id: z.string(), token: z.string(), day: z.string(), status: EncounterStatus,
   patient: ErPatient, ageYears: z.number().int().nullable(),
-  arrivalMode: ArrivalMode, broughtBy: z.string().nullable(), arrivedAt: z.string(), waited: z.number().int(),
+  arrivalMode: ArrivalMode, broughtBy: z.string().nullable(), broughtByPhone: z.string().nullable(), arrivedAt: z.string(), waited: z.number().int(),
   complaint: z.string(),
   level: TriageLevelNo.nullable(), targetMinutes: z.number().int().nullable(), triagedAt: z.string().nullable(),
   /** ⚠ on the board: past target with no doctor (domain triageOverdue) */
@@ -61,9 +61,11 @@ export type ErBoard = z.infer<typeof ErBoard>;
 /* POST /v1/er/arrivals — an existing patient, or an unknown one (quick provisional registration, ADR 0014) */
 export const ErArrivalRequest = z.object({
   patientId: z.string().max(64).optional(),
-  unknown: z.object({ sex: Sex, approxAgeYears: z.number().int().min(0).max(130).nullable(), features: z.string().max(300).optional() }).optional(),
+  unknown: z.object({ sex: Sex, approxAgeYears: z.number().int().min(0).max(130).nullable(), features: z.string().max(300).optional(), /** decision 248: the family's number, patient-reported */ phone: z.string().max(30).optional() }).optional(),
   arrivalMode: ArrivalMode,
   broughtBy: z.string().max(120).optional(),
+  /** decision 253: optional, normalised like any phone, patient-reported */
+  broughtByPhone: z.string().max(30).optional(),
   complaint: z.string().trim().min(2).max(300),
   bayId: z.string().max(64).optional(),
 }).refine((r) => Boolean(r.patientId) !== Boolean(r.unknown), { message: "patient_or_unknown", path: ["patientId"] });
@@ -78,8 +80,10 @@ export const ErAssignRequest = z.object({ doctorId: z.string().max(64), /** walk
 export type ErAssignRequest = z.infer<typeof ErAssignRequest>;
 
 /* GET /v1/er/encounters/:id — orders & disposition */
-export const ErOrder = z.object({ id: z.string(), testCode: z.string(), nameEn: z.string(), nameBn: z.string(), priority: OrderPriority, status: OrderStatus, orderedAt: z.string().nullable(), orderedBy: Person });
-export const ErCareOrder = z.object({ key: z.string(), nameEn: z.string(), nameBn: z.string(), detail: z.string(), icon: z.string(), on: z.boolean(), at: z.string().nullable() });
+/** decision 243: a nurse's order is a protocol order, countersigned by the doctor's disposition sign */
+export const Countersign = z.object({ by: Person, at: z.string() }).nullable();
+export const ErOrder = z.object({ id: z.string(), testCode: z.string(), nameEn: z.string(), nameBn: z.string(), priority: OrderPriority, status: OrderStatus, orderedAt: z.string().nullable(), orderedBy: Person, protocol: z.boolean(), countersigned: Countersign });
+export const ErCareOrder = z.object({ key: z.string(), nameEn: z.string(), nameBn: z.string(), detail: z.string(), icon: z.string(), on: z.boolean(), at: z.string().nullable(), protocol: z.boolean(), countersigned: Countersign });
 export const AdmitBed = z.object({ id: z.string(), name: z.string(), ward: z.string(), wardBn: z.string().nullable(), bedClass: z.string(), state: BedStateWire, pickable: z.boolean(), reason: z.string().nullable() });
 export const ErVisitView = z.object({
   item: ErBoardItem,
@@ -90,6 +94,8 @@ export const ErVisitView = z.object({
   careOrders: z.array(ErCareOrder),
   tests: z.array(TestItem),
   disposition: Disposition.nullable(),
+  /** decision 243: open protocol orders the doctor's sign will countersign */
+  awaitingCountersign: z.number().int(),
   /** the admit request was cancelled at the desk: the doctor signs a new disposition as an amendment (v2) */
   canRedispose: z.boolean(),
   /** beds a ward admission may go to (every admission class), with why one cannot be picked */

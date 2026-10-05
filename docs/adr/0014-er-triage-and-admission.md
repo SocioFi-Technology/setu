@@ -82,3 +82,16 @@ disposition, a bed assignment or an admission, and no bill of kind `ipd` exists.
   show OPD visits only; the ER board and the admission desk have their own lists.
 - `pnpm db:reset-e2e` also closes the E2E Lite hospital's ER and IPD encounters and puts its beds back.
 - Open: the triage scale and the ER care-order list are samples until a clinician signs them off (known gap 12).
+
+## Addendum (Kamrul, 05/10/2026, decisions 240–253)
+- **Bays** go to cleaning between patients like any bed; "Bay ready" (BED `markReady`) is the ER nurse's action.
+- **Protocol orders:** a lab order or care order placed by a nurse is a protocol order, flagged "awaiting doctor" on
+  the note and the lab worklist (`ServiceRequest.protocol`). The doctor's disposition sign countersigns every open
+  protocol order of the visit (`countersignedById`, `countersignedAt`, audited); the sign is the countersignature, so
+  an ER note is never closed with an un-countersigned protocol order.
+- **Phones at arrival:** an unknown patient's and the "brought by" phone are optional, normalised (Bangla or Latin
+  digits), stored as patient-reported (`ErVisit.broughtByPhone`; the provisional record's phone with its provenance);
+  the provisional record still goes to the desk's review queue.
+- **ER billing** (fee, rules) is a pre-pilot decision for the owner and the accountant (known gap 13).
+- Review of session 2: `ADMISSION` and `BED_ASSIGNMENT` machines; a cancelled request reopens the disposition as an
+  amendment (ADR 0003); a direct admission of a patient in the ER comes from that visit.

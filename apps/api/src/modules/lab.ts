@@ -107,7 +107,7 @@ async function loadBundle(tx: Tx, s: SessionData, encounterIds: string[], withPr
     });
   }
   const userIds = new Set<string>();
-  for (const o of orders) { userIds.add(o.orderedById); if (o.revokedById) userIds.add(o.revokedById); }
+  for (const o of orders) { userIds.add(o.orderedById); if (o.revokedById) userIds.add(o.revokedById); if (o.countersignedById) userIds.add(o.countersignedById); }
   for (const x of specimens) for (const u of [x.collectedById, x.rejectedById]) if (u) userIds.add(u);
   for (const x of obs) for (const u of [x.recordedById, x.verifiedById, x.validatedById, x.errorById, x.returnedById]) if (u) userIds.add(u);
   for (const c of callbacks) userIds.add(c.callerId);
@@ -200,6 +200,7 @@ function orderOf(b: Bundle, v: Visit, o: Order): LabOrder {
   return {
     id: o.id, testCode: o.testCode, nameEn: o.nameEn, nameBn: o.nameBn, priority: o.priority, status: dash<OrderState>(o.status),
     orderedBy: personOf(b, o.orderedById)!, orderedAt: iso(o.orderedAt), tube: tubeFor(o.testCode),
+    protocol: o.protocol, countersigned: o.countersignedById && o.countersignedAt ? { by: personOf(b, o.countersignedById) ?? { id: o.countersignedById, nameBn: "—", nameEn: "—" }, at: o.countersignedAt.toISOString() } : null,
     specimen: sp ? { id: sp.id, number: sp.number, status: dash<SpecimenState>(sp.status) } : null,
     template: analytesOf(o.testCode, b.analytes).map((a) => {
       const r = rangeOfPatient(b, v, a.code), p = previousOf(b, v, a.code);
@@ -304,7 +305,7 @@ export async function labWorklist(tx: Tx, s: SessionData, stage: LabWorklist["st
     const { phone: _phone, ...patient } = patientOf(v);
     items.push({
       encounter: encounterOf(e), patient, priority, collection: v.tubes.status, counts, deliveryFailed, returned,
-      tests: v.orders.map((o) => ({ orderId: o.id, testCode: o.testCode, nameEn: o.nameEn, status: dash<OrderState>(o.status) })),
+      tests: v.orders.map((o) => ({ orderId: o.id, testCode: o.testCode, nameEn: o.nameEn, status: dash<OrderState>(o.status), awaitingDoctor: o.protocol && !o.countersignedAt })),
       report: v.current ? { id: v.current.id, number: v.current.number, version: v.current.version, status: dash<"preliminary">(v.current.status), pendingCount: v.current.pendingCount, testCount: v.current.testCount } : null,
       bill: inv ? { number: inv.number, status: dash(inv.status) } : null,
     });

@@ -400,6 +400,8 @@ model ErVisit {
   /// walk-in | ambulance | police | public | referral
   arrivalMode           String
   broughtBy             String?
+  /// decision 248 / 253: the family's phone, patient-reported, normalised
+  broughtByPhone        String?
   complaint             String
   /// identifying features of an unknown patient (quick provisional registration)
   features              String?
@@ -906,6 +908,10 @@ model ServiceRequest {
   createdAt      DateTime      @default(now())
   orderedAt      DateTime?
   statusAt       DateTime      @default(now())
+  /// ADR 0014 addendum (decision 243): a nurse's protocol order in the ER, countersigned by the doctor's disposition sign
+  protocol         Boolean   @default(false)
+  countersignedById String?
+  countersignedAt  DateTime?
   /// ORDER revoke (cancel before collection, decision D5): who, when, why (at least 10 characters)
   revokedById    String?
   revokedAt      DateTime?

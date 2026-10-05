@@ -48,6 +48,14 @@ export const unknownPatientName = (sex: UnknownSex, approxAgeYears: number | nul
   return approxAgeYears === null ? { bn, en } : { bn: `${bn} ~${approxAgeYears}ব`, en: `${en} ~${approxAgeYears}y` };
 };
 
+/* ───── protocol orders (decision 243) ───── */
+/** A nurse's order on the ER floor is a protocol order: it waits for the doctor's countersignature (the disposition sign). */
+export const isProtocolOrder = (role: string): boolean => role === "nurse";
+export interface Countersignable { protocol: boolean; countersignedAt: string | null }
+/** Orders the disposition sign will countersign (every open protocol order of the visit). */
+export const awaitingCountersign = <T extends Countersignable>(orders: T[]): T[] => orders.filter((o) => o.protocol && !o.countersignedAt);
+export const PROTOCOL_LABEL = { bn: "প্রটোকল অর্ডার — ডাক্তারের অপেক্ষায়", en: "protocol order — awaiting doctor" } as const;
+
 /* ───── the ER note ───── */
 export interface CareOrder { key: string; nameEn: string; nameBn: string; detail: string; icon: string }
 /** Non-lab STAT items (ADR 0014): care-order lines in the note until an imaging catalogue and the MAR exist. Sample. */

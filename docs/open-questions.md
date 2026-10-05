@@ -1046,3 +1046,16 @@ Commit after each step, push at the end of each session.
      gynae, Paediatrics → paediatrics, Cardiology, Orthopaedics, else medicine); the desk may change it.
 253. **The guardian's phone** is accepted in Bangla or Latin digits with spaces and dashes and stored as Latin digits
      (decision 239's rule extended to phones). Should the ER's "brought by" and the arrival form take a phone too?
+
+### Decided by Kamrul (05/10/2026, after session 2) — 240–253
+- **Accepted as recorded:** 241, 242, 244, 245, 246, 247, 249, 250, 251, 252.
+- **240 →** bays go to cleaning between patients like any bed; the ER nurse has a **"Bay ready"** action on the board
+  (cleaning → vacant, BED markReady, no timer). Built.
+- **243 →** nurse protocol orders stay, marked **"protocol order — awaiting doctor"** on the note and the lab worklist;
+  the doctor's disposition sign **countersigns** them (who, when, recorded on the order), and an ER note cannot be
+  closed with an un-countersigned protocol order (the sign is the countersignature, so every close countersigns).
+  Built.
+- **244 →** "ER fee and ER billing rules" added to the owner / accountant pre-pilot list (known gap 13).
+- **248 and 253 →** the arrival form and "brought by" take an **optional phone**, normalised like 239 (Bangla or
+  Latin digits), stored with source patient-reported; a provisional record with a phone still goes to the duplicate
+  review queue. Built.

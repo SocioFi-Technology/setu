@@ -46,6 +46,15 @@ export function ErTriage() {
         <span data-legend="untriaged"><Pill tone="neu" icon="circle-dashed" wrap>{E("untriaged")} {E("legend_count", { n: b.counts.untriaged })}</Pill></span>
         {b.scale.sample && <span data-testid="scale-sample"><Pill tone="draft" icon="flask-conical" wrap>{E("scale_sample")}</Pill></span>}
       </div>
+      {/* decision 240: bays being cleaned — the nurse marks them ready, no timer */}
+      {b.bays.some((x) => x.state === "cleaning") && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }} data-testid="bays-cleaning">
+          <span className="t-small t-muted">{E("bays_cleaning")}</span>
+          {b.bays.filter((x) => x.state === "cleaning").map((x) => (
+            <Button key={x.id} size="sm" icon="sparkles" data-bay-ready={x.name} disabled={!s.online || (s.me?.role !== "nurse" && s.me?.role !== "doctor")} onClick={async () => { try { await er.bayReady(x.id); toast(E("bay_ready_toast", { name: x.name }), "sparkles"); await load(); } catch (e) { toast(errOf(e), "triangle-alert"); } }}>{E("bay_ready", { name: x.name })}</Button>
+          ))}
+        </div>
+      )}
       {open.length === 0 && closedRows.length === 0 && <PageState icon="siren" title={E("board_empty")} body={E("board_empty_body")} actions={<Button variant="primary" icon="plus" onClick={() => setArrival(true)}>{E("new_arrival")}</Button>} />}
       {(open.length > 0 || closedRows.length > 0) && (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 360px", gap: 14, alignItems: "start" }}>
@@ -169,7 +178,7 @@ function ArrivalDialog({ b, onClose, onDone }: { b: ErBoard; onClose: () => void
   const [mode, setMode] = useState<"registered" | "unknown">("registered");
   const [q, setQ] = useState(""); const [hits, setHits] = useState<PatientSummary[]>([]); const [picked, setPicked] = useState<PatientSummary | null>(null);
   const [sex, setSex] = useState<"male" | "female" | "other">("male"); const [age, setAge] = useState(""); const [features, setFeatures] = useState("");
-  const [arrivalMode, setArrivalMode] = useState<ErArrivalRequest["arrivalMode"]>("walk-in"); const [broughtBy, setBroughtBy] = useState(""); const [complaint, setComplaint] = useState(""); const [bay, setBay] = useState("");
+  const [arrivalMode, setArrivalMode] = useState<ErArrivalRequest["arrivalMode"]>("walk-in"); const [broughtBy, setBroughtBy] = useState(""); const [broughtByPhone, setBroughtByPhone] = useState(""); const [uPhone, setUPhone] = useState(""); const [complaint, setComplaint] = useState(""); const [bay, setBay] = useState("");
   const [busy, setBusy] = useState(false); const [msg, setMsg] = useState<string | null>(null);
   const key = useRef(crypto.randomUUID());
   useEffect(() => {
@@ -182,8 +191,8 @@ function ArrivalDialog({ b, onClose, onDone }: { b: ErBoard; onClose: () => void
     if (!ready || busy) return;
     setBusy(true); setMsg(null);
     try {
-      const body: ErArrivalRequest = { arrivalMode, complaint: complaint.trim(), ...(broughtBy.trim() ? { broughtBy: broughtBy.trim() } : {}), ...(bay ? { bayId: bay } : {}),
-        ...(mode === "registered" ? { patientId: picked!.id } : { unknown: { sex, approxAgeYears: format.toEn(age).trim() ? Number(format.toEn(age)) : null, ...(features.trim() ? { features: features.trim() } : {}) } }) };
+      const body: ErArrivalRequest = { arrivalMode, complaint: complaint.trim(), ...(broughtBy.trim() ? { broughtBy: broughtBy.trim() } : {}), ...(broughtByPhone.trim() ? { broughtByPhone: broughtByPhone.trim() } : {}), ...(bay ? { bayId: bay } : {}),
+        ...(mode === "registered" ? { patientId: picked!.id } : { unknown: { sex, approxAgeYears: format.toEn(age).trim() ? Number(format.toEn(age)) : null, ...(features.trim() ? { features: features.trim() } : {}), ...(uPhone.trim() ? { phone: uPhone.trim() } : {}) } }) };
       const r = await er.arrive(body, key.current);
       await onDone({ item: r.item, review: r.review });
     } catch (e) { setMsg(errOf(e)); } finally { setBusy(false); }
@@ -209,10 +218,14 @@ function ArrivalDialog({ b, onClose, onDone }: { b: ErBoard; onClose: () => void
             <Segmented value={sex} options={[{ value: "male", label: E("sex_male") }, { value: "female", label: E("sex_female") }, { value: "other", label: E("sex_other") }]} onChange={setSex} label={E("sex")} />
             <TextField label={E("approx_age")} value={age} onChange={(e) => setAge(e.target.value)} inputMode="numeric" data-testid="unknown-age" />
             <TextField label={E("features")} value={features} onChange={(e) => setFeatures(e.target.value)} placeholder={E("features_ph")} data-testid="unknown-features" />
+            <TextField label={E("unknown_phone")} value={uPhone} onChange={(e) => setUPhone(e.target.value)} inputMode="tel" hint={E("phone_reported")} data-testid="unknown-phone" />
           </>
         )}
         <Segmented value={arrivalMode} options={(["walk-in", "ambulance", "police", "public", "referral"] as const).map((m) => ({ value: m, label: E(`arr_${m}`) }))} onChange={setArrivalMode} label={E("arrival_mode")} />
-        <TextField label={E("brought_by")} value={broughtBy} onChange={(e) => setBroughtBy(e.target.value)} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <TextField label={E("brought_by")} value={broughtBy} onChange={(e) => setBroughtBy(e.target.value)} />
+          <TextField label={E("brought_by_phone")} value={broughtByPhone} onChange={(e) => setBroughtByPhone(e.target.value)} inputMode="tel" hint={E("phone_reported")} data-testid="brought-by-phone" />
+        </div>
         <TextArea label={E("complaint")} value={complaint} onChange={(e) => setComplaint(e.target.value)} placeholder={E("complaint_ph")} rows={2} data-testid="arrival-complaint" />
         <SelectField label={E("bay")} value={bay} onChange={(e) => setBay(e.target.value)} data-testid="arrival-bay">
           <option value="">{E("bay_none")}</option>

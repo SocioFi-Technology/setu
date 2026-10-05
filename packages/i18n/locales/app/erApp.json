@@ -562,5 +562,41 @@
   "bay_needs_level": [
     "বে বদলাতে আগে ট্রায়াজ স্তর বাছুন",
     "Pick a triage level to change the bay"
+  ],
+  "bays_cleaning": [
+    "পরিষ্কার চলছে:",
+    "Bays being cleaned:"
+  ],
+  "bay_ready": [
+    "{name} প্রস্তুত",
+    "{name} ready"
+  ],
+  "bay_ready_toast": [
+    "{name} · খালি",
+    "{name} · vacant"
+  ],
+  "unknown_phone": [
+    "পরিবারের মোবাইল (ঐচ্ছিক)",
+    "Family's mobile (optional)"
+  ],
+  "brought_by_phone": [
+    "মোবাইল (ঐচ্ছিক)",
+    "Mobile (optional)"
+  ],
+  "phone_reported": [
+    "রোগী/পরিবারের দেওয়া — যাচাই হয়নি",
+    "As given by the patient or family — not verified"
+  ],
+  "protocol_awaiting": [
+    "প্রটোকল অর্ডার — ডাক্তারের অপেক্ষায়",
+    "protocol order — awaiting doctor"
+  ],
+  "countersigned_by": [
+    "অনুমোদন: {name}",
+    "countersigned by {name}"
+  ],
+  "countersign_note": [
+    "{n}টি প্রটোকল অর্ডার ডাক্তারের অপেক্ষায় — সিদ্ধান্ত স্বাক্ষরে অনুমোদিত হবে",
+    "{n} protocol order(s) awaiting the doctor — the disposition sign countersigns them"
   ]
 }

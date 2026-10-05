@@ -69,6 +69,8 @@ export const LabTemplateRow = z.object({
 export const LabOrder = z.object({
   id: z.string(), testCode: z.string(), nameEn: z.string(), nameBn: z.string(), priority: z.enum(["routine", "urgent", "stat"]), status: OrderStatus,
   orderedBy: Person, orderedAt: z.string().nullable(), tube: TubeKind.nullable(),
+  /** ADR 0014 (decision 243): an ER nurse's protocol order, "awaiting doctor" until the disposition sign countersigns it */
+  protocol: z.boolean(), countersigned: z.object({ by: Person, at: z.string() }).nullable(),
   /** the tube it is being measured in (not rejected), if any */
   specimen: z.object({ id: z.string(), number: z.string(), status: SpecimenStatus }).nullable(),
   template: z.array(LabTemplateRow),
@@ -129,7 +131,7 @@ export const LabWorklistItem = z.object({
   encounter: LabEncounter,
   patient: LabPatient.omit({ phone: true }),
   priority: z.enum(["routine", "urgent", "stat"]),
-  tests: z.array(z.object({ orderId: z.string(), testCode: z.string(), nameEn: z.string(), status: OrderStatus })),
+  tests: z.array(z.object({ orderId: z.string(), testCode: z.string(), nameEn: z.string(), status: OrderStatus, /** decision 243: a protocol order still awaiting the doctor */ awaitingDoctor: z.boolean() })),
   collection: CollectionStatus,
   counts: z.object({ tubesNeeded: z.number().int(), toEnter: z.number().int(), toVerify: z.number().int(), toValidate: z.number().int(), criticalOpen: z.number().int(), releasable: z.number().int() }),
   report: LabReportSummary.pick({ id: true, number: true, version: true, status: true, pendingCount: true, testCount: true }).nullable(),

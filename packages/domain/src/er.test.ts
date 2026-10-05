@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { BED, ENCOUNTER, can, transition } from "./machines.js";
 import {
   CARE_ORDERS_SAMPLE, TRIAGE_SCALE, TRIAGE_SCALE_SAMPLE, UNTRIAGED_TARGET_MINUTES, assignTransition, bayTake, boardOrder, closesOnSign, dispositionBlockers,
-  erToken, paediatricPrompt, triageLevel, triageOverdue, triageTransition, unknownPatientName, waitedMinutes,
+  awaitingCountersign, erToken, isProtocolOrder, paediatricPrompt, triageLevel, triageOverdue, triageTransition, unknownPatientName, waitedMinutes,
 } from "./er.js";
 
 describe("triage scale (sample, pending clinician sign-off)", () => {
@@ -98,6 +98,14 @@ describe("disposition (walkthrough B2: sign disposition)", () => {
     expect(dispositionBlockers({ ...base, checks: [] }).map((b) => b.code)).toEqual(["required", "required"]);
     expect(dispositionBlockers({ ...base, medicoLegal: true, checks: ["certificate", "family"] })).toEqual([{ field: "checks.police", code: "police_required" }]);
     expect(dispositionBlockers({ ...base, medicoLegal: true, checks: ["certificate", "family", "police"] })).toEqual([]);
+  });
+});
+
+describe("protocol orders (decision 243)", () => {
+  it("a nurse's order is a protocol order; the doctor's is not; open protocol orders wait for the countersignature", () => {
+    expect(isProtocolOrder("nurse")).toBe(true); expect(isProtocolOrder("doctor")).toBe(false);
+    const orders = [{ id: "a", protocol: true, countersignedAt: null }, { id: "b", protocol: true, countersignedAt: "2026-10-05T10:00:00Z" }, { id: "c", protocol: false, countersignedAt: null }];
+    expect(awaitingCountersign(orders).map((o) => o.id)).toEqual(["a"]);
   });
 });
 
