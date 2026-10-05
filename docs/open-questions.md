@@ -1030,3 +1030,19 @@ Commit after each step, push at the end of each session.
 248. **The provisional record carries no phone and no address**; its review task has no candidate (the desk links it
      to the real record with the existing match review once the family identifies the patient). Should the ER screen
      also take a phone when the family gives one?
+
+## Slice B1–B2, session 2 (screens, journey B, reviews, hands-on) — 05/10/2026
+### Decided in the session (defaults — Kamrul to confirm)
+249. **The ER team has its own patient search** (`GET /v1/er/patients`, nurse and doctor, same search and audit as
+     the desk's): the front desk's search screen stays the desk's. The admission desk uses its own search.
+250. **A cancelled admission request reopens the disposition as an amendment:** the signed admit disposition is
+     cleared from the ER visit (the signed note stays as v1 history), the doctor signs a new disposition as v2 and v1
+     is superseded (ADR 0003). Orders stay locked on the signed note meanwhile. Fine, or should cancelling itself
+     need the doctor?
+251. **A direct admission of a patient who is in the ER comes from that visit**: the desk picks the patient, the
+     server finds the open ER visit, vacates the bay and finishes the visit (source `er`). The ER doctor need not have
+     signed an admit disposition first.
+252. **The ER request's department** is a key mapped from the consultant's speciality (Surgery → surgery, Obs & Gynae →
+     gynae, Paediatrics → paediatrics, Cardiology, Orthopaedics, else medicine); the desk may change it.
+253. **The guardian's phone** is accepted in Bangla or Latin digits with spaces and dashes and stored as Latin digits
+     (decision 239's rule extended to phones). Should the ER's "brought by" and the arrival form take a phone too?

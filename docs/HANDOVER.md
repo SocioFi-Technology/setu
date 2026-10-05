@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 session 1 done (05/10/2026); next: see Next)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); next: see Next)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -784,6 +784,12 @@ ADR 0013 addendum 2; migrations `20261005220000_refunds_decisions_233_235`, `202
 - **Found in the run's API log:** `GET /v1/approvals` crossed the 5 s transaction limit once — `approvalItem` re-read the
   facility's whole bill list per item (A6-era; the E2E clinic has thousands of bills after many runs). Now read once per
   list. The refund items' per-task reads in `refundApprovalItems` are small (by refund id) and left as they are.
+- **Playwright close-out (05/10/2026 evening, before slice B1–B2, 89 specs, 2 workers, a fresh `next dev` each run,
+  load 7–9 and ~3 GB swap from other projects' containers):** three full runs, each 88/89 with a different single
+  stall, each green alone straight after — run 1 (9.8 min) `a8-a11` decision D5 (the reason textarea kept detaching for
+  120 s; 6.7 s alone), run 2 (8.7 min) `g1-g4` G4 (the filtered audit table empty for 5 s; 5.9 s alone), run 3 (8.6 min)
+  `p1-p6` P1–P3 (the dispense row absent for 5 s; 25 s alone). Each is a 5 s expectation on a list right after a
+  navigation while the dev server was busy — load stalls, not bugs. Kamrul's call: the two clean runs come from CI.
 
 ## Done (slice B1–B2, session 1 of 2, 05/10/2026) — ER arrival, triage, disposition; admission to a bed (backend) ✅
 ADR 0014. Kamrul's plan decisions (05/10/2026): the five assumptions accepted with three refinements (STAT lab orders
@@ -825,6 +831,36 @@ bill draft created by the admission and nowhere else).
   patient (issue #1); `journeys/b1-b2.spec.ts` in the E2E Lite Hospital; `e2e/global-setup.ts` warms the new pages;
   reviews; hands-on `e2e/walk-er.mjs` as the ER nurse, the ER doctor and the admission desk in the Meghna Lite demo.
   Open questions 240–248.
+
+## Done (slice B1–B2, session 2 of 2, 05/10/2026) — the ER and admission screens, journey B1–B2, reviews, hands-on ✅
+- **Screens (`apps/staff/modules/er`, `ipd`; strings `erApp`, `ipdApp`):** `er/triage` — the board by level with ⚠
+  past target, the legend with counts and the "pending clinician sign-off (sample scale)" tag, the panel (level 1–5,
+  bay, doctor with the paediatric prompt, Record vitals, Orders & disposition), the arrival dialog for a registered or
+  an unknown patient (the ER team's own search `GET /v1/er/patients`: the desk's search screen is not theirs);
+  `er/orders` — the strip with allergies, one-tap STAT lab orders, the sample care orders, the ER note, the four
+  dispositions with their blockers, the PIN sheet; `ipd/admit` — the ER's requests, a direct admission by search, the
+  form (source, doctor, department, class with sample prices, the shared `BedPicker`, guardian, consents, the deposit
+  line that never blocks, the checklist), Admit, cancel request, today's admissions. The lab's worklist, collection and
+  result screens mark STAT. Banner = this patient (issue #1); nothing clipped at 1440 (issue #21).
+- **Journey `journeys/b1-b2.spec.ts` (6, E2E Lite Hospital):** B1 arrival on a bay, level 2, the paediatric prompt, the
+  ER doctor; the unknown male → provisional → the desk's review queue; B2 STAT CBC at the top of the lab's collection
+  list, a care order, the admit disposition after a wrong PIN with 2A-05 / 2A-06 not pickable; the desk's Admit → ADM
+  number, bed occupied, bay cleaning, IPD bill draft, ER visit finished; a discharge.
+- **Review (code review, 18 findings, all fixed in `d3935fa`):** high — a cancelled admission request stranded the ER
+  visit (now: the admit disposition is cleared from the visit and the doctor signs a new one as an amendment, v2 /
+  v1 superseded; `canRedispose`); reset-e2e wrote a Lite row's audit under the clinic; medium — time of death shifted by
+  the timezone, unsaved note text lost on a reload, a bay change without a level sent nothing, a stale note cost a PIN
+  try, the ER request's department was free text, link chains, Admission / BedAssignment status outside a machine (now
+  `ADMISSION`, `BED_ASSIGNMENT`), raw reason keys inside Bangla messages, the domain's leg not applied to the source bed;
+  low — Dhaka year, repeated queries per view, copied helpers, async bedView, dead code, a direct admission of a patient
+  in the ER now comes from that visit.
+- **Hands-on (`node e2e/walk-er.mjs <dir>`, E2E Lite Hospital, Bangla, nurse → doctor → desk, 15 screenshots):** found
+  and fixed: the guardian's phone in Bangla digits refused by the checklist (now accepted, stored as Latin digits), the
+  admitted card repeating the ADM number, the move legs in raw English, closed board rows showing a meaningless wait.
+- **Tests:** domain 347, api 296 (er 13, ipd 9), typecheck 13/13, journey B 6/6; **full Playwright run 4: 95 passed, 4 skipped, 0 failed** (8.2 min, 2 workers, fresh `next dev`, load ~5) — the first clean full run on this machine; CI brings the second.
+- **Not in this slice (next slices):** the bed map and transfers (B3–B4: the picker and the two-leg move are ready),
+  the IPD running bill, deposit and package (B8), ER billing, the unknown-patient merge, the referral letter and the
+  death certificate, discharge from the ward (B9–B12).
 
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
@@ -878,7 +914,7 @@ bill draft created by the admission and nowhere else).
 5. ~~`/slice A12-A13`~~ — done 03/10/2026 (two sessions); **Journey A complete**. Kamrul to confirm open questions
    135–149.
 6. **Phase 2 pilot clinic, split in four slices (Kamrul, 03/10/2026):** ~~`/slice C1-C4`~~ owner dashboard + shift close
-   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → ~~SMS + bKash~~ (done 04/10/2026, two sessions; questions 205–219). **The four Phase 2 pilot-clinic slices are done.** ~~**Refunds**~~ done 05/10/2026 (two sessions + the 233–235 follow-up; ADR 0013; questions 220–239, 233–235 decided). **Phase 3 Journey B started:** `/slice B1-B2` session 1 done 05/10/2026 (ADR 0014; questions 240–248); session 2 = the ER and admission screens, journey B1–B2, reviews, hands-on. Then `/slice B3-B4` (bed map, transfer, the ward's view) and on per `docs/CLAUDE-CODE-GUIDE.md`. Or Kamrul's call — the pre-pilot hardening (known gaps 3, 4, 10, 12: argon2id, PIN tries in Redis, composite keys, clinical sign-offs), real credentials (bKash sandbox, BulkSMSBD), then the pilot; or Phase 3 per `docs/BUILD-PLAN.md`. See open questions "Phase 2 plan".
+   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → ~~SMS + bKash~~ (done 04/10/2026, two sessions; questions 205–219). **The four Phase 2 pilot-clinic slices are done.** ~~**Refunds**~~ done 05/10/2026 (two sessions + the 233–235 follow-up; ADR 0013; questions 220–239, 233–235 decided). **Phase 3 Journey B started:** ~~`/slice B1-B2`~~ done 05/10/2026 (two sessions; ADR 0014; questions 240–253). Then `/slice B3-B4` (bed map, transfer, the ward's view) and on per `docs/CLAUDE-CODE-GUIDE.md`. Or Kamrul's call — the pre-pilot hardening (known gaps 3, 4, 10, 12: argon2id, PIN tries in Redis, composite keys, clinical sign-offs), real credentials (bKash sandbox, BulkSMSBD), then the pilot; or Phase 3 per `docs/BUILD-PLAN.md`. See open questions "Phase 2 plan".
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating
