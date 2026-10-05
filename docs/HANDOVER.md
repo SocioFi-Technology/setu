@@ -883,8 +883,14 @@ ADR 0014 addendum; migration `20261005233000_er_protocol_orders`.
 Playwright version, the handover's 4100 / 3300 servers, `pnpm e2e --workers=2`, K and L skip, traces / screenshots /
 server logs uploaded on failure). The CI `.env` is written on the runner: fakes only, three CI-only secrets
 (`SETU_APP_PASSWORD`, `CI_SESSION_SECRET`, `FAKE_PAYMENTS_SECRET`), and the job fails if any `BKASH_*` / `BULKSMSBD_*`
-variable exists. README has the badge and the secrets table. **To do in the repository settings:** create the three
-secrets; make `ci` a required check on `main` (branch protection) so a red push cannot merge.
+variable exists. README has the badge and the secrets table. The three secrets exist (CI-only random values, set 05/10/2026). **First
+green run on origin: 37346869244** (`85b6887`) — check 3.2 min, journeys 13 min: 96 passed, 4 skipped, no retry used.
+On the way there, three real differences between the runner and this machine were fixed: the shared packages must be
+built before migrate / seed (the seed imports `@setu/domain`'s dist); the API suite needs Chromium too (vouchers and
+receipts render through playwright-core); decision 234's fridge count fills the fridge on a fresh database. The
+Playwright harness on CI (`CI=1`): expect 15 s, test 60 s, one retry, HTML report — the 2-core runner's `next dev`
+stalls and full-reloads under two workers (run 37343639208: 94/96). **Still to do in the repository settings:** make
+`ci` a required check on `main` (branch protection) so a red push cannot merge.
 
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
