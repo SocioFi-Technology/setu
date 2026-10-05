@@ -955,7 +955,11 @@ frequency are unchanged (9).
   wrapping layouts, past-tense toasts. ADR 0015 amendment; open questions 264–269 and the pre-pilot list.
 - **Found by running it:** just after midnight the board counted overdue doses the MAR could not show (fixed:
   `marSlotRange`); re-picking the same ward left the board on "Loading…".
-- **Tests:** domain 388, api 327 (mar 15, ward 12), b3-b4 5/5, typecheck 13/13.
+- **Tests:** domain 388, api 324/325 in the full suite (mar 15, ward 12; the one failure is a cross-file flake that
+  moved between runs — lab delta check, receipt line order — each file green alone), b3-b4 5/5, typecheck 13/13.
+- **Local data:** after thousands of synthetic patients the E2E clinic's patient counter reached the seeded walkthrough
+  numbers (E2E-250044) and every registration collided (169 API failures); `pnpm db:reset-e2e` now moves each E2E
+  tenant's patient counter past the numbers in use. CI starts from a fresh database and never saw it.
 
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
