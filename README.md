@@ -1,5 +1,7 @@
 # Setu Health
 
+[![ci](https://github.com/SocioFi-Technology/setu/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SocioFi-Technology/setu/actions/workflows/ci.yml)
+
 Bangla-first clinic and hospital platform for Bangladesh. Monorepo: one API, one database, three clients.
 Read `CLAUDE.md` first (rules), then `docs/BUILD-PLAN.md` (what to build in which order).
 
@@ -73,3 +75,23 @@ e2e             Playwright journey specs
 docs            design handoff (source of truth), prototype pages, test log, ADRs, build plan
 infra           docker-compose
 ```
+
+## CI (`.github/workflows/ci.yml`)
+
+Every push and pull request runs two jobs: **typecheck + unit tests** (Postgres 16 and Redis as service containers,
+`migrate:deploy`, the `setu_app` password set from a secret, `db:seed`, `pnpm typecheck`, `pnpm test`) and, only when
+that is green, **Playwright journeys** (`pnpm e2e --workers=2` against the API on 4100 and the staff app on 3300, the
+E2E reset in global-setup; journeys K and L skip because the stand-ins are not there; traces, screenshots and the
+server logs are uploaded when a run fails). Chromium is cached by Playwright version; pnpm's store by the lockfile.
+
+Nothing real runs in CI: `PAYMENTS_PROVIDER`, `SMS_PROVIDER` and `AI_PROVIDER` are `fake` and no `BKASH_*` or
+`BULKSMSBD_*` variable exists on the runner. Three repository secrets, all CI-only values, never a real credential:
+
+| Secret | What it is |
+| --- | --- |
+| `SETU_APP_PASSWORD` | the password of the `setu_app` database role on the runner (8+ characters) |
+| `CI_SESSION_SECRET` | the API's session secret on the runner (32+ characters) |
+| `FAKE_PAYMENTS_SECRET` | what the fake payment gateway signs its callbacks with |
+
+A red run reproduces locally with the same commands (`docs/HANDOVER.md` › How to run the journeys). Make the `ci`
+check required on `main` in the repository settings so a red push cannot merge.

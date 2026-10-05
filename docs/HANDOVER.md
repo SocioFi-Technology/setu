@@ -876,6 +876,16 @@ ADR 0014 addendum; migration `20261005233000_er_protocol_orders`.
   provisional record's phone with a `phone-reported` provenance); the provisional record still goes to review.
 - **Tests:** domain 348, api 298 (er 16, the suite with the dev API stopped), journey B 7/7, typecheck 13/13; **full Playwright run 5: 96 passed, 4 skipped, 0 failed** (8.4 min, 2 workers) — the second clean full run on this machine. Servers stopped afterwards.
 
+## Done (CI, 05/10/2026) — GitHub Actions ✅
+`.github/workflows/ci.yml`: on every push and pull request, `check` (Postgres 16 + Redis services, `migrate:deploy`, the
+`setu_app` password from the secret `SETU_APP_PASSWORD` through psql — `migrate:deploy` never sets it, only
+`pnpm db:migrate` does — `db:seed`, `pnpm typecheck`, `pnpm test`) then `journeys` (needs `check`; Chromium cached by
+Playwright version, the handover's 4100 / 3300 servers, `pnpm e2e --workers=2`, K and L skip, traces / screenshots /
+server logs uploaded on failure). The CI `.env` is written on the runner: fakes only, three CI-only secrets
+(`SETU_APP_PASSWORD`, `CI_SESSION_SECRET`, `FAKE_PAYMENTS_SECRET`), and the job fails if any `BKASH_*` / `BULKSMSBD_*`
+variable exists. README has the badge and the secrets table. **To do in the repository settings:** create the three
+secrets; make `ci` a required check on `main` (branch protection) so a red push cannot merge.
+
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
 2. ~~MinIO image cannot be pulled~~ — dev and tests store receipts with `LocalFolderStorage` (A6–A7). Before staging: an S3-compatible adapter behind the same `Storage` interface.

@@ -1,0 +1,194 @@
+# Setu Health CI. Every push and pull request: (1) typecheck + unit and contract tests on Postgres 16 and Redis,
+# (2) the Playwright journeys against the dev servers, only after (1) is green. Nothing real: the providers are the
+# fakes (PAYMENTS_PROVIDER / SMS_PROVIDER / AI_PROVIDER = fake), no BKASH_* or BULKSMSBD_* variable exists on the
+# runner, and the three secrets are CI-only values (see README › CI).
+name: ci
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  # the handover's ports (HANDOVER.md › How to run the journeys): API 4100, staff 3300
+  API_PORT: "4100"
+  STAFF_URL: http://localhost:3300
+
+jobs:
+  check:
+    name: typecheck + unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: setu
+          POSTGRES_PASSWORD: setu
+          POSTGRES_DB: setu
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U setu -d setu"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Write the CI .env (fakes only; the three secrets are CI-only values)
+        run: |
+          set -euo pipefail
+          test -n "${{ secrets.SETU_APP_PASSWORD }}" || { echo "secret SETU_APP_PASSWORD is not set"; exit 1; }
+          test -n "${{ secrets.CI_SESSION_SECRET }}" || { echo "secret CI_SESSION_SECRET is not set"; exit 1; }
+          test -n "${{ secrets.FAKE_PAYMENTS_SECRET }}" || { echo "secret FAKE_PAYMENTS_SECRET is not set"; exit 1; }
+          cat > .env <<ENV
+          DATABASE_URL=postgresql://setu:setu@localhost:5432/setu
+          DATABASE_URL_APP=postgresql://setu_app:${{ secrets.SETU_APP_PASSWORD }}@localhost:5432/setu
+          REDIS_URL=redis://localhost:6379
+          API_PORT=${API_PORT}
+          SESSION_SECRET=${{ secrets.CI_SESSION_SECRET }}
+          PAYMENTS_PROVIDER=fake
+          SMS_PROVIDER=fake
+          AI_PROVIDER=fake
+          FAKE_PAYMENTS_SECRET=${{ secrets.FAKE_PAYMENTS_SECRET }}
+          FAKE_PAYMENTS_DEV_ROUTE=1
+          FAKE_MESSAGING_DEV_ROUTE=1
+          ROLLUP_DEV_ROUTE=1
+          PUBLIC_APP_URL=${STAFF_URL}
+          VERIFY_BASE_URL=${STAFF_URL}/verify/rc
+          ENV
+          # no gateway credential may exist on the runner, even empty
+          if env | grep -qE '^(BKASH_|BULKSMSBD_)'; then echo "a BKASH_* / BULKSMSBD_* variable is set on the runner"; exit 1; fi
+      - name: Migrate (migrate:deploy creates the setu_app role), set its password from the secret, seed
+        run: |
+          set -euo pipefail
+          pnpm --filter @setu/db migrate:deploy
+          PGPASSWORD=setu psql -h localhost -U setu -d setu -v ON_ERROR_STOP=1 -c "ALTER ROLE setu_app PASSWORD '${{ secrets.SETU_APP_PASSWORD }}'"
+          pnpm db:seed
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Unit and contract tests (the API suite needs DATABASE_URL_APP or it skips itself)
+        run: |
+          set -euo pipefail
+          set -a; . ./.env; set +a
+          test -n "${DATABASE_URL_APP}"
+          pnpm test
+
+  journeys:
+    name: Playwright journeys
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: setu
+          POSTGRES_PASSWORD: setu
+          POSTGRES_DB: setu
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U setu -d setu"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Write the CI .env (fakes only)
+        run: |
+          set -euo pipefail
+          cat > .env <<ENV
+          DATABASE_URL=postgresql://setu:setu@localhost:5432/setu
+          DATABASE_URL_APP=postgresql://setu_app:${{ secrets.SETU_APP_PASSWORD }}@localhost:5432/setu
+          REDIS_URL=redis://localhost:6379
+          API_PORT=${API_PORT}
+          SESSION_SECRET=${{ secrets.CI_SESSION_SECRET }}
+          PAYMENTS_PROVIDER=fake
+          SMS_PROVIDER=fake
+          AI_PROVIDER=fake
+          FAKE_PAYMENTS_SECRET=${{ secrets.FAKE_PAYMENTS_SECRET }}
+          FAKE_PAYMENTS_DEV_ROUTE=1
+          FAKE_MESSAGING_DEV_ROUTE=1
+          ROLLUP_DEV_ROUTE=1
+          PUBLIC_APP_URL=${STAFF_URL}
+          VERIFY_BASE_URL=${STAFF_URL}/verify/rc
+          ENV
+          if env | grep -qE '^(BKASH_|BULKSMSBD_)'; then echo "a BKASH_* / BULKSMSBD_* variable is set on the runner"; exit 1; fi
+      - name: Migrate, set the setu_app password, seed
+        run: |
+          set -euo pipefail
+          pnpm --filter @setu/db migrate:deploy
+          PGPASSWORD=setu psql -h localhost -U setu -d setu -v ON_ERROR_STOP=1 -c "ALTER ROLE setu_app PASSWORD '${{ secrets.SETU_APP_PASSWORD }}'"
+          pnpm db:seed
+      - name: Playwright version (the browser cache key)
+        id: pw
+        run: echo "version=$(node -p "require('./node_modules/.pnpm/node_modules/playwright-core/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright's Chromium
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install Chromium (with system deps; the deps alone when the browser came from the cache)
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then pnpm --filter @setu/e2e exec playwright install-deps chromium; else pnpm --filter @setu/e2e exec playwright install --with-deps chromium; fi
+      - name: Build the shared packages the apps import from dist
+        run: pnpm exec turbo run build --filter=@setu/domain --filter=@setu/contracts --filter=@setu/i18n --filter=@setu/db
+      - name: Start the API (4100) and the staff app (3300), the handover's commands
+        run: |
+          set -euo pipefail
+          set -a; . ./.env; set +a
+          mkdir -p var/logs
+          (cd apps/api && API_PORT=${API_PORT} nohup pnpm exec tsx src/server.ts > ../../var/logs/api.log 2>&1 &)
+          (cd apps/staff && NODE_OPTIONS=--max-old-space-size=3072 API_URL=http://localhost:${API_PORT} nohup pnpm exec next dev -p 3300 > ../../var/logs/staff.log 2>&1 &)
+          for i in $(seq 1 60); do curl -sf "http://localhost:${API_PORT}/health" >/dev/null && break; sleep 2; done
+          curl -sf "http://localhost:${API_PORT}/health"
+          for i in $(seq 1 90); do curl -s -o /dev/null "${STAFF_URL}/login" && break; sleep 2; done
+          curl -s -o /dev/null -w "staff %{http_code}\n" "${STAFF_URL}/login"
+      - name: Journeys (global-setup runs the E2E reset; K and L skip without the stand-ins)
+        run: |
+          set -euo pipefail
+          set -a; . ./.env; set +a
+          pnpm e2e --workers=2
+      - name: Upload traces, screenshots and the report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-${{ github.run_id }}
+          path: |
+            e2e/test-results
+            e2e/playwright-report
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: Upload the API and staff logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-logs-${{ github.run_id }}
+          path: var/logs
+          retention-days: 14
+          if-no-files-found: ignore
