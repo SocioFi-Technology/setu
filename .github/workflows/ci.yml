@@ -48,6 +48,8 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Build the shared packages (the seed, the reset and the apps import their dist)
+        run: pnpm exec turbo run build --filter=@setu/domain --filter=@setu/contracts --filter=@setu/i18n --filter=@setu/db
       - name: Write the CI .env (fakes only; the three secrets are CI-only values)
         run: |
           set -euo pipefail
@@ -117,6 +119,8 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Build the shared packages (the seed, the reset and the apps import their dist)
+        run: pnpm exec turbo run build --filter=@setu/domain --filter=@setu/contracts --filter=@setu/i18n --filter=@setu/db
       - name: Write the CI .env (fakes only)
         run: |
           set -euo pipefail
@@ -156,8 +160,6 @@ jobs:
         run: |
           set -euo pipefail
           if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then pnpm --filter @setu/e2e exec playwright install-deps chromium; else pnpm --filter @setu/e2e exec playwright install --with-deps chromium; fi
-      - name: Build the shared packages the apps import from dist
-        run: pnpm exec turbo run build --filter=@setu/domain --filter=@setu/contracts --filter=@setu/i18n --filter=@setu/db
       - name: Start the API (4100) and the staff app (3300), the handover's commands
         run: |
           set -euo pipefail
