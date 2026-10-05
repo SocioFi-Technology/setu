@@ -773,8 +773,17 @@ ADR 0013 addendum 2; migrations `20261005220000_refunds_decisions_233_235`, `202
   after `REFUND_RELEASE_MINUTES` = 30 since the claim) — "not refunded on the portal" (note) hands the allocation back
   failed so the cashier retries or pays cash; "refunded, TrxID" pays it; both audited (`owner-release`) and both open a
   refund-reconciliation case. The refund screen shows the owner the release card after the wait (and the wait until then).
-- **Tests:** domain 313, api 273 (refunds 17: +233, +234; bkash 23: +235; purchasing's own-count case), typecheck 13/13;
-  Playwright: journey R gains R5 (233 on the screen) — see the run below.
+- **Tests:** domain 313, api 273 (refunds 17: +233, +234; bkash 23: +235; purchasing's own-count case) — every file green;
+  typecheck 13/13. **Playwright 89** (84 + journey R's 5, R5 added for 233): full runs this evening were under heavy load
+  from other projects (an Android emulator + Android Studio, ~6 GB; load average 8–10) — run 6 (1 worker) 88/89 with P6
+  failing on a real bug (the count screen's new state hook sat after an early return — fixed in `e6e2bb8`), run 7
+  (2 workers) 87/89 with two load stalls (P5's screen not visible in 5 s; R1's public verify page never loaded in 150 s)
+  that passed alone straight after (6/6). The API suite under the same load: Prisma connection and 5 s timeouts in
+  unrelated files; each file green alone. A quiet machine and two clean full runs are still owed before this is called
+  closed — first thing next session.
+- **Found in the run's API log:** `GET /v1/approvals` crossed the 5 s transaction limit once — `approvalItem` re-read the
+  facility's whole bill list per item (A6-era; the E2E clinic has thousands of bills after many runs). Now read once per
+  list. The refund items' per-task reads in `refundApprovalItems` are small (by refund id) and left as they are.
 
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).

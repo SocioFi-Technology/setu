@@ -491,13 +491,15 @@ export async function removeDiscount(tx: Tx, s: SessionData, id: string, rev: nu
   return recompute(tx, inv, 0, { discountCategory: null, discountReason: null, discountAppliedById: null, discountAppliedAt: null, discountTaskId: null });
 }
 
-async function approvalItem(tx: Tx, s: SessionData, t: TaskRow, now: Date): Promise<ApprovalItem | null> {
+/** `hereIds`: the facility's bill ids, read once by the list (a per-item read crossed the 5 s transaction limit on a
+    clinic with thousands of bills — seen in the refunds slice's e2e run). */
+async function approvalItem(tx: Tx, s: SessionData, t: TaskRow, now: Date, hereIds?: string[]): Promise<ApprovalItem | null> {
   const inv = t.focusId ? await tx.invoice.findFirst({ where: { id: t.focusId, organizationId: s.organizationId } }) : null;
   if (!inv?.patientId) return null;
   const p = await tx.patient.findFirst({ where: { id: inv.patientId } });
   if (!p) return null;
   const day = dhakaDay(now);
-  const here = (await tx.invoice.findMany({ where: { organizationId: s.organizationId }, select: { id: true } })).map((i) => i.id);
+  const here = hereIds ?? (await tx.invoice.findMany({ where: { organizationId: s.organizationId }, select: { id: true } })).map((i) => i.id);
   const mine = await tx.task.findMany({ where: { kind: DISCOUNT_TASK, requestedById: t.requestedById, focusId: { in: here }, requestedAt: { gte: new Date(`${day}T00:00:00+06:00`) } }, select: { detail: true } });
   const who = await people(tx, [t.requestedById, t.decidedById]);
   const lineId = t.kind === BILL_ELSEWHERE_TASK ? (t.detail as unknown as NotBilledDetail).lineId : null;
@@ -519,7 +521,7 @@ export async function approvalList(tx: Tx, s: SessionData, status: "requested" |
   const here = (await tx.invoice.findMany({ where: { organizationId: s.organizationId }, select: { id: true } })).map((i) => i.id);
   const tasks = await tx.task.findMany({ where: { kind: { in: APPROVAL_KINDS }, status, focusId: { in: here } }, orderBy: { requestedAt: status === "requested" ? "asc" : "desc" }, take: 100 });
   const items: ApprovalItem[] = [];
-  for (const t of tasks) { const i = await approvalItem(tx, s, t, now); if (i) items.push(i); }
+  for (const t of tasks) { const i = await approvalItem(tx, s, t, now, here); if (i) items.push(i); }
   return { items };
 }
 
