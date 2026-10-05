@@ -1,4 +1,5 @@
 import type {
+  AdmissionList, AdmissionView, AdmitRequest, BedActionRequest, BedBoard, BedView, ErArrivalRequest, ErArrivalResponse, ErAssignRequest, ErBoard, ErBoardItem, ErDispositionRequest, ErTriageRequest, ErVisitView,
   RefundableView, RefundRequest, RefundView, RefundDecisionRequest, RefundPayRequest, RefundReleaseRequest, RefundPayResponse, RefundList, RefundVoucherView, RefundVoucherPrintResponse, ReconcileRefundRequest, ResaleRequest,
   FacilityView, FacilityUpdate, SettingsUpdate, UserList, UserView, UserCreate, UserCredentialResponse, PriceList, PriceCreate, PriceHistory, AuditPage, AuditQuery,
   DispenseQueue, DispenseRequest, DispenseView, OtcCreateRequest, OtcView, RxPhotoRequest, StockList, SupplierList, SupplierLedger, SupplierPaymentRequest,
@@ -297,4 +298,26 @@ export const adm = {
   audit: (q: AuditQuery) => call<AuditPage>("GET", "/v1/admin/audit?" + qs(q as Record<string, string | undefined>)),
   /** a browser URL (same origin, through the /api proxy) — the download is itself audited */
   auditCsvHref: (q: AuditQuery) => "/api/v1/admin/audit.csv?" + qs({ ...q, before: undefined } as Record<string, string | undefined>),
+};
+
+/* ER and admission (ADR 0014, slice B1–B2). Every write waits for the server (the token, the bed, the signed note are
+   the server's answers); `key`: one per filled-in form or per opening of the PIN sheet, so a retry is the same request. */
+export const er = {
+  board: () => call<ErBoard>("GET", "/v1/er/board"),
+  arrive: (body: ErArrivalRequest, key: string) => call<ErArrivalResponse>("POST", "/v1/er/arrivals", body, key),
+  triage: (id: string, body: ErTriageRequest) => call<ErBoardItem>("POST", `/v1/er/encounters/${enc(id)}/triage`, body, k()),
+  assign: (id: string, body: ErAssignRequest) => call<ErBoardItem>("POST", `/v1/er/encounters/${enc(id)}/assign`, body, k()),
+  visit: (id: string) => call<ErVisitView>("GET", `/v1/er/encounters/${enc(id)}`),
+  order: (id: string, testCode: string) => call<ErVisitView>("POST", `/v1/er/encounters/${enc(id)}/orders`, { testCode }, k()),
+  careOrder: (id: string, key: string, on: boolean) => call<ErVisitView>("POST", `/v1/er/encounters/${enc(id)}/care-orders`, { key, on }, k()),
+  notes: (id: string, rev: number, notes: string) => call<ErVisitView>("PUT", `/v1/er/encounters/${enc(id)}/notes`, { rev, notes }, k()),
+  sign: (id: string, body: ErDispositionRequest, key: string) => call<ErVisitView>("POST", `/v1/er/encounters/${enc(id)}/disposition`, body, key),
+};
+export const ipd = {
+  beds: (cls?: string) => call<BedBoard>("GET", "/v1/ipd/beds" + (cls ? `?class=${enc(cls)}` : "")),
+  bedAction: (id: string, body: BedActionRequest, key: string) => call<BedView>("POST", `/v1/ipd/beds/${enc(id)}/actions`, body, key),
+  admissions: () => call<AdmissionList>("GET", "/v1/ipd/admissions"),
+  admit: (body: AdmitRequest, key: string) => call<AdmissionView>("POST", "/v1/ipd/admissions", body, key),
+  admission: (id: string) => call<AdmissionView>("GET", `/v1/ipd/admissions/${enc(id)}`),
+  cancel: (id: string, reason: string, key: string) => call<AdmissionView>("POST", `/v1/ipd/admissions/${enc(id)}/cancel`, { reason }, key),
 };

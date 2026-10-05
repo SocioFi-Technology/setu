@@ -38,6 +38,9 @@ import { LabDelivery } from "./lab/Delivery";
 import { LabReport } from "./lab/Report";
 import { LabResultEntry } from "./lab/Result";
 import { LabVerify } from "./lab/Verify";
+import { ErTriage } from "./er/Triage";
+import { ErOrders } from "./er/Orders";
+import { IpdAdmit } from "./ipd/Admit";
 
 const SCREENS: Record<string, ComponentType> = {
   // slice A1–A3
@@ -91,6 +94,10 @@ const SCREENS: Record<string, ComponentType> = {
   "adm/users": AdmUsers,
   "adm/masters": AdmMasters,
   "adm/audit": AdmAudit,
+  // slice B1–B2 (ADR 0014)
+  "er/triage": ErTriage,
+  "er/orders": ErOrders,
+  "ipd/admit": IpdAdmit,
 };
 const SLICE: Record<string, string> = { fd: "A1–A3", cons: "A4–A5", bill: "A6–A7", lab: "A8–A11", doc: "A12–A13", ph: "phase 2", own: "C1–C4", adm: "phase 2", er: "B1–B2", ipd: "B3–B4", nur: "B5–B6", net: "E1–E4" };
 

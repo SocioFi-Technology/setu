@@ -65,7 +65,7 @@ function OrderBlock({ v, o, writer, show, reload, onCorrect, onWithdraw }: { v: 
   return (
     <Card style={{ display: "flex", flexDirection: "column", gap: 10, padding: 14 }} data-order={o.testCode}>
       <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <b style={{ fontSize: 16 }}>{F.test(o)}</b>
+        <b style={{ fontSize: 16 }}>{F.test(o)}</b>{o.priority !== "routine" && <> <Pill tone={o.priority === "stat" ? "crit" : "warn"} icon="zap">{T(`pr_${o.priority}`)}</Pill></>}
         {o.specimen && <Pill tone="neu" icon="test-tube">{o.specimen.number} · {T(`sp_${o.specimen.status}`)}</Pill>}
         <span style={{ marginLeft: "auto" }} />
         {cur.length > 0 && isLabWriter(s.me?.role, "withdraw") && <Button size="sm" variant="ghost" icon="circle-slash" data-testid={`withdraw-${o.testCode}`} disabled={!s.online} onClick={() => onWithdraw(o)}>{T("withdraw")}</Button>}

@@ -73,7 +73,7 @@ function CollectVisit({ encounterId }: { encounterId: string }) {
               <tbody>
                 {v.orders.map((o) => (
                   <tr key={o.id} data-order={o.testCode}>
-                    <td><b>{F.test(o)}</b>{o.priority !== "routine" && <> <Pill tone="warn" icon="zap">{T(`pr_${o.priority}`)}</Pill></>}<div className="t-small t-muted">{T("ordered_by", { name: F.name(o.orderedBy), at: F.dateTime(o.orderedAt) })}</div></td>
+                    <td><b>{F.test(o)}</b>{o.priority !== "routine" && <> <Pill tone={o.priority === "stat" ? "crit" : "warn"} icon="zap">{T(`pr_${o.priority}`)}</Pill></>}<div className="t-small t-muted">{T("ordered_by", { name: F.name(o.orderedBy), at: F.dateTime(o.orderedAt) })}</div></td>
                     <td>{o.tube ? <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}><TubeDot tube={o.tube} />{T(`tube_${o.tube}`)}</span> : "—"}</td>
                     <td>{o.status === "revoked" ? <Pill tone="off" icon="ban" wrap>{T("cancelled_reason", { reason: o.revoke?.reason ?? "" })}</Pill>
                       : o.specimen ? <Pill tone={SPECIMEN_TONE[o.specimen.status] ?? "neu"}>{o.specimen.number} · {T(`sp_${o.specimen.status}`)}</Pill>
