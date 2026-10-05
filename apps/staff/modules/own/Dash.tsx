@@ -227,7 +227,7 @@ function DrillDialog({ period, what, onClose }: { period: Period; what: DrillVie
   const [d, setD] = useState<DrillView | null>(null); const [failed, setFailed] = useState(false);
   useEffect(() => { owner.drill(period, what).then(setD).catch(() => setFailed(true)); }, [period, what]);
   const title = (["revenue", "collections", "dues", "discounts", "stockValue", "nearExpiry", "supplierDues"].includes(what) ? O(`k_${what}`) : ["opdVisits", "labTests", "noShows"].includes(what) ? O(`o_${what}`) : O(`l_${what}`));
-  const href = (l: NonNullable<DrillView["rows"][number]["link"]>) => l.kind === "invoice" ? `/m/bill/opd?inv=${encodeURIComponent(l.id)}` : l.kind === "receipt" ? `/m/bill/receipt?id=${encodeURIComponent(l.id)}` : l.kind === "shift" ? "/m/bill/shift" : null;
+  const href = (l: NonNullable<DrillView["rows"][number]["link"]>) => l.kind === "invoice" ? `/m/bill/opd?inv=${encodeURIComponent(l.id)}` : l.kind === "receipt" ? `/m/bill/receipt?id=${encodeURIComponent(l.id)}` : l.kind === "shift" ? "/m/bill/shift" : l.kind === "refund" ? `/m/bill/refund?rf=${encodeURIComponent(l.id)}` : null;
   return (
     <Dialog open onClose={onClose} label={title} width={760}>
       <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10, maxHeight: "80vh", overflow: "auto" }} data-testid="drill" data-what={what}>
@@ -249,6 +249,8 @@ function DrillDialog({ period, what, onClose }: { period: Period; what: DrillVie
                     {r.detail && <span className="t-small">{r.detail}</span>}
                     {(r.by && r.patient) || r.approvedBy ? <span className="t-small t-muted">{r.by && r.patient ? O("drill_by", { name: F.name({ nameBn: r.by.nameBn, nameEn: r.by.nameEn }) }) : ""}{r.approvedBy ? ` · ${O("drill_approved", { name: F.name({ nameBn: r.approvedBy.nameBn, nameEn: r.approvedBy.nameEn }) })}` : ""}</span> : null}
                   </span>
+                  {/* ADR 0013: a refund's state — withdrawn is its own state, never shown as rejected */}
+                  {r.status && <span data-refund-status={r.status}><Pill tone={r.status === "paid" ? "ok" : r.status === "rejected" ? "bad" : r.status === "withdrawn" ? "off" : "pend"}>{O(`rs_${r.status}`)}</Pill></span>}
                   {r.amountPaisa !== null && <b className="num">{F.tk(r.amountPaisa)}</b>}
                   {to && <Button size="sm" variant="ghost" icon="external-link" onClick={() => router.push(to)}>{O("drill_open")}</Button>}
                 </div>

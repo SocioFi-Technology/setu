@@ -268,6 +268,18 @@ function PayView({ id }: { id: string }) {
         </span>
       </Card>
 
+      {/* ADR 0013: refunds and returns — on the bill/refund (or ph/refund) screen; never offline */}
+      {["issued", "partially-paid", "balanced"].includes(inv.status) && (
+        <Card style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", padding: 16 }} data-testid="pay-refunds">
+          {inv.refundedPaisa > 0 && <span data-testid="pay-refunded">{B("pay_refunded", { amount: M.tk(inv.refundedPaisa) })}</span>}
+          {inv.creditedPaisa > 0 && <span data-testid="pay-credited">{B("pay_credited", { amount: M.tk(inv.creditedPaisa) })}</span>}
+          <span style={{ marginLeft: "auto" }} />
+          <Button icon="undo-2" data-testid="pay-refund" disabled={!s.online}
+            onClick={() => router.push(v.refund.openId ? `/m/${mod}/refund?rf=${encodeURIComponent(v.refund.openId)}` : `/m/${mod}/refund?inv=${encodeURIComponent(id)}`)}>
+            {v.refund.openId ? B("pay_refund_open", { status: B(`rf_st_${v.refund.openStatus}`) }) : B("pay_refund_btn")}
+          </Button>
+        </Card>
+      )}
       {queuedCash.length > 0 && <ProvisionalReceipt v={v} cash={queuedCash.map((q) => (q.body as NewPaymentRequest).amountPaisa)} />}
     </div>
   );

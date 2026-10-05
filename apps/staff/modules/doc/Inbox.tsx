@@ -128,6 +128,13 @@ function InboxCard({ item: x, queued, busy, onAck }: { item: InboxItem; queued: 
         </span>
       )}
 
+      {x.kind === "return-notice" && x.returned && (
+        <span data-testid="return-notice" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span><Icon name="undo-2" size={14} /> {D("k_return", { medicine: `${x.returned.medicine.brand} ${x.returned.medicine.strength}`, n: x.returned.qty })}</span>
+          <span className="t-small t-secondary">{D("k_return_why", { reason: x.returned.reason, name: F.name(x.returned.by) })}</span>
+        </span>
+      )}
+
       {x.acknowledged ? (
         <span className="t-small" data-testid="acked" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           <Icon name="check" size={14} />{D("seen_at", { at: F.time(x.acknowledged.at) })}

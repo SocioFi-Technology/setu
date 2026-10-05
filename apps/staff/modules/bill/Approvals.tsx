@@ -14,8 +14,8 @@ import { PharmacyApprovalCards, type PhApprovalKind } from "../ph/Approvals";
 import { useB, useErr, useMoney } from "./common";
 
 type Tab = "requested" | "approved" | "rejected";
-type Kind = "all" | "discount" | "not-billed" | PhApprovalKind;
-const KINDS: Kind[] = ["all", "discount", "not-billed", "purchase-order", "goods-receipt", "count"];
+type Kind = "all" | "discount" | "not-billed" | "refund" | PhApprovalKind;
+const KINDS: Kind[] = ["all", "discount", "not-billed", "refund", "purchase-order", "goods-receipt", "count"];
 const PH_KINDS: PhApprovalKind[] = ["purchase-order", "goods-receipt", "count"];
 const billHref = (i: { id: string; kind: string; encounterId: string | null }) =>
   i.kind === "opd" ? `/m/bill/opd?inv=${encodeURIComponent(i.id)}` : i.kind === "pharmacy" && i.encounterId ? `/m/ph/dispense?enc=${encodeURIComponent(i.encounterId)}` : `/m/ph/otc?inv=${encodeURIComponent(i.id)}`;
@@ -29,7 +29,7 @@ export function BillApprovals() {
   const [keys, setKeys] = useState<Record<string, string>>({});
   const [focus, setFocus] = useState<string | null>(null);
   const [kind, setKind] = useState<Kind>("all"); const [phCount, setPhCount] = useState<number | null>(null);
-  const items = (list?.items ?? []).filter((a) => kind === "all" || (kind === "discount" ? a.kind === "discount-approval" : kind === "not-billed" ? a.kind === "bill-elsewhere" : false));
+  const items = (list?.items ?? []).filter((a) => kind === "all" || (kind === "discount" ? a.kind === "discount-approval" : kind === "not-billed" ? a.kind === "bill-elsewhere" : kind === "refund" ? a.kind === "refund-approval" : false));
   const phKinds = kind === "all" ? PH_KINDS : PH_KINDS.filter((k) => k === kind);
   const load = useCallback(async () => { try { setList(await api.approvals(tab)); setFailed(false); } catch { setFailed(true); } }, [tab]);
   useEffect(() => { s.setPatient(null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -47,7 +47,9 @@ export function BillApprovals() {
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if (!focus || busy || tab !== "requested" || (e.target as HTMLElement).tagName === "TEXTAREA" || (e.target as HTMLElement).tagName === "INPUT") return;
-      if (list?.items.find((x) => x.taskId === focus)?.requestedBy.id === s.me?.userId) return; // never your own request
+      const f = list?.items.find((x) => x.taskId === focus);
+      if (f?.requestedBy.id === s.me?.userId) return; // never your own request
+      if (f?.kind === "refund-approval") return; // a refund is decided with its details in view (no shortcut)
       if (e.key === "a" || e.key === "A") { e.preventDefault(); void decide(focus, "approve"); }
       if (e.key === "r" || e.key === "R") { e.preventDefault(); void decide(focus, "reject"); }
     };
@@ -71,8 +73,15 @@ export function BillApprovals() {
             <Card key={a.taskId} data-approval={a.taskId} tabIndex={0} onFocus={() => setFocus(a.taskId)} onClick={() => setFocus(a.taskId)}
               style={{ display: "flex", flexDirection: "column", gap: 8, padding: 16, outline: focus === a.taskId ? "2px solid var(--focus-ring, #4c8bf5)" : undefined }}>
               <span style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                <span data-kind={a.kind}><Pill tone={a.kind === "bill-elsewhere" ? "info" : "warn"}>{B(`appr_kind_${a.kind}`)}</Pill></span>
-                {a.kind === "discount-approval" ? (
+                <span data-kind={a.kind}><Pill tone={a.kind === "bill-elsewhere" ? "info" : a.kind === "refund-approval" ? "pend" : "warn"}>{a.refund?.kind === "return" ? B("appr_return") : B(`appr_kind_${a.kind}`)}</Pill></span>
+                {a.kind === "refund-approval" && a.refund ? (
+                  <>
+                    <b className="num" style={{ fontSize: 18 }}>{M.tk(a.amountPaisa)}</b>
+                    <span className="t-small">{B(`rf_cat_${a.refund.category}`)}</span>
+                    {a.refund.needsOwner && <Pill tone="crit" icon="shield-alert">{B("appr_needs_owner")}</Pill>}
+                    {a.refund.selfApproved && <Pill tone="warn">{B("rf_self_flag")}</Pill>}
+                  </>
+                ) : a.kind === "discount-approval" ? (
                   <>
                     <b className="num" style={{ fontSize: 18 }}>{M.tk(a.amountPaisa)}</b>
                     <span className="t-small t-muted">{B("appr_of_subtotal", { pct })}</span>
@@ -85,6 +94,14 @@ export function BillApprovals() {
               <span>{a.patient ? <>{M.name(a.patient)} · <span className="num">{a.patient.facilityNo}</span></> : (a.buyer?.name ?? "—")} · {B("total")} <span className="num">{M.tk(a.invoice.totalPaisa)}</span></span>
               <span className="t-small">{B("appr_by")}: {M.name(a.requestedBy)} · {M.dateTime(a.requestedAt)}</span>
               <span className="t-small">{B("appr_reason")}: {a.category ? `${B(`cat_${a.category}`)} — ` : ""}{a.reason}</span>
+              {a.kind === "refund-approval" && a.refund && (
+                <span className="t-small" data-testid="appr-refund">
+                  {B("appr_refund_lines", { lines: a.refund.lines.map((l) => `${s.lang === "bn" ? l.nameBn : l.nameEn}${l.units ? ` ×${s.n(l.units)}` : ""} ${M.tk(l.totalPaisa)}`).join(", ") || "—" })}
+                  {a.refund.ways.length > 0 && <> · {B("appr_ways", { ways: a.refund.ways.map((w) => `${B(`rf_way_${w.way}`)} (${B(`m_${w.method}`)} ${M.tk(w.amountPaisa)})`).join(", ") })}</>}
+                  {" · "}<Button size="sm" variant="ghost" icon="external-link" onClick={() => router.push(`/m/bill/refund?rf=${encodeURIComponent(a.refund!.id)}`)}>{B("appr_open_refund")}</Button>
+                </span>
+              )}
+              {a.kind === "refund-approval" && mine && a.status === "requested" && <span className="t-small t-muted">{B("appr_self_hint")}</span>}
               {a.kind === "discount-approval" && <span className="t-small t-muted">{B("appr_today", { name: M.name(a.requestedBy), n: a.requesterToday.count, amount: M.tk(a.requesterToday.totalPaisa) })}</span>}
               {a.status === "requested" ? (
                 <>
@@ -92,6 +109,7 @@ export function BillApprovals() {
                     <textarea className="input" name={`note-${a.taskId}`} rows={2} value={note} onChange={(e) => setNotes((x) => ({ ...x, [a.taskId]: e.target.value }))} />
                   </label>
                   <span style={{ display: "flex", gap: 8 }}>
+                    {/* a refund's own request: decided on its screen (the only approver may, with a note — decision 223) */}
                     <Button variant="primary" icon="check" data-testid="approve" disabled={busy === a.taskId || !s.online || mine} title={mine ? B("appr_own") : undefined} onClick={() => void decide(a.taskId, "approve")}>{B("appr_approve")}</Button>
                     <Button variant="danger" icon="x" data-testid="reject" disabled={busy === a.taskId || !s.online || note.trim().length < 10} onClick={() => void decide(a.taskId, "reject")}>{B("appr_reject")}</Button>
                   </span>

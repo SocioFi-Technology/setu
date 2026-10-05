@@ -9,6 +9,7 @@ import { BillOpd } from "./bill/Opd";
 import { BillPay } from "./bill/Pay";
 import { BillReceipt } from "./bill/Receipt";
 import { BillReconcile } from "./bill/Reconcile";
+import { BillRefund } from "./bill/Refund";
 import { BillShift } from "./bill/Shift";
 import { OwnerDash } from "./own/Dash";
 import { ConsultDraft } from "./cons/Draft";
@@ -57,6 +58,8 @@ const SCREENS: Record<string, ComponentType> = {
   "bill/approvals": BillApprovals,
   // billing follow-ups (ADR 0005)
   "bill/reconcile": BillReconcile,
+  // ADR 0013: refunds and returns (the pharmacist's counter reuses the screen as ph/refund)
+  "bill/refund": BillRefund,
   // slice A8–A11
   "lab/collect": LabCollect,
   "lab/accession": LabAccession,
@@ -82,6 +85,7 @@ const SCREENS: Record<string, ComponentType> = {
   "ph/pay": BillPay,
   "ph/receipt": BillReceipt,
   "ph/shift": BillShift,
+  "ph/refund": BillRefund,
   // phase 2 slice 3: admin (ADR 0010)
   "adm/wizard": AdmWizard,
   "adm/users": AdmUsers,

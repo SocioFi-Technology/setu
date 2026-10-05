@@ -677,7 +677,7 @@ export async function voucherView(tx: Tx, s: SessionData, refundId: string): Pro
   const who = await people(tx, v.prints.map((p) => p.printedById));
   return {
     voucher: { id: v.id, number: v.number, refundId: r.id, invoiceId: v.invoiceId, createdAt: v.createdAt.toISOString(), amountPaisa: v.amountPaisa, verifyUrl: refundVerifyUrl(v.verifyCode), snapshot: v.snapshot as unknown as RefundVoucherSnapshot },
-    prints: v.prints.map((p) => ({ id: p.id, copy: p.copy, reason: p.reason as RefundVoucherView["prints"][number]["reason"], format: p.format as "a5" | "thermal", lang: p.lang as "both" | "bn" | "en", printedBy: who(p.printedById), printedAt: p.printedAt.toISOString(), pdfUrl: `/api/v1/refunds/${r.id}/voucher/prints/${p.id}/pdf` })),
+    prints: v.prints.map((p) => ({ id: p.id, copy: p.copy, reason: p.reason as RefundVoucherView["prints"][number]["reason"], format: p.format as "a5" | "thermal", lang: p.lang as "both" | "bn" | "en", printedBy: who(p.printedById), printedAt: p.printedAt.toISOString(), pdfUrl: `/v1/refunds/${r.id}/voucher/prints/${p.id}/pdf` })),
   };
 }
 

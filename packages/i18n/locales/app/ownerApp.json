@@ -130,5 +130,10 @@
   "sh_done_approved": ["অনুমোদিত · সার্ভারে নিশ্চিত", "Approved · confirmed by the server"],
   "sh_done_recount": ["আবার গণনার জন্য ফেরত পাঠানো হয়েছে", "Sent back for a recount"],
   "sh_history": ["ইতিহাস", "History"],
-  "sh_my_title": ["আমার ড্রয়ার", "My drawer"]
+  "sh_my_title": ["আমার ড্রয়ার", "My drawer"],
+  "rs_requested": ["অনুমোদনের অপেক্ষায়", "Waiting for approval"],
+  "rs_approved": ["অনুমোদিত", "Approved"],
+  "rs_paid": ["দেওয়া হয়েছে", "Paid"],
+  "rs_rejected": ["প্রত্যাখ্যাত", "Rejected"],
+  "rs_withdrawn": ["প্রত্যাহার করা হয়েছে", "Withdrawn"]
 }

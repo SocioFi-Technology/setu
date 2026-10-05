@@ -67,5 +67,7 @@
   "c_full": ["পুরো নোট (ডেস্ক)", "Full note (desk)"],
   "age_y": ["{n} বছর", "{n}y"],
   "days_n": ["{n} দিন", "{n} days"],
-  "c_pick": ["সিরিয়াল থেকে একজন রোগী বেছে নিন", "Pick a patient from the queue"]
+  "c_pick": ["সিরিয়াল থেকে একজন রোগী বেছে নিন", "Pick a patient from the queue"],
+  "k_return": ["ভুল ওষুধ ফেরত এসেছে: {medicine} ({n}টি) — ওষুধ-ঘটনা", "Wrong dispense returned: {medicine} ({n}) — a medication incident"],
+  "k_return_why": ["কারণ: {reason} — {name}", "Why: {reason} — {name}"]
 }

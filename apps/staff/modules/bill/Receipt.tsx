@@ -96,6 +96,7 @@ function ReceiptScreen({ id }: { id: string }) {
         {snap.discountPaisa > 0 && <span style={{ display: "flex", justifyContent: "space-between" }}><span>{B("discount")}</span><span className="num">− {M.tk(snap.discountPaisa)}</span></span>}
         <span style={{ display: "flex", justifyContent: "space-between" }}><span>{B("vat")}</span><span className="num">{M.tk(snap.vatPaisa)}</span></span>
         <span style={{ display: "flex", justifyContent: "space-between" }}><b>{B("total")}</b><b className="num">{M.tk(r.totalPaisa)}</b></span>
+        {(snap.creditedPaisa ?? 0) > 0 && <span style={{ display: "flex", justifyContent: "space-between" }} data-testid="receipt-credited"><span>{B("r_credited")}</span><span className="num">− {M.tk(snap.creditedPaisa)}</span></span>}
         <span style={{ display: "flex", justifyContent: "space-between" }}><span>{B("paid")}</span><span className="num" data-testid="receipt-paid">{M.tk(r.paidPaisa)}</span></span>
         <span style={{ display: "flex", justifyContent: "space-between" }}><span>{B("due")}</span><span className="num">{M.tk(r.duePaisa)}</span></span>
         <span className="t-small">{B("rc_received_words")}: {M.words(r.paidPaisa)}</span>

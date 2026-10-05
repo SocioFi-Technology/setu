@@ -6,7 +6,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { BatchView, StockList } from "@setu/contracts";
 import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextField, useToast } from "@setu/ui";
-import { pharm } from "../../lib/api";
+import { pharm, refunds } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { BatchState, ClassPill, MedName, NeedsServer, toInt, useErr, useFmt, useP } from "./common";
 
@@ -18,6 +18,7 @@ export function PhStock() {
   const [list, setList] = useState<StockList | null>(null); const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [moving, setMoving] = useState<BatchView | null>(null);
+  const [releasing, setReleasing] = useState<{ b: BatchView; controlled: boolean } | null>(null);
   const ask = useRef(0); // an older answer never replaces a newer search
   const load = useCallback(async () => { const n = ++ask.current; try { const x = await pharm.stock(q.trim(), filter); if (n === ask.current) { setList(x); setFailed(false); } } catch { if (n === ask.current) setFailed(true); } }, [q, filter]);
   useEffect(() => { const t = setTimeout(() => void load(), 200); return () => clearTimeout(t); }, [load]);
@@ -58,7 +59,9 @@ export function PhStock() {
                               <td className="num">{b.batchNo}{b.sample ? <span className="t-small t-muted"> · {P("sample")}</span> : null}</td>
                               <td className="num">{F.day(b.expiry)}</td><td>{P(`loc_${b.location}`)}</td><td className="num">{F.n(b.qtyOnHand)}</td><td className="num">{F.tk(b.mrpPaisa)}</td>
                               <td><BatchState b={b} /></td>
-                              <td>{b.qtyOnHand > 0 && b.location !== "quarantine" && <Button size="sm" icon="arrow-right-left" data-testid="transfer" onClick={() => setMoving(b)}>{P("move")}</Button>}</td>
+                              <td>{b.qtyOnHand > 0 && b.location !== "quarantine" && <Button size="sm" icon="arrow-right-left" data-testid="transfer" onClick={() => setMoving(b)}>{P("move")}</Button>}
+                                {/* ADR 0013: returned medicine waits in quarantine until a pharmacist (the owner for a controlled drug) releases it */}
+                                {b.qtyOnHand > 0 && b.location === "quarantine" && b.state !== "expired" && <Button size="sm" icon="package-check" data-testid="release" onClick={() => setReleasing({ b, controlled: x.medicine.saleClass === "ctrl" })}>{P("q_release")}</Button>}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -71,9 +74,35 @@ export function PhStock() {
           </table>
         </Card>
       )}
+      <Dialog open={!!releasing} onClose={() => setReleasing(null)} label={P("q_title")}>
+        {releasing && <ReleaseForm b={releasing.b} controlled={releasing.controlled} onDone={async () => { setReleasing(null); await load(); }} />}
+      </Dialog>
       <Dialog open={!!moving} onClose={() => setMoving(null)} label={P("move_title")}>
         {moving && <MoveForm b={moving} onDone={async () => { setMoving(null); await load(); }} />}
       </Dialog>
+    </div>
+  );
+}
+
+/** Quarantine → counter: only "unopened, resaleable" with a reason; never an expired batch; a controlled drug: the owner. */
+function ReleaseForm({ b, controlled, onDone }: { b: BatchView; controlled: boolean; onDone: () => Promise<void> }) {
+  const s = useSession(); const P = useP(); const F = useFmt(); const E = useErr(); const toast = useToast();
+  const [qty, setQty] = useState(String(b.qtyOnHand)); const [reason, setReason] = useState(""); const [unopened, setUnopened] = useState(false);
+  const [busy, setBusy] = useState(false); const [key, setKey] = useState(() => crypto.randomUUID());
+  const n = toInt(qty);
+  const mayRelease = controlled ? s.me?.role === "owner" : s.me?.role === "pharmacist";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }} data-testid="release-form">
+      <span><b className="num">{b.batchNo}</b> · {P("exp")} <span className="num">{F.day(b.expiry)}</span> · {P("loc_quarantine")} · <span className="num">{F.n(b.qtyOnHand)}</span></span>
+      <span className="t-small t-muted">{P("q_hint")}</span>
+      {controlled && <Callout tone="warn" icon="shield-alert">{P("q_controlled")}</Callout>}
+      <TextField label={P("q_qty")} inputMode="numeric" value={qty} onChange={(e) => { setQty(e.target.value); setKey(crypto.randomUUID()); }} data-testid="release-qty" error={n !== null && n > b.qtyOnHand ? P("more_than_batch") : undefined} />
+      <TextField label={P("q_reason")} value={reason} onChange={(e) => { setReason(e.target.value); setKey(crypto.randomUUID()); }} data-testid="release-reason" />
+      <label className="t-small" style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={unopened} onChange={(e) => setUnopened(e.target.checked)} data-testid="release-unopened" />{P("q_unopened")}</label>
+      <Button variant="primary" icon="package-check" data-testid="release-confirm" disabled={!s.online || busy || !mayRelease || !unopened || reason.trim().length < 10 || !n || n > b.qtyOnHand}
+        onClick={async () => { setBusy(true); try { await refunds.resale({ batchId: b.id, qty: n!, unopened: true, reason: reason.trim() }, key); toast(P("q_released", { n: n! }), "check"); await onDone(); } catch (e) { toast(E(e), "triangle-alert"); setKey(crypto.randomUUID()); } finally { setBusy(false); } }}>
+        {P("q_release")}
+      </Button>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import type {
+  RefundableView, RefundRequest, RefundView, RefundDecisionRequest, RefundPayRequest, RefundPayResponse, RefundList, RefundVoucherView, RefundVoucherPrintResponse, ReconcileRefundRequest, ResaleRequest,
   FacilityView, FacilityUpdate, SettingsUpdate, UserList, UserView, UserCreate, UserCredentialResponse, PriceList, PriceCreate, PriceHistory, AuditPage, AuditQuery,
   DispenseQueue, DispenseRequest, DispenseView, OtcCreateRequest, OtcView, RxPhotoRequest, StockList, SupplierList, SupplierLedger, SupplierPaymentRequest,
   PurchaseOrderList, PurchaseOrderView, GoodsReceiptView, GrnLineRequest, StockCountView, CountList, PharmacyApprovals, TransferRequest,
@@ -130,6 +131,23 @@ export const bill = {
   verify: (code: string) => call<VerifyResponse>("GET", `/v1/verify/rc/${enc(code)}`),
   /** ADR 0011: the patient's payment result page (no login) */
   payResult: (code: string) => call<PayResultView>("GET", `/v1/pay/${enc(code)}/result`),
+};
+
+/* Refunds (ADR 0013). Refunds need a connection — never queued on this device (no outbox): every call goes to the server
+   and the screen shows its answer. `key`: the caller's Idempotency-Key (kept after a network error, renewed after a 4xx). */
+export const refunds = {
+  refundable: (invoiceId: string) => call<RefundableView>("GET", `/v1/invoices/${enc(invoiceId)}/refundable`),
+  request: (invoiceId: string, body: RefundRequest, key: string) => call<RefundView>("POST", `/v1/invoices/${enc(invoiceId)}/refunds`, body, key),
+  list: (q: { status?: string; invoiceId?: string; days?: number } = {}) => call<RefundList>("GET", `/v1/refunds?${new URLSearchParams(Object.entries(q).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])).toString()}`),
+  view: (id: string) => call<RefundView>("GET", `/v1/refunds/${enc(id)}`),
+  decide: (id: string, body: RefundDecisionRequest, key: string) => call<RefundView>("POST", `/v1/refunds/${enc(id)}/decision`, body, key),
+  pay: (id: string, body: RefundPayRequest, key: string) => call<RefundPayResponse>("POST", `/v1/refunds/${enc(id)}/pay`, body, key),
+  check: (id: string) => call<RefundView>("POST", `/v1/refunds/${enc(id)}/check`, {}, crypto.randomUUID()),
+  voucher: (id: string) => call<RefundVoucherView>("GET", `/v1/refunds/${enc(id)}/voucher`),
+  print: (id: string, body: PrintRequest, key: string) => call<RefundVoucherPrintResponse>("POST", `/v1/refunds/${enc(id)}/voucher/print`, body, key),
+  verify: (code: string) => call<VerifyResponse>("GET", `/v1/verify/rf/${enc(code)}`),
+  caseRefund: (taskId: string, body: ReconcileRefundRequest, key: string) => call<RefundView>("POST", `/v1/reconciliation/${enc(taskId)}/refund`, body, key),
+  resale: (body: ResaleRequest, key: string) => call<{ resaleId: string; fromBatchId: string; toBatchId: string; qty: number }>("POST", "/v1/pharmacy/resale", body, key),
 };
 
 /* Lab (slice A8–A11, ADR 0006). Collect / receive / start / reject go through the outbox when offline (decision D8):

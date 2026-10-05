@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ReconcileList } from "@setu/contracts";
 import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
-import { bill as api } from "../../lib/api";
+import { bill as api, refunds } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { INVOICE_TONE, PAY_TONE, useB, useErr, useMoney } from "./common";
 
@@ -21,6 +21,17 @@ export function BillReconcile() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [keys, setKeys] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
+  const [rfWay, setRfWay] = useState<Record<string, "manual" | "cash">>({});
+  const refundCase = async (taskId: string) => {
+    const reason = (notes[taskId] ?? "").trim();
+    if (reason.length < 10) return;
+    const k = keys[`${taskId}:refund`] ?? crypto.randomUUID();
+    setKeys((x) => ({ ...x, [`${taskId}:refund`]: k }));
+    setBusy(taskId);
+    const way = rfWay[taskId] ?? "manual";
+    try { const r = await refunds.caseRefund(taskId, { reason, way, ...(way === "cash" ? { cashReason: "no-wallet-access" as const } : {}) }, k); router.push(`/m/bill/refund?rf=${encodeURIComponent(r.refund.id)}`); }
+    catch (e) { toast(E(e), "triangle-alert"); await load(); } finally { setBusy(null); }
+  };
   const load = useCallback(async () => { try { setList(await api.reconciliation(tab)); setFailed(false); } catch { setFailed(true); } }, [tab]);
   useEffect(() => { s.setPatient(null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setList(null); void load(); }, [load]);
@@ -55,6 +66,12 @@ export function BillReconcile() {
                 <Button size="sm" variant="ghost" icon="external-link" onClick={() => router.push(`/m/bill/pay?inv=${encodeURIComponent(i.invoice.id)}`)}>{B("rec_bill")} {i.invoice.number ?? B("bill_draft")}</Button>
               </span>
               <span>{i.patient ? <>{M.name(i.patient)} · <span className="num">{i.patient.facilityNo}</span></> : i.buyer?.name ?? B("walk_in")}</span>
+              {i.kind === "refund" && i.refund && (
+                <Card style={{ padding: 10 }} data-testid="rec-refund">
+                  {B("rec_refund_paid", { way: B(`rf_way_${i.refund.way}`), amount: M.tk(i.refund.amountPaisa), ref: i.refund.reference ?? "—", name: M.name(i.refund.paidBy), voucher: i.refund.voucherNumber ?? "—" })}
+                  {" "}<Button size="sm" variant="ghost" icon="external-link" onClick={() => router.push(`/m/bill/refund?rf=${encodeURIComponent(i.refund!.id)}`)}>{B("appr_open_refund")}</Button>
+                </Card>
+              )}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
                 <Card style={{ padding: 10 }} data-testid="rec-reported">
                   <span className="t-small t-muted">{B("rec_reported")}</span><br />
@@ -79,13 +96,27 @@ export function BillReconcile() {
                     <textarea className="input" name={`rec-note-${i.taskId}`} rows={2} value={note} onChange={(e) => setNotes((x) => ({ ...x, [i.taskId]: e.target.value }))} />
                   </label>
                   <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <Button variant="primary" icon="check" data-testid="rec-apply" disabled={busy === i.taskId || !s.online || i.applyBlockers.length > 0} onClick={() => void decide(i.taskId, "apply")}>{B("rec_apply")}</Button>
+                    <Button variant="primary" icon="check" data-testid="rec-apply" disabled={busy === i.taskId || !s.online || i.applyBlockers.length > 0} onClick={() => void decide(i.taskId, "apply")}>{i.kind === "refund" ? B("rec_match") : B("rec_apply")}</Button>
                     <Button icon="file-check" data-testid="rec-resolve" disabled={busy === i.taskId || !s.online || note.trim().length < 10} onClick={() => void decide(i.taskId, "resolve")}>{B("rec_resolve")}</Button>
                   </span>
+                  {i.kind === "payment" && (
+                    // ADR 0013: the money goes back to the patient — a refund for exactly what the gateway confirms, for someone else to approve
+                    <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }} data-testid="rec-refund-patient">
+                      <span className="t-small t-muted">{B("rec_refund_hint")}</span>
+                      <select name={`rec-way-${i.taskId}`} className="input" aria-label={B("rec_way")} value={rfWay[i.taskId] ?? "manual"} onChange={(e) => setRfWay((x) => ({ ...x, [i.taskId]: e.target.value as "manual" | "cash" }))}>
+                        <option value="manual">{B("rf_way_manual")}</option>
+                        <option value="cash">{B("rf_way_cash")} — {B("rf_cr_no-wallet-access")}</option>
+                      </select>
+                      <Button icon="undo-2" data-testid="rec-refund" disabled={busy === i.taskId || !s.online || note.trim().length < 10} onClick={() => void refundCase(i.taskId)}>{B("rec_refund_patient")}</Button>
+                    </span>
+                  )}
                 </>
               ) : i.resolution && (
                 <span className="t-small" data-testid="rec-outcome">
-                  {i.resolution.action === "applied" ? B("rec_applied", { by: M.name(i.resolution.by), at: M.dateTime(i.resolution.at) }) : B("rec_resolved", { by: M.name(i.resolution.by), at: M.dateTime(i.resolution.at), note: i.resolution.note ?? "" })}
+                  {i.resolution.action === "applied" ? B("rec_applied", { by: M.name(i.resolution.by), at: M.dateTime(i.resolution.at) })
+                    : i.resolution.action === "matched" ? B("rec_matched", { by: M.name(i.resolution.by), at: M.dateTime(i.resolution.at) })
+                    : i.resolution.action === "refunded" ? B("rec_refunded", { by: M.name(i.resolution.by), at: M.dateTime(i.resolution.at) })
+                    : B("rec_resolved", { by: M.name(i.resolution.by), at: M.dateTime(i.resolution.at), note: i.resolution.note ?? "" })}
                 </span>
               )}
             </Card>

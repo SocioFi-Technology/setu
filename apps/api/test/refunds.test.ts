@@ -189,7 +189,7 @@ describe.runIf(db)("a cancelled test refunded in cash (bill/refund)", () => {
     expect(ok(await post(`/v1/refunds/${r.refund.id}/voucher/print`, { format: "thermal", lang: "bn" }), 409).code).toBe("reprint_needs_reason");
     const p1 = ok(await post(`/v1/refunds/${r.refund.id}/voucher/print`, { format: "thermal", lang: "bn", reason: "lost" }), 201);
     expect(p1.print).toMatchObject({ copy: 1, reason: "lost" });
-    const pdf = await app.inject({ method: "GET", url: `/v1${p1.print.pdfUrl.replace(/^\/api\/v1/, "")}`, headers: { cookie: cookies.cashier! } });
+    const pdf = await app.inject({ method: "GET", url: p1.print.pdfUrl, headers: { cookie: cookies.cashier! } });
     expect(pdf.statusCode, pdf.body.slice(0, 200)).toBe(200);
     expect(pdf.headers["content-type"]).toBe("application/pdf");
     expect(pdf.headers["content-disposition"]).toContain("DUPLICATE-1");
