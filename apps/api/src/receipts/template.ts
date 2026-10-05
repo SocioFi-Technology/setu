@@ -92,6 +92,8 @@ export function receiptHtml(i: TemplateInput): string {
     ...(s.discountPaisa > 0 ? [[L("r_discount"), `− ${tk(s.discountPaisa)}`]] : []),
     [L("r_vat"), tk(s.vatPaisa)],
     [L("r_total"), tk(s.totalPaisa), "strong"],
+    // decision 221: returned medicine credited off the bill
+    ...((s.creditedPaisa ?? 0) > 0 ? [[L("r_credited"), `− ${tk(s.creditedPaisa)}`]] : []),
     [L("r_paid"), tk(s.paidPaisa)],
     [L("r_due"), tk(s.duePaisa)],
   ].map(([k, v, cls]) => `<tr class="${cls ?? ""}"><td>${esc(k)}</td><td class="r num">${esc(v)}</td></tr>`).join("");

@@ -29,6 +29,11 @@ import { notFound } from "./frontdesk.js";
 import { deliverInApp } from "./lab.js";
 import { batchFor } from "./purchasing.js";
 import { newVerifyCode } from "./receipts.js";
+import { storage } from "../adapters/storage.js";
+import { htmlToPdf } from "../receipts/pdf.js";
+import { voucherHtml } from "../receipts/voucher.js";
+import { randomBytes } from "node:crypto";
+import type { PrintRequest } from "@setu/contracts";
 import { toVitalsEncounter } from "./vitals.js";
 
 export const REFUND_TASK = "refund-approval";
@@ -674,6 +679,33 @@ export async function voucherView(tx: Tx, s: SessionData, refundId: string): Pro
     voucher: { id: v.id, number: v.number, refundId: r.id, invoiceId: v.invoiceId, createdAt: v.createdAt.toISOString(), amountPaisa: v.amountPaisa, verifyUrl: refundVerifyUrl(v.verifyCode), snapshot: v.snapshot as unknown as RefundVoucherSnapshot },
     prints: v.prints.map((p) => ({ id: p.id, copy: p.copy, reason: p.reason as RefundVoucherView["prints"][number]["reason"], format: p.format as "a5" | "thermal", lang: p.lang as "both" | "bn" | "en", printedBy: who(p.printedById), printedAt: p.printedAt.toISOString(), pdfUrl: `/api/v1/refunds/${r.id}/voucher/prints/${p.id}/pdf` })),
   };
+}
+
+/** The original print, or a duplicate with a reason (like a receipt): rendered, stored once, logged. */
+export async function printVoucher(tx: Tx, s: SessionData, refundId: string, req: PrintRequest, now: Date) {
+  const r = await refundHere(tx, s, refundId);
+  await invoiceHere(tx, s, r.invoiceId, true); // the bill's lock serialises two prints; unique (voucherId, copy) is the backstop
+  const v = await tx.refundVoucher.findFirst({ where: { refundId: r.id } });
+  if (!v) throw err(404, "no_voucher", "এই রিফান্ড এখনও দেওয়া হয়নি — ভাউচার নেই", "This refund is not paid yet — there is no voucher");
+  const copy = await tx.refundVoucherPrint.count({ where: { voucherId: v.id } });
+  if (copy > 0 && !req.reason) throw err(409, "reprint_needs_reason", "আবার প্রিন্টের কারণ বেছে নিন", "Choose a reason to reprint", { field: "reason" });
+  if (copy === 0 && req.reason) throw err(409, "not_printed_yet", "মূল ভাউচার এখনও প্রিন্ট হয়নি", "The original has not been printed yet", { field: "reason" });
+  const me = await tx.user.findFirst({ where: { id: s.userId }, select: { nameBn: true, nameEn: true } });
+  const html = voucherHtml({ snapshot: v.snapshot as unknown as RefundVoucherSnapshot, number: v.number, createdAt: v.createdAt, verifyUrl: refundVerifyUrl(v.verifyCode), format: req.format, lang: req.lang,
+    print: { copy, reason: req.reason ?? null, printedAt: now, printedBy: { nameBn: me?.nameBn ?? "—", nameEn: me?.nameEn ?? "—" } } });
+  const pdf = await htmlToPdf(html, req.format);
+  const storageKey = `tenants/${s.tenantId}/refund-vouchers/${v.id}/${copy}-${req.format}-${req.lang}-${randomBytes(4).toString("hex")}.pdf`;
+  const print = await tx.refundVoucherPrint.create({ data: { tenantId: s.tenantId, voucherId: v.id, copy, reason: req.reason ?? null, format: req.format, lang: req.lang, storageKey, printedById: s.userId, printedAt: now } });
+  await storage.put(storageKey, pdf, "application/pdf");
+  return { print, voucher: v, patientId: r.patientId };
+}
+export async function voucherPdf(tx: Tx, s: SessionData, refundId: string, printId: string) {
+  const r = await refundHere(tx, s, refundId);
+  const print = await tx.refundVoucherPrint.findFirst({ where: { id: printId, voucher: { refundId: r.id } }, include: { voucher: { select: { number: true } } } });
+  if (!print) throw notFound();
+  const bytes = await storage.get(print.storageKey);
+  if (!bytes) throw err(410, "file_missing", "ফাইলটি পাওয়া যায়নি", "The stored file is missing");
+  return { bytes, print, patientId: r.patientId };
 }
 
 /* ───── the single Approvals queue: refund items ───── */

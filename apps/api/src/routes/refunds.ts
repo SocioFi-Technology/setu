@@ -6,12 +6,12 @@
    transaction of its own; the public voucher check has no session and shows facility, number, date and amount only. */
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { ReconcileRefundRequest, RefundDecisionRequest, RefundListQuery, RefundPayRequest, RefundRequest, ResaleRequest, VerifyCode, type RefundableView, type RefundList, type RefundPayResponse, type RefundVoucherView, type RefundView, type VerifyResponse } from "@setu/contracts";
+import { PrintRequest, ReconcileRefundRequest, type RefundVoucherPrintResponse, RefundDecisionRequest, RefundListQuery, RefundPayRequest, RefundRequest, ResaleRequest, VerifyCode, type RefundableView, type RefundList, type RefundPayResponse, type RefundVoucherView, type RefundView, type VerifyResponse } from "@setu/contracts";
 import { authorize } from "@setu/domain";
 import { command, query } from "../command.js";
 import { config } from "../config.js";
 import { err, forbidden } from "../errors.js";
-import { askGateway, checkRefund, decideRefund, payRefund, refundableView, refundHere, refundList, refundView, requestCaseRefund, requestRefund, resale, settleClaimed, voucherView } from "../modules/refunds.js";
+import { askGateway, checkRefund, decideRefund, payRefund, printVoucher, refundableView, refundHere, refundList, refundView, requestCaseRefund, requestRefund, resale, settleClaimed, voucherPdf, voucherView } from "../modules/refunds.js";
 import { requireSession } from "../plugins/session.js";
 import { clientKey } from "./billing.js";
 
@@ -124,6 +124,30 @@ export async function refundRoutes(app: FastifyInstance) {
       const v = await voucherView(tx, s, id);
       return { body: v, audit: [{ action: "view", entity: "RefundVoucher", entityId: v.voucher.id, detail: { refundId: id, number: v.voucher.number } }] };
     });
+  });
+
+  app.post("/v1/refunds/:id/voucher/print", { config: { ownTx: true } }, async (req, reply): Promise<RefundVoucherPrintResponse> => {
+    requireRefund(req, "use");
+    const { id } = pid.parse(req.params);
+    const body = PrintRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => {
+      const p = await printVoucher(tx, s, id, body, new Date());
+      const view = await voucherView(tx, s, id);
+      return { status: 201, body: { print: view.prints.find((x) => x.id === p.print.id)!, view }, audit: [{
+        action: p.print.copy === 0 ? "print" : "reprint", entity: "RefundVoucher", entityId: p.voucher.id, patientId: p.patientId,
+        detail: { number: p.voucher.number, copy: p.print.copy, reason: p.print.reason, format: p.print.format, lang: p.print.lang },
+      }] };
+    }, { txTimeoutMs: 30_000 });
+  });
+  app.get("/v1/refunds/:id/voucher/prints/:printId/pdf", async (req, reply) => {
+    requireRefund(req, "use");
+    const { id, printId } = z.object({ id: z.string().min(1).max(80), printId: z.string().min(1).max(80) }).parse(req.params);
+    const r = await query(req, async (tx, s) => {
+      const x = await voucherPdf(tx, s, id, printId);
+      return { body: x, audit: [{ action: "view", entity: "RefundVoucherPrint", entityId: printId, patientId: x.patientId, detail: { refundId: id, copy: x.print.copy } }] };
+    });
+    const fileName = `${r.print.voucher.number.replace(/\//g, "-")}${r.print.copy ? `-DUPLICATE-${r.print.copy}` : ""}.pdf`;
+    return reply.header("content-type", "application/pdf").header("content-disposition", `inline; filename="${fileName}"`).header("cache-control", "no-store").send(Buffer.from(r.bytes));
   });
 
   /* ── reconciliation → refund to patient (owner) ── */

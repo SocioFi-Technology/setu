@@ -255,5 +255,13 @@
   "as_approved": ["অনুমোদিত", "Approved"],
   "as_rejected": ["প্রত্যাখ্যাত", "Rejected"],
   "print_label": ["লেবেল ছাপুন", "Print label"],
-  "print_labels_n": ["{n}টি লেবেল ছাপুন ({w} × {h} মিমি)", "Print {n} label(s) ({w} × {h} mm)"]
+  "print_labels_n": ["{n}টি লেবেল ছাপুন ({w} × {h} মিমি)", "Print {n} label(s) ({w} × {h} mm)"],
+  "q_release": ["কাউন্টারে ফেরত দিন", "Release to counter"],
+  "q_title": ["ফেরত ওষুধ আবার বিক্রির জন্য", "Returned medicine back on sale"],
+  "q_unopened": ["খোলা হয়নি ও বিক্রয়যোগ্য — আমি নিশ্চিত", "Unopened and resaleable — I have checked"],
+  "q_reason": ["কারণ (অন্তত ১০ অক্ষর)", "Reason (at least 10 characters)"],
+  "q_qty": ["সংখ্যা", "Units"],
+  "q_released": ["{n}টি কাউন্টারে ফেরত গেল", "{n} back at the counter"],
+  "q_controlled": ["নিয়ন্ত্রিত ওষুধ — শুধু মালিক কাউন্টারে ফেরত দিতে পারেন", "A controlled drug — only the owner releases it to the counter"],
+  "q_hint": ["কোয়ারেন্টাইনের ওষুধ বিক্রি হয় না। মেয়াদোত্তীর্ণ হলে কাউন্টারে যায় না।", "Quarantined medicine is never sold. An expired batch never goes to the counter."]
 }

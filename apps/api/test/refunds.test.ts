@@ -181,8 +181,19 @@ describe.runIf(db)("a cancelled test refunded in cash (bill/refund)", () => {
     expect(pub.statusCode, pub.body).toBe(200);
     expect(pub.json()).toEqual({ facilityEn: expect.any(String), facilityBn: expect.anything(), number: paid.view.refund.voucher.number, date: expect.any(String), amountPaisa: 15_000 });
     expect((await app.inject({ method: "GET", url: "/v1/verify/rf/ZZZZZZZZZZZZZZZZZZZZ" })).statusCode).toBe(404);
-    // a replayed pay answers the same and pays nothing twice
     expect(await inTenant((tx) => tx.refundVoucher.count({ where: { refundId: r.refund.id } }))).toBe(1);
+    // printed like a receipt: the original, then only with a reason as DUPLICATE #1; each print stored and audited
+    expect(ok(await post(`/v1/refunds/${r.refund.id}/voucher/print`, { format: "a5", lang: "both", reason: "lost" }), 409).code).toBe("not_printed_yet");
+    const p0 = ok(await post(`/v1/refunds/${r.refund.id}/voucher/print`, { format: "a5", lang: "both" }), 201);
+    expect(p0.print).toMatchObject({ copy: 0, reason: null });
+    expect(ok(await post(`/v1/refunds/${r.refund.id}/voucher/print`, { format: "thermal", lang: "bn" }), 409).code).toBe("reprint_needs_reason");
+    const p1 = ok(await post(`/v1/refunds/${r.refund.id}/voucher/print`, { format: "thermal", lang: "bn", reason: "lost" }), 201);
+    expect(p1.print).toMatchObject({ copy: 1, reason: "lost" });
+    const pdf = await app.inject({ method: "GET", url: `/v1${p1.print.pdfUrl.replace(/^\/api\/v1/, "")}`, headers: { cookie: cookies.cashier! } });
+    expect(pdf.statusCode, pdf.body.slice(0, 200)).toBe(200);
+    expect(pdf.headers["content-type"]).toBe("application/pdf");
+    expect(pdf.headers["content-disposition"]).toContain("DUPLICATE-1");
+    expect(await inTenant((tx) => tx.auditEvent.count({ where: { entity: "RefundVoucher", entityId: v.voucher.id, action: { in: ["print", "reprint"] } } }))).toBe(2);
   });
 
   it("a partly paid bill whose money all went back can be voided (ADR 0005 addendum)", { timeout: 30_000 }, async () => {
