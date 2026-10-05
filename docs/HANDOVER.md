@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); next: see Next)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 session 1 done (06/10/2026); next: see Next)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -976,6 +976,26 @@ frequency are unchanged (9).
   line shows what errored doses put back since the location's last decided count; an approved variance on a controlled
   drug (any location) writes a `count-adjust` register line. `pnpm db:reset-e2e` also rejects the Lite hospital's open
   counts.
+
+## Done (slice B5–B6, session 1 of 2, 06/10/2026) — scans, intake/output, care tasks, shift handover (backend) ✅
+ADR 0016. Kamrul's plan decisions: the ten defaults with changes — no scan override for high-alert or controlled
+drugs, override counts per nurse on the owner's exceptions (5); the whole-ward handover lists every patient with NEWS2,
+open escalations and due doses, and cannot be accepted over an unacknowledged escalation the note does not name (10).
+- **Domain (`nursing.ts`; 408 tests):** scanBlockers, the wristband / batch-label codes, ioBlockers, shiftDay, ioTotals,
+  nextCareDue, taskOverdue, currentShift, handoverSignBlockers / handoverAcceptBlockers; machines CARE_TASK, HANDOVER.
+- **Database:** dose scans (scanBandAt, scanMedBatchId, scanOverrideReason; the guard refuses a given dose without them
+  or an override, and any override on high-alert / controlled); IntakeOutputEntry, CareTask, Handover, HandoverPatient,
+  WristbandPrint; facility shift settings. Guards for each; row-level security; nothing deleted.
+- **Routes:** `/v1/nursing/encounters/:id/wristband`, `…/io`, `/v1/nursing/io/:id/entered-in-error`, `…/tasks`,
+  `/v1/nursing/tasks/:id/{complete,cancel}`, `/v1/nursing/wards/:id/handover`, `/v1/nursing/handovers/:id/…`; the dose
+  route verifies scans; ward board (24 h balance, overdue tasks, nurse on duty), round view (I/O, tasks); owner
+  `scanOverride` leakage + drill per nurse; ward batch labels on indent issues and ward stock.
+- **Seed:** the inpatient's intake/output and two care tasks. **Tests:** api b5b6 8 (new), mar 18, ward 15; domain 408.
+- **Fixed on the way:** the pharmacy's issued-indent list showed the oldest 100 (new issues fell off it).
+- **Known until session 2:** the MAR screen does not send scans yet, so `journeys/b3-b4.spec.ts` (B6 doses) and
+  `walk-ward.mjs` fail on given doses; session 2 adds the scan fields to the dose dialog, the wristband print, I/O and
+  care plan tabs, the handover screen, `journeys/b5-b6.spec.ts`, reviews and the hands-on walk. Do not push session 1
+  alone (CI's journeys would fail) — or push with session 2.
 
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).

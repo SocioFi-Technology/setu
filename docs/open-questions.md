@@ -1120,3 +1120,30 @@ Commit after each step, push at the end of each session.
   Admin › Masters, else every active doctor). Built on every NEWS2 escalation, not only red ones — say if it should be
   narrowed.
 
+## Slice B5–B6, session 1 (rules, database, contracts, routes, tests) — 06/10/2026
+### Decided by Kamrul (06/10/2026, the plan) — the ten defaults, with changes
+270. Scanners: keyboard-wedge and the browser camera where available; no new dependency — accepted.
+271. Medicine scan: our own ward-batch QR label (`SETU-MB1.<batch>`), printed with the indent issue — accepted.
+272. Patient's own supply: the wristband only — accepted.  273. No scans for held / refused / missed — accepted.
+274. **Override:** "scanner not working" with a reason (≥10), flagged — **never for a high-alert or controlled drug**
+     (both scans, no override); override counts per nurse on the owner's exceptions list (`scanOverride`). Built.
+275. IV fluids on the MAR are not added to intake automatically — accepted.
+276. Shift day 08:00–08:00, shifts 08:00 / 14:00 / 20:00 Dhaka — facility settings, samples. Built.
+277. Care tasks written by nurses and doctors, ticked by nurses — accepted.  278. Handover query back to draft — accepted.
+279. **Whole-ward handover:** every patient with latest NEWS2, open escalations and due doses; **cannot be accepted while
+     an unacknowledged escalation exists unless the acceptance note names it** (bed or patient number). Built.
+
+### Decided in the session (defaults — Kamrul to confirm)
+- The handover rule (279) and escalation reach apply to **every** unacknowledged NEWS2 escalation, not only red ones.
+- A wrong scan (another patient's band, a forged band, another medicine's label, a label from another ward, expired)
+  is refused even with an override reason, and audited in its own transaction (it survives the refusal).
+- The batch whose label was scanned is the one the dose takes stock from (then first-expiry).
+- When nothing of the medicine is on the ward there is no label to scan: the dose is refused as "scan the medicine"
+  (indent first) before the stock check.
+- The wristband is signed with `WRISTBAND_SECRET` (defaults to the session secret — rotating it invalidates printed
+  bands; production should set its own). A reprint needs a reason; every print is recorded.
+- A patient who leaves the ward while the handover is a draft is marked reviewed with "Left the ward"; a patient
+  admitted before signing joins the sheet and must be reviewed. A query clears the outgoing signature.
+- Handovers are never deleted, so a test run within the same shift reuses that shift's handover (session 2's spec
+  plans for it).
+
