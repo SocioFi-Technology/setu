@@ -44,8 +44,8 @@ describe("KPI change and its judgement (issue #23: real, varied changes)", () =>
   });
   it("tiles whose data comes with a later module say so instead of showing a number", () => {
     const later = KPIS.filter((k) => k.comesWith).map((k) => [k.key, k.comesWith]);
-    expect(later).toEqual([["deposits", "ipd"], ["refunds", "refunds"], ["sharePayable", "ledger"]]);
+    expect(later).toEqual([["deposits", "ipd"], ["sharePayable", "ledger"]]);
     // pharmacy session 2: the stock and supplier tiles are live
-    expect(KPIS.filter((k) => !k.comesWith).map((k) => k.key)).toEqual(["revenue", "collections", "dues", "discounts", "supplierDues", "stockValue", "nearExpiry"]);
+    expect(KPIS.filter((k) => !k.comesWith).map((k) => k.key)).toEqual(["revenue", "collections", "dues", "discounts", "refunds", "supplierDues", "stockValue", "nearExpiry"]);
   });
 });

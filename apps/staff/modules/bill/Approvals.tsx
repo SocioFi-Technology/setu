@@ -82,7 +82,7 @@ export function BillApprovals() {
                 <span style={{ marginLeft: "auto" }} />
                 <Button size="sm" variant="ghost" icon="external-link" onClick={() => router.push(billHref(a.invoice))}>{B("appr_bill")} {a.invoice.number ?? B("bill_draft")}</Button>
               </span>
-              <span>{M.name(a.patient)} · <span className="num">{a.patient.facilityNo}</span> · {B("total")} <span className="num">{M.tk(a.invoice.totalPaisa)}</span></span>
+              <span>{a.patient ? <>{M.name(a.patient)} · <span className="num">{a.patient.facilityNo}</span></> : (a.buyer?.name ?? "—")} · {B("total")} <span className="num">{M.tk(a.invoice.totalPaisa)}</span></span>
               <span className="t-small">{B("appr_by")}: {M.name(a.requestedBy)} · {M.dateTime(a.requestedAt)}</span>
               <span className="t-small">{B("appr_reason")}: {a.category ? `${B(`cat_${a.category}`)} — ` : ""}{a.reason}</span>
               {a.kind === "discount-approval" && <span className="t-small t-muted">{B("appr_today", { name: M.name(a.requestedBy), n: a.requesterToday.count, amount: M.tk(a.requesterToday.totalPaisa) })}</span>}

@@ -9,13 +9,16 @@ import type { AuditEntry } from "../command.js";
 import { pendingPharmacyApprovals } from "./purchasing.js";
 import type { SessionData } from "../plugins/session.js";
 
-/** 2: the cash variance is stored as short and over separately (money-controls review H3); older rows are recomputed. */
-export const ROLLUP_VERSION = 2;
+/** 2: the cash variance is stored as short and over separately (money-controls review H3); 3: refunds (ADR 0013) —
+    older rows are recomputed. */
+export const ROLLUP_VERSION = 3;
 export interface DayMetrics {
   revenuePaisa: number; revenueByHour: number[]; collectionsPaisa: number; collectionsByHour: number[]; byMethod: Record<string, number>;
   discountsPaisa: number; duesPaisa: number; opdVisits: number; noShows: number; labTests: number; labTatMinutesSum: number;
   cashVariancePaisa: number; cashShortPaisa: number; cashOverPaisa: number; shiftsWithVariance: number; reprints: number;
   discountAbovePolicy: { count: number; paisa: number }; notBilledHere: { count: number; paisa: number }; cashOutsideShift: { count: number; paisa: number };
+  /** ADR 0013: money paid back that day (allocations paid), refunds completed that day, wrong-dispense returns that day */
+  refundsPaisa: number; refundsPaid: { count: number; paisa: number }; medicationIncident: { count: number; paisa: number };
 }
 /** Dhaka day D runs from D 00:00 +06 to D+1 00:00 +06. */
 export const dayBounds = (day: string) => { const from = new Date(Date.parse(`${day}T00:00:00+06:00`)); return { from, to: new Date(from.getTime() + 864e5) }; };
@@ -75,7 +78,18 @@ export async function computeDay(tx: Tx, organizationId: string, day: string, un
       AND NOT EXISTS (SELECT 1 FROM "Shift" s LEFT JOIN "ShiftCount" c ON c."id" = s."latestCountId"
         WHERE s."organizationId" = p."organizationId" AND s."cashierId" = p."createdById" AND s."openedAt" <= p."confirmedAt"
           AND (s."status" = 'open' OR c."windowTo" >= p."confirmedAt"))`;
+  // ADR 0013: refunds — money out by the day it was paid back; refunds completed; wrong-dispense returns (medication incidents)
+  const [rf] = await tx.$queryRaw<{ out: bigint; n: bigint; paisa: bigint; inc: bigint; incPaisa: bigint }[]>`
+    SELECT (SELECT coalesce(sum(a."amountPaisa"), 0) FROM "RefundAllocation" a JOIN "Refund" r ON r."id" = a."refundId"
+             WHERE r."organizationId" = ${org} AND a."status" = 'paid' AND a."paidAt" >= ${from} AND a."paidAt" < ${to}) AS out,
+           (SELECT count(*) FROM "Refund" WHERE "organizationId" = ${org} AND "status" = 'paid' AND "paidAt" >= ${from} AND "paidAt" < ${to}) AS n,
+           (SELECT coalesce(sum("amountPaisa"), 0) FROM "Refund" WHERE "organizationId" = ${org} AND "status" = 'paid' AND "paidAt" >= ${from} AND "paidAt" < ${to}) AS paisa,
+           (SELECT count(*) FROM "MedicationDispense" d JOIN "RefundLine" l ON l."id" = d."refundLineId" JOIN "Refund" r ON r."id" = l."refundId"
+             WHERE d."organizationId" = ${org} AND d."action" = 'return' AND r."category" = 'wrong-dispense' AND d."at" >= ${from} AND d."at" < ${to}) AS inc,
+           (SELECT coalesce(sum(l."totalPaisa"), 0) FROM "MedicationDispense" d JOIN "RefundLine" l ON l."id" = d."refundLineId" JOIN "Refund" r ON r."id" = l."refundId"
+             WHERE d."organizationId" = ${org} AND d."action" = 'return' AND r."category" = 'wrong-dispense' AND d."at" >= ${from} AND d."at" < ${to}) AS "incPaisa"`;
   return {
+    refundsPaisa: n(rf?.out), refundsPaid: { count: n(rf?.n), paisa: n(rf?.paisa) }, medicationIncident: { count: n(rf?.inc), paisa: n(rf?.incPaisa) },
     revenuePaisa: hours(rev).reduce((a, b) => a + b, 0), revenueByHour: hours(rev),
     collectionsPaisa: hours(col).reduce((a, b) => a + b, 0), collectionsByHour: hours(col),
     byMethod: Object.fromEntries(methods.map((m) => [m.method, n(m.paisa)])),
@@ -163,6 +177,7 @@ export async function dashboard(tx: Tx, s: SessionData, period: Period, now: Dat
   const last = (days: string[]) => days[days.length - 1]!;
   const values: Partial<Record<KpiKey, { cur: number; prev: number }>> = {
     revenue: money((x) => x.revenueByHour), collections: money((x) => x.collectionsByHour), discounts: plain((x) => x.discountsPaisa),
+    refunds: plain((x) => x.refundsPaisa ?? 0),
     dues: { cur: m.get(last(p.days))?.duesPaisa ?? 0, prev: m.get(last(p.previous))?.duesPaisa ?? 0 },
   };
   // compared with the same moment last week (today) or the start of the period (7 / 30 days)
@@ -200,23 +215,36 @@ export async function dashboard(tx: Tx, s: SessionData, period: Period, now: Dat
     { kind: "discountAbovePolicy" as const, ...leak((x) => x.discountAbovePolicy), severity: "review" as const },
     { kind: "reprints" as const, count: sumBy(m, p.days, (x) => x.reprints), paisa: 0, severity: "review" as const },
     { kind: "notBilledHere" as const, ...leak((x) => x.notBilledHere), severity: "review" as const },
+    // ADR 0013: refunds paid (with reason and approver in the list), wrong-dispense returns, and — now — refunds paid by
+    // hand that the owner has not matched to a statement yet
+    { kind: "refundsPaid" as const, ...leak((x) => x.refundsPaid ?? { count: 0, paisa: 0 }), severity: "review" as const },
+    { kind: "medicationIncident" as const, ...leak((x) => x.medicationIncident ?? { count: 0, paisa: 0 }), severity: "high" as const },
+    { kind: "manualRefundUnchecked" as const, ...(await uncheckedRefunds(tx, s.organizationId)), severity: "high" as const },
   ];
   // approval tasks point at a bill, reconciliation tasks at a payment: counted for this facility only (review #5)
   const [[appr], shiftsClosed, [rec], staleShifts] = await Promise.all([
-    tx.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM "Task" t JOIN "Invoice" i ON i."id" = t."focusId" WHERE t."kind" IN ('discount-approval', 'bill-elsewhere') AND t."status" = 'requested' AND i."organizationId" = ${s.organizationId}`,
+    tx.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM "Task" t JOIN "Invoice" i ON i."id" = t."focusId" WHERE t."kind" IN ('discount-approval', 'bill-elsewhere', 'refund-approval') AND t."status" = 'requested' AND i."organizationId" = ${s.organizationId}`,
     tx.shift.count({ where: { organizationId: s.organizationId, status: "closed" } }),
     tx.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM "Task" t JOIN "Payment" p ON p."id" = t."focusId" WHERE t."kind" = 'payment-reconciliation' AND t."status" = 'requested' AND p."organizationId" = ${s.organizationId}`,
     // never handed over: open for more than 12 hours (money-controls review M5)
     tx.shift.count({ where: { organizationId: s.organizationId, status: "open", openedAt: { lt: new Date(now.getTime() - 12 * 3600_000) } } }),
   ]);
   // one approval queue (Kamrul 03/10/2026): the pharmacy's orders above the limit, owner-only receipts and counts too
-  const approvals = Number(appr?.n ?? 0) + await pendingPharmacyApprovals(tx, s, now), reconcile = Number(rec?.n ?? 0);
+  const approvals = Number(appr?.n ?? 0) + await pendingPharmacyApprovals(tx, s, now), reconcile = Number(rec?.n ?? 0) + (await uncheckedRefunds(tx, s.organizationId)).count;
   return {
     period, days: p.days, previousDays: p.previous, uptoHour: H, asOf: now.toISOString(), kpis, ops, series,
     byMethod: (["cash", "bkash", "nagad", "card", "bank"] as const).map((method) => ({ method, paisa: byMethodTotals.get(method) ?? 0 })),
     leakage, pending: { approvals, shifts: shiftsClosed, reconcile, staleShifts }, missingDays: missing,
     cash: { shortPaisa: short, overPaisa: over, shiftsWithVariance: variance.count },
   };
+}
+
+/** ADR 0013: refunds paid by hand (or card / bank paid back in cash) the owner has not checked against a statement yet. */
+async function uncheckedRefunds(tx: Tx, organizationId: string) {
+  const [x] = await tx.$queryRaw<{ n: bigint; paisa: bigint }[]>`
+    SELECT count(*) AS n, coalesce(sum(a."amountPaisa"), 0) AS paisa FROM "Task" t JOIN "RefundAllocation" a ON a."id" = t."focusId" JOIN "Refund" r ON r."id" = a."refundId"
+    WHERE t."kind" = 'refund-reconciliation' AND t."status" = 'requested' AND r."organizationId" = ${organizationId}`;
+  return { count: n(x?.n), paisa: n(x?.paisa) };
 }
 
 /* ───── the list behind a number (C1, C2): live from the source tables, audited ───── */
@@ -331,6 +359,39 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
       HAVING sum(CASE WHEN e."kind" = 'goods-received' THEN e."amountPaisa" ELSE -e."amountPaisa" END) <> 0 ORDER BY 3 DESC`;
     count = owed.length; totalPaisa = owed.reduce((a, x) => a + Number(x.owed), 0);
     rows = owed.slice(0, DRILL_ROWS).map((x) => ({ id: x.id, at: x.last.toISOString(), number: x.name, patient: null, amountPaisa: Number(x.owed), by: null, approvedBy: null, detail: null, link: null }));
+  } else if (what === "refunds" || what === "refundsPaid") {
+    // ADR 0013: refunds — money paid back in the period (by the day each part was paid) / refunds completed in the period;
+    // every row with its reason, who asked and who approved; withdrawn is its own state, never "rejected"
+    const allocs = what === "refunds" ? await tx.refundAllocation.findMany({ where: { status: "paid", paidAt: { gte: from, lt: to }, refund: { organizationId: org } }, select: { refundId: true, amountPaisa: true } }) : [];
+    const where = what === "refunds" ? { id: { in: [...new Set(allocs.map((a) => a.refundId))] } } : { organizationId: org, status: "paid" as const, paidAt: { gte: from, lt: to } };
+    const list = await tx.refund.findMany({ where, include: { invoice: { select: { number: true, id: true } }, voucher: { select: { number: true } } }, orderBy: { requestedAt: "desc" } });
+    const amount = (r: (typeof list)[number]) => (what === "refunds" ? allocs.filter((a) => a.refundId === r.id).reduce((x, a) => x + a.amountPaisa, 0) : r.amountPaisa);
+    count = list.length; totalPaisa = list.reduce((x, r) => x + amount(r), 0);
+    const shown = list.slice(0, DRILL_ROWS);
+    const P = await patients(shown.map((r) => r.patientId));
+    const W = await people(shown.flatMap((r) => [r.requestedById, r.decidedById]));
+    rows = shown.map((r) => ({ id: r.id, at: (r.paidAt ?? r.requestedAt).toISOString(), number: r.voucher?.number ?? r.invoice.number, patient: P(r.patientId), amountPaisa: amount(r), by: W(r.requestedById), approvedBy: W(r.decidedById),
+      detail: `${r.category} — ${r.reason}`, link: { kind: "refund" as const, id: r.id }, status: r.status }));
+  } else if (what === "manualRefundUnchecked") {
+    const tasks = await tx.task.findMany({ where: { kind: "refund-reconciliation", status: "requested" }, orderBy: { requestedAt: "desc" } });
+    const allocs = await tx.refundAllocation.findMany({ where: { id: { in: tasks.flatMap((t) => (t.focusId ? [t.focusId] : [])) }, refund: { organizationId: org } }, include: { refund: { include: { voucher: { select: { number: true } } } } } });
+    count = allocs.length; totalPaisa = allocs.reduce((x, a) => x + a.amountPaisa, 0);
+    const shown = allocs.slice(0, DRILL_ROWS);
+    const P = await patients(shown.map((a) => a.refund.patientId));
+    const W = await people(shown.flatMap((a) => [a.paidById, a.refund.decidedById]));
+    rows = shown.map((a) => ({ id: a.id, at: (a.paidAt ?? a.refund.requestedAt).toISOString(), number: a.refund.voucher?.number ?? null, patient: P(a.refund.patientId), amountPaisa: a.amountPaisa, by: W(a.paidById), approvedBy: W(a.refund.decidedById),
+      detail: `${a.method} → ${a.way} · ${a.reference ?? ""}`, link: { kind: "refund" as const, id: a.refundId }, status: a.refund.status }));
+  } else if (what === "medicationIncident") {
+    const ret = await tx.medicationDispense.findMany({ where: { organizationId: org, action: "return", at: { gte: from, lt: to } }, orderBy: { at: "desc" } });
+    const lines = await tx.refundLine.findMany({ where: { id: { in: ret.flatMap((d) => (d.refundLineId ? [d.refundLineId] : [])) } }, include: { refund: true } });
+    const wrong = ret.filter((d) => lines.find((l) => l.id === d.refundLineId)?.refund.category === "wrong-dispense");
+    count = wrong.length; totalPaisa = wrong.reduce((x, d) => x + (lines.find((l) => l.id === d.refundLineId)?.totalPaisa ?? 0), 0);
+    const shown = wrong.slice(0, DRILL_ROWS);
+    const P = await patients(shown.map((d) => d.patientId));
+    const W = await people(shown.flatMap((d) => [d.byId, lines.find((l) => l.id === d.refundLineId)?.refund.decidedById]));
+    const name = (k: string) => { const md = MEDICINES_SAMPLE.find((x) => x.id === k); return md ? `${md.brand} ${md.strength}` : k; };
+    rows = shown.map((d) => { const l = lines.find((x) => x.id === d.refundLineId)!; return { id: d.id, at: d.at.toISOString(), number: null, patient: P(d.patientId), amountPaisa: l.totalPaisa, by: W(d.byId), approvedBy: W(l.refund.decidedById),
+      detail: `${name(d.medicineKey)} × ${d.qty} — ${l.refund.reason}`, link: { kind: "refund" as const, id: l.refundId }, status: l.refund.status }; });
   } else if (what === "labTests") {
     const rel = await tx.$queryRaw<{ sr: string; released: Date }[]>`
       WITH day AS (SELECT DISTINCT x."serviceRequestId" AS sr FROM "DiagnosticReportResult" x JOIN "DiagnosticReport" r ON r."id" = x."reportId"

@@ -312,7 +312,7 @@ export async function discardGrn(tx: Tx, s: SessionData, id: string, rev: number
 }
 /** The batch a received line goes into: the existing one (same batch number at that location) when it is the same
     expiry and prices, else a new one. A same-number batch with another expiry or price is refused. */
-async function batchFor(tx: Tx, s: SessionData, l: { medicineKey: string; batchNo: string; expiry: string; costPaisa: number; mrpPaisa: number; vatRateBp: number; location: string }, sample = false) {
+export async function batchFor(tx: Tx, s: { tenantId: string; organizationId: string }, l: { medicineKey: string; batchNo: string; expiry: string; costPaisa: number; mrpPaisa: number; vatRateBp: number; location: string }, sample = false) {
   const b = await tx.stockBatch.findFirst({ where: { organizationId: s.organizationId, medicineKey: l.medicineKey, batchNo: l.batchNo, location: l.location } });
   if (b) {
     if (b.expiry !== l.expiry || b.costPaisa !== l.costPaisa || b.mrpPaisa !== l.mrpPaisa || b.vatRateBp !== l.vatRateBp)

@@ -96,6 +96,19 @@ export async function paymentSweepTargets(before: Date): Promise<{ tenantId: str
   return rows.map((r) => ({ tenantId: r.tenant_id, paymentId: r.payment_id }));
 }
 
+/** Gateway refunds the sweep must ask about (ADR 0013): claimed before `before` and never answered. */
+export async function refundSweepTargets(before: Date): Promise<{ tenantId: string; allocationId: string }[]> {
+  const rows = await prisma.$queryRaw<{ tenant_id: string; allocation_id: string }[]>`SELECT * FROM refund_sweep_targets(${before}::timestamptz)`;
+  return rows.map((r) => ({ tenantId: r.tenant_id, allocationId: r.allocation_id }));
+}
+
+/** The public refund-voucher check (ADR 0013): facility, voucher number, date, amount only. */
+export async function refundVerifyLookup(code: string): Promise<{ facilityEn: string; facilityBn: string | null; number: string; createdAt: string; amountPaisa: number } | null> {
+  const rows = await prisma.$queryRaw<{ hit: { facilityEn: string; facilityBn: string | null; number: string; createdAt: string; amountPaisa: number } | null }[]>`SELECT refund_verify_lookup(${code}::text) AS hit`;
+  const hit = rows[0]?.hit ?? null;
+  return hit ? { ...hit, createdAt: /[zZ]|[+-]\d\d:?\d\d$/.test(hit.createdAt) ? hit.createdAt : `${hit.createdAt}Z` } : null;
+}
+
 /** SMS the sweep must look at (ADR 0012): queued too long (send it) or sending too long (interrupted). */
 export async function smsSweepTargets(queuedBefore: Date, sendingBefore: Date): Promise<{ tenantId: string; communicationId: string; status: string }[]> {
   const rows = await prisma.$queryRaw<{ tenant_id: string; communication_id: string; status: string }[]>`SELECT * FROM sms_sweep_targets(${queuedBefore}::timestamptz, ${sendingBefore}::timestamptz)`;

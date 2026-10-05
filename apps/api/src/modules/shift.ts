@@ -30,7 +30,9 @@ export async function takings(tx: Tx, s: SessionData, cashierId: string, from: D
   });
   const by = (m: string) => rows.find((r) => r.method === m)?._sum.amountPaisa ?? 0;
   const digital = Object.fromEntries(DIGITAL_METHODS.map((m) => [m, by(m)])) as Record<DigitalMethod, number>;
-  return { cashInPaisa: by("cash"), cashRefundPaisa: 0, digital, payments: rows.reduce((a, r) => a + r._count._all, 0) };
+  // ADR 0013: cash this cashier paid back from the drawer in the window (closes open question 150)
+  const refunds = await tx.refundAllocation.aggregate({ where: { way: "cash", status: "paid", paidById: cashierId, paidAt: { gte: from, lte: to }, refund: { organizationId: s.organizationId } }, _sum: { amountPaisa: true } });
+  return { cashInPaisa: by("cash"), cashRefundPaisa: refunds._sum.amountPaisa ?? 0, digital, payments: rows.reduce((a, r) => a + r._count._all, 0) };
 }
 
 async function viewOf(tx: Tx, s: SessionData, sh: Shift, now: Date): Promise<ShiftView> {

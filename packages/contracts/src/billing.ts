@@ -164,7 +164,9 @@ export const ApprovalItem = ApprovalView.extend({
   }).nullable(),
   /** kind: where the bill opens (an OPD bill, or a pharmacy bill at the pharmacy) */
   invoice: z.object({ id: z.string(), status: InvoiceStatus, number: z.string().nullable(), subtotalPaisa: Paisa, totalPaisa: Paisa, kind: InvoiceKind, encounterId: z.string().nullable() }),
-  patient: VitalsEncounter.shape.patient,
+  /** null for a walk-in over-the-counter buyer (a refund of an OTC sale — see buyer) */
+  patient: VitalsEncounter.shape.patient.nullable(),
+  buyer: z.object({ name: z.string().nullable(), phone: z.string().nullable() }).nullable(),
   /** leak signal: the requester's discount requests today (count and paisa) */
   requesterToday: z.object({ count: z.number().int(), totalPaisa: Paisa }),
 });

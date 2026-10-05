@@ -7,13 +7,16 @@ await app.listen({ port: config.port, host: "0.0.0.0" });
 // ADR 0008: the owner dashboard's nightly rollup (00:30 Dhaka); not in tests (they import the app, not the server)
 if (config.dbEnabled) scheduleNightlyRollup(app.log);
 // ADR 0011 / 0012: the sweeps, every minute — payments (links never made, executes never answered) and SMS (queued too
-// long → sent; sending too long → failed "it may have been sent", for a person to retry)
+// long → sent; sending too long → failed "it may have been sent", for a person to retry); ADR 0013: gateway refunds
+// claimed and never answered are asked about (Refund Status) — never refunded again by the sweep
 if (config.dbEnabled) {
   const { sweepPayments } = await import("./modules/billing.js");
   const { sweepSms } = await import("./modules/lab.js");
+  const { sweepRefunds } = await import("./modules/refunds.js");
   const t = setInterval(() => {
     sweepPayments(new Date()).then((r) => { if (r.failed || r.settled) app.log.info(r, "payments sweep"); }).catch((e) => app.log.error({ err: e }, "payments sweep failed"));
     sweepSms(new Date()).then((r) => { if (r.sent || r.interrupted) app.log.info(r, "sms sweep"); }).catch((e) => app.log.error({ err: e }, "sms sweep failed"));
+    sweepRefunds(new Date()).then((r) => { if (r.checked) app.log.info(r, "refunds sweep"); }).catch((e) => app.log.error({ err: e }, "refunds sweep failed"));
   }, 60_000);
   t.unref?.();
 }

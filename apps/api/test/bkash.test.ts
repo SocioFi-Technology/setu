@@ -23,7 +23,7 @@ if (!db) console.warn("bkash.test: DATABASE_URL_APP not set — SKIPPED");
 let app: Awaited<ReturnType<typeof buildApp>>;
 const RUN = randomUUID().slice(0, 6);
 const cookies: Record<string, string> = {};
-const USERS = { desk: "01799000001", doctor: "01799000002", cashier: "01799000008" } as const;
+const USERS = { desk: "01799000001", doctor: "01799000002", cashier: "01799000008", owner: "01799000009" } as const;
 type Who = keyof typeof USERS;
 
 beforeAll(async () => {
@@ -309,5 +309,107 @@ describe.runIf(db)("ADR 0013 bKash refund", () => {
     const f = new FakeProvider("x");
     expect(f.refundSupport).toBe("manual");
     expect(outside().refundSupport).toBe("gateway");
+  });
+});
+
+/* ADR 0013 — a bKash payment refunded through the routes: claimed in the request, refunded at the stand-in after the
+   commit, paid with the refund TrxID and a voucher; a refusal leaves the allocation open with why, and then — only then —
+   cash is allowed ("gateway-failed"). */
+describe.runIf(db)("ADR 0013 bKash refund through the routes", () => {
+  /** an issued bill (consultation + a desk card ৳… ) paid in full by bKash at the stand-in */
+  async function paidByBkash() {
+    const b = await issuedBillWithDesk();
+    const r = await post(`/v1/invoices/${b.id}/payments`, { method: "bkash", amountPaisa: b.total });
+    expect(r.statusCode, r.body).toBe(201);
+    const p = (await row(r.json().payment.id))!;
+    standIn.authorise(p.providerRef!);
+    expect((await returnWith(p.id, "success")).o).toBe("paid");
+    return { ...b, paymentId: p.id, providerRef: p.providerRef! };
+  }
+  async function issuedBillWithDesk() {
+    const r = await post("/v1/patients", {
+      nameBn: "বিকাশ ফেরত", nameEn: `Bkash Refund ${RUN}`, sex: "female", dobMode: "dob", dob: "06/06/1986", phone: `017${String(randomInt(0, 1e8)).padStart(8, "0")}`, phoneOwner: "self",
+      division: "Dhaka", district: "Dhaka", upazila: "Mirpur", createVisit: true,
+    }, "desk");
+    const enc = r.json().encounter.id as string;
+    const v = (await post(`/v1/encounters/${enc}/consultation/open`, {}, "doctor")).json();
+    const saved = await app.inject({ method: "PUT", url: `/v1/compositions/${v.draft.id}`, headers: { cookie: cookies.doctor!, "idempotency-key": randomUUID() }, payload: {
+      rev: 1, sections: { complaints: [{ text: "Cough", duration: { n: 3, unit: "d" } }], history: "", exam: { general: "", cvs: "", chest: "", abdomen: "" }, advice: "", followUp: "" },
+      sectionSources: {}, diagnoses: [{ code: "5A11", verificationStatus: "provisional" }], medications: [], orders: [],
+    } });
+    await post(`/v1/compositions/${v.draft.id}/sign`, { rev: saved.json().rev, pin: "1234", aiReviewed: false, uncodedAllergiesChecked: false }, "doctor");
+    const b0 = (await post(`/v1/encounters/${enc}/invoice`)).json();
+    const b1 = await post(`/v1/invoices/${b0.invoice.id}/lines`, { code: "desk:card", rev: b0.invoice.rev });
+    expect(b1.statusCode, b1.body).toBe(200);
+    const issued = await post(`/v1/invoices/${b0.invoice.id}/issue`, { rev: b1.json().invoice.rev });
+    expect(issued.statusCode, issued.body).toBe(200);
+    const card = issued.json().lines.find((l: { code: string }) => l.code === "desk:card");
+    return { id: b0.invoice.id as string, total: issued.json().invoice.totalPaisa as number, card: card as { id: string; totalPaisa: number } };
+  }
+  async function approvedRefund(b: Awaited<ReturnType<typeof paidByBkash>>) {
+    const rb = (await get(`/v1/invoices/${b.id}/refundable`)).json();
+    expect(rb.payments[0]).toMatchObject({ method: "bkash", gatewayRefunds: true, ways: ["cash", "gateway"] });
+    const r = await post(`/v1/invoices/${b.id}/refunds`, { category: "patient-request", reason: "Card not needed — patient already has one", lines: [{ chargeItemId: b.card.id, amountPaisa: b.card.totalPaisa }], allocations: [{ paymentId: b.paymentId, amountPaisa: b.card.totalPaisa, way: "gateway" }] });
+    expect(r.statusCode, r.body).toBe(201);
+    const id = r.json().refund.id as string;
+    const ok = await post(`/v1/refunds/${id}/decision`, { decision: "approve" }, "owner");
+    expect(ok.statusCode, ok.body).toBe(200);
+    return { id, rev: ok.json().refund.rev as number, alloc: ok.json().allocations[0].id as string };
+  }
+  const recipient = { name: "Nusrat Jahan", phone: "01711223344", relation: "self" };
+
+  it("paid back to the wallet: claimed, refunded at bKash after the commit, a voucher with the refund TrxID", async () => {
+    const b = await paidByBkash();
+    const r = await approvedRefund(b);
+    const before = standIn.calls.filter((c) => c.path === "refund/payment/transaction").length;
+    const paid = await post(`/v1/refunds/${r.id}/pay`, { rev: r.rev, recipient });
+    expect(paid.statusCode, paid.body).toBe(200);
+    expect(paid.json()).toMatchObject({ outcome: "paid", view: { refund: { status: "paid", voucher: { number: expect.stringMatching(/^RF\//) } }, allocations: [{ status: "paid", way: "gateway", refundTrxId: expect.stringMatching(/^RF/) }] } });
+    const call = standIn.calls.filter((c) => c.path === "refund/payment/transaction").at(-1)!;
+    expect(standIn.calls.filter((c) => c.path === "refund/payment/transaction").length).toBe(before + 1);
+    expect(call.body).toMatchObject({ paymentId: b.providerRef, sku: r.alloc, reason: "patient-request" });
+    expect((await inTenant((tx) => tx.invoice.findFirst({ where: { id: b.id } })))!.refundedPaisa).toBe(b.card.totalPaisa);
+  });
+
+  it("bKash refuses: the allocation stays open with why; cash only now, with the reason gateway-failed", async () => {
+    const b = await paidByBkash();
+    const r = await approvedRefund(b);
+    standIn.failNextRefund = "2023"; // the merchant's balance is too low
+    const first = await post(`/v1/refunds/${r.id}/pay`, { rev: r.rev, recipient });
+    expect(first.statusCode, first.body).toBe(200);
+    expect(first.json()).toMatchObject({ outcome: "part-paid", view: { refund: { status: "approved" }, allocations: [{ status: "open", gatewayFailed: true, failReason: "gateway refused (2023)" }] } });
+    // the cashier needs a drawer for cash
+    const mine = (await get("/v1/shifts/mine")).json();
+    if (!mine.shift || mine.shift.status !== "open") expect((await post("/v1/shifts", { openingFloatPaisa: 100_000 })).statusCode).toBe(201);
+    const rev = (await get(`/v1/refunds/${r.id}`)).json().refund.rev;
+    const cash = await post(`/v1/refunds/${r.id}/pay`, { rev, recipient, allocations: [{ id: r.alloc, switchToCash: true }] });
+    expect(cash.statusCode, cash.body).toBe(200);
+    expect(cash.json().view.allocations[0]).toMatchObject({ status: "paid", way: "cash", cashReason: "gateway-failed" });
+  });
+
+  it("an unclear answer leaves it claimed; the sweep asks Refund Status (never refunds again) and after 15 minutes hands it back to a person", async () => {
+    const { sweepRefunds } = await import("../src/modules/refunds.js");
+    const b = await paidByBkash();
+    const r = await approvedRefund(b);
+    standIn.failNextRefund = "503";
+    const paid = await post(`/v1/refunds/${r.id}/pay`, { rev: r.rev, recipient });
+    expect(paid.json()).toMatchObject({ outcome: "paying", view: { allocations: [{ status: "paying" }], can: { check: true, pay: false } } });
+    const sent = () => standIn.calls.filter((c) => c.path === "refund/payment/transaction" && c.body.sku === r.alloc).length;
+    expect(sent()).toBe(1);
+    await sweepRefunds(new Date(Date.now() + 3 * 60_000));
+    expect((await get(`/v1/refunds/${r.id}`)).json().allocations[0].status).toBe("paying");
+    await sweepRefunds(new Date(Date.now() + 16 * 60_000));
+    expect((await get(`/v1/refunds/${r.id}`)).json().allocations[0]).toMatchObject({ status: "open", gatewayFailed: true, failReason: "no refund found at the gateway" });
+    expect(sent()).toBe(1);
+  });
+
+  it("no answer from bKash in time: the refund made there is found by Refund Status — paid once", async () => {
+    const b = await paidByBkash();
+    const r = await approvedRefund(b);
+    standIn.slowNextRefundMs = 2_500; // longer than BKASH_TIMEOUT_MS (1.5 s): bKash refunds, we hear nothing
+    const paid = await post(`/v1/refunds/${r.id}/pay`, { rev: r.rev, recipient });
+    expect(paid.statusCode, paid.body).toBe(200);
+    expect(paid.json().view.allocations[0]).toMatchObject({ status: "paid", refundTrxId: expect.stringMatching(/^RF/) });
+    expect(standIn.payments.get(b.providerRef)!.refunds.length).toBe(1);
   });
 });

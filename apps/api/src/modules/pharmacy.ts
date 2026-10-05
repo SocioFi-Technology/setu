@@ -69,11 +69,13 @@ async function currentNote(tx: Tx, encounterId: string) {
 }
 
 /** One prescription line's progress from the dispense rows assigned to it (progressAll). */
+/** ADR 0013: units the patient returned count as not given — the line reopens (`returnedQty`). */
 function progress(r: Req, rows: Disp[]) {
   const given = rows.filter((d) => d.action === "dispense");
   const declinedRow = rows.find((d) => d.action === "decline") ?? null;
   const dispensedQty = given.reduce((a, d) => a + d.qty, 0);
-  return { given, declinedRow, dispensedQty, remaining: Math.max(0, r.quantity - dispensedQty), status: dispenseStatus({ prescribed: r.quantity, dispensed: dispensedQty, declined: Boolean(declinedRow) }) };
+  const returnedQty = rows.filter((d) => d.action === "return").reduce((a, d) => a + d.qty, 0);
+  return { given, declinedRow, dispensedQty, returnedQty, remaining: Math.max(0, r.quantity - dispensedQty + returnedQty), status: dispenseStatus({ prescribed: r.quantity, dispensed: dispensedQty, returned: returnedQty, declined: Boolean(declinedRow) }) };
 }
 /** Which current line each of the visit's dispense / decline rows belongs to. A row of this version: its own line (two
     lines of the same medicine never count each other's). A row of an earlier version: the current line of the same
@@ -252,7 +254,8 @@ export async function dispense(tx: Tx, s: SessionData, encounterId: string, req:
       const id = `md_${randomUUID()}`, lineId = `ci_${randomUUID()}`;
       const d = await tx.medicationDispense.create({ data: {
         id, tenantId: s.tenantId, organizationId: s.organizationId, encounterId: e.id, patientId: e.patientId, compositionId: note.id, requestId: r.id,
-        prescribedKey: r.medicineKey, medicineKey: l.medicineKey, action: "dispense", qty: a.qty, reason: substitute ? reason : null, invoiceId: inv.id, chargeItemId: lineId, byId: s.userId, at: now,
+        // ADR 0013: giving again what came back is recorded as such (a substitute keeps its own reason)
+        prescribedKey: r.medicineKey, medicineKey: l.medicineKey, action: "dispense", qty: a.qty, reason: substitute ? reason : p.returnedQty > 0 ? "re-dispense after return" : null, invoiceId: inv.id, chargeItemId: lineId, byId: s.userId, at: now,
       } });
       await tx.stockMove.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, batchId: b.id, kind: "dispense", qty: -a.qty, refType: "dispense", refId: id, byId: s.userId, at: now } });
       await tx.chargeItem.create({ data: {

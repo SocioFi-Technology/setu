@@ -20,6 +20,7 @@ import {
   invoiceHere, issueInvoice, requestDiscount, retryPayment, setLineQty, verifyTrx,
 } from "../modules/billing.js";
 import { createReceipt, printPdf, printReceipt, receiptList, receiptView } from "../modules/receipts.js";
+import { decideRefund, decideRefundCheck, refundApprovalItems, refundCheckItems, refundIdOfTask, REFUND_CHECK_TASK, REFUND_TASK } from "../modules/refunds.js";
 import { dispatchSms } from "../modules/lab.js";
 import { requireSession } from "../plugins/session.js";
 
@@ -233,7 +234,8 @@ export async function billingRoutes(app: FastifyInstance) {
     requireBill(req, "reconcile");
     const { status } = ReconcileQuery.parse(req.query);
     return query(req, async (tx, s) => {
-      const list = await reconcileList(tx, s, status);
+      // ADR 0013: refunds paid by hand (and card / bank paid back in cash) wait here for the owner's check too
+      const list = { items: [...(await reconcileList(tx, s, status)).items, ...(await refundCheckItems(tx, s, status))].sort((a, b) => (status === "requested" ? a.createdAt.localeCompare(b.createdAt) : b.createdAt.localeCompare(a.createdAt))) };
       return { body: list, audit: [{ action: "view", entity: "Task", detail: { purpose: "payment-reconciliation", status, count: list.items.length, patientIds: list.items.flatMap((i) => (i.patient ? [i.patient.id] : [])) } }] };
     });
   });
@@ -243,6 +245,10 @@ export async function billingRoutes(app: FastifyInstance) {
       const { id } = req.params as { id: string };
       const { note } = action === "apply" ? ReconcileApplyRequest.parse(req.body ?? {}) : ReconcileResolveRequest.parse(req.body);
       return command(req, reply, async (tx, s) => {
+        if (await tx.task.findFirst({ where: { id, kind: REFUND_CHECK_TASK }, select: { id: true } })) {
+          const c = await decideRefundCheck(tx, s, id, action, note, new Date());
+          return { body: { item: c.item }, audit: [{ action: "update", entity: "Task", entityId: id, patientId: c.patientId, detail: { kind: REFUND_CHECK_TASK, event: action === "apply" ? "matched" : "resolved", refundId: c.item.refund?.id ?? null, invoiceId: c.invoiceId, note: note ?? null } }] };
+        }
         const r = await decideReconcile(tx, s, id, action, note, new Date());
         return { body: { item: r.item }, audit: [
           { action: "update", entity: "Task", entityId: id, patientId: r.patientId, detail: { kind: "payment-reconciliation", event: action, paymentId: r.item.payment.id, invoiceId: r.invoiceId, note: note ?? null } },
@@ -257,8 +263,9 @@ export async function billingRoutes(app: FastifyInstance) {
     requireBill(req, "approvals");
     const { status } = ApprovalQuery.parse(req.query);
     return query(req, async (tx, s) => {
-      const list = await approvalList(tx, s, status, new Date());
-      return { body: list, audit: [{ action: "view", entity: "Task", detail: { purpose: "discount-approvals", status, count: list.items.length, patientIds: list.items.map((i) => i.patient.id) } }] };
+      // the single queue (ADR 0009 note): discounts, "not billed here" and (ADR 0013) refunds
+      const list = { items: [...(await approvalList(tx, s, status, new Date())).items, ...(await refundApprovalItems(tx, s, status))].sort((a, b) => (status === "requested" ? a.requestedAt.localeCompare(b.requestedAt) : b.requestedAt.localeCompare(a.requestedAt))) };
+      return { body: list, audit: [{ action: "view", entity: "Task", detail: { purpose: "discount-approvals", status, count: list.items.length, patientIds: list.items.flatMap((i) => (i.patient ? [i.patient.id] : [])) } }] };
     });
   });
   for (const decision of ["approve", "reject"] as const) {
@@ -267,6 +274,13 @@ export async function billingRoutes(app: FastifyInstance) {
       const { id } = req.params as { id: string };
       const { note } = decision === "approve" ? ApproveRequest.parse(req.body ?? {}) : RejectRequest.parse(req.body);
       return command(req, reply, async (tx, s) => {
+        if (await tx.task.findFirst({ where: { id, kind: REFUND_TASK }, select: { id: true } })) {
+          const refundId = await refundIdOfTask(tx, id);
+          if (!refundId) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
+          const r = await decideRefund(tx, s, refundId, { decision, note }, new Date());
+          const item = (await refundApprovalItems(tx, s, decision === "approve" ? "approved" : "rejected")).find((i) => i.taskId === id)!;
+          return { body: { approval: item, view: await invoiceView(tx, s, await invoiceHere(tx, s, r.r.invoiceId)) }, audit: r.audit };
+        }
         const r = await decideApproval(tx, s, id, decision, note, new Date());
         return { body: { approval: r.item, view: await invoiceView(tx, s, r.inv) }, audit: [
           { action: "update", entity: "Task", entityId: id, patientId: r.inv.patientId, detail: { event: decision, kind: r.item.kind, invoiceId: r.inv.id, amountPaisa: r.item.amountPaisa, lineId: r.item.line?.id ?? null, note: note ?? null } },

@@ -502,6 +502,7 @@ async function approvalItem(tx: Tx, s: SessionData, t: TaskRow, now: Date): Prom
     refund: null,
     invoice: { id: inv.id, status: dash<InvoiceState>(inv.status), number: inv.number, subtotalPaisa: inv.subtotalPaisa, totalPaisa: inv.totalPaisa, kind: inv.kind, encounterId: inv.encounterId },
     patient: toVitalsEncounter({ id: "", token: "", tokenDay: "", status: "finished", patient: p } as unknown as Parameters<typeof toVitalsEncounter>[0]).patient,
+    buyer: null,
     requesterToday: { count: mine.length, totalPaisa: mine.reduce((a, m) => a + ((m.detail as unknown as DiscountDetail)?.amountPaisa ?? 0), 0) },
   };
 }
@@ -582,11 +583,14 @@ export async function issueInvoice(tx: Tx, s: SessionData, id: string, rev: numb
 /* ───── void (ADR 0005: INVOICE markError) ───── */
 export async function voidInvoice(tx: Tx, s: SessionData, id: string, reason: string, now: Date): Promise<Inv> {
   const inv = await invoiceHere(tx, s, id, true);
-  // Medicine already off the shelf is never voided off its bill: returns come with pharmacy session 2 (clinical review).
-  if ((inv.kind === "otc" && inv.status !== "draft") || (await tx.chargeItem.findFirst({ where: { invoiceId: inv.id, source: "dispense" }, select: { id: true } })))
-    throw err(409, "medicine_given", "এই বিলের ওষুধ দেওয়া হয়ে গেছে — বাতিল করা যায় না (ফেরত পরের ধাপে)", "The medicine on this bill has been given — it cannot be voided (returns come later)");
+  /* Medicine off the shelf is never voided off its bill (clinical review) — ADR 0013: until every unit of it came back
+     through a paid refund (a dispense line always; a sale line once the sale was issued). */
+  const med = await tx.chargeItem.findMany({ where: { invoiceId: inv.id, OR: [{ source: "dispense" }, ...(inv.status !== "draft" ? [{ source: "sale" as const }] : [])] }, select: { id: true, qty: true } });
+  const back = med.length ? await tx.refundLine.groupBy({ by: ["chargeItemId"], where: { chargeItemId: { in: med.map((m) => m.id) }, refund: { status: "paid" } }, _sum: { units: true } }) : [];
+  const unreturnedMedicine = med.filter((m) => m.qty > (back.find((b) => b.chargeItemId === m.id)?._sum.units ?? 0)).length;
+  const openRefunds = await tx.refund.count({ where: { invoiceId: inv.id, status: { in: ["requested", "approved"] } } });
   const pays = await tx.payment.findMany({ where: { invoiceId: inv.id } });
-  const b = voidBlockers({ role: s.role, status: dash<InvoiceState>(inv.status), confirmedPaisa: inv.paidPaisa,
+  const b = voidBlockers({ role: s.role, status: dash<InvoiceState>(inv.status), confirmedPaisa: inv.paidPaisa, refundedPaisa: inv.refundedPaisa, openRefunds, unreturnedMedicine,
     pendingPayments: pays.filter((p) => ["initiated", "link_sent", "waiting_customer"].includes(p.status)).length,
     pendingApprovals: (await requestedTask(tx, inv.id)) ? 1 : 0, reason });
   if (!b.length && (await openReconciliation(tx, inv.id)))
@@ -594,7 +598,9 @@ export async function voidInvoice(tx: Tx, s: SessionData, id: string, reason: st
   if (b.length) {
     const msg: Record<string, [number, string, string]> = {
       not_an_approver: [403, "শুধু মালিক বা অ্যাডমিন বিল বাতিল করতে পারেন", "Only the owner or an admin can void a bill"],
-      has_confirmed_money: [409, "এই বিলে নিশ্চিত টাকা আছে — বাতিল করা যায় না (ফেরত পরের ধাপে)", "Confirmed money is on this bill — it cannot be voided (refunds come later)"],
+      has_confirmed_money: [409, "এই বিলে নিশ্চিত টাকা আছে — আগে সব টাকা ফেরত দিন, তারপর বাতিল", "Confirmed money is on this bill — refund all of it first, then void"],
+      refund_open: [409, "এই বিলে একটি রিফান্ড খোলা আছে — আগে সেটির সিদ্ধান্ত হোক", "A refund is open on this bill — it must be decided first"],
+      medicine_given: [409, "এই বিলের ওষুধ দেওয়া হয়ে গেছে — সব ওষুধ ফেরত না আসা পর্যন্ত বাতিল করা যায় না", "The medicine on this bill has been given — it cannot be voided until all of it is returned"],
       not_voidable: [409, "এই বিল বাতিল করা যায় না", "This bill cannot be voided"],
       link_pending: [409, "পেমেন্ট লিংক অপেক্ষমাণ — আগে লিংক বাতিল করুন", "A payment link is pending — cancel the link first"],
       approval_pending: [409, "এই বিলে অনুমোদন অপেক্ষমাণ — আগে সিদ্ধান্ত দিন", "An approval is waiting on this bill — decide it first"],

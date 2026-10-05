@@ -11,7 +11,7 @@ export type OpsKey = "opdVisits" | "labTests" | "labTat" | "noShows" | "cashVari
 type Better = "up" | "down" | "abs";
 export const KPIS: { key: KpiKey; better: Better; comesWith?: "pharmacy" | "ipd" | "refunds" | "ledger" }[] = [
   { key: "revenue", better: "up" }, { key: "collections", better: "up" }, { key: "dues", better: "down" }, { key: "deposits", better: "up", comesWith: "ipd" },
-  { key: "discounts", better: "down" }, { key: "refunds", better: "down", comesWith: "refunds" }, { key: "sharePayable", better: "down", comesWith: "ledger" },
+  { key: "discounts", better: "down" }, { key: "refunds", better: "down" }, { key: "sharePayable", better: "down", comesWith: "ledger" },
   // pharmacy session 2 (ADR 0009): stock and supplier tiles are live — point-in-time values from the ledgers
   { key: "supplierDues", better: "down" }, { key: "stockValue", better: "up" }, { key: "nearExpiry", better: "down" },
 ];
