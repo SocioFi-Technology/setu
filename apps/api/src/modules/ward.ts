@@ -14,6 +14,7 @@ import { getPatient, notFound, toSummary } from "./frontdesk.js";
 import { closedVisit, dayOfStay, erPatientOf, inpatientHere, iso, latestNews2, news2OfBatch, peopleOf, stale, type Enc } from "./inpatient.js";
 import { deliverInApp } from "./lab.js";
 import { doseCounts } from "./mar.js";
+import { io24h, overdueTasks } from "./care.js";
 
 const rule = () => ({ threshold: NEWS2_THRESHOLD_SAMPLE, sample: true as const, note: { ...NEWS2_SAMPLE_NOTE } });
 type Esc = NonNullable<Awaited<ReturnType<Tx["escalationEvent"]["findFirst"]>>>;
@@ -55,8 +56,10 @@ export async function wardBoard(tx: Tx, s: SessionData, wardId: string, now: Dat
     tx.escalationEvent.findMany({ where: { encounterId: { in: encIds }, status: { not: "resolved" } } }),
     doseCounts(tx, encIds, now),
   ]);
+  const [io, overdue, lastHandover] = await Promise.all([io24h(tx, encIds, now), overdueTasks(tx, encIds, now),
+    tx.handover.findFirst({ where: { organizationId: s.organizationId, wardId: ward.id, status: "accepted" }, orderBy: { acceptedAt: "desc" } })]);
   const srcBeds = new Map((await tx.bedAssignment.findMany({ where: { encounterId: { in: reservedFor.map((a) => a.encounterId) }, status: "occupied" }, include: { bed: true } })).map((a) => [a.encounterId, a.bed.name]));
-  const who = await peopleOf(tx, [...encs.map((e) => e.practitionerId), ...escs.flatMap((e) => [e.raisedById, e.informedById, e.resolvedById, e.acknowledgedById])]);
+  const who = await peopleOf(tx, [...encs.map((e) => e.practitionerId), ...escs.flatMap((e) => [e.raisedById, e.informedById, e.resolvedById, e.acknowledgedById]), lastHandover?.incomingId]);
   const rows: WardBoard["beds"] = beds.map((b) => {
     const a = occ.find((x) => x.bedId === b.id);
     const e = a ? encs.find((x) => x.id === a.encounterId) : undefined;
@@ -73,11 +76,13 @@ export async function wardBoard(tx: Tx, s: SessionData, wardId: string, now: Dat
       allergies: e ? allergies.filter((x) => x.patientId === e.patientId).map((x) => x.labelEn) : null,
       news2: sc?.news2 ?? null, nextObsDueAt: sc?.nextObsDueAt ?? null, obsOverdue: sc ? new Date(sc.nextObsDueAt) < now : false,
       escalation: esc ? escWire(esc, who) : null, doses: e ? counts.get(e.id)! : { due: 0, overdue: 0 },
+      ioBalance24hMl: e ? io.get(e.id)?.balanceMl ?? null : null, tasksOverdue: e ? overdue.get(e.id) ?? 0 : 0,
       arriving: res && resP && resAdm ? { admissionId: resAdm.id, patient: erPatientOf(resP as Enc["patient"]), fromBed: srcBeds.get(res.encounterId) ?? "" } : null,
     };
   });
   const banner = rows.filter((r) => r.escalation && r.patient && r.encounterId).map((r) => ({ encounterId: r.encounterId!, bed: r.bed.name, patient: r.patient!, escalation: r.escalation! }));
-  return { board: { ward: { id: ward.id, name: ward.name, nameBn: ward.nameBn }, beds: rows, escalations: banner, rule: rule() }, patientIds: encs.map((e) => e.patientId) };
+  return { board: { ward: { id: ward.id, name: ward.name, nameBn: ward.nameBn }, beds: rows, escalations: banner, rule: rule(),
+    onDuty: lastHandover?.incomingId && lastHandover.acceptedAt ? { nurse: who(lastHandover.incomingId), since: lastHandover.acceptedAt.toISOString() } : null }, patientIds: encs.map((e) => e.patientId) };
 }
 
 /* ───── ward vitals with NEWS2 ───── */

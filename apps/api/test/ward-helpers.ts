@@ -5,7 +5,7 @@ import { expect } from "vitest";
 import type { buildApp } from "../src/app.js";
 
 export const T = "t_e2e_lite";
-export const USERS = { desk: "01798000001", doctor: "01798000002", surgeon: "01798000005", nurse: "01798000004", nurse2: "01798000007", pharm: "01798000011", admin: "01798000010", cashier: "01798000008", clinicNurse: "01722000004" } as const;
+export const USERS = { desk: "01798000001", doctor: "01798000002", surgeon: "01798000005", nurse: "01798000004", nurse2: "01798000007", pharm: "01798000011", admin: "01798000010", cashier: "01798000008", owner: "01798000009", clinicNurse: "01722000004" } as const;
 export type Who = keyof typeof USERS;
 type App = Awaited<ReturnType<typeof buildApp>>;
 export function client(app: App) {
@@ -70,3 +70,34 @@ export async function setup(c: ReturnType<typeof client>) {
 }
 export const line = (medicineKey: string, o: Partial<{ route: string; doseText: string; doseQty: number | null; times: string[]; prn: boolean; prnMaxPer24h: number | null }> = {}) =>
   ({ medicineKey, route: "iv", doseText: "1 dose", doseQty: 1, times: [dhakaHHMM(2)], prn: false, prnMaxPer24h: null, ...o });
+
+/* ADR 0016: a given dose carries its scans. The wristband from the print endpoint (cached per visit) and, from ward
+   stock, the label of a ward batch of the order's medicine with stock — what a nurse would scan at the bedside. */
+const bands = new Map<string, string>();
+export async function bandOf(c: ReturnType<typeof client>, encounterId: string): Promise<string> {
+  const hit = bands.get(encounterId);
+  if (hit) return hit;
+  const r = await c.post(`/v1/nursing/encounters/${encounterId}/wristband`, { reason: "test: band for the dose" });
+  expect(r.statusCode, r.body).toBe(201);
+  bands.set(encounterId, r.json().code);
+  return r.json().code as string;
+}
+export async function labelOf(encounterId: string, requestId: string): Promise<string | undefined> {
+  const { forTenant } = await import("@setu/db");
+  return forTenant(T, async (tx) => {
+    const o = await tx.medicationRequest.findFirst({ where: { id: requestId } });
+    const live = await tx.bedAssignment.findFirst({ where: { encounterId, status: "occupied" }, include: { bed: true } });
+    if (!o || !live?.bed.parentId) return undefined;
+    // a batch with stock first; an opened multi-dose vial's batch may be at 0 and its label is still on the vial
+    const b = (await tx.stockBatch.findFirst({ where: { location: `ward:${live.bed.parentId}`, medicineKey: o.medicineKey, qtyOnHand: { gt: 0 } }, orderBy: { expiry: "asc" } }))
+      ?? (await tx.stockBatch.findFirst({ where: { location: `ward:${live.bed.parentId}`, medicineKey: o.medicineKey }, orderBy: { expiry: "asc" } }));
+    return b ? `SETU-MB1.${b.id}` : undefined;
+  });
+}
+/** Adds the bedside scans to a given dose that has none (`scan: {}` sends none on purpose). */
+export async function withScans(c: ReturnType<typeof client>, encounterId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  if (body.outcome !== "given" || body.scan !== undefined) return body;
+  const band = await bandOf(c, encounterId);
+  const med = (body.source ?? "ward-stock") === "ward-stock" ? await labelOf(encounterId, body.requestId as string) : undefined;
+  return { ...body, scan: { band, ...(med ? { med } : {}) } };
+}

@@ -15,7 +15,7 @@ import {
   FLAGGED_ACTIONS, ONE_TIME_PASSWORD_HOURS, REG_BODY, createUserBlockers, deactivateBlockers, goLiveBlockers, goLiveChecklist, isFlagged, labelPageOk, limitProblems,
   priceChangeProblems, roleChangeBlockers, type GoLiveFacts, type Role, type UserAdminBlocker,
   smsSafeName,
-  ackMinutesOk,
+  ackMinutesOk, shiftHoursOk,
 } from "@setu/domain";
 import { messenger } from "../adapters/messaging/index.js";
 import { registration } from "../adapters/registration.js";
@@ -80,6 +80,7 @@ export async function facilityView(tx: Tx, s: SessionData): Promise<FacilityView
       ackMinutes: o.escalationAckMinutes, dutyDoctorIds: o.escalationDutyDoctorIds, sample: true as const,
       doctors: (await tx.practitionerRole.findMany({ where: { organizationId: s.organizationId, role: "doctor", user: { active: true } }, select: { user: { select: { id: true, nameBn: true, nameEn: true } } } })).map((r) => r.user),
     },
+    shifts: { startHours: o.shiftStartHours, ioDayStartHour: o.ioDayStartHour, sample: true as const },
     sms: { testedAt: iso(o.smsTestedAt), phone: o.smsTestPhone ? `0${o.smsTestPhone}` : null, sentAt: iso(o.smsTestSentAt), awaitingConfirm: smsAwaitingConfirm(o, new Date()), error: o.smsTestError },
   };
 }
@@ -115,8 +116,11 @@ export async function updateSettings(tx: Tx, s: SessionData, req: SettingsUpdate
     if (req.escalationDutyDoctorIds.some((d) => !ok.has(d))) throw err(400, "duty_doctor", "তালিকায় এই প্রতিষ্ঠানের সক্রিয় ডাক্তার রাখুন", "The duty list names active doctors of this facility", { field: "escalationDutyDoctorIds" });
   }
   if (limitsChanged && reason.length < 10) throw err(400, "reason_required", "অনুমোদন সীমা বদলানোর কারণ লিখুন (অন্তত ১০ অক্ষর)", "Write why the approval limits change (at least 10 characters)", { field: "reason" });
-  const escBefore = { escalationAckMinutes: o.escalationAckMinutes, escalationDutyDoctorIds: o.escalationDutyDoctorIds };
-  const escAfter = { escalationAckMinutes: req.escalationAckMinutes ?? o.escalationAckMinutes, escalationDutyDoctorIds: req.escalationDutyDoctorIds ? [...new Set(req.escalationDutyDoctorIds)] : o.escalationDutyDoctorIds };
+  // ADR 0016 samples: 1–4 distinct shift start hours, the I/O day start 0–23
+  if (req.shiftStartHours !== undefined && !shiftHoursOk(req.shiftStartHours)) throw err(400, "shift_hours", "শিফট শুরুর সময় ১–৪টি, ০–২৩ ঘণ্টা, আলাদা", "Shift starts: 1–4 different hours, 0–23", { field: "shiftStartHours" });
+  const escBefore = { escalationAckMinutes: o.escalationAckMinutes, escalationDutyDoctorIds: o.escalationDutyDoctorIds, shiftStartHours: o.shiftStartHours, ioDayStartHour: o.ioDayStartHour };
+  const escAfter = { escalationAckMinutes: req.escalationAckMinutes ?? o.escalationAckMinutes, escalationDutyDoctorIds: req.escalationDutyDoctorIds ? [...new Set(req.escalationDutyDoctorIds)] : o.escalationDutyDoctorIds,
+    shiftStartHours: req.shiftStartHours ? [...req.shiftStartHours].sort((a, b) => a - b) : o.shiftStartHours, ioDayStartHour: req.ioDayStartHour ?? o.ioDayStartHour };
   const before = { cashierLimitPaisa: o.cashierDiscountLimitPaisa, cashierLimitBp: o.cashierDiscountLimitBp, approverLimitPaisa: o.approverLimitPaisa, labelWidthMm: o.labelWidthMm, labelHeightMm: o.labelHeightMm, receiptFormat: o.receiptFormat, rxFormat: o.rxFormat, paymentMethods: o.paymentMethods };
   const after = { cashierLimitPaisa: req.cashierLimitPaisa, cashierLimitBp: req.cashierLimitBp, approverLimitPaisa: req.approverLimitPaisa, labelWidthMm: req.labelWidthMm, labelHeightMm: req.labelHeightMm, receiptFormat: req.receiptFormat, rxFormat: req.rxFormat, paymentMethods: [...new Set(req.paymentMethods)] };
   await tx.organization.update({ where: { id: o.id }, data: {

@@ -2,18 +2,20 @@
    this patient (never free-typed); the rules are @setu/domain mar.ts doseBlockers, re-checked by the database. The
    witness PIN is verified inside the dose's transaction (a wrong one rolls everything back and counts against the
    witness). A dose given from ward stock takes its issue units (FEFO); a controlled drug writes its register line. */
-import { randomUUID } from "node:crypto";
-import type { DoseRecord, DoseRequest, MarOrder, MarView } from "@setu/contracts";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import type { DoseRecord, DoseRequest, MarOrder, MarView, WristbandView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
   DOSE_REASON_MIN, DOSE_WINDOW_MIN, PRN_WINDOW_MS, allergyMatches, dhakaDay, doseBlockers, doseConsumption, doseErrorNeedsAnswer, doseErrorReturns, doseTiming, marSlotRange, type StockDrawn, slotState, slotsBetween, wardStockLocation, type DoseOutcome,
+  parseBatchLabel, parseWristband, scanBlockers, wristbandCode, wristbandPayload, type BandScan, type MedScan,
 } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
 import { HttpError, err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
 import { activeAllergyFacts, toAllergyView } from "./consultation.js";
 import { getPatient, notFound, toSummary } from "./frontdesk.js";
-import { closedVisit, inpatientHere, iso, peopleOf, stale, type Inpatient } from "./inpatient.js";
+import { closedVisit, erPatientOf, inpatientHere, iso, peopleOf, stale, type Inpatient } from "./inpatient.js";
+import { config } from "../config.js";
 import { requirePin } from "./pin.js";
 import { devHash } from "./users.js";
 
@@ -59,6 +61,7 @@ function recordWire(a: Admin, who: Awaited<ReturnType<typeof peopleOf>>, st: Sto
     error: a.errorAt ? { reason: a.errorReason ?? "", by: who(a.errorById), at: a.errorAt.toISOString() } : null,
     amountGiven: a.amountGiven,
     stockTaken: st.get(a.id)?.taken ?? 0, returned: st.get(a.id)?.returned ?? 0, errorStockDrawn: (a.errorStockDrawn ?? null) as DoseRecord["errorStockDrawn"],
+    scan: { band: a.scanBandAt !== null, medBatchId: a.scanMedBatchId, override: a.scanOverrideReason },
   };
 }
 async function wardStockOf(tx: Tx, s: SessionData, wardId: string | null, keys: string[], today: string): Promise<Map<string, number>> {
@@ -127,8 +130,10 @@ export async function marView(tx: Tx, s: SessionData, encounterId: string, now: 
 }
 
 /** Takes `qty` issue units of a medicine from the ward (FEFO, not expired): one move per batch; 409 when short. */
-async function takeFromWard(tx: Tx, s: SessionData, wardId: string, medicineKey: string, qty: number, ref: { type: string; id: string }, now: Date) {
-  const batches = await tx.stockBatch.findMany({ where: { organizationId: s.organizationId, location: wardStockLocation(wardId), medicineKey, qtyOnHand: { gt: 0 }, expiry: { gte: dhakaDay(now) } }, orderBy: [{ expiry: "asc" }, { id: "asc" }] });
+async function takeFromWard(tx: Tx, s: SessionData, wardId: string, medicineKey: string, qty: number, ref: { type: string; id: string }, now: Date, preferBatchId: string | null = null) {
+  const found = await tx.stockBatch.findMany({ where: { organizationId: s.organizationId, location: wardStockLocation(wardId), medicineKey, qtyOnHand: { gt: 0 }, expiry: { gte: dhakaDay(now) } }, orderBy: [{ expiry: "asc" }, { id: "asc" }] });
+  // the batch whose label was scanned goes first (ADR 0016), then first-expiry
+  const batches = [...found.filter((b) => b.id === preferBatchId), ...found.filter((b) => b.id !== preferBatchId)];
   const have = batches.reduce((a, b) => a + b.qtyOnHand, 0);
   if (have < qty) throw err(409, "stock_short", "ওয়ার্ডে স্টক নেই — ইনডেন্ট দিন, বা রোগীর নিজের ওষুধ নথিভুক্ত করুন", "Not enough ward stock — raise an indent, or record the patient's own supply", { shortfall: qty - have });
   const moves: { moveId: string; batchId: string; qty: number; after: number }[] = [];
@@ -182,6 +187,16 @@ export async function recordDose(tx: Tx, s: SessionData, encounterId: string, re
       nurseId: s.userId, preparedById, witnessId: req.witness?.userId ?? null, witnessRole: wRole, allergies: await activeAllergyFacts(tx, ip.e.patientId),
       source: req.source, amountGiven: req.amountGiven ?? null, vialOpen, earlierGivenNear },
   );
+  // ADR 0016 scan-to-verify: the wristband (signed, this admission) and, from ward stock, the medicine label (a ward batch of
+  // this medicine on this patient's ward, in date); "scanner not working" with a reason, never for high-alert / controlled
+  const scan = await verifyScans(tx, s, ip, o.medicineKey, req.scan, now);
+  const scanB = scanBlockers({ outcome: req.outcome as DoseOutcome, source: req.source, highAlert: m.highAlert, controlled: m.controlled, band: scan.band, med: scan.med, overrideReason: req.scan?.overrideReason ?? null });
+  if (scanB.some((b) => b.endsWith("_mismatch") || b === "med_expired" || b === "med_not_on_ward")) {
+    // a wrong scan is audited even though the dose is refused (its own transaction — the refusal rolls this one back)
+    const { forTenant } = await import("@setu/db");
+    await forTenant(s.tenantId, (t2) => t2.auditEvent.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, userId: s.userId, role: s.role, action: "update", entity: "MedicationAdministration", entityId: o.id, patientId: ip.e.patientId, detail: { event: "scan-mismatch", blockers: scanB, band: scan.band, med: scan.med } } }), { userId: s.userId }).catch(() => undefined);
+  }
+  blockers.push(...(scanB as unknown as typeof blockers));
   if (blockers.length) throw err(422, "dose_blocked", "নথিভুক্ত হয়নি — নিচের বিষয়গুলো ঠিক করুন", "Not recorded — resolve the items below", { blockers: blockers as unknown as Record<string, unknown>[] });
   if (preparedById !== s.userId && !(await witnessRole(tx, s, preparedById))) throw err(400, "preparer_unknown", "প্রস্তুতকারী এই প্রতিষ্ঠানের নার্স বা ডাক্তার নন", "The preparer is not a nurse or doctor of this facility", { field: "preparedById" });
   const witnessed = req.outcome === "given" && (m.highAlert || m.controlled);
@@ -193,7 +208,7 @@ export async function recordDose(tx: Tx, s: SessionData, encounterId: string, re
   const units = req.outcome === "given" ? doseConsumption(m, o.doseQty, req.source) : 0;
   if (units > 0) {
     if (!ip.ward) throw err(409, "no_ward", "রোগী কোনো ওয়ার্ডের শয্যায় নেই", "The patient is not on a ward bed");
-    moves = await takeFromWard(tx, s, ip.ward.id, o.medicineKey, units, { type: "administration", id }, now);
+    moves = await takeFromWard(tx, s, ip.ward.id, o.medicineKey, units, { type: "administration", id }, now, scan.batchId);
   }
   const timing = doseTiming(slot, administeredAt);
   try {
@@ -203,6 +218,8 @@ export async function recordDose(tx: Tx, s: SessionData, encounterId: string, re
       checkPatient: req.checks.patient, checkDrug: req.checks.drug, checkDose: req.checks.dose, checkRoute: req.checks.route, checkTime: req.checks.time,
       timing, reason: req.reason?.trim() || null, route: o.route!, doseText: o.doseText!, doseQty: o.doseQty, amountGiven: m.multiDose && req.outcome === "given" ? req.amountGiven?.trim() || null : null, source: req.source, stockRef: moves.length ? id : null,
       highAlert: m.highAlert, controlled: m.controlled, witnessedById: witnessed ? req.witness!.userId : null, witnessedAt: witnessed ? now : null,
+      ...(req.outcome === "given" ? { scanBandAt: scan.band === "match" ? now : null, scanMedBatchId: scan.med === "match" ? scan.batchId : null,
+        scanOverrideReason: scan.band === "match" && (req.source !== "ward-stock" || scan.med === "match") ? null : req.scan?.overrideReason?.trim() || null } : {}),
     } });
   } catch (x) {
     if (typeof x === "object" && x !== null && (x as { code?: string }).code === "P2002") throw err(422, "dose_blocked", "এই সময়ের ডোজ আগেই নথিভুক্ত", "This slot is already recorded", { blockers: ["slot_recorded"] as unknown as Record<string, unknown>[] });
@@ -211,7 +228,7 @@ export async function recordDose(tx: Tx, s: SessionData, encounterId: string, re
   if (m.controlled) for (const mv of moves) await tx.controlledDrugRegister.create({ data: {
     tenantId: s.tenantId, organizationId: s.organizationId, medicineKey: o.medicineKey, kind: "administer", stockMoveId: mv.moveId, batchId: mv.batchId, qty: -mv.qty, location: wardStockLocation(ip.ward!.id),
     balanceAfter: mv.after, encounterId: ip.e.id, patientId: ip.e.patientId, administrationId: id, byId: s.userId, witnessId: req.witness?.userId ?? null, at: now } });
-  audit.push({ action: "create", entity: "MedicationAdministration", entityId: id, patientId: ip.e.patientId, detail: { requestId: o.id, medicineKey: o.medicineKey, outcome: req.outcome, slot: iso(slot), timing, source: req.source, units, witness: witnessed ? req.witness!.userId : null, highAlert: m.highAlert, controlled: m.controlled, amountGiven: req.amountGiven ?? null, earlierGivenNear } });
+  audit.push({ action: "create", entity: "MedicationAdministration", entityId: id, patientId: ip.e.patientId, detail: { requestId: o.id, medicineKey: o.medicineKey, outcome: req.outcome, slot: iso(slot), timing, source: req.source, units, witness: witnessed ? req.witness!.userId : null, highAlert: m.highAlert, controlled: m.controlled, amountGiven: req.amountGiven ?? null, earlierGivenNear, scan: { band: scan.band, med: scan.med, override: Boolean(req.scan?.overrideReason) && !(scan.band === "match" && (req.source !== "ward-stock" || scan.med === "match")) } } });
   return { view: (await marView(tx, s, ip.e.id, now)).view, audit };
 }
 
@@ -280,3 +297,39 @@ export async function witnesses(tx: Tx, s: SessionData) {
   return { items: rows.filter((r) => !seen.has(r.userId) && seen.add(r.userId)).map((r) => ({ id: r.user.id, nameBn: r.user.nameBn, nameEn: r.user.nameEn, role: r.role as "nurse" | "doctor" })) };
 }
 export { stale };
+
+/* ───── ADR 0016: scans and the wristband ───── */
+const wristbandSig = (admissionId: string, facilityNo: string) => createHmac("sha256", config.wristbandSecret).update(`wristband:${wristbandPayload(admissionId, facilityNo)}`).digest("base64url").slice(0, 22);
+export const wristbandOf = (admissionId: string, facilityNo: string) => wristbandCode(admissionId, facilityNo, wristbandSig(admissionId, facilityNo));
+async function verifyScans(tx: Tx, s: SessionData, ip: Awaited<ReturnType<typeof inpatientHere>>, medicineKey: string, scan: DoseRequest["scan"], now: Date): Promise<{ band: BandScan; med: MedScan; batchId: string | null }> {
+  let band: BandScan = "none";
+  if (scan?.band) {
+    const w = parseWristband(scan.band);
+    const sigOk = w ? timingSafeEq(w.sig, wristbandSig(w.admissionId, w.facilityNo)) : false;
+    band = w && sigOk && w.admissionId === ip.adm.id && w.facilityNo === ip.e.patient.facilityNo ? "match" : "mismatch";
+  }
+  let med: MedScan = "none"; let batchId: string | null = null;
+  if (scan?.med) {
+    const id = parseBatchLabel(scan.med);
+    const b = id ? await tx.stockBatch.findFirst({ where: { id, organizationId: s.organizationId } }) : null;
+    if (!b || b.medicineKey !== medicineKey) med = "mismatch";
+    else if (!ip.ward || b.location !== wardStockLocation(ip.ward.id)) med = "not-on-ward";
+    else if (b.expiry < dhakaDay(now)) med = "expired";
+    else { med = "match"; batchId = b.id; }
+  }
+  return { band, med, batchId };
+}
+const timingSafeEq = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+/** Print the wristband: the first at admission; a reprint needs a reason (≥5). Returns what the band carries. */
+export async function printWristband(tx: Tx, s: SessionData, encounterId: string, reason: string | undefined, now: Date): Promise<{ view: WristbandView; audit: AuditEntry[] }> {
+  const ip = await inpatientHere(tx, s, encounterId);
+  const before = await tx.wristbandPrint.count({ where: { admissionId: ip.adm.id } });
+  if (before > 0 && (reason ?? "").trim().length < 5) throw err(400, "reason_required", "আবার ছাপার কারণ লিখুন (অন্তত ৫ অক্ষর)", "Give the reason for the reprint (at least 5 characters)", { field: "reason" });
+  await tx.wristbandPrint.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, admissionId: ip.adm.id, encounterId: ip.e.id, patientId: ip.e.patientId, reason: before > 0 ? reason!.trim() : null, printedById: s.userId, printedAt: now } });
+  const facts = await activeAllergyFacts(tx, ip.e.patientId);
+  return {
+    view: { code: wristbandOf(ip.adm.id, ip.e.patient.facilityNo), patient: erPatientOf(ip.e.patient), admissionNumber: ip.adm.number, bed: ip.bed?.name ?? null, ward: ip.ward?.name ?? null, printedBefore: before, allergies: facts.map((f) => f.labelEn) },
+    audit: [{ action: before > 0 ? "reprint" : "print", entity: "Wristband", entityId: ip.adm.id, patientId: ip.e.patientId, detail: { reason: before > 0 ? reason!.trim() : null } }],
+  };
+}
+

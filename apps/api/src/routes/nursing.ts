@@ -7,7 +7,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
   AmendRoundRequest, BedMoveRequest, DoseErrorRequest, DoseRequest, EscalationInformRequest, EscalationResolveRequest, IndentCreate, IndentIssueRequest, NursingNoteRequest, ReasonRequest, SaveRoundRequest, SignRoundRequest,
-  StopOrderRequest, VialOpenRequest, WardVitalsRequest, CountLineRequest, PoRev, type CountList, type StockCountView,
+  StopOrderRequest, VialOpenRequest, WardVitalsRequest, WristbandRequest, IoEntryRequest, CareTaskCreate, HandoverPatientUpdate, HandoverSignRequest, HandoverAcceptRequest, HandoverQueryRequest, CountLineRequest, PoRev, type CountList, type StockCountView,
 } from "@setu/contracts";
 import { authorize } from "@setu/domain";
 import { command, query } from "../command.js";
@@ -15,7 +15,9 @@ import { err, forbidden } from "../errors.js";
 import { cancelIndent, createIndent, issueIndent, pharmacyIndents, wardHere, wardIndents, wardStock } from "../modules/indent.js";
 import { countList, countView, createCount, setCountLine, submitCount } from "../modules/purchasing.js";
 import { arriveBed, cancelMove, moveBed } from "../modules/ipd.js";
-import { markDoseError, marView, openVial, recordDose, witnesses } from "../modules/mar.js";
+import { markDoseError, marView, openVial, printWristband, recordDose, witnesses } from "../modules/mar.js";
+import { addIo, cancelTask, completeTask, createTask, ioView, markIoError, taskList } from "../modules/care.js";
+import { acceptHandover, openHandover, queryHandover, signHandover, updateHandoverPatient, wardHandover } from "../modules/handover.js";
 import { amendRound, openRound, roundView, roundWorklist, saveRound, signRound, stopOrder, wardMedicines } from "../modules/rounds.js";
 import { addNote, informEscalation, markNoteError, recordWardVitals, resolveEscalation, wardBoard, wardList, wardPatient } from "../modules/ward.js";
 import { requireSession } from "../plugins/session.js";
@@ -158,6 +160,63 @@ export async function nursingRoutes(app: FastifyInstance) {
   app.post("/v1/nursing/counts/:id/submit", own, async (req, reply): Promise<StockCountView> => {
     requireAny(req, ["nur", "ward"]); const { id } = pid.parse(req.params); const { rev } = PoRev.parse(req.body ?? {});
     return command(req, reply, async (tx, s) => { await wardCount(tx, s, id); const c = await submitCount(tx, s, id, rev, new Date()); return { status: 200, body: await countView(tx, s, c, new Date()), audit: [{ action: "update", entity: "StockCount", entityId: id, detail: { event: "submit" } }] }; });
+  });
+  /* ── ADR 0016: the wristband, intake / output, care tasks, the shift handover ── */
+  app.post("/v1/nursing/encounters/:id/wristband", own, async (req, reply) => {
+    requireAny(req, ["nur", "ward"], ["nur", "mar"], ["ipd", "admit"]); const { id } = pid.parse(req.params); const body = WristbandRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const r = await printWristband(tx, s, id, body.reason, new Date()); return { status: 201, body: r.view, audit: r.audit }; });
+  });
+  app.get("/v1/nursing/encounters/:id/io", async (req) => {
+    requireAny(req, ["nur", "io"], ["ipd", "rounds"]); const { id } = pid.parse(req.params); const { day } = z.object({ day: z.string().max(10).optional() }).parse(req.query ?? {});
+    return query(req, async (tx, s) => { const v = await ioView(tx, s, id, new Date(), day); return { body: v, audit: [{ action: "view", entity: "IntakeOutputEntry", detail: { encounterId: id, day: v.day } }] }; });
+  });
+  app.post("/v1/nursing/encounters/:id/io", own, async (req, reply) => {
+    requireAny(req, ["nur", "io"]); const { id } = pid.parse(req.params); const body = IoEntryRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const r = await addIo(tx, s, id, body, new Date()); return { status: 201, body: r.entry, audit: r.audit }; });
+  });
+  app.post("/v1/nursing/io/:id/entered-in-error", own, async (req, reply) => {
+    requireAny(req, ["nur", "io"]); const { id } = pid.parse(req.params); const body = ReasonRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const r = await markIoError(tx, s, id, body.reason, new Date()); return { body: r.entry, audit: r.audit }; });
+  });
+  app.get("/v1/nursing/encounters/:id/tasks", async (req) => {
+    requireAny(req, ["nur", "io"], ["ipd", "rounds"]); const { id } = pid.parse(req.params);
+    return query(req, async (tx, s) => ({ body: await taskList(tx, s, id, new Date()), audit: [{ action: "view", entity: "CareTask", detail: { encounterId: id } }] }));
+  });
+  app.post("/v1/nursing/encounters/:id/tasks", own, async (req, reply) => {
+    requireAny(req, ["nur", "io"], ["ipd", "rounds"]); const { id } = pid.parse(req.params); const body = CareTaskCreate.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const r = await createTask(tx, s, id, body, new Date()); return { status: 201, body: r.list, audit: r.audit }; });
+  });
+  app.post("/v1/nursing/tasks/:id/complete", own, async (req, reply) => {
+    requireAny(req, ["nur", "io"]); const { id } = pid.parse(req.params);
+    return command(req, reply, async (tx, s) => { const r = await completeTask(tx, s, id, new Date()); return { body: r.list, audit: r.audit }; });
+  });
+  app.post("/v1/nursing/tasks/:id/cancel", own, async (req, reply) => {
+    requireAny(req, ["nur", "io"], ["ipd", "rounds"]); const { id } = pid.parse(req.params); const body = ReasonRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const r = await cancelTask(tx, s, id, body.reason, new Date()); return { body: r.list, audit: r.audit }; });
+  });
+  app.get("/v1/nursing/wards/:id/handover", async (req) => {
+    requireAny(req, ["nur", "handover"]); const { id } = pid.parse(req.params);
+    return query(req, async (tx, s) => ({ body: await wardHandover(tx, s, id, new Date()), audit: [{ action: "view", entity: "Handover", detail: { wardId: id } }] }));
+  });
+  app.post("/v1/nursing/wards/:id/handover", own, async (req, reply) => {
+    requireAny(req, ["nur", "handover"]); const { id } = pid.parse(req.params);
+    return command(req, reply, async (tx, s) => { const r = await openHandover(tx, s, id, new Date()); return { status: 201, body: r.view, audit: r.audit }; });
+  });
+  app.put("/v1/nursing/handovers/:id/patients/:encounterId", own, async (req, reply) => {
+    requireAny(req, ["nur", "handover"]); const p = z.object({ id: z.string().min(1).max(64), encounterId: z.string().min(1).max(64) }).parse(req.params); const body = HandoverPatientUpdate.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const r = await updateHandoverPatient(tx, s, p.id, p.encounterId, body, new Date()); return { body: r.view, audit: r.audit }; });
+  });
+  app.post("/v1/nursing/handovers/:id/sign", own, async (req, reply) => {
+    requireAny(req, ["nur", "handover"]); const { id } = pid.parse(req.params); const body = HandoverSignRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const r = await signHandover(tx, s, id, body, new Date()); return { body: r.view, audit: r.audit }; }, { hashOmit: ["pin"] });
+  });
+  app.post("/v1/nursing/handovers/:id/accept", own, async (req, reply) => {
+    requireAny(req, ["nur", "handover"]); const { id } = pid.parse(req.params); const body = HandoverAcceptRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const r = await acceptHandover(tx, s, id, body, new Date()); return { body: r.view, audit: r.audit }; }, { hashOmit: ["pin"] });
+  });
+  app.post("/v1/nursing/handovers/:id/query", own, async (req, reply) => {
+    requireAny(req, ["nur", "handover"]); const { id } = pid.parse(req.params); const body = HandoverQueryRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const r = await queryHandover(tx, s, id, body, new Date()); return { body: r.view, audit: r.audit }; });
   });
   /* ── bed moves ── */
   app.post("/v1/ipd/admissions/:id/transfer", own, async (req, reply) => {

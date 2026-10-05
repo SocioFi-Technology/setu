@@ -51,6 +51,13 @@ export async function seedInpatient(db: PrismaClient, now = new Date()): Promise
     }
     await tx.composition.update({ where: { id: noteId }, data: { status: "final", signedAt: started, signedById: INPATIENT.doctorId } });
     await tx.provenance.create({ data: { tenantId: LITE.tenant, targetType: "Composition", targetId: noteId, activity: "sign", agentId: INPATIENT.doctorId, onBehalfOf: LITE.org, source: "provider_verified", recorded: started, detail: { seeded: true, kind: "progress-note", version: 1 } } });
+    // ADR 0016: the day's intake / output so far (the prototype's entries) and two care plan tasks
+    const at = (hAgo: number) => new Date(now.getTime() - hAgo * 3600_000);
+    const io: [string, string, number, number][] = [["in", "iv", 500, 6], ["in", "oral", 150, 4], ["in", "oral", 200, 2], ["out", "urine", 400, 5], ["out", "drain", 80, 3], ["out", "urine", 350, 1]];
+    for (const [side, route, ml, hAgo] of io) await tx.intakeOutputEntry.create({ data: { tenantId: LITE.tenant, organizationId: LITE.org, encounterId: enc.id, patientId: INPATIENT.patientId, side, route, ml, effectiveAt: at(hAgo), writtenById: "u_e2l_nurse", writtenAt: at(hAgo) } });
+    const t1 = `ct_${randomUUID()}`, t2 = `ct_${randomUUID()}`;
+    await tx.careTask.create({ data: { id: t1, seriesId: t1, tenantId: LITE.tenant, organizationId: LITE.org, encounterId: enc.id, patientId: INPATIENT.patientId, text: "RBS before each insulin dose", everyHours: 6, dueAt: at(-1), createdById: INPATIENT.doctorId, createdAt: started } });
+    await tx.careTask.create({ data: { id: t2, seriesId: t2, tenantId: LITE.tenant, organizationId: LITE.org, encounterId: enc.id, patientId: INPATIENT.patientId, text: "Check the wound dressing and the drain", everyHours: null, dueAt: at(1), createdById: "u_e2l_nurse", createdAt: started } });
     return { encounterId: enc.id, admissionNumber: number };
   }, { timeout: 30_000 });
 }

@@ -5,7 +5,7 @@
 import { randomUUID } from "node:crypto";
 import type { IndentCreate, IndentIssueRequest, IndentView, WardStock } from "@setu/contracts";
 import type { Tx } from "@setu/db";
-import { INDENT, dhakaDay, indentLineProblems, indentNumber, indentStateAfter, transition, wardStockLocation } from "@setu/domain";
+import { INDENT, batchLabel, dhakaDay, indentLineProblems, indentNumber, indentStateAfter, transition, wardStockLocation } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
@@ -39,7 +39,7 @@ async function views(tx: Tx, s: SessionData, inds: Ind[], now: Date): Promise<In
   return inds.map((i) => ({
     id: i.id, number: i.number, status: wire(i.status), ward: { id: i.wardId, name: W.get(i.wardId)?.name ?? "" }, note: i.note, requestedBy: who(i.requestedById), requestedAt: i.requestedAt.toISOString(),
     lines: [...i.lines].sort((a, b) => a.position - b.position).map((l) => { const m = M.get(l.medicineKey); return { id: l.id, medicineKey: l.medicineKey, name: m ? `${m.brand} ${m.strength}` : l.medicineKey, issueUnit: m?.issueUnit ?? "unit", controlled: Boolean(m?.controlled), requested: l.qtyRequested, issued: l.qtyIssued, storeAvailable: avail.get(l.medicineKey) ?? 0 }; }),
-    issues: issues.filter((x) => x.indentId === i.id).map((x) => ({ lineId: x.lineId, qty: x.qty, by: who(x.byId), at: x.at.toISOString() })),
+    issues: issues.filter((x) => x.indentId === i.id).map((x) => ({ lineId: x.lineId, qty: x.qty, by: who(x.byId), at: x.at.toISOString(), label: x.toBatchId ? batchLabel(x.toBatchId) : null })),
     cancel: i.cancelledById ? { by: who(i.cancelledById), reason: i.cancelReason ?? "" } : null,
   }));
 }
@@ -127,7 +127,9 @@ export async function wardIndents(tx: Tx, s: SessionData, wardId: string, now: D
 export async function pharmacyIndents(tx: Tx, s: SessionData, status: string | undefined, now: Date) {
   const st = status ? status.replace(/-/g, "_") : undefined;
   const where = st && ["requested", "partially_issued", "issued", "cancelled"].includes(st) ? { status: st as "requested" } : { status: { in: ["requested", "partially_issued"] as ("requested" | "partially_issued")[] } };
-  const inds = (await tx.wardIndent.findMany({ where: { organizationId: s.organizationId, ...where }, include: { lines: true }, orderBy: { requestedAt: "asc" }, take: 100 })) as Ind[];
+  // open indents oldest first (the queue); issued and cancelled newest first — the latest 100, not the first 100 ever
+  const done = st === "issued" || st === "cancelled";
+  const inds = (await tx.wardIndent.findMany({ where: { organizationId: s.organizationId, ...where }, include: { lines: true }, orderBy: { requestedAt: done ? "desc" : "asc" }, take: 100 })) as Ind[];
   return { items: await views(tx, s, inds, now) };
 }
 export async function wardStock(tx: Tx, s: SessionData, wardId: string): Promise<WardStock> {
@@ -140,5 +142,5 @@ export async function wardStock(tx: Tx, s: SessionData, wardId: string): Promise
   const rmeds = new Map((await tx.medicine.findMany({ where: { key: { in: [...new Set(rets.map((r) => r.batch.medicineKey))] } } })).map((m) => [m.key, m]));
   const rwho = await peopleOf(tx, rets.map((r) => r.byId));
   const returns = rets.map((r) => { const m = rmeds.get(r.batch.medicineKey); return { medicine: m ? `${m.brand} ${m.strength}` : r.batch.medicineKey, batchNo: r.batch.batchNo, qty: r.qty, reason: r.reason ?? "", by: rwho(r.byId), at: r.at.toISOString() }; });
-  return { ward: { id: ward.id, name: ward.name }, returns, items: keys.map((k) => { const b = rows.filter((r) => r.medicineKey === k), m = meds.get(k); return { medicineKey: k, name: m ? `${m.brand} ${m.strength}` : k, issueUnit: m?.issueUnit ?? "unit", controlled: Boolean(m?.controlled), qty: b.reduce((a, x) => a + x.qtyOnHand, 0), batches: b.map((x) => ({ batchNo: x.batchNo, expiry: x.expiry, qty: x.qtyOnHand })) }; }) };
+  return { ward: { id: ward.id, name: ward.name }, returns, items: keys.map((k) => { const b = rows.filter((r) => r.medicineKey === k), m = meds.get(k); return { medicineKey: k, name: m ? `${m.brand} ${m.strength}` : k, issueUnit: m?.issueUnit ?? "unit", controlled: Boolean(m?.controlled), qty: b.reduce((a, x) => a + x.qtyOnHand, 0), batches: b.map((x) => ({ id: x.id, batchNo: x.batchNo, expiry: x.expiry, qty: x.qtyOnHand, label: batchLabel(x.id) })) }; }) };
 }

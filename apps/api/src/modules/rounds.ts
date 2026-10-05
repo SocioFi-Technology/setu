@@ -8,8 +8,10 @@ import type { Tx } from "@setu/db";
 import {
   AMEND_REASON_MIN, DOCUMENT, MEDICATION_ORDER, NEWS2_SAMPLE_NOTE, NEWS2_THRESHOLD_SAMPLE, ORDER, lineProblems, roundNoteBlockers, rxWarnings, sameRegimen, signDocument, stopBlockers, transition,
   type RoundNoteSections, type RxLine, type WardMedicine,
+  taskOverdue,
 } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
+import { io24h } from "./care.js";
 import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
 import { activeAllergyFacts, toAllergyView } from "./consultation.js";
@@ -114,6 +116,8 @@ export async function roundView(tx: Tx, s: SessionData, encounterId: string, now
         doses: doses.map((d) => ({ medicine: meds.get(d.medicineKey)?.brand ?? d.medicineKey, status: d.status.replace(/_/g, "-"), at: d.administeredAt.toISOString(), timing: d.timing, reason: d.reason ?? d.errorReason })),
       },
       activeOrders: await orderWires(tx, rows.filter(isActive)), draft: draft ? (await noteWires(tx, [draft]))[0]! : null, signed: await noteWires(tx, current), rule: rule(),
+      io24h: (await io24h(tx, [ip.e.id], now)).get(ip.e.id) ?? null,
+      tasks: (await tx.careTask.findMany({ where: { encounterId: ip.e.id, status: "requested" }, orderBy: { dueAt: "asc" } })).map((t) => ({ id: t.id, text: t.text, dueAt: t.dueAt.toISOString(), everyHours: t.everyHours, overdue: taskOverdue(t, now) })),
     },
   };
 }

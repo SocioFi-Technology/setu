@@ -3,7 +3,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
 import { config } from "../src/config.js";
-import { T, client, dhakaHHMM, line, setup } from "./ward-helpers.js";
+import { T, client, dhakaHHMM, line, setup, withScans } from "./ward-helpers.js";
 
 const db = config.dbEnabled ? await import("@setu/db") : null;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -241,7 +241,7 @@ describe.runIf(db)("ward stock counts (Kamrul, 06/10/2026): the nurse counts, th
     await issue("ceftriaxone", 3); await issue("morphine", 2, "1234");
     const r = await h.signRound(a.encounterId, [line("ceftriaxone", { doseText: "1 g IV", times: [], prn: true, prnMaxPer24h: 4 })]);
     const o = r.activeOrders.find((x: { medicine: { key: string } }) => x.medicine.key === "ceftriaxone");
-    const given = (await c.post(`/v1/nursing/encounters/${a.encounterId}/doses`, { requestId: o.id, scheduledFor: null, outcome: "given", administeredAt: now(), checks: { patient: true, drug: true, dose: true, route: true, time: true }, source: "ward-stock" })).json();
+    const given = (await c.post(`/v1/nursing/encounters/${a.encounterId}/doses`, await withScans(c, a.encounterId, { requestId: o.id, scheduledFor: null, outcome: "given", administeredAt: now(), checks: { patient: true, drug: true, dose: true, route: true, time: true }, source: "ward-stock" }))).json();
     const rec = given.orders.find((x: { id: string }) => x.id === o.id).prnRecords[0];
     expect((await c.post(`/v1/nursing/doses/${rec.id}/entered-in-error`, { reason: "Charted on the wrong line", stockDrawn: "no" })).statusCode).toBe(200);
     // a ward is not counted through the pharmacy's count (counter / store / fridge only)

@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
 import { config } from "../src/config.js";
-import { T, TICKS, client, dhakaHHMM, line, setup, slotAt } from "./ward-helpers.js";
+import { T, TICKS, bandOf, client, dhakaHHMM, labelOf, line, setup, slotAt, withScans } from "./ward-helpers.js";
 
 const db = config.dbEnabled ? await import("@setu/db") : null;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -16,7 +16,7 @@ afterAll(async () => { await app?.close(); });
 const tenant = <R>(fn: (tx: import("@setu/db").Tx) => Promise<R>) => db!.forTenant(T, fn);
 const now = () => new Date().toISOString();
 const orderOf = (round: { activeOrders: { id: string; medicine: { key: string } }[] }, key: string) => round.activeOrders.find((o) => o.medicine.key === key)!;
-const dose = (encounterId: string, body: object, who: "nurse" | "nurse2" | "surgeon" = "nurse") => c.post(`/v1/nursing/encounters/${encounterId}/doses`, body, who);
+const dose = async (encounterId: string, body: object, who: "nurse" | "nurse2" | "surgeon" = "nurse") => c.post(`/v1/nursing/encounters/${encounterId}/doses`, await withScans(c, encounterId, body as Record<string, unknown>), who);
 
 describe.runIf(db)("the walkthrough cases (B5)", () => {
   it("a double dose: the same slot twice is refused", async () => {
@@ -129,8 +129,9 @@ describe.runIf(db)("stock, vials, the register, corrections", () => {
     const r = await h.signRound(a.encounterId, [line("ceftriaxone", { doseText: "1 g IV", times: [hhmm, hhmm2] })]);
     const o = orderOf(r, "ceftriaxone");
     const base = { requestId: o.id, scheduledFor: slotAt(hhmm), outcome: "given", administeredAt: now(), checks: TICKS };
+    // nothing of it on the ward: there is no label to scan (ADR 0016) — refused, indent first
     const short = await dose(a.encounterId, { ...base, source: "ward-stock" });
-    expect(short.statusCode).toBe(409); expect(short.json().code).toBe("stock_short");
+    expect(short.statusCode).toBe(422); expect(short.json().blockers).toContain("med_required");
     const own = await dose(a.encounterId, { ...base, source: "patient-supplied" });
     expect(own.statusCode, own.body).toBe(201);
     expect(own.json().orders.find((x: { id: string }) => x.id === o.id).slots[0].record).toMatchObject({ source: "patient-supplied" });

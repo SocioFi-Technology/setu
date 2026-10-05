@@ -7,6 +7,8 @@ for (const f of [resolve(process.cwd(), ".env"), resolve(process.cwd(), "../../.
 export const config = {
   port: Number(process.env.API_PORT ?? 4000),
   sessionSecret: process.env.SESSION_SECRET ?? "dev-only-secret-change-me-in-env-file",
+  /** ADR 0016: signs wristband QR codes (defaults to the session secret; rotating it invalidates printed bands) */
+  wristbandSecret: process.env.WRISTBAND_SECRET ?? process.env.SESSION_SECRET ?? "dev-only-secret-change-me-in-env-file",
   /** The API connects as setu_app (RLS applies). DATABASE_URL is the owner and is only for migrations and the seed. */
   databaseUrl: process.env.DATABASE_URL_APP,
   /** When no database URL is set (first run, CI without Docker) the API serves /health and the demo login from memory. */
