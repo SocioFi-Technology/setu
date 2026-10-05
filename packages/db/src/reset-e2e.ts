@@ -76,6 +76,23 @@ for (const t of cases) {
   const u = await db.task.updateMany({ where: { id: t.id, tenantId: T, status: "requested" }, data: { status, decidedById: RECONCILE_BY, decidedAt: now, decisionNote: "test run", detail: { ...((t.detail ?? {}) as object), resolution } } });
   if (u.count) await db.auditEvent.create({ data: { tenantId: T, userId: RECONCILE_BY, role: "owner", at: now, action: "update", entity: "Task", entityId: t.id, detail: { route: "pnpm db:reset-e2e", event: "reject", resolution: "resolved", note: "test run", e2eReset: true } } });
 }
+/* ADR 0013: refunds left requested by earlier runs are rejected ("e2e reset: test run") through their approval task, by
+   the E2E owner — or the E2E admin when the owner asked; approved ones not yet paid out are withdrawn. Owner checks of
+   manual refunds are resolved with the same note. Nothing is paid and no stock moves. */
+const openRefunds = await db.refund.findMany({ where: { tenantId: T, status: { in: ["requested", "approved"] } }, include: { allocations: true } });
+let refundsClosed = 0;
+for (const r of openRefunds) {
+  const by = r.requestedById === RECONCILE_BY ? RESET_BY : RECONCILE_BY;
+  if (r.status === "requested") {
+    await db.task.updateMany({ where: { id: r.approvalTaskId!, status: "requested" }, data: { status: "rejected", decidedById: by, decidedAt: now, decisionNote: "e2e reset: test run" } });
+    await db.refund.update({ where: { id: r.id }, data: { status: "rejected", decidedById: by, decidedAt: now, decisionNote: "e2e reset: test run", statusAt: now, rev: { increment: 1 } } });
+  } else if (r.allocations.every((a) => a.status === "open" && !a.gatewayFailedAt)) {
+    await db.refund.update({ where: { id: r.id }, data: { status: "withdrawn", withdrawnById: by, withdrawnAt: now, withdrawNote: "e2e reset: test run", statusAt: now, rev: { increment: 1 } } });
+  } else continue;
+  audit.push({ action: "update", entity: "Refund", entityId: r.id, patientId: r.patientId ?? undefined, detail: { event: r.status === "requested" ? "reject" : "withdraw", note: "e2e reset: test run", e2eReset: true } });
+  refundsClosed++;
+}
+const refundChecks = await db.task.updateMany({ where: { tenantId: T, kind: "refund-reconciliation", status: "requested" }, data: { status: "rejected", decidedById: RECONCILE_BY, decidedAt: now, decisionNote: "e2e reset: test run" } });
 /* ADR 0008: shifts left unfinished by earlier automated runs are counted (as matching) and approved as the E2E owner
    with the note "e2e reset: test run" — through the same SHIFT steps and append-only rows; nothing is deleted. */
 const unfinished = await db.shift.findMany({ where: { tenantId: T, status: { not: "approved" } } });
@@ -137,4 +154,4 @@ await db.user.updateMany({ where: { id: { in: testUsers }, roles: { none: {} } }
 await db.user.update({ where: { id: NEW_ADMIN }, data: { active: true, mustChangePassword: false, tempPasswordExpiresAt: null, passwordHash: createHash("sha256").update("dev-only:setu1234").digest("hex"), pinHash: createHash("sha256").update("dev-only:2580").digest("hex") } });
 if (audit.length) await db.auditEvent.createMany({ data: audit.map((a) => ({ tenantId: T, userId: RESET_BY, role: "admin" as const, at: now, ...a, detail: { route: "pnpm db:reset-e2e", ...a.detail } })) });
 await db.$disconnect();
-console.log(`E2E Test Clinic reset: walkthrough family restored, ${n.count} open review(s) closed, ${undone.length} undone override(s) marked reviewed, ${extra.length} test allerg(ies) marked entered-in-error, ${restored} seeded allerg(ies) recorded again, ${open.length} leftover visit(s) closed, ${cases.length} reconciliation case(s) resolved "test run", ${unfinished.length} unfinished shift(s) approved "test run", ${toppedUp} stock batch(es) topped up, ${openCounts.length} open count(s) rejected, ${openGrns.count} goods receipt(s) discarded, E2E New Clinic back in setup (${testUsers.length} test user(s) switched off)`);
+console.log(`E2E Test Clinic reset: walkthrough family restored, ${n.count} open review(s) closed, ${undone.length} undone override(s) marked reviewed, ${extra.length} test allerg(ies) marked entered-in-error, ${restored} seeded allerg(ies) recorded again, ${open.length} leftover visit(s) closed, ${cases.length} reconciliation case(s) resolved "test run", ${refundsClosed} open refund(s) closed and ${refundChecks.count} refund check(s) resolved "test run", ${unfinished.length} unfinished shift(s) approved "test run", ${toppedUp} stock batch(es) topped up, ${openCounts.length} open count(s) rejected, ${openGrns.count} goods receipt(s) discarded, E2E New Clinic back in setup (${testUsers.length} test user(s) switched off)`);

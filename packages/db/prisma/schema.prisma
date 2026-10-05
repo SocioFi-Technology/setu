@@ -902,9 +902,13 @@ model Invoice {
   /// the voided bill this one replaces (same visit); on the voided bill, the replacement once it is issued
   replacesId          String?
   replacedById        String?
+  /// ADR 0013: money of this bill paid back (refunds of source "bill", allocations paid out); the database keeps it
+  /// equal to their sum. Confirmed payments stay confirmed: paid − refunded is what the facility keeps.
+  refundedPaisa       Int           @default(0)
   statusAt            DateTime      @default(now())
   lines               ChargeItem[]
   payments            Payment[]
+  refunds             Refund[]
 
   @@unique([tenantId, organizationId, number])
   @@index([tenantId, encounterId])
@@ -1499,6 +1503,8 @@ model StockBatch {
 }
 
 /// ADR 0009: the stock ledger (append-only). kind receive | dispense | sale | adjust | return | transfer.
+/// ADR 0013: a return comes into a quarantine batch from a paid refund line (refType "refund-line"); quarantine →
+/// counter is a transfer backed by a StockResale.
 model StockMove {
   id             String     @id @default(cuid())
   tenantId       String
@@ -1519,6 +1525,7 @@ model StockMove {
 
 /// ADR 0009: one dispense action on one prescription line of a signed note (append-only): units given (the prescribed
 /// medicine or a same-generic substitute with a reason) or a decline with a reason.
+/// ADR 0013: or units returned (action "return", pointing at the dispense it reverses) — the original is never edited.
 model MedicationDispense {
   id             String   @id @default(cuid())
   tenantId       String
@@ -1535,6 +1542,9 @@ model MedicationDispense {
   reason         String?
   invoiceId      String?
   chargeItemId   String?
+  /// ADR 0013: action "return" — the dispense row it reverses and the refund line that paid it back
+  returnOfId     String?
+  refundLineId   String?
   byId           String
   at             DateTime @default(now())
 
@@ -1734,4 +1744,175 @@ model GatewayToken {
   /// every grant / refresh call in the last hour, failed ones too (bKash blocks the app after two an hour)
   renewals         DateTime[] @default([])
   updatedAt        DateTime
+}
+
+/* ───── refunds (ADR 0013) ───── */
+/// REFUND machine states (@setu/domain machines.ts). withdrawn = approved, then not paid (never shown as rejected).
+enum RefundStatus {
+  requested
+  approved
+  paid
+  rejected
+  withdrawn
+}
+
+/// Money confirmed on one bill, given back. Lines are the credit note (bill lines with their VAT); allocations name the
+/// confirmed payments it goes back against and how each is paid out. Approved through a Task (kind "refund-approval",
+/// focus = the bill). Never deleted; paid is final.
+model Refund {
+  id                String             @id @default(cuid())
+  tenantId          String
+  organizationId    String
+  invoiceId         String
+  invoice           Invoice            @relation(fields: [invoiceId], references: [id])
+  patientId         String?
+  /// bill | reconciliation (money a gateway reported that never became confirmed money on the bill — no lines)
+  source            String             @default("bill")
+  /// reconciliation: the case it came from
+  caseTaskId        String?
+  /// cancelled-test | wrong-dispense | overpayment | patient-request | other
+  category          String
+  reason            String
+  status            RefundStatus       @default(requested)
+  amountPaisa       Int
+  netPaisa          Int
+  vatPaisa          Int
+  /// a controlled drug on it, or card / bank money paid back in cash: the owner approves (not an admin)
+  needsOwner        Boolean            @default(false)
+  approvalTaskId    String?
+  requestedById     String
+  requestedAt       DateTime           @default(now())
+  decidedById       String?
+  decidedAt         DateTime?
+  decisionNote      String?
+  withdrawnById     String?
+  withdrawnAt       DateTime?
+  withdrawNote      String?
+  /// who took the money (often a relative), required when it is paid
+  recipientName     String?
+  recipientPhone    String?
+  recipientRelation String?
+  paidAt            DateTime?
+  rev               Int                @default(1)
+  statusAt          DateTime           @default(now())
+  lines             RefundLine[]
+  allocations       RefundAllocation[]
+  voucher           RefundVoucher?
+
+  @@index([tenantId, invoiceId])
+  @@index([tenantId, organizationId, status])
+}
+
+/// One credit-note line: a part of a bill line (by amount, or by units for medicine), with its net and VAT. Written with
+/// the request; never changed.
+model RefundLine {
+  id           String @id @default(cuid())
+  tenantId     String
+  refundId     String
+  refund       Refund @relation(fields: [refundId], references: [id])
+  chargeItemId String
+  /// medicine lines: units returned
+  units        Int?
+  netPaisa     Int
+  vatPaisa     Int
+  totalPaisa   Int
+
+  @@index([tenantId, refundId])
+  @@index([tenantId, chargeItemId])
+}
+
+/// Which confirmed payment the money goes back against and how: cash (from the payer's open shift), gateway (the
+/// wallet's refund API: claimed, then answered) or manual (by hand with a reference; flagged for the owner).
+/// status open → paying (gateway claimed) → paid; a gateway refusal goes back to open with why.
+model RefundAllocation {
+  id                  String        @id @default(cuid())
+  tenantId            String
+  refundId            String
+  refund              Refund        @relation(fields: [refundId], references: [id])
+  paymentId           String
+  method              PaymentMethod
+  amountPaisa         Int
+  /// cash | gateway | manual
+  way                 String
+  /// a wallet payment paid back in cash: no-wallet-access | gateway-failed
+  cashReason          String?
+  /// open | paying | paid
+  status              String        @default("open")
+  claimedById         String?
+  claimedAt           DateTime?
+  /// the gateway refused or failed this allocation's refund at least once (cash is then allowed)
+  gatewayFailedAt     DateTime?
+  failReason          String?
+  refundTrxId         String?
+  /// manual: the reference typed (bank / wallet / card slip)
+  reference           String?
+  /// cash: the shift the money left
+  shiftId             String?
+  paidById            String?
+  paidAt              DateTime?
+  /// manual (and card / bank → cash): the owner checks it against the statement (Task "refund-reconciliation")
+  needsReconciliation Boolean       @default(false)
+  reconcileTaskId     String?
+
+  @@index([tenantId, refundId])
+  @@index([tenantId, paymentId])
+  @@index([tenantId, shiftId])
+}
+
+/// The refund voucher (RF/yy/nnnn per facility per year from Sequence, made when the refund is paid): an immutable copy
+/// of what it prints, with a random verify code for the public check. Never updated or deleted.
+model RefundVoucher {
+  id             String               @id @default(cuid())
+  tenantId       String
+  organizationId String
+  refundId       String               @unique
+  refund         Refund               @relation(fields: [refundId], references: [id])
+  invoiceId      String
+  patientId      String?
+  number         String
+  verifyCode     String               @unique
+  amountPaisa    Int
+  snapshot       Json
+  createdById    String
+  createdAt      DateTime             @default(now())
+  prints         RefundVoucherPrint[]
+
+  @@unique([tenantId, organizationId, number])
+  @@index([tenantId, invoiceId])
+}
+
+/// Every print of a refund voucher: copy 0 = the original, n ≥ 1 = "DUPLICATE #n" with a reason. Append-only.
+model RefundVoucherPrint {
+  id          String        @id @default(cuid())
+  tenantId    String
+  voucherId   String
+  voucher     RefundVoucher @relation(fields: [voucherId], references: [id])
+  copy        Int
+  reason      String?
+  format      String
+  lang        String
+  storageKey  String
+  printedById String
+  printedAt   DateTime      @default(now())
+
+  @@unique([voucherId, copy])
+  @@index([tenantId, voucherId])
+}
+
+/// A pharmacist's decision that returned units in quarantine are unopened and resaleable (a controlled drug: the
+/// owner's): the transfer back to the counter (refId = transferRef) is backed by it. Append-only.
+model StockResale {
+  id             String   @id @default(cuid())
+  tenantId       String
+  organizationId String
+  fromBatchId    String
+  toBatchId      String
+  qty            Int
+  unopened       Boolean
+  reason         String
+  transferRef    String   @unique
+  byId           String
+  at             DateTime @default(now())
+
+  @@index([tenantId, fromBatchId])
 }
