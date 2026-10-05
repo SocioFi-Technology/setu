@@ -244,3 +244,70 @@ describe.runIf(db)("ADR 0011 bKash tokenized checkout", () => {
     expect(grants()).toBe(before);
   });
 });
+
+/* ADR 0013 — bKash refunds (developer.bka.sh v2 Refund / Refund Status) against the stand-in: partial refunds within what
+   was paid, refusals that moved nothing, and an unanswered refund settled by Refund Status — never sent twice. */
+describe.runIf(db)("ADR 0013 bKash refund", () => {
+  const quick = () => new BkashProvider({ baseUrl: apiUrl, ...creds, callbackUrl: "https://setu.test/x", timeoutMs: 400 }, async (renew) => db!.withGatewayToken("bkash", renew));
+  /** a completed ৳amount bKash payment at the stand-in: paymentId and TrxID */
+  async function paid(amountPaisa: number) {
+    const p = outside();
+    const link = await p.createLink({ method: "bkash", amountPaisa, reference: `rf-${randomUUID()}`, invoiceNumber: "INV/RF", phone: "1712345678", attempt: 1 });
+    standIn.authorise(link.providerRef);
+    const ex = await p.execute(link.providerRef);
+    expect(ex.status?.status).toBe("confirmed");
+    return { providerRef: link.providerRef, trxId: ex.status!.trxId! };
+  }
+  const refunds = (ref: string) => standIn.calls.filter((c) => c.path === "refund/payment/transaction" && c.body.paymentId === ref).length;
+
+  it("partial refunds up to what was paid; one more paisa is refused and nothing moves", async () => {
+    const pay = await paid(50_000);
+    const p = outside();
+    const a = await p.refund({ ...pay, amountPaisa: 10_000, sku: "alloc-a", reason: "cancelled-test", known: [] });
+    expect(a).toMatchObject({ status: "completed", code: null });
+    expect(a.refundTrxId).toMatch(/^RF/);
+    expect(standIn.calls.at(-1)!.body).toMatchObject({ paymentId: pay.providerRef, trxId: pay.trxId, refundAmount: "100.00", sku: "alloc-a", reason: "cancelled-test" });
+    const b = await p.refund({ ...pay, amountPaisa: 40_000, sku: "alloc-b", reason: "patient-request", known: [a.refundTrxId!] });
+    expect(b.status).toBe("completed");
+    expect(await p.refund({ ...pay, amountPaisa: 1, sku: "alloc-c", reason: "other", known: [a.refundTrxId!, b.refundTrxId!] })).toEqual({ status: "refused", refundTrxId: null, code: "2072" });
+    const list = await p.refundStatus(pay);
+    expect(list!.map((r) => [r.refundTrxId, r.amountPaisa, r.completed])).toEqual([[a.refundTrxId, 10_000, true], [b.refundTrxId, 40_000, true]]);
+  });
+
+  it("a wrong TrxID, a payment never completed, and the same amount again within 10 minutes are refused", async () => {
+    const pay = await paid(30_000);
+    const p = outside();
+    expect((await p.refund({ ...pay, trxId: "TRXWRONG1", amountPaisa: 5_000, sku: "s", reason: "other", known: [] })).code).toBe("2077");
+    const first = await p.refund({ ...pay, amountPaisa: 5_000, sku: "s1", reason: "other", known: [] });
+    expect(first.status).toBe("completed");
+    expect(await p.refund({ ...pay, amountPaisa: 5_000, sku: "s2", reason: "other", known: [first.refundTrxId!] })).toMatchObject({ status: "refused", code: "2074" });
+    const link = await p.createLink({ method: "bkash", amountPaisa: 1_000, reference: `rf-${randomUUID()}`, invoiceNumber: "INV/RF", phone: "1712345678", attempt: 1 });
+    expect((await p.refund({ providerRef: link.providerRef, trxId: "TRXNONE01", amountPaisa: 1_000, sku: "s", reason: "other", known: [] })).code).toBe("2127");
+  });
+
+  it("no answer in time: Refund Status finds the refund bKash made — completed, never refunded twice", async () => {
+    const pay = await paid(20_000);
+    standIn.slowNextRefundMs = 1_200;
+    const r = await quick().refund({ ...pay, amountPaisa: 7_500, sku: "slow", reason: "other", known: [] });
+    expect(r.status).toBe("completed");
+    expect(refunds(pay.providerRef)).toBe(1);
+    expect((await outside().refundStatus(pay))!.map((x) => x.refundTrxId)).toEqual([r.refundTrxId]);
+  });
+
+  it("an unclear answer with nothing new at bKash stays unknown (a person decides; no automatic resend)", async () => {
+    const pay = await paid(20_000);
+    const p = outside();
+    const done = await p.refund({ ...pay, amountPaisa: 2_000, sku: "x", reason: "other", known: [] });
+    standIn.failNextRefund = "503";
+    // the earlier refund is ours already (known): bKash shows nothing new, so this one is not taken as done
+    expect(await p.refund({ ...pay, amountPaisa: 2_000, sku: "y", reason: "other", known: [done.refundTrxId!] })).toEqual({ status: "unknown", refundTrxId: null, code: "503" });
+    expect(refunds(pay.providerRef)).toBe(2);
+  });
+
+  it("the fake gateway has no refund API: refunds through it are made by hand", async () => {
+    const { FakeProvider } = await import("../src/adapters/payments/index.js");
+    const f = new FakeProvider("x");
+    expect(f.refundSupport).toBe("manual");
+    expect(outside().refundSupport).toBe("gateway");
+  });
+});

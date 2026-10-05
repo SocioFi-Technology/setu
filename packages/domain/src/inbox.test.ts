@@ -103,5 +103,7 @@ describe("substitution notice (ADR 0009)", () => {
   it("is a notice — not critical, and never tells the patient", () => {
     expect(inboxSeverity("substitution-notice", [])).toBe("notice");
     expect(PATIENT_NOTIFY_KINDS).not.toContain("substitution-notice");
+    expect(inboxSeverity("return-notice", [])).toBe("notice");
+    expect(PATIENT_NOTIFY_KINDS).not.toContain("return-notice");
   });
 });

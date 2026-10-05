@@ -87,6 +87,8 @@ export const InvoiceView = z.object({
     /** otc: a walk-in buyer (no patient record) */
     buyer: z.object({ name: z.string().nullable(), phone: z.string().nullable() }).nullable(),
     subtotalPaisa: Paisa, discountPaisa: Paisa, netPaisa: Paisa, vatPaisa: Paisa, totalPaisa: Paisa, paidPaisa: Paisa,
+    /** ADR 0013: money of this bill paid back (paid − refunded is what the facility keeps) */
+    refundedPaisa: Paisa,
     discount: z.object({ category: DiscountCategory, reason: z.string(), appliedBy: Person, appliedAt: z.string(), approvedBy: Person.nullable() }).nullable(),
     createdAt: z.string(), issuedAt: z.string().nullable(), issuedBy: Person.nullable(),
     /** ADR 0005: void (entered-in-error) and the replacement chain */
@@ -111,6 +113,8 @@ export const InvoiceView = z.object({
   ordersChanged: z.boolean(),
   /** the owner is reconciling a payment on this bill: do not take money again until it is decided */
   reconciling: z.boolean(),
+  /** ADR 0013: the refund open on this bill (requested or approved), and whether one can be asked for now */
+  refund: z.object({ openId: z.string().nullable(), openStatus: z.enum(["requested", "approved"]).nullable(), canRequest: z.boolean(), count: z.number().int() }),
   payments: z.array(PaymentView),
   summary: PaymentSummaryView,
   paidBy: PaidByView,
@@ -146,11 +150,18 @@ export type DiscountResponse = z.infer<typeof DiscountResponse>;
 
 /* ── approvals (owner / admin) ── */
 export const ApprovalQuery = z.object({ status: ApprovalStatus.default("requested") });
-export const ApprovalKind = z.enum(["discount-approval", "bill-elsewhere"]);
+export const ApprovalKind = z.enum(["discount-approval", "bill-elsewhere", "refund-approval"]);
 export const ApprovalItem = ApprovalView.extend({
   kind: ApprovalKind,
   /** bill-elsewhere: the line asked to be not billed here */
   line: z.object({ id: z.string(), nameEn: z.string(), nameBn: z.string() }).nullable(),
+  /** refund-approval (ADR 0013): the refund, how it goes back, and whether only the owner may approve it */
+  refund: z.object({
+    id: z.string(), category: z.enum(["cancelled-test", "wrong-dispense", "overpayment", "patient-request", "other"]),
+    ways: z.array(z.object({ method: PaymentMethod, way: z.enum(["cash", "gateway", "manual"]), amountPaisa: Paisa })),
+    lines: z.array(z.object({ nameEn: z.string(), nameBn: z.string(), units: z.number().int().nullable(), totalPaisa: Paisa })),
+    needsOwner: z.boolean(), controlled: z.boolean(),
+  }).nullable(),
   /** kind: where the bill opens (an OPD bill, or a pharmacy bill at the pharmacy) */
   invoice: z.object({ id: z.string(), status: InvoiceStatus, number: z.string().nullable(), subtotalPaisa: Paisa, totalPaisa: Paisa, kind: InvoiceKind, encounterId: z.string().nullable() }),
   patient: VitalsEncounter.shape.patient,
@@ -250,7 +261,7 @@ export const ReconcileQuery = z.object({ status: ApprovalStatus.default("request
 export const ReconcileItem = z.object({
   taskId: z.string(), status: ApprovalStatus, why: z.string(), createdAt: z.string(),
   /** why the case was opened, as a code the screen shows in Bangla / English */
-  whyCode: z.enum(["late-money", "amount-mismatch", "second-payment", "earlier-link", "not-payable", "other"]),
+  whyCode: z.enum(["late-money", "amount-mismatch", "second-payment", "earlier-link", "not-payable", "manual-refund", "other"]),
   /** what the gateway reported */
   reported: z.object({ providerRef: z.string().nullable(), trxId: z.string().nullable(), amountPaisa: Paisa.nullable() }),
   payment: z.object({ id: z.string(), method: PaymentMethod, status: PaymentStatus, amountPaisa: Paisa, trxId: z.string().nullable(), attempt: z.number().int() }),
@@ -258,9 +269,14 @@ export const ReconcileItem = z.object({
   /** null for a walk-in over-the-counter buyer (see buyer) */
   patient: VitalsEncounter.shape.patient.nullable(),
   buyer: z.object({ name: z.string().nullable(), phone: z.string().nullable() }).nullable(),
+  /** ADR 0013: payment = money the gateway reported; refund = a refund paid by hand (or card / bank in cash) for the owner
+      to check against the statement ("apply" = matches the statement) */
+  kind: z.enum(["payment", "refund"]),
+  refund: z.object({ id: z.string(), allocationId: z.string(), way: z.enum(["cash", "manual"]), amountPaisa: Paisa, reference: z.string().nullable(), paidBy: Person.nullable(), paidAt: z.string().nullable(), voucherNumber: z.string().nullable() }).nullable(),
   /** live check: "apply" is offered only when this is empty */
   applyBlockers: z.array(z.enum(["other_bill", "payment_not_pending", "not_confirmed_by_provider", "amount_mismatch", "reference_mismatch"])),
-  resolution: z.object({ action: z.enum(["applied", "resolved"]), note: z.string().nullable(), by: Person, at: z.string() }).nullable(),
+  /** refunded: resolved as "refund to patient" — the refund it opened (ADR 0013) */
+  resolution: z.object({ action: z.enum(["applied", "resolved", "refunded", "matched"]), note: z.string().nullable(), by: Person, at: z.string(), refundId: z.string().nullable().optional() }).nullable(),
 });
 export type ReconcileItem = z.infer<typeof ReconcileItem>;
 export const ReconcileList = z.object({ items: z.array(ReconcileItem) });

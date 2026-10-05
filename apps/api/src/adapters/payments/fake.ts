@@ -47,7 +47,10 @@ export class FakeProvider implements PaymentProvider {
 
   async execute(): Promise<never> { throw new Error("the fake gateway reports payments by callback; nothing to execute"); }
 
-  async refund(): Promise<never> { throw new Error("refunds are not part of slice A6–A7"); }
+  /** ADR 0013: the fake (and Nagad on it) has no refund API: refunds are made by hand with a reference. */
+  readonly refundSupport = "manual" as const;
+  async refund(): Promise<never> { throw new Error("the fake gateway has no refund API — refund by hand"); }
+  async refundStatus(): Promise<null> { return null; }
 
   sign(rawBody: string): string { return createHmac("sha256", this.secret).update(rawBody).digest("hex"); }
 

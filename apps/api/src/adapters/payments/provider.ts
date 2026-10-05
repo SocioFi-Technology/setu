@@ -23,6 +23,14 @@ export interface ProviderStatus { providerRef: string; status: "pending" | "open
 /** `settled`: the gateway's answer decides the payment (Completed, or it refused this execute); otherwise ask again later. */
 export interface ExecuteAnswer { status: ProviderStatus | null; settled: boolean }
 export interface ProviderWebhook { eventId: string; providerRef: string; kind: ProviderEventKind; trxId: string | null; amountPaisa: number | null }
+/** ADR 0013: a refund against one completed payment (bKash: paymentId + its TrxID). `sku` = our refund allocation id,
+    `reason` = the category (never clinical text). `known`: refund TrxIDs of this payment already recorded by us — a
+    refund found by a status check is ours only if it is not one of them. */
+export interface RefundCall { providerRef: string; trxId: string; amountPaisa: number; sku: string; reason: string; known: string[] }
+/** completed: the money went back (refundTrxId); refused: the gateway said no — nothing moved (`code`, for the log and
+    the cashier); unknown: no answer and the status check found nothing yet — ask again later, never refund again by itself. */
+export interface RefundAnswer { status: "completed" | "refused" | "unknown"; refundTrxId: string | null; code: string | null }
+export interface RefundRecord { refundTrxId: string; amountPaisa: number; completed: boolean; completedAt: string | null }
 
 export class InvalidSignature extends Error { constructor() { super("invalid provider signature"); } }
 /** The gateway could not be reached or refused the request (`code`: the gateway's own code, for the log). */
@@ -42,6 +50,11 @@ export interface PaymentProvider {
   /** Execute gateways only: move the money for this link, once. Never throws for a gateway answer: an error, a timeout
       or "already completed" is followed by a query; `settled` says whether that answer decides the payment. */
   execute(providerRef: string): Promise<ExecuteAnswer>;
-  /** Refunds come with the refunds screen (not in slice A6–A7). */
-  refund(providerRef: string, amountPaisa: number): Promise<never>;
+  /** ADR 0013: "gateway" = the wallet's own refund API; "manual" = refunded by hand with a reference (flagged). */
+  readonly refundSupport: "gateway" | "manual";
+  /** Gateway refunds only. Never throws for a gateway answer: a refusal is `refused`; a timeout or a broken answer is
+      followed by a status check (`unknown` when that finds nothing). */
+  refund(req: RefundCall): Promise<RefundAnswer>;
+  /** Every refund the gateway holds against this payment; null = it does not know the payment. */
+  refundStatus(q: { providerRef: string; trxId: string }): Promise<RefundRecord[] | null>;
 }

@@ -57,7 +57,7 @@ type Pay = NonNullable<Awaited<ReturnType<Tx["payment"]["findFirst"]>>>;
 type TaskRow = NonNullable<Awaited<ReturnType<Tx["task"]["findFirst"]>>>;
 interface DiscountDetail { amountPaisa: number; category: DiscountCategory; reason: string; subtotalPaisa: number; limitPaisa: number; invoiceRev: number }
 interface NotBilledDetail { lineId: string; reason: string; invoiceRev: number }
-interface ReconcileDetail { providerRef: string | null; trxId: string | null; amountPaisa: number | null; paymentAmountPaisa: number; invoiceId: string; resolution?: { action: "applied" | "resolved"; note: string | null; by: string; at: string } }
+interface ReconcileDetail { providerRef: string | null; trxId: string | null; amountPaisa: number | null; paymentAmountPaisa: number; invoiceId: string; resolution?: { action: "applied" | "resolved" | "refunded" | "matched"; note: string | null; by: string; at: string; refundId?: string | null } }
 
 /** A wallet payment's own gateway (the one that made its link); 503 when this API no longer runs it. */
 export function providerOf(p: { provider: string | null; method: string }): PaymentProvider {
@@ -147,6 +147,7 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
       id: inv.id, status: dash<InvoiceState>(inv.status), number: inv.number, rev: inv.rev,
       kind: inv.kind, buyer: inv.kind === "otc" ? { name: inv.buyerName, phone: inv.buyerPhone } : null,
       subtotalPaisa: inv.subtotalPaisa, discountPaisa: inv.discountPaisa, netPaisa: inv.netPaisa, vatPaisa: inv.vatPaisa, totalPaisa: inv.totalPaisa, paidPaisa: inv.paidPaisa,
+      refundedPaisa: inv.refundedPaisa,
       discount: inv.discountPaisa > 0 && inv.discountCategory && inv.discountReason && inv.discountAppliedById && inv.discountAppliedAt
         ? { category: inv.discountCategory as DiscountCategory, reason: inv.discountReason, appliedBy: who(inv.discountAppliedById), appliedAt: inv.discountAppliedAt.toISOString(),
             approvedBy: discountTask?.decidedById ? (await people(tx, [discountTask.decidedById]))(discountTask.decidedById) : null }
@@ -179,6 +180,13 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
     }),
     ordersChanged,
     reconciling,
+    refund: await (async () => {
+      // ADR 0013: the refund open on this bill, and whether one can be asked for now
+      const rs = await tx.refund.findMany({ where: { invoiceId: inv.id }, select: { id: true, status: true, source: true }, orderBy: { requestedAt: "desc" } });
+      const open = rs.find((r) => r.status === "requested" || r.status === "approved") ?? null;
+      const refundable = ["issued", "partially_paid", "balanced"].includes(inv.status) && inv.paidPaisa - inv.refundedPaisa > 0;
+      return { openId: open?.id ?? null, openStatus: (open?.status ?? null) as "requested" | "approved" | null, canRequest: refundable && !open, count: rs.length };
+    })(),
     payments: await (async () => {
       // ADR 0012: the latest link SMS per payment
       const sms = pays.length ? await tx.communication.findMany({ where: { paymentId: { in: pays.map((p) => p.id) }, kind: "payment-link" }, orderBy: { createdAt: "asc" } }) : [];
@@ -491,6 +499,7 @@ async function approvalItem(tx: Tx, s: SessionData, t: TaskRow, now: Date): Prom
     ...toApprovalView(t, who),
     kind: t.kind === BILL_ELSEWHERE_TASK ? "bill-elsewhere" : "discount-approval",
     line,
+    refund: null,
     invoice: { id: inv.id, status: dash<InvoiceState>(inv.status), number: inv.number, subtotalPaisa: inv.subtotalPaisa, totalPaisa: inv.totalPaisa, kind: inv.kind, encounterId: inv.encounterId },
     patient: toVitalsEncounter({ id: "", token: "", tokenDay: "", status: "finished", patient: p } as unknown as Parameters<typeof toVitalsEncounter>[0]).patient,
     requesterToday: { count: mine.length, totalPaisa: mine.reduce((a, m) => a + ((m.detail as unknown as DiscountDetail)?.amountPaisa ?? 0), 0) },
@@ -624,8 +633,10 @@ async function reconcileItem(tx: Tx, s: SessionData, t: TaskRow): Promise<Reconc
     invoice: { id: inv.id, number: inv.number, status: dash<InvoiceState>(inv.status), totalPaisa: inv.totalPaisa, paidPaisa: inv.paidPaisa },
     patient: pt ? toVitalsEncounter({ id: "", token: "", tokenDay: "", status: "finished", patient: pt } as unknown as Parameters<typeof toVitalsEncounter>[0]).patient : null,
     buyer: inv.kind === "otc" ? { name: inv.buyerName, phone: inv.buyerPhone } : null,
+    kind: "payment",
+    refund: null,
     applyBlockers,
-    resolution: d.resolution ? { action: d.resolution.action, note: d.resolution.note, by: who(d.resolution.by), at: d.resolution.at } : null,
+    resolution: d.resolution ? { action: d.resolution.action, note: d.resolution.note, by: who(d.resolution.by), at: d.resolution.at, refundId: d.resolution.refundId ?? null } : null,
   };
 }
 export async function reconcileList(tx: Tx, s: SessionData, status: "requested" | "approved" | "rejected"): Promise<ReconcileList> {

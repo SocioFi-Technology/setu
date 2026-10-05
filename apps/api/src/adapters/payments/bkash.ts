@@ -4,7 +4,7 @@
    twice an hour, or the merchant app is blocked for an hour): renewed at ≤ 5 minutes left, refresh first. Field names
    are read both ways (`paymentId` / `paymentID`, `trxId` / `trxID`, `bkashURL` / `bKashURL`) because the docs mix them. */
 import { LINK_WINDOW_MINUTES, parseWalletAmount, walletAmount } from "@setu/domain";
-import { GatewayError, InvalidSignature, type ExecuteAnswer, type LinkRequest, type PaymentLink, type PaymentProvider, type ProviderStatus, type ProviderWebhook } from "./provider.js";
+import { GatewayError, InvalidSignature, type ExecuteAnswer, type LinkRequest, type PaymentLink, type PaymentProvider, type ProviderStatus, type ProviderWebhook, type RefundAnswer, type RefundCall, type RefundRecord } from "./provider.js";
 
 export interface BkashConfig {
   /** e.g. https://tokenized.sandbox.bka.sh/v2/tokenized-checkout */
@@ -34,6 +34,7 @@ const str = (v: unknown): string | null => (typeof v === "string" && v ? v : nul
 export class BkashProvider implements PaymentProvider {
   readonly name = "bkash";
   readonly flow = "execute" as const;
+  readonly refundSupport = "gateway" as const;
   private cached: TokenRow | null = null;
   constructor(private cfg: BkashConfig, private store: TokenStore, private now: () => number = Date.now) {}
 
@@ -160,5 +161,40 @@ export class BkashProvider implements PaymentProvider {
   /** bKash tells us through the patient's return and our execute, not by webhook. */
   parseWebhook(): ProviderWebhook { throw new InvalidSignature(); }
 
-  async refund(): Promise<never> { throw new Error("bKash refunds come with the refunds slice"); }
+  /* ── refunds (ADR 0013; developer.bka.sh v2 Refund / Refund Status, read 05/10/2026) ── */
+  /** Refund codes after which nothing moved (bKash said no): the window (2071), the amount (2072), SKU / reason (2073,
+      2075, 2076, 2078), cannot be reversed (2074), TrxID (2077), not permitted (2080–2082), merchant balance (2023), not
+      yet completed (2127), unknown payment (2002). Anything else — a timeout, 503 / 9999, a broken answer — may have
+      refunded: ask Refund Status before anyone tries again ("if the refund API doesn't respond within 30 s"). */
+  private static readonly REFUSED = new Set(["2002", "2023", "2071", "2072", "2073", "2074", "2075", "2076", "2077", "2078", "2080", "2081", "2082", "2127"]);
+  async refund(req: RefundCall): Promise<RefundAnswer> {
+    let j: Json | null = null;
+    try {
+      j = await this.api("refund/payment/transaction", { paymentId: req.providerRef, trxId: req.trxId, refundAmount: walletAmount(req.amountPaisa), sku: req.sku.slice(0, 255), reason: req.reason.slice(0, 255) });
+    } catch (e) { if (!(e instanceof GatewayError) || e.code === "token") throw e; }
+    const e = j ? BkashProvider.errorOf(j) : null;
+    if (j && !e && str(j.refundTransactionStatus) === "Completed" && str(j.refundTrxId)) {
+      if (parseWalletAmount(j.refundAmount) !== null && parseWalletAmount(j.refundAmount) !== req.amountPaisa) return { status: "unknown", refundTrxId: null, code: "amount" };
+      return { status: "completed", refundTrxId: str(j.refundTrxId), code: null };
+    }
+    if (e && BkashProvider.REFUSED.has(e.code)) return { status: "refused", refundTrxId: null, code: e.code };
+    return this.findRefund(req, e?.code ?? "no-answer");
+  }
+  /** After an unclear answer: a completed refund of this payment for this amount that we have not recorded yet. */
+  private async findRefund(req: RefundCall, why: string): Promise<RefundAnswer> {
+    let list: RefundRecord[] | null = null;
+    try { list = await this.refundStatus({ providerRef: req.providerRef, trxId: req.trxId }); } catch { /* still unknown */ }
+    const hit = list?.find((r) => r.completed && r.amountPaisa === req.amountPaisa && !req.known.includes(r.refundTrxId));
+    return hit ? { status: "completed", refundTrxId: hit.refundTrxId, code: null } : { status: "unknown", refundTrxId: null, code: why };
+  }
+  async refundStatus(q: { providerRef: string; trxId: string }): Promise<RefundRecord[] | null> {
+    const j = await this.api("refund/payment/status", { paymentId: q.providerRef, trxId: q.trxId });
+    const e = BkashProvider.errorOf(j);
+    if (e) { if (["2002", "2077", "3045"].includes(e.code)) return null; throw e; }
+    const rows = Array.isArray(j.refundTransactions) ? (j.refundTransactions as Json[]) : [];
+    return rows.flatMap((r) => {
+      const id = str(r.refundTrxId), amt = parseWalletAmount(r.refundAmount);
+      return id && amt !== null ? [{ refundTrxId: id, amountPaisa: amt, completed: str(r.refundTransactionStatus) === "Completed", completedAt: str(r.completedTime) }] : [];
+    });
+  }
 }

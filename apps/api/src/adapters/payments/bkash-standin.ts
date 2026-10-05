@@ -15,6 +15,8 @@ const tok = (n: number) => Array.from(randomBytes(n), (b) => ALNUM[b % ALNUM.len
 interface StandInPayment {
   paymentId: string; amount: string; payerReference: string; merchantInvoiceNumber: string; callbackURL: string; signature: string;
   state: "initiated" | "authorised" | "completed" | "spent"; trxId: string | null; payerAccount: string | null; createdAt: Date;
+  /** ADR 0013: refunds made against it (refund/payment/transaction) */
+  refunds: { refundTrxId: string; amount: string; sku: string; reason: string; at: Date }[];
 }
 export interface StandInOptions { port?: number; host?: string }
 
@@ -27,6 +29,9 @@ export class BkashSandboxStandIn {
   slowNextExecuteMs = 0;
   /** test hook: the next create answers with this error code (e.g. "2003" process failed, "503" maintenance) */
   failNextCreate: string | null = null;
+  /** test hooks (refunds): the next refund hangs this long but is still made at bKash; the next refund is refused with this code */
+  slowNextRefundMs = 0;
+  failNextRefund: string | null = null;
   /** calls seen, by path (tests read them) */
   readonly calls: { path: string; body: Record<string, unknown> }[] = [];
   private server: Server | null = null;
@@ -102,7 +107,7 @@ export class BkashSandboxStandIn {
       if (!/^\d+(\.\d{1,2})?$/.test(String(b.amount)) || Number(b.amount) <= 0) return this.fail(res, "2006", "Invalid amount");
       if (String(b.merchantInvoiceNumber).includes("&") || String(b.merchantInvoiceNumber).length > 255) return this.fail(res, "2031", "Invalid merchant invoice number");
       const paymentId = "TR0011" + tok(16), signature = tok(10);
-      const p: StandInPayment = { paymentId, amount: String(b.amount), payerReference: String(b.payerReference), merchantInvoiceNumber: String(b.merchantInvoiceNumber), callbackURL: String(b.callbackURL), signature, state: "initiated", trxId: null, payerAccount: null, createdAt: new Date() };
+      const p: StandInPayment = { paymentId, amount: String(b.amount), payerReference: String(b.payerReference), merchantInvoiceNumber: String(b.merchantInvoiceNumber), callbackURL: String(b.callbackURL), signature, state: "initiated", trxId: null, payerAccount: null, createdAt: new Date(), refunds: [] };
       this.payments.set(paymentId, p);
       return this.json(res, {
         paymentId, bkashURL: `${this.baseUrl}/checkout/${paymentId}?mode=0011&apiVersion=v2`, callbackURL: p.callbackURL,
@@ -123,6 +128,36 @@ export class BkashSandboxStandIn {
       if (!p) return this.fail(res, "2002", "Invalid Payment ID");
       const done = p.state === "completed";
       return this.json(res, { paymentId: p.paymentId, verificationStatus: done ? "Complete" : "Incomplete", payerReference: p.payerReference, payerAccount: p.payerAccount, trxId: p.trxId ?? "", amount: p.amount, currency: "BDT", intent: "sale", merchantInvoice: p.merchantInvoiceNumber, transactionStatus: done ? "Completed" : "Initiated" });
+    }
+    /* Refund (ADR 0013, developer.bka.sh v2 read 05/10/2026): up to 10 partial refunds per transaction within the
+       refundable amount and 60 days; no duplicate within 10 minutes. The documented codes are used; which code bKash
+       gives a duplicate or an 11th refund is not documented — the stand-in answers 2074 ("cannot be reversed"). */
+    if (op === "refund/payment/transaction") {
+      if (this.failNextRefund) { const c = this.failNextRefund; this.failNextRefund = null; return this.fail(res, c, "Refund refused"); }
+      if (!p) return this.fail(res, "2002", "Invalid Payment ID");
+      if (p.state !== "completed") return this.fail(res, "2127", "Transaction not yet completed");
+      if (b.trxId !== p.trxId) return this.fail(res, "2077", "Invalid TrxID");
+      if (!b.sku) return this.fail(res, "2073", "Invalid SKU");
+      if (String(b.sku).length > 255) return this.fail(res, "2075", "SKU Character Limit Exceeded");
+      if (!b.reason) return this.fail(res, "2078", "Invalid Reason");
+      if (String(b.reason).length > 255) return this.fail(res, "2076", "Reason Character Limit Exceeded");
+      const cents = (v: string) => Math.round(Number(v) * 100);
+      if (!/^\d+(\.\d{1,2})?$/.test(String(b.refundAmount)) || cents(String(b.refundAmount)) <= 0) return this.fail(res, "2072", "Refund amount not valid", "refund_amount_exceed_payment_amount");
+      const done = p.refunds.reduce((a, r) => a + cents(r.amount), 0);
+      if (done + cents(String(b.refundAmount)) > cents(p.amount)) return this.fail(res, "2072", "Refund amount not valid", "refund_amount_exceed_payment_amount");
+      if (Date.now() - p.createdAt.getTime() > 60 * 864e5) return this.fail(res, "2071", "Refund after 60 days not allowed");
+      if (p.refunds.length >= 10 || p.refunds.some((r) => r.amount === Number(b.refundAmount).toFixed(2) && Date.now() - r.at.getTime() < 10 * 60_000))
+        return this.fail(res, "2074", "The transaction cannot be reversed");
+      const r = { refundTrxId: "RF" + tok(8), amount: Number(b.refundAmount).toFixed(2), sku: String(b.sku), reason: String(b.reason), at: new Date() };
+      p.refunds.push(r);
+      if (this.slowNextRefundMs) { const ms = this.slowNextRefundMs; this.slowNextRefundMs = 0; await new Promise((ok) => setTimeout(ok, ms)); }
+      return this.json(res, { originalTrxId: p.trxId, refundTrxId: r.refundTrxId, refundTransactionStatus: "Completed", originalTrxAmount: p.amount, refundAmount: r.amount, currency: "BDT", completedTime: r.at.toISOString(), sku: r.sku, reason: r.reason });
+    }
+    if (op === "refund/payment/status") {
+      if (!p) return this.fail(res, "2002", "Invalid Payment ID");
+      if (b.trxId !== p.trxId) return this.fail(res, "3045", "Invalid TrxID", "ERROR_REFUND_TRANSACTION_ID_MISMATCH");
+      return this.json(res, { originalTrxId: p.trxId, originalTrxAmount: p.amount, originalTrxCompletedTime: p.createdAt.toISOString(),
+        refundTransactions: p.refunds.map((r) => ({ refundTrxId: r.refundTrxId, refundTransactionStatus: "Completed", refundAmount: r.amount, completedTime: r.at.toISOString() })) });
     }
     if (op === "general/search-transaction") {
       const hit = [...this.payments.values()].find((x) => x.trxId && x.trxId === b.trxId);

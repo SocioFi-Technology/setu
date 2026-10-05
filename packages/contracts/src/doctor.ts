@@ -9,7 +9,7 @@ import { Interpretation } from "./vitals.js";
 
 const Person = z.object({ id: z.string(), nameBn: z.string(), nameEn: z.string() });
 
-export const InboxKind = z.enum(["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital", "substitution-notice"]);
+export const InboxKind = z.enum(["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital", "substitution-notice", "return-notice"]);
 export const InboxSeverity = z.enum(["critical", "abnormal", "normal", "notice"]);
 export const InboxResult = z.object({
   code: z.string(), nameEn: z.string(), nameBn: z.string(), value: z.number(), unit: z.string(), decimals: z.number().int(),
@@ -38,6 +38,11 @@ export const InboxItem = z.object({
   substitution: z.object({
     prescribed: z.object({ brand: z.string(), generic: z.string(), strength: z.string() }),
     given: z.object({ brand: z.string(), generic: z.string(), strength: z.string() }),
+    qty: z.number().int(), reason: z.string(), by: Person, at: z.string(),
+  }).nullable(),
+  /** return-notice (ADR 0013): medicine given for the doctor's line came back as a wrong dispense (a medication incident) */
+  returned: z.object({
+    medicine: z.object({ brand: z.string(), generic: z.string(), strength: z.string() }),
     qty: z.number().int(), reason: z.string(), by: Person, at: z.string(),
   }).nullable(),
   acknowledged: z.object({

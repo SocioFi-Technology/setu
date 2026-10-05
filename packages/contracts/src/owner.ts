@@ -51,7 +51,9 @@ export type ShiftList = z.infer<typeof ShiftList>;
 export const Period = z.enum(["today", "7d", "30d"]);
 export const KpiKey = z.enum(["revenue", "collections", "dues", "discounts", "deposits", "refunds", "sharePayable", "supplierDues", "stockValue", "nearExpiry"]);
 export const OpsKey = z.enum(["opdVisits", "labTests", "labTat", "noShows", "cashVariance", "reprints"]);
-export const LeakageKind = z.enum(["discountAbovePolicy", "reprints", "shiftVariance", "notBilledHere", "cashOutsideShift"]);
+/** ADR 0013: refunds paid (reason, approver), refunds paid by hand not yet matched to a statement, wrong-dispense returns
+    (medication incidents) */
+export const LeakageKind = z.enum(["discountAbovePolicy", "reprints", "shiftVariance", "notBilledHere", "cashOutsideShift", "refundsPaid", "manualRefundUnchecked", "medicationIncident"]);
 const Change = { previous: z.number().nullable(), pct: z.number().int().nullable(), judgement: z.enum(["better", "worse", "same"]).nullable() };
 export const DashboardView = z.object({
   period: Period, days: z.array(z.string()), previousDays: z.array(z.string()),
@@ -73,7 +75,7 @@ export const DashboardView = z.object({
 });
 export type DashboardView = z.infer<typeof DashboardView>;
 export const DashboardQuery = z.object({ period: Period.default("today") });
-export const DrillWhat = z.enum(["revenue", "collections", "dues", "discounts", "opdVisits", "labTests", "noShows", "reprints", "shiftVariance", "discountAbovePolicy", "notBilledHere", "cashOutsideShift", "stockValue", "nearExpiry", "supplierDues"]);
+export const DrillWhat = z.enum(["revenue", "collections", "dues", "discounts", "opdVisits", "labTests", "noShows", "reprints", "shiftVariance", "discountAbovePolicy", "notBilledHere", "cashOutsideShift", "stockValue", "nearExpiry", "supplierDues", "refunds", "refundsPaid", "manualRefundUnchecked", "medicationIncident"]);
 export const DrillQuery = z.object({ period: Period.default("today"), what: DrillWhat });
 export const DrillView = z.object({
   what: DrillWhat, period: Period,
@@ -84,7 +86,9 @@ export const DrillView = z.object({
     patient: z.object({ id: z.string(), nameBn: z.string(), nameEn: z.string().nullable(), facilityNo: z.string() }).nullable(),
     amountPaisa: Paisa.nullable(), by: Person.nullable(), approvedBy: Person.nullable(), detail: z.string().nullable(),
     /** where the row opens (a bill, a receipt, a shift) */
-    link: z.object({ kind: z.enum(["invoice", "receipt", "shift", "visit"]), id: z.string() }).nullable(),
+    link: z.object({ kind: z.enum(["invoice", "receipt", "shift", "visit", "refund"]), id: z.string() }).nullable(),
+    /** refunds (ADR 0013): its state — withdrawn is never shown as rejected */
+    status: z.string().nullable().optional(),
   })),
 });
 export type DrillView = z.infer<typeof DrillView>;

@@ -4,7 +4,8 @@
 import type { Interpretation } from "./vitals.js";
 
 /** substitution-notice (ADR 0009): the pharmacist gave a same-generic substitute for one of the doctor's lines. */
-export type InboxKind = "report-inbox" | "correction-notice" | "results-withdrawn" | "order-cancelled" | "critical-vital" | "substitution-notice";
+/** return-notice (ADR 0013): medicine given for the doctor's line came back as a wrong dispense (a medication incident). */
+export type InboxKind = "report-inbox" | "correction-notice" | "results-withdrawn" | "order-cancelled" | "critical-vital" | "substitution-notice" | "return-notice";
 export type InboxSeverity = "critical" | "abnormal" | "normal" | "notice";
 const RANK: Record<InboxSeverity, number> = { critical: 0, abnormal: 1, normal: 2, notice: 3 };
 

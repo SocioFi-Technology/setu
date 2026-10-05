@@ -15,7 +15,7 @@ import { smsPhone, smsText } from "./lab.js";
 
 const dash = <T extends string>(s: string) => s.replace(/_/g, "-") as T;
 type RangeLabel = "adult" | "adult-female" | "adult-male";
-const INBOX_KINDS: InboxKind[] = ["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital", "substitution-notice"];
+const INBOX_KINDS: InboxKind[] = ["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital", "substitution-notice", "return-notice"];
 const MAX_ITEMS = 200;
 
 function requireDoctor(s: SessionData) {
@@ -96,6 +96,15 @@ async function toItems(tx: Tx, s: SessionData, rows: Row[], now: Date): Promise<
         const by = U.get(d.byId);
         return { prescribed: { brand: pr.brand, generic: pr.generic, strength: pr.strength }, given: { brand: g?.brand ?? d.medicineKey, generic: g?.generic ?? "", strength: g?.strength ?? "" },
           qty: d.qty, reason: d.reason ?? "", by: { id: d.byId, nameBn: by?.nameBn ?? "", nameEn: by?.nameEn ?? "" }, at: d.at.toISOString() };
+      })(),
+      returned: (() => {
+        // ADR 0013: a wrong-dispense return of the doctor's line (the return row)
+        const d = kind === "return-notice" && c.dispenseId ? D.get(c.dispenseId) : undefined;
+        if (!d) return null;
+        const g = MEDICINES_SAMPLE.find((m) => m.id === d.medicineKey);
+        const by = U.get(d.byId);
+        return { medicine: { brand: g?.brand ?? d.medicineKey, generic: g?.generic ?? "", strength: g?.strength ?? "" }, qty: d.qty, reason: d.reason ?? "",
+          by: { id: d.byId, nameBn: by?.nameBn ?? "", nameEn: by?.nameEn ?? "" }, at: d.at.toISOString() };
       })(),
       acknowledged: c.ack ? { at: c.ack.ackedAt.toISOString(), notifyPatient: c.ack.notifyPatient, sms: sms ? { id: sms.id, status: dash(sms.status), lastError: sms.lastError, deliveryConfirmed: sms.deliveryConfirmed } : null } : null,
       canNotify: kind === "report-inbox" && !superseded && !correctionPending && hasMobile && !c.ack,
