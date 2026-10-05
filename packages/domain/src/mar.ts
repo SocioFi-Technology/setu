@@ -83,6 +83,8 @@ export const FIVE_CHECKS: (keyof FiveChecks)[] = ["patient", "drug", "dose", "ro
 export interface OrderFacts {
   status: MedOrderState; noteCurrent: boolean; patientId: string; encounterId: string; encounterOpen: boolean;
   startAt: Date; times: string[]; prn: boolean; prnMaxPer24h: number | null; medicineKey: string; highAlert: boolean;
+  /** a controlled drug is witnessed too: its register line records the witness (ADR 0015) */
+  controlled?: boolean;
 }
 export interface DoseFacts {
   patientId: string; encounterId: string; outcome: DoseOutcome; slot: Date | null; administeredAt: Date; now: Date;
@@ -119,7 +121,7 @@ export function doseBlockers(o: OrderFacts, d: DoseFacts, windowMin = DOSE_WINDO
     const t = doseTiming(d.slot, d.administeredAt, windowMin);
     if ((t === "late" || t === "early") && !reasonOk) out.push("reason_required");
     if (o.prn && o.prnMaxPer24h !== null && d.givenLast24h + 1 > o.prnMaxPer24h) out.push("prn_cap");
-    if (o.highAlert) {
+    if (o.highAlert || o.controlled) {
       if (!d.witnessId) out.push("witness_required");
       else {
         if (d.witnessId === d.nurseId || d.witnessId === d.preparedById) out.push("witness_self");

@@ -75,7 +75,7 @@ export async function toAllergyView(tx: Tx, rows: AllergyRow[]): Promise<Allergy
 const allergyRows = (tx: Tx, patientId: string) => tx.allergyIntolerance.findMany({ where: { patientId }, orderBy: [{ status: "asc" }, { recordedAt: "asc" }] });
 export const toAllergyFact = (a: AllergyRow | AllergyView): AllergyFact =>
   ({ id: a.id, kind: a.kind, key: a.key, labelBn: a.labelBn, labelEn: a.labelEn, reaction: a.reaction, severity: a.severity });
-async function activeAllergyFacts(tx: Tx, patientId: string): Promise<AllergyFact[]> {
+export async function activeAllergyFacts(tx: Tx, patientId: string): Promise<AllergyFact[]> {
   return (await tx.allergyIntolerance.findMany({ where: { patientId, status: "active" } })).map(toAllergyFact);
 }
 
@@ -177,7 +177,8 @@ const toMedicineItem = (m: NonNullable<Awaited<ReturnType<Tx["medicine"]["findFi
   ingredients: m.ingredients, classes: m.classes, defaults: { dose: m.defaultDose, meal: m.defaultMeal, days: m.defaultDays }, sample: m.sample,
 });
 export async function searchMedicines(tx: Tx, q: string) {
-  const rows = await tx.medicine.findMany({ where: { active: true }, orderBy: [{ brand: "asc" }, { strength: "asc" }] });
+  // ADR 0015: injections and infusions for inpatient orders are not prescribed in OPD
+  const rows = await tx.medicine.findMany({ where: { active: true, inpatientOnly: false }, orderBy: [{ brand: "asc" }, { strength: "asc" }] });
   return rows.filter((m) => catalogMatch(q, m.brand, m.brandBn, m.generic)).slice(0, 7).map(toMedicineItem);
 }
 export async function listTests(tx: Tx) {

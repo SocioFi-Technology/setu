@@ -6,7 +6,7 @@ import type { AdmissionItem, AdmissionList, AdmissionView, AdmitRequest, BedActi
 import type { Tx } from "@setu/db";
 import {
   ADMISSION, ADMISSION_SEQUENCE, BED, BED_CLASSES_SAMPLE, CONSENTS, DEPARTMENTS_SAMPLE, admissionBlockers, admissionChecklist, admissionEncounterState, admissionNumber, bedPickable, dhakaDay,
-  finishSource, guardianPhoneDigits, isAdmissionClass, isConsentKey, occupyLeg, transition, type AdmissionForm, type BedState, type EncounterState,
+  finishSource, guardianPhoneDigits, isAdmissionClass, isConsentKey, occupyLeg, reserveLeg, transition, type AdmissionForm, type BedState, type EncounterState,
 } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
@@ -281,4 +281,74 @@ export async function cancelAdmission(tx: Tx, s: SessionData, id: string, reason
   }
   audit.push({ action: "update", entity: "Admission", entityId: a.id, patientId: a.patientId, detail: { event: "cancel", reason: reason.trim() } });
   return { view: await admissionView(tx, s, a.id), audit };
+}
+
+/* ───── bed moves within and between wards (ADR 0015): the two-leg move of ADR 0014 ───── */
+async function admittedHere(tx: Tx, s: SessionData, admissionId: string) {
+  const a = await tx.admission.findFirst({ where: { id: admissionId, organizationId: s.organizationId, status: "admitted" } });
+  if (!a || !a.encounterId) throw notFound();
+  const e = await tx.encounter.findFirst({ where: { id: a.encounterId } });
+  if (!e || e.status !== "in_progress") throw err(409, "encounter_closed", "এই ভর্তি আর খোলা নেই", "This admission is no longer open");
+  return { a, e };
+}
+const requireMover = (s: SessionData) => { if (!["nurse", "receptionist", "admin"].includes(s.role)) throw err(403, "forbidden", "শয্যা বদলান নার্স বা ডেস্ক", "A nurse or the desk moves a bed", { reason: "role", canRequest: false }); };
+/** Leg 2: the reserved destination occupied, the source vacated into cleaning (source first: one occupied bed per patient). */
+async function arriveLeg(tx: Tx, s: SessionData, a: Adm, encounterId: string, now: Date, audit: AuditEntry[]) {
+  const res = await tx.bedAssignment.findFirst({ where: { encounterId, status: "reserved" } });
+  if (!res) throw err(409, "no_move", "কোনো শয্যা বদল অপেক্ষায় নেই", "No bed move is waiting");
+  const src = await tx.bedAssignment.findFirst({ where: { encounterId, status: "occupied" } });
+  const dest = (await tx.location.findFirst({ where: { id: res.bedId } }))!;
+  const srcBed = src ? await tx.location.findFirst({ where: { id: src.bedId } }) : null;
+  const leg = occupyLeg(dash<BedState>(dest.bedState ?? "reserved"), srcBed ? dash<BedState>(srcBed.bedState ?? "occupied") : null, src ? "occupied" : null);
+  if (src && srcBed && leg.source) {
+    const n = await tx.location.updateMany({ where: { id: srcBed.id, bedState: srcBed.bedState }, data: { bedState: under<DbBedState>(leg.source) } });
+    if (n.count !== 1) throw stale();
+    await endAssignment(tx, s, src, now, "vacated");
+  }
+  await endAssignment(tx, s, res, now, "occupied");
+  const nd = await tx.location.updateMany({ where: { id: dest.id, bedState: dest.bedState }, data: { bedState: under<DbBedState>(leg.destination), bedNote: null } });
+  if (nd.count !== 1) throw stale();
+  await tx.bedAssignment.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, encounterId, patientId: a.patientId, bedId: dest.id, status: "occupied", transferId: res.transferId, occupiedAt: now, occupiedById: s.userId } });
+  await tx.admission.update({ where: { id: a.id }, data: { bedId: dest.id, bedClass: dest.bedClass ?? a.bedClass } });
+  audit.push({ action: "update", entity: "Location", entityId: dest.id, patientId: a.patientId, detail: { event: "occupy", bed: dest.name, from: srcBed?.name ?? null, transferId: res.transferId, leg: 2 } });
+}
+export async function moveBed(tx: Tx, s: SessionData, admissionId: string, req: { bedId: string; reason: string; handoverNote?: string; mode: "now" | "reserve" }, now: Date): Promise<{ view: AdmissionView; audit: AuditEntry[] }> {
+  requireMover(s);
+  if (req.reason.trim().length < 5) throw err(400, "reason_required", "কারণ লিখুন (অন্তত ৫ অক্ষর)", "Give the reason (at least 5 characters)", { field: "reason" });
+  const { a, e } = await admittedHere(tx, s, admissionId);
+  if (await tx.bedAssignment.findFirst({ where: { encounterId: e.id, status: "reserved" } })) throw err(409, "move_pending", "একটি শয্যা বদল আগেই অপেক্ষায়", "A bed move is already waiting");
+  const dest = await tx.location.findFirst({ where: { id: req.bedId, organizationId: s.organizationId, kind: "bed" } });
+  if (!dest || !isAdmissionClass(dest.bedClass ?? "")) throw err(400, "bed_unknown", "এই শয্যা পাওয়া যায়নি", "No such ward bed", { field: "bedId" });
+  const pick = bedPickable({ state: dash(dest.bedState ?? "vacant"), bedClass: dest.bedClass, reservedForPatientId: null }, a.patientId);
+  if (!pick.ok) throw bedNotFree(dest.name, pick.reason);
+  const to = under<DbBedState>(reserveLeg(dash<BedState>(dest.bedState ?? "vacant")).destination);
+  const n = await tx.location.updateMany({ where: { id: dest.id, bedState: dest.bedState }, data: { bedState: to } });
+  if (n.count !== 1) throw stale();
+  const transferId = randomUUID();
+  await tx.bedAssignment.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, encounterId: e.id, patientId: a.patientId, bedId: dest.id, status: "reserved", transferId, reservedAt: now, reservedById: s.userId } });
+  const audit: AuditEntry[] = [{ action: "update", entity: "Location", entityId: dest.id, patientId: a.patientId, detail: { event: "reserve", bed: dest.name, transferId, leg: 1, reason: req.reason.trim(), handover: req.handoverNote?.trim() || null } }];
+  if (req.mode === "now") await arriveLeg(tx, s, a, e.id, now, audit);
+  // the move and the handover go on the nursing notes (the ward sees why the patient came)
+  if (s.role === "nurse") await tx.nursingNote.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, encounterId: e.id, patientId: a.patientId, text: `Bed move to ${dest.name}: ${req.reason.trim()}${req.handoverNote?.trim() ? ` — handover: ${req.handoverNote.trim()}` : ""}`, writtenById: s.userId, writtenAt: now, effectiveAt: now } });
+  return { view: await admissionView(tx, s, a.id), audit };
+}
+export async function arriveBed(tx: Tx, s: SessionData, admissionId: string, now: Date): Promise<{ view: AdmissionView; audit: AuditEntry[] }> {
+  requireMover(s);
+  const { a, e } = await admittedHere(tx, s, admissionId);
+  const audit: AuditEntry[] = [];
+  await arriveLeg(tx, s, a, e.id, now, audit);
+  return { view: await admissionView(tx, s, a.id), audit };
+}
+export async function cancelMove(tx: Tx, s: SessionData, admissionId: string, reason: string, now: Date): Promise<{ view: AdmissionView; audit: AuditEntry[] }> {
+  requireMover(s);
+  if (reason.trim().length < 5) throw err(400, "reason_required", "কারণ লিখুন (অন্তত ৫ অক্ষর)", "Give the reason (at least 5 characters)", { field: "reason" });
+  const { a, e } = await admittedHere(tx, s, admissionId);
+  const res = await tx.bedAssignment.findFirst({ where: { encounterId: e.id, status: "reserved" } });
+  if (!res) throw err(409, "no_move", "কোনো শয্যা বদল অপেক্ষায় নেই", "No bed move is waiting");
+  const b = (await tx.location.findFirst({ where: { id: res.bedId } }))!;
+  const to = under<DbBedState>(transition("bed", BED, dash<BedState>(b.bedState ?? "reserved"), "release"));
+  const n = await tx.location.updateMany({ where: { id: b.id, bedState: b.bedState }, data: { bedState: to } });
+  if (n.count !== 1) throw stale();
+  await endAssignment(tx, s, res, now, "released");
+  return { view: await admissionView(tx, s, a.id), audit: [{ action: "update", entity: "Location", entityId: b.id, patientId: a.patientId, detail: { event: "release", bed: b.name, reason: reason.trim(), transferId: res.transferId } }] };
 }

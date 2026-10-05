@@ -15,7 +15,7 @@ import { smsPhone, smsText } from "./lab.js";
 
 const dash = <T extends string>(s: string) => s.replace(/_/g, "-") as T;
 type RangeLabel = "adult" | "adult-female" | "adult-male";
-const INBOX_KINDS: InboxKind[] = ["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital", "substitution-notice", "return-notice"];
+const INBOX_KINDS: InboxKind[] = ["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital", "substitution-notice", "return-notice", "news2-escalation"];
 const MAX_ITEMS = 200;
 
 function requireDoctor(s: SessionData) {
@@ -67,7 +67,7 @@ async function toItems(tx: Tx, s: SessionData, rows: Row[], now: Date): Promise<
         flag: (o.interpretation ?? null) as Interpretation | null, refLow: o.refLow, refHigh: o.refHigh, refLabel: (o.refLabel ?? null) as RangeLabel | null,
         underCorrection: o.status === "entered_in_error" };
     }) : [];
-    const vObs = kind === "critical-vital" && c.observationId ? V.get(c.observationId) ?? null : null;
+    const vObs = (kind === "critical-vital" || kind === "news2-escalation") && c.observationId ? V.get(c.observationId) ?? null : null;
     const order = c.serviceRequestId ? O.get(c.serviceRequestId) ?? null : null;
     const hasMobile = smsPhone(p.phone) !== null;
     const superseded = !!r?.supersededById;

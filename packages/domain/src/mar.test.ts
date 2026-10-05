@@ -104,6 +104,10 @@ describe("recording a dose — the walkthrough cases (B5)", () => {
     expect(doseBlockers(ins, dose({ ...s, witnessId: "c1", witnessRole: "cashier" }))).toEqual(["witness_role"]);
     expect(doseBlockers(ins, dose({ ...s, witnessId: "d1", witnessRole: "doctor" }))).toEqual([]);
   });
+  it("a controlled drug that is not on the high-alert list is witnessed too (its register line records the witness)", () => {
+    const dz = { ...metro, medicineKey: "sedil", controlled: true };
+    expect(doseBlockers(dz, dose())).toEqual(["witness_required"]);
+  });
   it("never in the future; never before the order started", () => {
     expect(doseBlockers(metro, dose({ administeredAt: at("2026-10-05T08:30:00Z"), now: at("2026-10-05T08:06:00Z") }))).toContain("future_time");
     expect(doseBlockers(metro, dose({ slot: null, administeredAt: at("2026-10-05T02:00:00Z") }))).toContain("before_start");

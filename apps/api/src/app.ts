@@ -25,6 +25,7 @@ import { metaRoutes } from "./routes/meta.js";
 import { vitalsRoutes } from "./routes/vitals.js";
 import { erRoutes } from "./routes/er.js";
 import { ipdRoutes } from "./routes/ipd.js";
+import { nursingRoutes } from "./routes/nursing.js";
 
 export async function buildApp() {
   /* Request logs never carry the query string: search terms are phone numbers and names (security review A1–A3). */
@@ -66,6 +67,7 @@ export async function buildApp() {
   await app.register(doctorRoutes);
   await app.register(erRoutes);
   await app.register(ipdRoutes);
+  await app.register(nursingRoutes);
   await app.register(documentRoutes);
   await app.register(ownerRoutes);
   return app;
