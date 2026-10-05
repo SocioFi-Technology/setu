@@ -40,6 +40,8 @@ export const WardBoardBed = z.object({
   news2: News2.nullable(), nextObsDueAt: z.string().nullable(), obsOverdue: z.boolean(),
   escalation: Escalation.nullable(),
   doses: z.object({ due: z.number().int(), overdue: z.number().int() }),
+  /** ADR 0016: the 24-hour fluid balance (mL) and care tasks overdue */
+  ioBalance24hMl: z.number().int().nullable(), tasksOverdue: z.number().int(),
   /** a reservation from a move (leg 1) waiting for arrival */
   arriving: z.object({ admissionId: z.string(), patient: ErPatient, fromBed: z.string() }).nullable(),
 });
@@ -50,6 +52,8 @@ export const WardBoard = z.object({
   /** the banner: open escalations on this ward */
   escalations: z.array(z.object({ encounterId: z.string(), bed: z.string(), patient: ErPatient, escalation: Escalation })),
   rule: Rule,
+  /** ADR 0016: the nurse holding the ward (incoming nurse of the last accepted handover) */
+  onDuty: z.object({ nurse: Person, since: z.string() }).nullable(),
 });
 export type WardBoard = z.infer<typeof WardBoard>;
 
@@ -91,6 +95,8 @@ export const DoseRecord = z.object({
   /** multi-dose drugs: the amount actually given ("6 IU") */ amountGiven: z.string().nullable(),
   /** units this dose took from ward stock (the entered-in-error question is asked only then) */ stockTaken: z.number().int(),
   /** entered-in-error: the nurse's answer to "was the stock drawn?" and the units put back */ errorStockDrawn: StockDrawn.nullable(), returned: z.number().int(),
+  /** ADR 0016: the wristband matched, the ward batch whose label matched, or the override reason (flagged) */
+  scan: z.object({ band: z.boolean(), medBatchId: z.string().nullable(), override: z.string().nullable() }),
 });
 export type DoseRecord = z.infer<typeof DoseRecord>;
 export const WardMedicineWire = z.object({ key: z.string(), brand: z.string(), brandBn: z.string(), generic: z.string(), strength: z.string(), form: z.string(), issueUnit: z.string(), routes: z.array(z.string()), highAlert: z.boolean(), controlled: z.boolean(), multiDose: z.boolean(), inpatientOnly: z.boolean(), sample: z.literal(true) });
@@ -130,6 +136,9 @@ export const DoseRequest = z.object({
   witness: z.object({ userId: z.string().max(64), pin: z.string().regex(/^\d{4}$/) }).optional(),
   /** multi-dose drugs (insulin by sliding scale): the amount actually given */
   amountGiven: z.string().trim().max(40).optional(),
+  /** ADR 0016 scan-to-verify: the wristband and medicine-label codes as scanned, or "scanner not working" (≥10; never for
+      a high-alert or controlled drug) */
+  scan: z.object({ band: z.string().trim().max(200).optional(), med: z.string().trim().max(200).optional(), overrideReason: z.string().trim().max(300).optional() }).optional(),
 });
 export type DoseRequest = z.infer<typeof DoseRequest>;
 export const VialOpenRequest = z.object({ requestId: z.string().max(64), openedAt: z.string().datetime(), source: DoseSource.default("ward-stock") });
@@ -166,6 +175,9 @@ export const RoundView = z.object({
     doses: z.array(z.object({ medicine: z.string(), status: z.string(), at: z.string(), timing: z.string(), reason: z.string().nullable() })),
   }),
   activeOrders: z.array(InpatientOrder), draft: RoundNote.nullable(), signed: z.array(RoundNote), rule: Rule,
+  /** ADR 0016: the last 24 hours' intake / output (mL), and the open care tasks */
+  io24h: z.object({ inMl: z.number().int(), outMl: z.number().int(), balanceMl: z.number().int() }).nullable(),
+  tasks: z.array(z.object({ id: z.string(), text: z.string(), dueAt: z.string(), everyHours: z.number().int().nullable(), overdue: z.boolean() })),
 });
 export type RoundView = z.infer<typeof RoundView>;
 export const SaveRoundRequest = z.object({ rev: z.number().int().min(1), sections: RoundSections, lines: z.array(InpatientLineInput).max(30), orders: z.array(z.object({ testCode: z.string().max(30), priority: OrderPriority })).max(30) });
@@ -182,7 +194,8 @@ export type IndentCreate = z.infer<typeof IndentCreate>;
 export const IndentView = z.object({
   id: z.string(), number: z.string(), status: IndentStatusWire, ward: z.object({ id: z.string(), name: z.string() }), note: z.string().nullable(), requestedBy: Person, requestedAt: z.string(),
   lines: z.array(z.object({ id: z.string(), medicineKey: z.string(), name: z.string(), issueUnit: z.string(), controlled: z.boolean(), requested: z.number().int(), issued: z.number().int(), storeAvailable: z.number().int() })),
-  issues: z.array(z.object({ lineId: z.string(), qty: z.number().int(), by: Person, at: z.string() })),
+  /** `label`: the ward batch's medicine-label QR to print with the issue (ADR 0016) */
+  issues: z.array(z.object({ lineId: z.string(), qty: z.number().int(), by: Person, at: z.string(), label: z.string().nullable() })),
   cancel: z.object({ by: Person, reason: z.string() }).nullable(),
 });
 export type IndentView = z.infer<typeof IndentView>;
@@ -190,7 +203,8 @@ export const IndentList = z.object({ items: z.array(IndentView) });
 export type IndentList = z.infer<typeof IndentList>;
 export const IndentIssueRequest = z.object({ lines: z.array(z.object({ lineId: z.string().max(64), qty: z.number().int().min(1).max(500) })).min(1).max(30), pin: z.string().regex(/^\d{4}$/).optional() });
 export type IndentIssueRequest = z.infer<typeof IndentIssueRequest>;
-export const WardStock = z.object({ ward: z.object({ id: z.string(), name: z.string() }), items: z.array(z.object({ medicineKey: z.string(), name: z.string(), issueUnit: z.string(), controlled: z.boolean(), qty: z.number().int(), batches: z.array(z.object({ batchNo: z.string(), expiry: z.string(), qty: z.number().int() })) })),
+export const WardStock = z.object({ ward: z.object({ id: z.string(), name: z.string() }), items: z.array(z.object({ medicineKey: z.string(), name: z.string(), issueUnit: z.string(), controlled: z.boolean(), qty: z.number().int(),
+  /** `label`: the batch's medicine-label QR (ADR 0016) */ batches: z.array(z.object({ id: z.string(), batchNo: z.string(), expiry: z.string(), qty: z.number().int(), label: z.string() })) })),
   /** units put back from doses marked entered-in-error ("stock not drawn"), last 7 days — for the next count to check */
   returns: z.array(z.object({ medicine: z.string(), batchNo: z.string(), qty: z.number().int(), reason: z.string(), by: Person, at: z.string() })),
 });
@@ -199,3 +213,70 @@ export type WardStock = z.infer<typeof WardStock>;
 /* ───── bed moves ───── */
 export const BedMoveRequest = z.object({ bedId: z.string().max(64), reason: z.string().trim().max(300), handoverNote: z.string().trim().max(1000).optional(), mode: z.enum(["now", "reserve"]) });
 export type BedMoveRequest = z.infer<typeof BedMoveRequest>;
+
+/* ───── ADR 0016 (slice B5–B6) ───── */
+/* the wristband: POST /v1/nursing/encounters/:id/wristband — the first print at admission, a reprint with a reason */
+export const WristbandRequest = z.object({ reason: z.string().trim().max(300).optional() });
+export const WristbandView = z.object({
+  code: z.string(), patient: ErPatient, admissionNumber: z.string().nullable(), bed: z.string().nullable(), ward: z.string().nullable(),
+  printedBefore: z.number().int(), allergies: z.array(z.string()),
+});
+export type WristbandView = z.infer<typeof WristbandView>;
+
+/* intake / output: POST /v1/nursing/encounters/:id/io (outbox, device time) · GET …/io?day= */
+export const IoSide = z.enum(["in", "out"]);
+export const IoEntryRequest = z.object({ side: IoSide, route: z.string().max(20), ml: z.number().int(), effectiveAt: z.string().datetime(), note: z.string().trim().max(200).optional() });
+export type IoEntryRequest = z.infer<typeof IoEntryRequest>;
+export const IoEntryView = z.object({
+  id: z.string(), side: IoSide, route: z.string(), ml: z.number().int(), note: z.string().nullable(), effectiveAt: z.string(), writtenBy: Person,
+  status: z.enum(["active", "entered-in-error"]), error: z.object({ reason: z.string(), by: Person, at: z.string() }).nullable(),
+});
+export type IoEntryView = z.infer<typeof IoEntryView>;
+export const IoTotals = z.object({ inMl: z.number().int(), outMl: z.number().int(), balanceMl: z.number().int() });
+export const IoView = z.object({
+  encounterId: z.string(), day: z.string(), dayStartHour: z.number().int(), entries: z.array(IoEntryView), totals: IoTotals,
+  /** the last 24 hours, whatever the shift day */ last24h: IoTotals, sample: SampleNote,
+});
+export type IoView = z.infer<typeof IoView>;
+
+/* care plan tasks: POST /v1/nursing/encounters/:id/tasks (nurse or doctor) · POST /v1/nursing/tasks/:id/complete (nurse) · …/cancel */
+export const CareTaskCreate = z.object({ text: z.string().trim().max(300), everyHours: z.number().int().nullable(), dueAt: z.string().datetime() });
+export type CareTaskCreate = z.infer<typeof CareTaskCreate>;
+export const CareTaskView = z.object({
+  id: z.string(), seriesId: z.string(), text: z.string(), everyHours: z.number().int().nullable(), dueAt: z.string(), status: z.enum(["requested", "completed", "cancelled"]),
+  overdue: z.boolean(), createdBy: Person, createdAt: z.string(), completedBy: Person.nullable(), completedAt: z.string().nullable(),
+  cancel: z.object({ by: Person, at: z.string(), reason: z.string() }).nullable(),
+});
+export type CareTaskView = z.infer<typeof CareTaskView>;
+export const CareTaskList = z.object({ open: z.array(CareTaskView), done: z.array(CareTaskView), graceMin: z.number().int(), sample: SampleNote });
+export type CareTaskList = z.infer<typeof CareTaskList>;
+
+/* the shift handover: GET /v1/nursing/wards/:id/handover (the current shift's, or null) · POST (open the draft) ·
+   PUT /v1/nursing/handovers/:id/patients/:encounterId · POST …/sign (PIN) · …/accept (PIN, note) · …/query (note) */
+export const HandoverStatusWire = z.enum(["draft", "outgoing-signed", "accepted"]);
+export const HandoverPatientView = z.object({
+  encounterId: z.string(), patient: ErPatient, bed: z.string(), onWard: z.boolean(),
+  news2: News2.nullable(), escalation: Escalation.nullable(), doses: z.object({ due: z.number().int(), overdue: z.number().int() }),
+  ioBalance24hMl: z.number().int().nullable(), openTasks: z.array(z.object({ text: z.string(), dueAt: z.string(), overdue: z.boolean() })),
+  sbar: z.object({ s: z.string(), b: z.string(), a: z.string(), r: z.string() }), reviewed: z.boolean(),
+});
+export type HandoverPatientView = z.infer<typeof HandoverPatientView>;
+export const HandoverView = z.object({
+  id: z.string(), ward: z.object({ id: z.string(), name: z.string() }), shift: z.object({ day: z.string(), startHour: z.number().int(), start: z.string(), end: z.string() }),
+  status: HandoverStatusWire, rev: z.number().int(), outgoing: Person, signedAt: z.string().nullable(), incoming: Person.nullable(), acceptedAt: z.string().nullable(),
+  acceptNote: z.string().nullable(), query: z.object({ note: z.string(), by: Person, at: z.string() }).nullable(),
+  patients: z.array(HandoverPatientView),
+  /** open escalations no doctor acknowledged in the app: the acceptance note must name each (bed or patient number) */
+  unacknowledged: z.array(z.object({ bed: z.string(), facilityNo: z.string(), name: z.string() })),
+  signBlockers: z.array(z.enum(["not_all_reviewed"])), sample: SampleNote,
+});
+export type HandoverView = z.infer<typeof HandoverView>;
+export const WardHandover = z.object({ handover: HandoverView.nullable(), shift: z.object({ day: z.string(), startHour: z.number().int(), start: z.string(), end: z.string() }),
+  /** who holds the ward now: the incoming nurse of the last accepted handover */ onDuty: z.object({ nurse: Person, since: z.string() }).nullable() });
+export type WardHandover = z.infer<typeof WardHandover>;
+export const HandoverPatientUpdate = z.object({ rev: z.number().int(), sbar: z.object({ s: z.string().max(1000), b: z.string().max(1000), a: z.string().max(1000), r: z.string().max(1000) }).optional(), reviewed: z.boolean().optional() });
+export type HandoverPatientUpdate = z.infer<typeof HandoverPatientUpdate>;
+export const HandoverSignRequest = z.object({ rev: z.number().int(), pin: z.string().regex(/^\d{4}$/) });
+export const HandoverAcceptRequest = z.object({ rev: z.number().int(), pin: z.string().regex(/^\d{4}$/), note: z.string().trim().max(1000) });
+export const HandoverQueryRequest = z.object({ rev: z.number().int(), note: z.string().trim().max(500) });
+
