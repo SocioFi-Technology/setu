@@ -1059,3 +1059,26 @@ Commit after each step, push at the end of each session.
 - **248 and 253 →** the arrival form and "brought by" take an **optional phone**, normalised like 239 (Bangla or
   Latin digits), stored with source patient-reported; a provisional record with a phone still goes to the duplicate
   review queue. Built.
+
+## Slice B3–B4, session 1 (rules, database, contracts, routes, tests) — 06/10/2026
+### Decided by Kamrul (05/10/2026, the plan) — the ten defaults, with changes
+254. NEWS2 red score escalates — accepted.  255. SpO₂ scale 1 for every patient, said on screen — accepted.
+256. **Witness:** a second nurse or a doctor; never the preparer or the giver; PIN verified in the same transaction. Built.
+257. Nursing notes without a PIN (they work offline) — accepted.
+258. **Short ward stock** refuses a ward-stock dose; the patient's own supply is recorded as `patient-supplied` and shown
+     distinctly on the chart. Built.
+259. **Multi-dose vials** consumed when opened; opened-at recorded and shown; discard-after-opening periods on the
+     clinician pre-pilot list (known gap 14). Built.
+260. Controlled doses write a register line with the witness — accepted.  261. Ward picker remembered on the device — accepted.
+262. **Amendments:** a line continues its regimen only when drug, dose, route and frequency are unchanged; any change is a
+     new regimen and the old line's future doses stop. Built.
+263. A move to another class shows the sample daily difference only; nothing billed until B8 — accepted.
+
+### Decided in the session (defaults — Kamrul to confirm)
+- **A controlled drug is witnessed even when it is not on the high-alert list** (the sample's oral diazepam): its
+  register line records the witness, and the database requires one. Keep?
+- **A dose marked entered-in-error does not return its ward stock**: whether the vial was opened is not known. A count
+  corrects the ward later. Keep, or ask the nurse "was the stock used?"
+- **Stopping an order needs the doctor's PIN**, like signing. Keep?
+- **Held and refused can be recorded on a slot before it falls due** (nil by mouth for theatre); missed only after the
+  window. A PRN order takes given or refused only.
