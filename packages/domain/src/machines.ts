@@ -105,14 +105,15 @@ export type InboxItemEvent = "acknowledge";
 export const INBOX_ITEM: Table<InboxItemState, InboxItemEvent> = { unread: { acknowledge: "acknowledged" }, acknowledged: {} };
 
 /* ADR 0005: a draft or issued bill (no confirmed money) can be marked entered-in-error (void, owner/admin, reason);
-   `cancel` stays in the table from the domain model but no route uses it yet. */
+   `cancel` stays in the table from the domain model but no route uses it yet. ADR 0013 addendum: a partially-paid or
+   balanced bill can be voided once every paisa of it was refunded (`voidBlockers` guards that, the database too). */
 export type InvoiceState = "draft" | "issued" | "partially-paid" | "balanced" | "cancelled" | "entered-in-error";
 export type InvoiceEvent = "issue" | "payPart" | "payAll" | "cancel" | "markError";
 export const INVOICE: Table<InvoiceState, InvoiceEvent> = {
   draft: { issue: "issued", cancel: "cancelled", markError: "entered-in-error" },
   issued: { payPart: "partially-paid", payAll: "balanced", cancel: "cancelled", markError: "entered-in-error" },
-  "partially-paid": { payPart: "partially-paid", payAll: "balanced", cancel: "cancelled" },
-  balanced: {},
+  "partially-paid": { payPart: "partially-paid", payAll: "balanced", cancel: "cancelled", markError: "entered-in-error" },
+  balanced: { markError: "entered-in-error" },
   cancelled: {},
   "entered-in-error": {},
 };
@@ -130,6 +131,18 @@ export const PAYMENT: Table<PaymentState, PaymentEvent> = {
 export type ApprovalState = "requested" | "approved" | "rejected";
 export type ApprovalEvent = "approve" | "reject";
 export const APPROVAL: Table<ApprovalState, ApprovalEvent> = { requested: { approve: "approved", reject: "rejected" }, approved: {}, rejected: {} };
+
+/* ADR 0013: a refund of money confirmed on one bill. Nothing moves before `approve`; `pay` when every allocation was
+   paid out; `withdraw` = an approved refund that will not be paid (owner / admin, note) — never shown as rejected. */
+export type RefundState = "requested" | "approved" | "paid" | "rejected" | "withdrawn";
+export type RefundEvent = "approve" | "reject" | "pay" | "withdraw";
+export const REFUND: Table<RefundState, RefundEvent> = {
+  requested: { approve: "approved", reject: "rejected" },
+  approved: { pay: "paid", withdraw: "withdrawn" },
+  paid: {},
+  rejected: {},
+  withdrawn: {},
+};
 
 export type EncounterState = "planned" | "arrived" | "triaged" | "in-progress" | "finished" | "cancelled" | "entered-in-error";
 export type EncounterEvent = "arrive" | "triage" | "start" | "finish" | "cancel" | "markError";

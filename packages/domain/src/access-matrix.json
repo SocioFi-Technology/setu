@@ -747,6 +747,19 @@
      "needsPatient": false
     },
     {
+     "key": "refund",
+     "name_bn": "রিফান্ড",
+     "name_en": "Refunds",
+     "icon": "undo-2",
+     "roles": [
+      "pharmacist",
+      "owner",
+      "admin"
+     ],
+     "plan": "clinic",
+     "needsPatient": false
+    },
+    {
      "key": "indent",
      "name_bn": "ওয়ার্ড ইনডেন্ট",
      "name_en": "Ward indents",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALLERGY, BED, INVOICE, CLAIM, DISCHARGE, DOCUMENT, ENCOUNTER, ORDER, PAYMENT, TransitionError, can, transition } from "./machines.js";
+import { ALLERGY, BED, INVOICE, REFUND, CLAIM, DISCHARGE, DOCUMENT, ENCOUNTER, ORDER, PAYMENT, TransitionError, can, transition } from "./machines.js";
 
 describe("document", () => {
   it("offline sign is queued, never final, until the server acks (rule 1)", () => {
@@ -72,11 +72,26 @@ describe("claim (round-2 fix #3)", () => {
   });
 });
 
-describe("invoice (ADR 0005)", () => {
-  it("only a draft or issued bill (no confirmed money) can be marked entered-in-error; that is terminal", () => {
+describe("invoice (ADR 0005, ADR 0013 addendum)", () => {
+  it("draft, issued and — once all money is refunded (refund.ts guards it) — partially-paid / balanced bills can be marked entered-in-error; that is terminal", () => {
     expect(transition("invoice", INVOICE, "draft", "markError")).toBe("entered-in-error");
     expect(transition("invoice", INVOICE, "issued", "markError")).toBe("entered-in-error");
-    for (const from of ["partially-paid", "balanced", "cancelled", "entered-in-error"] as const) expect(can(INVOICE, from, "markError")).toBe(false);
+    expect(transition("invoice", INVOICE, "partially-paid", "markError")).toBe("entered-in-error");
+    expect(transition("invoice", INVOICE, "balanced", "markError")).toBe("entered-in-error");
+    for (const from of ["cancelled", "entered-in-error"] as const) expect(can(INVOICE, from, "markError")).toBe(false);
     for (const ev of ["issue", "payPart", "payAll", "cancel", "markError"] as const) expect(can(INVOICE, "entered-in-error", ev)).toBe(false);
+  });
+});
+
+describe("refund (ADR 0013)", () => {
+  it("requested → approved → paid; requested → rejected; approved → withdrawn — withdrawn is not rejected, paid is final", () => {
+    expect(transition("refund", REFUND, "requested", "approve")).toBe("approved");
+    expect(transition("refund", REFUND, "requested", "reject")).toBe("rejected");
+    expect(transition("refund", REFUND, "approved", "pay")).toBe("paid");
+    expect(transition("refund", REFUND, "approved", "withdraw")).toBe("withdrawn");
+    expect(can(REFUND, "requested", "pay")).toBe(false); // nothing moves before approval
+    expect(can(REFUND, "requested", "withdraw")).toBe(false);
+    expect(can(REFUND, "approved", "reject")).toBe(false);
+    for (const end of ["paid", "rejected", "withdrawn"] as const) for (const ev of ["approve", "reject", "pay", "withdraw"] as const) expect(can(REFUND, end, ev)).toBe(false);
   });
 });

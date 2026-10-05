@@ -34,10 +34,25 @@ export function fefoPick(batches: readonly BatchLike[], need: number, today: str
 }
 
 export type DispenseStatus = "to-dispense" | "partial" | "dispensed" | "declined" | "partial-declined";
-export function dispenseStatus(x: { prescribed: number; dispensed: number; declined: boolean }): DispenseStatus {
-  if (x.dispensed >= x.prescribed) return "dispensed";
-  if (x.declined) return x.dispensed > 0 ? "partial-declined" : "declined";
-  return x.dispensed > 0 ? "partial" : "to-dispense";
+/** ADR 0013: units the patient returned count as not given — the line reopens (a wrong dispense is given again). */
+export function dispenseStatus(x: { prescribed: number; dispensed: number; returned?: number; declined: boolean }): DispenseStatus {
+  const given = x.dispensed - (x.returned ?? 0);
+  if (given >= x.prescribed) return "dispensed";
+  if (x.declined) return given > 0 ? "partial-declined" : "declined";
+  return given > 0 ? "partial" : "to-dispense";
+}
+
+/** ADR 0013: returned medicine waits in quarantine; it goes back to the counter only when a pharmacist says it is
+    unopened and resaleable, with a reason — never an expired batch; a controlled drug needs the owner. */
+export type ResaleBlocker = "not_a_pharmacist" | "owner_only" | "not_unopened" | "reason_too_short" | "expired" | "over_quarantine";
+export function resaleBlockers(x: { role: string; unopened: boolean; reason: string; expired: boolean; controlled: boolean; inQuarantine: number; qty: number }): ResaleBlocker[] {
+  if (x.controlled && x.role !== "owner") return ["owner_only"];
+  if (!x.controlled && x.role !== "pharmacist") return ["not_a_pharmacist"];
+  if (!x.unopened) return ["not_unopened"];
+  if (x.reason.trim().length < 10) return ["reason_too_short"];
+  if (x.expired) return ["expired"];
+  if (!Number.isSafeInteger(x.qty) || x.qty < 1 || x.qty > x.inQuarantine) return ["over_quarantine"];
+  return [];
 }
 
 type Med = { id: string; ingredients: string[]; classes: string[]; strength: string; form: string };

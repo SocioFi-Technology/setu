@@ -77,10 +77,10 @@ describe("bill kinds by role (ADR 0009)", () => {
   });
 });
 
-describe("the pharmacist at the counter (ADR 0009: ph/pay, ph/receipt, ph/shift — beyond the design handoff)", () => {
-  it("takes payment, prints receipts and holds a shift inside Pharmacy; never the Billing module", () => {
+describe("the pharmacist at the counter (ADR 0009: ph/pay, ph/receipt, ph/shift; ADR 0013: ph/refund — beyond the design handoff)", () => {
+  it("takes payment, prints receipts, holds a shift and pays refunds inside Pharmacy; never the Billing module", () => {
     for (const plan of ["clinic", "lite", "pro"] as const) {
-      for (const screen of ["pay", "receipt", "shift"]) {
+      for (const screen of ["pay", "receipt", "shift", "refund"]) {
         expect(authorize("pharmacist", plan, "ph", screen).allowed).toBe(true);
         expect(authorize("owner", plan, "ph", screen).allowed).toBe(true);
         expect(authorize("cashier", plan, "ph", screen).allowed).toBe(false); // the cashier keeps bill/pay

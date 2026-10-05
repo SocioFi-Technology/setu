@@ -124,13 +124,17 @@ export function notBilledBlockers(a: { line: { source: "consultation" | "order" 
   return [];
 }
 
-/** Void = INVOICE markError: owner/admin, reason, only draft or issued, never with confirmed money or a pending link. */
-export type VoidBlocker = "not_an_approver" | "not_voidable" | "has_confirmed_money" | "link_pending" | "approval_pending" | "reason_too_short";
+/** Void = INVOICE markError: owner/admin, reason, never with money still on it or a pending link. ADR 0013 addendum: a
+    bill that held money is voidable once all of it was refunded, no refund is open and every unit of medicine on it
+    came back (`refundedPaisa`, `openRefunds`, `unreturnedMedicine`). */
+export type VoidBlocker = "not_an_approver" | "not_voidable" | "has_confirmed_money" | "refund_open" | "medicine_given" | "link_pending" | "approval_pending" | "reason_too_short";
 /** `pendingApprovals`: approvals still requested on the bill — decide them first (security review: they must not be
     left in the inbox of a voided bill). */
-export function voidBlockers(a: { role: string; status: InvoiceState; confirmedPaisa: Paisa; pendingPayments: number; pendingApprovals?: number; reason: string }): VoidBlocker[] {
+export function voidBlockers(a: { role: string; status: InvoiceState; confirmedPaisa: Paisa; refundedPaisa?: Paisa; openRefunds?: number; unreturnedMedicine?: number; pendingPayments: number; pendingApprovals?: number; reason: string }): VoidBlocker[] {
   if (!(APPROVER_ROLES as readonly string[]).includes(a.role)) return ["not_an_approver"];
-  if (a.confirmedPaisa > 0) return ["has_confirmed_money"];
+  if ((a.openRefunds ?? 0) > 0) return ["refund_open"];
+  if (a.confirmedPaisa - (a.refundedPaisa ?? 0) > 0) return ["has_confirmed_money"];
+  if ((a.unreturnedMedicine ?? 0) > 0) return ["medicine_given"];
   if (!can(INVOICE, a.status, "markError")) return ["not_voidable"];
   if (a.pendingPayments > 0) return ["link_pending"];
   if ((a.pendingApprovals ?? 0) > 0) return ["approval_pending"];
