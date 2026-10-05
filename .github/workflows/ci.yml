@@ -50,6 +50,20 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build the shared packages (the seed, the reset and the apps import their dist)
         run: pnpm exec turbo run build --filter=@setu/domain --filter=@setu/contracts --filter=@setu/i18n --filter=@setu/db
+      # the API renders receipts and vouchers with playwright-core's Chromium (apps/api/src/receipts/pdf.ts), so both jobs need it
+      - name: Playwright version (the browser cache key)
+        id: pw
+        run: echo "version=$(node -p "require('./node_modules/.pnpm/node_modules/playwright-core/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright's Chromium
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install Chromium (with system deps; the deps alone when the browser came from the cache)
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then pnpm --filter @setu/e2e exec playwright install-deps chromium; else pnpm --filter @setu/e2e exec playwright install --with-deps chromium; fi
       - name: Write the CI .env (fakes only; the three secrets are CI-only values)
         run: |
           set -euo pipefail
@@ -121,6 +135,20 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build the shared packages (the seed, the reset and the apps import their dist)
         run: pnpm exec turbo run build --filter=@setu/domain --filter=@setu/contracts --filter=@setu/i18n --filter=@setu/db
+      # the API renders receipts and vouchers with playwright-core's Chromium (apps/api/src/receipts/pdf.ts), so both jobs need it
+      - name: Playwright version (the browser cache key)
+        id: pw
+        run: echo "version=$(node -p "require('./node_modules/.pnpm/node_modules/playwright-core/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright's Chromium
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install Chromium (with system deps; the deps alone when the browser came from the cache)
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then pnpm --filter @setu/e2e exec playwright install-deps chromium; else pnpm --filter @setu/e2e exec playwright install --with-deps chromium; fi
       - name: Write the CI .env (fakes only)
         run: |
           set -euo pipefail
@@ -147,19 +175,6 @@ jobs:
           pnpm --filter @setu/db migrate:deploy
           PGPASSWORD=setu psql -h localhost -U setu -d setu -v ON_ERROR_STOP=1 -c "ALTER ROLE setu_app PASSWORD '${{ secrets.SETU_APP_PASSWORD }}'"
           pnpm db:seed
-      - name: Playwright version (the browser cache key)
-        id: pw
-        run: echo "version=$(node -p "require('./node_modules/.pnpm/node_modules/playwright-core/package.json').version")" >> "$GITHUB_OUTPUT"
-      - name: Cache Playwright's Chromium
-        id: pw-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
-      - name: Install Chromium (with system deps; the deps alone when the browser came from the cache)
-        run: |
-          set -euo pipefail
-          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then pnpm --filter @setu/e2e exec playwright install-deps chromium; else pnpm --filter @setu/e2e exec playwright install --with-deps chromium; fi
       - name: Start the API (4100) and the staff app (3300), the handover's commands
         run: |
           set -euo pipefail

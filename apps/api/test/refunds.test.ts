@@ -485,6 +485,11 @@ describe.runIf(db)("Kamrul's decisions 220, 221, 223", () => {
       if (v.status === "counting") { for (const l of v.lines) v = ok(await post(`/v1/pharmacy/counts/${c.id}/lines`, { rev: v.rev, lineId: l.id, countedQty: l.systemQty }, "pharm")); v = ok(await post(`/v1/pharmacy/counts/${c.id}/submit`, { rev: v.rev }, "pharm")); }
       ok(await post(`/v1/pharmacy/counts/${c.id}/decision`, { decision: "reject", note: "leftover from an earlier test run" }, "admin"));
     }
+    // a fresh database (CI) has nothing in the fridge yet: the pharmacist moves 20 Pantonix there (as purchasing.test does)
+    if (!(await inTenant((tx) => tx.stockBatch.findFirst({ where: { location: "fridge", qtyOnHand: { gt: 0 } } })))) {
+      const store = (await inTenant((tx) => tx.stockBatch.findFirst({ where: { medicineKey: "pantonix", location: "store", qtyOnHand: { gte: 20 } } })))!;
+      ok(await post("/v1/pharmacy/transfers", { batchId: store.id, qty: 20, to: "fridge" }, "pharm"), 201);
+    }
     let c = ok(await post("/v1/pharmacy/counts", { location: "fridge" }, "owner"), 201);
     c = ok(await get(`/v1/pharmacy/counts/${c.id}`, "owner"));
     for (const l of c.lines) c = ok(await post(`/v1/pharmacy/counts/${c.id}/lines`, { rev: c.rev, lineId: l.id, countedQty: l.systemQty }, "owner"));
