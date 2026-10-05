@@ -53,6 +53,39 @@ export const MEDICINES_SAMPLE: MedicineEntry[] = ([
 ] as M[]).map(([id, brand, brandBn, generic, strength, form, manufacturer, ingredients, classes, dose, meal, days]) =>
   ({ id, brand, brandBn, generic, strength, form, manufacturer, ingredients, classes, defaults: { dose, meal, days }, sample: true as const }));
 
+/* ADR 0015: medicines for inpatient orders — the oral list above plus injections and infusions given on the ward.
+   Sample rows (never a DGDA number); the high-alert and controlled flags are a SAMPLE pending clinician sign-off. The
+   issue unit is what the pharmacy issues and a dose consumes; a multi-dose vial is consumed when it is opened. */
+export type Route = "oral" | "iv" | "im" | "sc";
+export interface WardMedicine {
+  key: string; brand: string; brandBn: string; generic: string; strength: string; form: string; ingredients: string[]; classes: string[];
+  issueUnit: "tablet" | "capsule" | "vial" | "ampoule" | "bottle" | "bag"; routes: Route[]; multiDose: boolean; highAlert: boolean; controlled: boolean;
+  inpatientOnly: boolean; mrpPaisa: number; sample: true;
+}
+type W = [string, string, string, string, string, string, string[], string[], WardMedicine["issueUnit"], Route[], boolean, boolean, boolean, number];
+export const INPATIENT_MEDICINES_SAMPLE: WardMedicine[] = ([
+  ["ceftriaxone", "Ceftriaxone", "সেফট্রিয়াক্সোন", "Ceftriaxone", "1 g", "Inj.", ["ceftriaxone"], ["cephalosporin"], "vial", ["iv", "im"], false, false, false, 25_000],
+  ["metronidazole", "Metronidazole", "মেট্রোনিডাজল", "Metronidazole", "500 mg/100 mL", "Inf.", ["metronidazole"], ["nitroimidazole"], "bottle", ["iv"], false, false, false, 9_000],
+  ["paracetamol-iv", "Paracetamol IV", "প্যারাসিটামল আইভি", "Paracetamol", "1 g/100 mL", "Inf.", ["paracetamol"], [], "bottle", ["iv"], false, false, false, 12_000],
+  ["pantoprazole-iv", "Pantoprazole IV", "প্যান্টোপ্রাজল আইভি", "Pantoprazole", "40 mg", "Inj.", ["pantoprazole"], ["ppi"], "vial", ["iv"], false, false, false, 11_000],
+  ["insulin", "Insulin (soluble)", "ইনসুলিন", "Insulin human (soluble)", "100 IU/mL, 10 mL", "Inj.", ["insulin"], ["insulin"], "vial", ["sc", "iv"], true, true, false, 45_000],
+  ["heparin", "Heparin", "হেপারিন", "Heparin sodium", "5000 IU/mL, 5 mL", "Inj.", ["heparin"], ["anticoagulant"], "vial", ["sc", "iv"], true, true, false, 60_000],
+  ["kcl", "Potassium chloride", "পটাশিয়াম ক্লোরাইড", "Potassium chloride 15%", "10 mL", "Inj.", ["potassium-chloride"], ["electrolyte"], "ampoule", ["iv"], false, true, false, 3_000],
+  ["morphine", "Morphine", "মরফিন", "Morphine sulphate", "10 mg/mL", "Inj.", ["morphine"], ["opioid"], "ampoule", ["iv", "im", "sc"], false, true, true, 8_000],
+  ["pethidine", "Pethidine", "পেথিডিন", "Pethidine HCl", "50 mg/mL", "Inj.", ["pethidine"], ["opioid"], "ampoule", ["im", "iv"], false, true, true, 7_000],
+  ["ns", "Normal saline", "নরমাল স্যালাইন", "Sodium chloride 0.9%", "1 L", "Inf.", ["sodium-chloride"], ["fluid"], "bag", ["iv"], false, false, false, 9_500],
+] as W[]).map(([key, brand, brandBn, generic, strength, form, ingredients, classes, issueUnit, routes, multiDose, highAlert, controlled, mrpPaisa]) =>
+  ({ key, brand, brandBn, generic, strength, form, ingredients, classes, issueUnit, routes, multiDose, highAlert, controlled, inpatientOnly: true, mrpPaisa, sample: true as const }));
+/** Every medicine an inpatient order may name: the injections above and the oral list (tablet / capsule, by mouth). */
+export const WARD_MEDICINES: WardMedicine[] = [
+  ...INPATIENT_MEDICINES_SAMPLE,
+  ...MEDICINES_SAMPLE.map((m): WardMedicine => ({ key: m.id, brand: m.brand, brandBn: m.brandBn, generic: m.generic, strength: m.strength, form: m.form, ingredients: m.ingredients, classes: m.classes,
+    issueUnit: m.form === "Cap." ? "capsule" : "tablet", routes: ["oral"], multiDose: false, highAlert: false, controlled: m.id === "sedil", inpatientOnly: false, mrpPaisa: 0, sample: true })),
+];
+export const wardMedicine = (key: string): WardMedicine | null => WARD_MEDICINES.find((m) => m.key === key) ?? null;
+/** The high-alert sample (insulin, heparin, potassium chloride, opioids) — pending clinician sign-off. */
+export const HIGH_ALERT_SAMPLE = INPATIENT_MEDICINES_SAMPLE.filter((m) => m.highAlert).map((m) => m.key);
+
 /** Allergy classes a doctor can record (demo keys the sample medicines carry). Any ingredient key can also be recorded
     as a substance. Anything else is recorded as free text and cannot be checked automatically. */
 export const ALLERGY_CLASSES: { key: string; bn: string; en: string }[] = [

@@ -196,13 +196,32 @@ export const DISCHARGE: Table<DischargeState, DischargeEvent> = {
   left: {},
 };
 
-export type DoseState = "scheduled" | "due" | "given" | "held" | "refused" | "missed";
-export type DoseEvent = "becomeDue" | "give" | "hold" | "refuse" | "miss";
+/* ADR 0015: a recorded dose is never changed — a wrong one is marked entered-in-error with a reason. "scheduled" / "due"
+   are views of a slot (no row); a row is written at given | held | refused | missed. */
+export type DoseState = "scheduled" | "due" | "given" | "held" | "refused" | "missed" | "entered-in-error";
+export type DoseEvent = "becomeDue" | "give" | "hold" | "refuse" | "miss" | "markError";
 export const MAR_DOSE: Table<DoseState, DoseEvent> = {
-  scheduled: { becomeDue: "due" },
+  scheduled: { becomeDue: "due", give: "given", hold: "held", refuse: "refused" },
   due: { give: "given", hold: "held", refuse: "refused", miss: "missed" },
-  given: {}, held: {}, refused: {}, missed: {},
+  given: { markError: "entered-in-error" }, held: { markError: "entered-in-error" }, refused: { markError: "entered-in-error" }, missed: { markError: "entered-in-error" },
+  "entered-in-error": {},
 };
+/* ADR 0015: an inpatient medication order. Stopped by a doctor (reason + PIN); superseded when an amendment of its
+   round note is signed; completed at discharge (later slice). Active only while its note is current. */
+export type MedOrderState = "active" | "stopped" | "superseded" | "completed";
+export type MedOrderEvent = "stop" | "supersede" | "complete";
+export const MEDICATION_ORDER: Table<MedOrderState, MedOrderEvent> = { active: { stop: "stopped", supersede: "superseded", complete: "completed" }, stopped: {}, superseded: {}, completed: {} };
+/* ADR 0015: a ward indent. Issued in one or several issues; cancelling closes the balance. */
+export type IndentState = "requested" | "partially-issued" | "issued" | "cancelled";
+export type IndentEvent = "issuePart" | "issueAll" | "cancel";
+export const INDENT: Table<IndentState, IndentEvent> = {
+  requested: { issuePart: "partially-issued", issueAll: "issued", cancel: "cancelled" },
+  "partially-issued": { issuePart: "partially-issued", issueAll: "issued", cancel: "cancelled" },
+  issued: {}, cancelled: {},
+};
+/* ADR 0015: a nursing note is append-only; a wrong one is marked entered-in-error with a reason. */
+export type NoteEntryState = "active" | "entered-in-error";
+export const NURSING_NOTE: Table<NoteEntryState, "markError"> = { active: { markError: "entered-in-error" }, "entered-in-error": {} };
 
 export type EscalationState = "raised" | "doctor-informed" | "resolved";
 export type EscalationEvent = "inform" | "resolve";

@@ -75,6 +75,8 @@ export const SALE_CLASS_SAMPLE: Record<string, SaleClass> = {
   napa: "otc", ace: "otc", seclo: "otc", pantonix: "otc", sergel: "otc",
   comet: "rx", comet850: "rx", ciprocin: "rx", moxacil: "rx", fimoxyl: "rx", cotrim: "rx", azith: "rx", clopi: "rx", amdocal: "rx", osartil: "rx",
   sedil: "ctrl",
+  // ADR 0015: the ward's opioids are controlled (register on issue and on giving); the other injections are Rx
+  morphine: "ctrl", pethidine: "ctrl",
 };
 export const saleClass = (medicineKey: string): SaleClass => SALE_CLASS_SAMPLE[medicineKey] ?? "rx";
 export type OtcBlocker = "rx_photo_required" | "controlled";
