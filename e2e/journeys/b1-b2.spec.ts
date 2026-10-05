@@ -30,10 +30,26 @@ async function newPatient(request: APIRequestContext, tag: string, dob = "02/06/
 const clipped = (page: Page, sel: string) => page.locator(sel).evaluateAll((els) =>
   els.filter((e) => { const h = e as HTMLElement; return h.offsetParent !== null && (h.scrollWidth > h.clientWidth + 1); }).map((e) => (e as HTMLElement).innerText));
 const row = (page: Page, token: string) => page.locator(`[data-er-row][data-token="${token}"]`);
+/** The first vacant bay in the arrival dialog's select (a retried serial group must not trip over its own first attempt). */
+async function pickFirstBay(page: Page): Promise<string> {
+  const sel = page.getByTestId("arrival-bay");
+  await expect(sel.locator("option")).not.toHaveCount(1); // the "waiting" option plus at least one vacant bay
+  const label = (await sel.locator("option").nth(1).textContent())!.trim();
+  await sel.selectOption({ label });
+  return label;
+}
+/** The first pickable Ward 2A bed on a bed picker. */
+async function pickFirstBed(page: Page): Promise<string> {
+  const bed = page.locator('[data-bed^="2A-"][data-pickable="1"]').first();
+  await expect(bed).toBeVisible();
+  const name = (await bed.getAttribute("data-bed"))!;
+  await bed.click();
+  return name;
+}
 
 test.describe("Journey B — B1 arrival and triage, B2 orders and disposition, the admission", () => {
   test.describe.configure({ mode: "serial" });
-  let token = ""; let encId = ""; let patientNo = "";
+  let token = ""; let encId = ""; let patientNo = ""; let bay1 = ""; let bed1 = "";
 
   test("B1: the nurse records an arrival on bay ER-1, triages level 2, meets the paediatric prompt, assigns the ER doctor", async ({ page, request }) => {
     const p = await newPatient(request, "Triage", "02/06/1986");
@@ -49,17 +65,17 @@ test.describe("Journey B — B1 arrival and triage, B2 orders and disposition, t
     await page.locator(`[role=option][data-patient="${p.facilityNo}"]`).click();
     await expect(page.getByTestId("arrival-dialog")).toContainText(`Picked: ${p.nameEn}`);
     await page.getByTestId("arrival-complaint").fill("Chest pain 40 min, sweating");
-    await page.getByTestId("arrival-bay").selectOption({ label: "ER-1" });
+    bay1 = await pickFirstBay(page);
     await page.getByTestId("arrival-submit").click();
     await expect(page.getByTestId("triage-panel")).toContainText(p.nameEn);
     await expect(page.locator(".pt-banner")).toContainText(p.nameEn); // issue #1: the banner is this patient
-    await expect(page.locator(".pt-banner")).toContainText("ER · ER-1");
+    await expect(page.locator(".pt-banner")).toContainText(`ER · ${bay1}`);
     const r = page.locator(`[data-er-row]`, { hasText: p.nameEn });
     token = (await r.getAttribute("data-token"))!;
     expect(token).toMatch(/^E-\d{3}$/);
     await expect(r).toHaveAttribute("data-level", "none");
     await expect(r).toContainText("Unassigned");
-    await expect(r).toContainText("ER-1");
+    await expect(r).toContainText(bay1);
     encId = (await r.getAttribute("data-er-row"))!;
     // triage level 2 on the sample scale
     await page.getByRole("radio", { name: "2", exact: true }).click();
@@ -128,7 +144,7 @@ test.describe("Journey B — B1 arrival and triage, B2 orders and disposition, t
     await expect(page.locator('[data-bed="2A-06"]')).toHaveAttribute("data-pickable", "0");
     await expect(page.locator('[data-bed="2A-06"]')).toContainText("blocked");
     await expect(page.locator('[data-bed="2A-05"]')).toBeDisabled();
-    await page.locator('[data-bed="2A-01"]').click();
+    bed1 = await pickFirstBed(page);
     await expect(page.getByTestId("disposition-blockers")).toHaveCount(0);
     await page.getByTestId("sign-disposition").click();
     await page.getByTestId("pin").fill("0000");
@@ -137,7 +153,7 @@ test.describe("Journey B — B1 arrival and triage, B2 orders and disposition, t
     await page.getByTestId("pin").fill("1234");
     await page.getByTestId("pin-sign").click();
     await expect(page.getByTestId("disposition-signed")).toContainText("Admit · Signed by Dr. Lite Emergency");
-    await expect(page.getByTestId("disposition-signed")).toContainText("Admission: waiting at the desk · 2A-01");
+    await expect(page.getByTestId("disposition-signed")).toContainText(`Admission: waiting at the desk · ${bed1}`);
     await expect(page.getByTestId("sign-disposition")).toBeDisabled();
     await expect(page.locator('[data-order="rbs"]')).toBeDisabled(); // signed: no more orders
     expect(await clipped(page, ".btn, .pill")).toEqual([]);
@@ -162,13 +178,13 @@ test.describe("Journey B — B1 arrival and triage, B2 orders and disposition, t
     await login(page, DESK);
     await page.goto("/m/ipd/admit");
     const req = page.locator(`[data-request][data-request-patient="${patientNo}"]`);
-    await expect(req).toContainText("2A-01 · Reserved");
+    await expect(req).toContainText(`${bed1} · Reserved`);
     await req.click();
     await expect(page.locator(".pt-banner")).toContainText(patientNo);
     await expect(page.getByTestId("source-note")).toContainText("From the ER");
     await expect(page.getByTestId("admit-diagnosis")).toHaveValue("Head injury, moderate (GCS 11) — RTA");
-    await expect(page.locator('[data-bed="2A-01"]')).toHaveAttribute("aria-pressed", "true");
-    await expect(page.locator('[data-bed="2A-01"]')).toContainText("reserved for this patient");
+    await expect(page.locator(`[data-bed="${bed1}"]`)).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(`[data-bed="${bed1}"]`)).toContainText("reserved for this patient");
     await expect(page.locator('[data-bed="2A-05"]')).toHaveAttribute("data-pickable", "0");
     await expect(page.getByTestId("deposit-note")).toContainText("does not block the admission");
     await expect(page.locator('[data-check="guardian"]')).toHaveAttribute("data-check-ok", "0");
@@ -183,16 +199,16 @@ test.describe("Journey B — B1 arrival and triage, B2 orders and disposition, t
     await expect(page.getByTestId("admit")).toBeEnabled();
     await page.getByTestId("admit").click();
     await expect(page.getByTestId("admitted-card")).toContainText(/ADM\/\d{2}\/\d{4}/);
-    await expect(page.getByTestId("admitted-card")).toContainText("2A-01");
+    await expect(page.getByTestId("admitted-card")).toContainText(bed1);
     await expect(page.getByTestId("ipd-bill")).toContainText("IPD bill: draft");
-    await expect(page.getByTestId("admitted-today")).toContainText("2A-01");
+    await expect(page.getByTestId("admitted-today")).toContainText(bed1);
     await expect(page.locator(`[data-request][data-request-patient="${patientNo}"]`)).toHaveCount(0);
     // the server's view: the ER visit finished, the bay cleaning, the ward bed occupied by this patient
     await as(request, DESK);
     const beds = await getJ<{ wards: { beds: { name: string; state: string; patient: { facilityNo: string } | null }[] }[] }>(request, "/v1/ipd/beds");
     const all = beds.wards.flatMap((w) => w.beds);
-    expect(all.find((b) => b.name === "2A-01")).toMatchObject({ state: "occupied", patient: { facilityNo: patientNo } });
-    expect(all.find((b) => b.name === "ER-1")?.state).toBe("cleaning");
+    expect(all.find((b) => b.name === bed1)).toMatchObject({ state: "occupied", patient: { facilityNo: patientNo } });
+    expect(all.find((b) => b.name === bay1)?.state).toBe("cleaning");
     await as(request, NURSE);
     const board = await getJ<{ items: { id: string; status: string; disposition: { kind: string } | null }[] }>(request, "/v1/er/board");
     expect(board.items.find((i) => i.id === encId)).toMatchObject({ status: "finished", disposition: { kind: "admit" } });
@@ -228,7 +244,7 @@ test.describe("Journey B — B1 arrival and triage, B2 orders and disposition, t
     await page.getByTestId("arrival-search").fill(p.facilityNo);
     await page.locator(`[role=option][data-patient="${p.facilityNo}"]`).click();
     await page.getByTestId("arrival-complaint").fill("Fever 3 days, vomiting");
-    await page.getByTestId("arrival-bay").selectOption({ label: "ER-2" });
+    const bay = await pickFirstBay(page);
     await page.getByTestId("arrival-submit").click();
     await expect(page.getByTestId("triage-panel")).toContainText(p.nameEn);
     await page.getByTestId("open-orders").click();
@@ -254,10 +270,10 @@ test.describe("Journey B — B1 arrival and triage, B2 orders and disposition, t
     // the bay went to cleaning with the discharge; the nurse marks it ready
     await login(page, NURSE);
     await page.goto("/m/er/triage");
-    await page.locator('[data-bay-ready="ER-2"]').click();
-    await expect(page.locator('[data-bay-ready="ER-2"]')).toHaveCount(0);
+    await page.locator(`[data-bay-ready="${bay}"]`).click();
+    await expect(page.locator(`[data-bay-ready="${bay}"]`)).toHaveCount(0);
     await as(request, NURSE);
     const board = await getJ<{ bays: { name: string; state: string }[] }>(request, "/v1/er/board");
-    expect(board.bays.find((b) => b.name === "ER-2")?.state).toBe("vacant");
+    expect(board.bays.find((b) => b.name === bay)?.state).toBe("vacant");
   });
 });
