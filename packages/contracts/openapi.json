@@ -30491,7 +30491,10 @@
                             ]
                           },
                           "patient": {
-                            "type": "object",
+                            "type": [
+                              "object",
+                              "null"
+                            ],
                             "properties": {
                               "id": {
                                 "type": "string"
@@ -30563,6 +30566,30 @@
                               "identityConfidence"
                             ]
                           },
+                          "buyer": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "name": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "phone": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "phone"
+                            ]
+                          },
                           "requesterToday": {
                             "type": "object",
                             "properties": {
@@ -30599,6 +30626,7 @@
                           "refund",
                           "invoice",
                           "patient",
+                          "buyer",
                           "requesterToday"
                         ]
                       }
@@ -31028,7 +31056,10 @@
                           ]
                         },
                         "patient": {
-                          "type": "object",
+                          "type": [
+                            "object",
+                            "null"
+                          ],
                           "properties": {
                             "id": {
                               "type": "string"
@@ -31100,6 +31131,30 @@
                             "identityConfidence"
                           ]
                         },
+                        "buyer": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "name": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "phone": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "phone"
+                          ]
+                        },
                         "requesterToday": {
                           "type": "object",
                           "properties": {
@@ -31136,6 +31191,7 @@
                         "refund",
                         "invoice",
                         "patient",
+                        "buyer",
                         "requesterToday"
                       ]
                     },
@@ -32964,7 +33020,10 @@
                           ]
                         },
                         "patient": {
-                          "type": "object",
+                          "type": [
+                            "object",
+                            "null"
+                          ],
                           "properties": {
                             "id": {
                               "type": "string"
@@ -33036,6 +33095,30 @@
                             "identityConfidence"
                           ]
                         },
+                        "buyer": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "name": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "phone": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "phone"
+                          ]
+                        },
                         "requesterToday": {
                           "type": "object",
                           "properties": {
@@ -33072,6 +33155,7 @@
                         "refund",
                         "invoice",
                         "patient",
+                        "buyer",
                         "requesterToday"
                       ]
                     },
