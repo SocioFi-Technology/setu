@@ -263,5 +263,8 @@
   "q_qty": ["সংখ্যা", "Units"],
   "q_released": ["{n}টি কাউন্টারে ফেরত গেল", "{n} back at the counter"],
   "q_controlled": ["নিয়ন্ত্রিত ওষুধ — শুধু মালিক কাউন্টারে ফেরত দিতে পারেন", "A controlled drug — only the owner releases it to the counter"],
-  "q_hint": ["কোয়ারেন্টাইনের ওষুধ বিক্রি হয় না। মেয়াদোত্তীর্ণ হলে কাউন্টারে যায় না।", "Quarantined medicine is never sold. An expired batch never goes to the counter."]
+  "q_hint": ["কোয়ারেন্টাইনের ওষুধ বিক্রি হয় না। মেয়াদোত্তীর্ণ হলে কাউন্টারে যায় না।", "Quarantined medicine is never sold. An expired batch never goes to the counter."],
+  "self_count_hint": ["আপনিই এখানকার একমাত্র অনুমোদনকারী — নিজের গণনায় সিদ্ধান্তের কারণ লিখুন (অন্তত ১০ অক্ষর); সিদ্ধান্তটি 'নিজে অনুমোদিত' হিসেবে চিহ্নিত হবে।", "You are the only approver here — write why you decide your own count (at least 10 characters); it is flagged self-approved."],
+  "self_note": ["নোট", "Note"],
+  "self_approved": ["নিজে অনুমোদিত (একমাত্র অনুমোদনকারী)", "Self-approved (the only approver)"]
 }

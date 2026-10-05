@@ -490,5 +490,15 @@
   "v_vat_rate": ["মূসক হার", "VAT rate"],
   "v_net": ["মূল্য", "Net"],
   "v_format_a5": ["A5", "A5"],
-  "rec_refund_pending": ["রোগীকে ফেরতের রিফান্ড চলছে — সেটিই কেসটির সিদ্ধান্ত দেবে", "A refund to the patient is under way — it decides this case"]
+  "rec_refund_pending": ["রোগীকে ফেরতের রিফান্ড চলছে — সেটিই কেসটির সিদ্ধান্ত দেবে", "A refund to the patient is under way — it decides this case"],
+  "rf_kind_return_split_hint": ["ফেরত ওষুধের মূল্য আগে বকেয়া কমায়; বাকিটা নিশ্চিত টাকা থেকে ফেরত যায় — একটি অনুরোধ, একটি ভাউচার।", "The returned value lowers the due first; what is left is refunded from confirmed money — one request, one voucher."],
+  "rf_split_credit": ["বকেয়া কমবে", "Off the due"],
+  "rf_split_refund": ["ফেরত টাকা", "Refunded"],
+  "rf_due_now": ["বিলে এখন বকেয়া", "Due on the bill now"],
+  "rf_release_title": ["bKash মার্চেন্ট পোর্টালে দেখে মীমাংসা (মালিক)", "Settle from the bKash merchant portal (owner)"],
+  "rf_release_hint": ["গেটওয়ে {minutes} মিনিটেও উত্তর দেয়নি। পোর্টালে দেখে বলুন: ফেরত হয়নি (ক্যাশিয়ার আবার চেষ্টা করবেন বা নগদে দেবেন) বা ফেরত হয়েছে (TrxID লিখুন)। দুটোই অডিট হয় ও স্টেটমেন্টের সঙ্গে মেলানোর তালিকায় যায়।", "The gateway has not answered in {minutes} minutes. Say what the portal shows: not refunded (the cashier retries or pays cash) or refunded (write the TrxID). Both are audited and go to the statement check."],
+  "rf_release_wait": ["গেটওয়ের উত্তরের অপেক্ষা — {at} থেকে মালিক পোর্টাল দেখে মীমাংসা করতে পারবেন।", "Waiting for the gateway — from {at} the owner can settle it from the portal."],
+  "rf_release_not": ["পোর্টালে ফেরত হয়নি", "Not refunded on the portal"],
+  "rf_release_yes": ["পোর্টালে ফেরত হয়েছে — TrxID", "Refunded on the portal — TrxID"],
+  "rf_release_trx": ["রিফান্ড TrxID", "Refund TrxID"]
 }

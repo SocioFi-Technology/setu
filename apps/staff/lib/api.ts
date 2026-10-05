@@ -1,5 +1,5 @@
 import type {
-  RefundableView, RefundRequest, RefundView, RefundDecisionRequest, RefundPayRequest, RefundPayResponse, RefundList, RefundVoucherView, RefundVoucherPrintResponse, ReconcileRefundRequest, ResaleRequest,
+  RefundableView, RefundRequest, RefundView, RefundDecisionRequest, RefundPayRequest, RefundReleaseRequest, RefundPayResponse, RefundList, RefundVoucherView, RefundVoucherPrintResponse, ReconcileRefundRequest, ResaleRequest,
   FacilityView, FacilityUpdate, SettingsUpdate, UserList, UserView, UserCreate, UserCredentialResponse, PriceList, PriceCreate, PriceHistory, AuditPage, AuditQuery,
   DispenseQueue, DispenseRequest, DispenseView, OtcCreateRequest, OtcView, RxPhotoRequest, StockList, SupplierList, SupplierLedger, SupplierPaymentRequest,
   PurchaseOrderList, PurchaseOrderView, GoodsReceiptView, GrnLineRequest, StockCountView, CountList, PharmacyApprovals, TransferRequest,
@@ -143,6 +143,8 @@ export const refunds = {
   decide: (id: string, body: RefundDecisionRequest, key: string) => call<RefundView>("POST", `/v1/refunds/${enc(id)}/decision`, body, key),
   pay: (id: string, body: RefundPayRequest, key: string) => call<RefundPayResponse>("POST", `/v1/refunds/${enc(id)}/pay`, body, key),
   check: (id: string) => call<RefundView>("POST", `/v1/refunds/${enc(id)}/check`, {}, crypto.randomUUID()),
+  /** decision 235: the owner settles a gateway refund stuck "processing" from what the bKash portal shows */
+  release: (id: string, body: RefundReleaseRequest, key: string) => call<RefundView>("POST", `/v1/refunds/${enc(id)}/release`, body, key),
   voucher: (id: string) => call<RefundVoucherView>("GET", `/v1/refunds/${enc(id)}/voucher`),
   print: (id: string, body: PrintRequest, key: string) => call<RefundVoucherPrintResponse>("POST", `/v1/refunds/${enc(id)}/voucher/print`, body, key),
   verify: (code: string) => call<VerifyResponse>("GET", `/v1/verify/rf/${enc(code)}`),

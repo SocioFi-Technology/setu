@@ -73,10 +73,11 @@ export const isCardBankCash = (method: PaymentMethod, way: PayoutWay) => (method
 export interface RequestAllocation { method: PaymentMethod; leftPaisa: Paisa; amountPaisa: Paisa; way: PayoutWay; gatewayRefunds: boolean; cashReason?: CashReason | null }
 export interface RequestInput {
   source: "bill" | "reconciliation";
-  /** Kamrul, decision 221: "return" = medicine back on an unpaid pharmacy bill — a credit, no money leaves */
+  /** Kamrul, decisions 221 / 233: "return" = medicine back on a pharmacy bill that still has a due — the returned value
+      first lowers the due (a credit), what is left of it is refunded from confirmed money; one approval, one voucher */
   kind?: "refund" | "return";
-  /** return: money ever confirmed on the bill, and payments still pending (both must be 0) */
-  confirmedPaisa?: Paisa;
+  /** return: what the bill still asks for (total − credited − paid) and payments still pending (must be 0) */
+  duePaisa?: Paisa;
   pendingPayments?: number;
   category: RefundCategory;
   reason: string;
@@ -94,6 +95,12 @@ export type RequestBlocker =
   | "refund_open" | "bill_not_refundable" | "category_unknown" | "reason_too_short" | "no_lines" | "line_locked" | "line_over"
   | "category_line_mismatch" | "over_confirmed" | "over_case" | "no_allocations" | "allocation_over" | "allocation_mismatch" | "payout_not_allowed"
   | "mixed_ways" | "gateway_one_payment" | "money_on_bill" | "payment_pending" | "return_takes_no_money";
+/** Decision 233: returned value V on a bill with a due: credit = min(V, due) lowers the due; refund = V − credit goes back
+    from confirmed money. No stock ever stays out because of how the bill was paid. */
+export function returnSplit(valuePaisa: Paisa, duePaisa: Paisa): { creditPaisa: Paisa; refundPaisa: Paisa } {
+  const creditPaisa = Math.max(0, Math.min(valuePaisa, duePaisa));
+  return { creditPaisa, refundPaisa: valuePaisa - creditPaisa };
+}
 /** Categories a return without refund can carry (medicine came back). */
 export const RETURN_CATEGORIES: RefundCategory[] = ["wrong-dispense", "patient-request", "other"];
 export function refundRequestBlockers(x: RequestInput): RequestBlocker[] {
@@ -130,7 +137,8 @@ export function refundRequestBlockers(x: RequestInput): RequestBlocker[] {
 /** Decision 221: a return without refund — the medicine comes back into quarantine and the due goes down; no money moves.
     Only on an issued bill on which no money was ever confirmed and nothing is pending. */
 function returnBlockers(x: RequestInput): RequestBlocker[] {
-  if ((x.confirmedPaisa ?? 0) > 0) return ["money_on_bill"];
+  // a bill with nothing due is refunded, not returned (the money is all there is to give back)
+  if ((x.duePaisa ?? 0) <= 0) return ["money_on_bill"];
   if ((x.pendingPayments ?? 0) > 0) return ["payment_pending"];
   const out: RequestBlocker[] = [];
   if (!(REFUND_CATEGORIES as readonly string[]).includes(x.category)) out.push("category_unknown");
@@ -139,7 +147,16 @@ function returnBlockers(x: RequestInput): RequestBlocker[] {
   if (x.lines.some((l) => l.lock)) out.push("line_locked");
   if (x.lines.some((l) => !l.lock && !l.part)) out.push("line_over");
   if (!RETURN_CATEGORIES.includes(x.category) || x.lines.some((l) => !isMedicineLine(l.source))) out.push("category_line_mismatch");
-  if (x.allocations.length) out.push("return_takes_no_money");
+  // decision 233: the part above the due is a refund of confirmed money, under the refund rules
+  const { refundPaisa } = returnSplit(x.lines.reduce((a, l) => a + (l.part?.totalPaisa ?? 0), 0), x.duePaisa ?? 0);
+  if (refundPaisa === 0) { if (x.allocations.length) out.push("return_takes_no_money"); return out; }
+  if (refundPaisa > x.confirmedLeftPaisa) out.push("over_confirmed");
+  if (!x.allocations.length) out.push("no_allocations");
+  if (x.allocations.some((a) => !Number.isSafeInteger(a.amountPaisa) || a.amountPaisa < 1 || a.amountPaisa > a.leftPaisa)) out.push("allocation_over");
+  if (x.allocations.reduce((a, l) => a + l.amountPaisa, 0) !== refundPaisa) out.push("allocation_mismatch");
+  if (x.allocations.some((a) => !payoutWayAllowed({ method: a.method, way: a.way, gatewayRefunds: a.gatewayRefunds, stage: "request", cashReason: a.cashReason ?? null }))) out.push("payout_not_allowed");
+  if (new Set(x.allocations.map((a) => `${a.way}:${a.cashReason ?? ""}`)).size > 1) out.push("mixed_ways");
+  if (x.allocations.filter((a) => a.way === "gateway").length > 1) out.push("gateway_one_payment");
   return out;
 }
 

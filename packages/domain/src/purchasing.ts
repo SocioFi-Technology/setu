@@ -84,12 +84,13 @@ export function countSubmitBlockers(lines: readonly CountLine[]): CountSubmitBlo
   return out;
 }
 export type CountDecisionBlocker = "not_approver" | "own_count" | "note_required";
-/** Only the owner / admin decides, never on a count they made; a rejection needs a note. */
-export function countDecisionBlockers(x: { role: Role; isCounter: boolean; decision: "approve" | "reject"; note: string }): CountDecisionBlocker[] {
+/** Only the owner / admin decides, never on a count they made — unless they are the facility's only approver: then with a
+    note, flagged self-approved (Kamrul's one self-approval rule, decisions 234 / 223); a rejection needs a note. */
+export function countDecisionBlockers(x: { role: Role; isCounter: boolean; decision: "approve" | "reject"; note: string; onlyApprover?: boolean }): CountDecisionBlocker[] {
   const out: CountDecisionBlocker[] = [];
   if (!isStockApprover(x.role)) out.push("not_approver");
-  if (x.isCounter) out.push("own_count");
-  if (x.decision === "reject" && x.note.trim().length < 10) out.push("note_required");
+  if (x.isCounter && !x.onlyApprover) out.push("own_count");
+  if ((x.decision === "reject" || (x.isCounter && x.onlyApprover)) && x.note.trim().length < 10) out.push("note_required");
   return out;
 }
 /** Counted − system per batch; the adjustment is this difference applied to the batch when approved. */

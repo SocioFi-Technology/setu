@@ -791,7 +791,7 @@ Commit after each step, push at the end of each session.
      separate batch instead (e.g. the batch number + a suffix)?
 185. **Counting does not stop the counter**: the adjustment is counted − (system at the start + what moved before that
      batch was counted). Alternatively freeze sales at a location while it is counted?
-186. **A count is decided by the owner / admin, never the person who counted** — a clinic whose only approver counts
+186. *(decided 05/10/2026 → 234: the only approver may, with a note, flagged)* **A count is decided by the owner / admin, never the person who counted** — a clinic whose only approver counts
      cannot approve it. Is a second admin always available, or may the owner approve their own count with a note?
 187. **Counts list batches with stock above zero**; quarantine is not a count location; expired batches at a location
      are counted. Stock found in an empty batch cannot be recorded yet.
@@ -962,6 +962,15 @@ Commit after each step, push at the end of each session.
 - **227** bKash sandbox codes on the pre-pilot list; an unrecognised refund code is "unknown — ask Refund Status"; an
   answer for money already recorded as paid changes nothing.
 - Cautious readings on 222, 224–226, 228–232 stand as written.
+
+### Decided by Kamrul (05/10/2026, after the reviews)
+- **233 → yes:** one return request on a partly paid bill resolves in two parts: credit = min(V, due) lowers the due, the
+  rest is a refund of confirmed money; one approval, one voucher with both parts. Built (ADR 0013 addendum 2).
+- **234 → yes, one self-approval rule everywhere** (refused while another approver exists; alone, with a note, flagged):
+  applied to stock counts — Kamrul's purchasing decision 5 of 03/10/2026, never recorded; **186 is decided**.
+- **235 → yes:** owner-only, audited, both ways ("not refunded" → failed with a note; "refunded, TrxID" → paid), both
+  opening a refund-reconciliation case, only after the sweep has tried for 30 minutes. Pre-pilot bKash sandbox list.
+- 236–239: the cautious readings stand.
 
 ### Decided in the session (defaults — Kamrul to confirm)
 233. **A partly paid pharmacy bill whose medicine all comes back gets stuck** (money review M5): ৳1,000 bill, ৳500 paid,

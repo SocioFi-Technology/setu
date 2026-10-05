@@ -1715,6 +1715,8 @@ model StockCount {
   decidedById    String?
   decidedAt      DateTime?
   decisionNote   String?
+  /// decision 234: decided by the person who counted, as the facility's only approver, with a note
+  selfApproved   Boolean          @default(false)
   statusAt       DateTime         @default(now())
   lines          StockCountLine[]
 
@@ -1785,6 +1787,8 @@ model Refund {
   amountPaisa       Int
   netPaisa          Int
   vatPaisa          Int
+  /// decision 233: the part of a return's value that lowers the due (credit = min(value, due)); the rest is refunded
+  creditPaisa       Int                @default(0)
   /// a controlled drug on it, or card / bank money paid back in cash: the owner approves (not an admin)
   needsOwner        Boolean            @default(false)
   approvalTaskId    String?

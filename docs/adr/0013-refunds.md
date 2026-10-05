@@ -156,3 +156,21 @@ Refunds need a connection: no outbox, every refund screen and route refuses work
 - The owner's leakage list keeps money and credits apart: "refunds paid" counts money refunds only; returns without
   refund have their own row ("due written off"); self-approved refunds their own.
 - Migration `20261005200000_refunds_decisions`.
+
+## Addendum 2 (Kamrul, 05/10/2026 — open questions 233–235)
+- **A return on a partly paid bill (233).** A return's value V on a pharmacy / OTC bill with a due resolves in two parts by
+  one rule: **credit = min(V, due)** lowers the due (`Refund.creditPaisa`, kept on `Invoice.creditedPaisa`), **refund = V −
+  credit** goes back from confirmed money through the allocations under the refund rules (one way back, who took it).
+  One request, one approval, one voucher showing both parts (RF when money went back, CV when it only credited). A bill
+  whose due reaches what was paid becomes balanced. A fully paid bill has no due: medicine on it is refunded, not
+  returned. No stock ever stays out because of how the bill was paid. Replaces "return without refund" as the only
+  return.
+- **One self-approval rule everywhere (234).** Refused while another active owner / admin exists at the facility; with
+  exactly one approver, allowed with a mandatory note and flagged self-approved on the record, in the audit and on the
+  owner's exceptions list. Stock counts follow it now (`StockCount.selfApproved`; Kamrul's purchasing decision 5 of
+  03/10/2026, open question 186 closed).
+- **Manual release of a stuck gateway refund (235).** Owner only, audited, after the sweep has tried for at least
+  `REFUND_RELEASE_MINUTES` (30): "checked on the bKash merchant portal — not refunded" (note) hands the allocation back
+  failed, so the cashier retries or pays cash; "checked — refunded, TrxID …" pays it with that TrxID. Both open a
+  refund-reconciliation case so the statement check still happens. On the pre-pilot bKash sandbox list.
+- Migration `20261005220000_refunds_decisions_233_235`.

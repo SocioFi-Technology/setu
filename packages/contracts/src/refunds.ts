@@ -34,6 +34,8 @@ export const RefundableView = z.object({
   buyer: Buyer,
   /** confirmed money − refunds paid or open */
   confirmedLeftPaisa: Paisa,
+  /** what the bill still asks for (total − credited − paid): a return credits up to this, refunds the rest (decision 233) */
+  duePaisa: Paisa,
   lines: z.array(z.object({
     id: z.string(), source: ChargeSource, nameEn: z.string(), nameBn: z.string(), qty: z.number().int(),
     netPaisa: Paisa, vatPaisa: Paisa, totalPaisa: Paisa, vatRateBp: z.number().int(),
@@ -55,7 +57,7 @@ export const RefundableView = z.object({
   })),
   /** the refund open on this bill (requested or approved) — a second one waits for it */
   openRefundId: z.string().nullable(),
-  /** decision 221: an issued pharmacy / OTC bill on which no money was ever confirmed — medicine can come back without a refund */
+  /** decisions 221 / 233: a pharmacy / OTC bill that still has a due — medicine coming back credits the due first */
   canReturn: z.boolean(),
   /** why nothing can be requested now (bill not refundable, a refund open, nothing left, offline is the screen's) */
   blockers: z.array(z.enum(["bill_not_refundable", "refund_open", "nothing_left"])),
@@ -88,6 +90,8 @@ export const RefundView = z.object({
     /** decision 223: decided by the requester as the facility's only approver (with a note) */
     selfApproved: z.boolean(),
     category: RefundCategory, reason: z.string(), amountPaisa: Paisa, netPaisa: Paisa, vatPaisa: Paisa, rev: z.number().int(),
+    /** decision 233: of a return's value, what lowers the due and what is refunded (a refund: 0 and all) */
+    creditPaisa: Paisa, refundPaisa: Paisa,
     /** a controlled drug, or card / bank money paid back in cash: the owner approves */
     needsOwner: z.boolean(),
     requestedBy: Person, requestedAt: z.string(),
@@ -116,13 +120,26 @@ export const RefundView = z.object({
     payment: z.object({ trxId: z.string().nullable(), reference: z.string().nullable(), confirmedAt: z.string().nullable() }),
   })),
   timeline: z.array(z.object({ event: RefundTimelineEvent, at: z.string(), by: Person.nullable(), note: z.string().nullable() })),
-  /** what the signed-in user may do now */
-  can: z.object({ approve: z.boolean(), reject: z.boolean(), withdraw: z.boolean(), pay: z.boolean(), check: z.boolean() }),
+  /** what the signed-in user may do now; release (decision 235): the owner settles a gateway refund stuck "processing"
+      after the sweep has tried for at least 30 minutes */
+  can: z.object({ approve: z.boolean(), reject: z.boolean(), withdraw: z.boolean(), pay: z.boolean(), check: z.boolean(), release: z.boolean() }),
+  /** a gateway refund under way: since when; the owner's release is offered from `releaseAt` */
+  paying: z.object({ claimedAt: z.string(), releaseAt: z.string() }).nullable(),
 });
 export type RefundView = z.infer<typeof RefundView>;
 
 export const RefundDecisionRequest = z.object({ decision: z.enum(["approve", "reject", "withdraw"]), note: z.string().trim().max(300).optional() });
 export type RefundDecisionRequest = z.infer<typeof RefundDecisionRequest>;
+
+/** Decision 235: the owner checked the bKash merchant portal — the refund stuck "processing" is settled by hand, both ways
+    audited and both opening a refund-reconciliation case so the statement check still happens. */
+export const RefundReleaseRequest = z.object({
+  outcome: z.enum(["not-refunded", "refunded"]),
+  note: z.string().trim().min(10).max(300),
+  /** refunded: the refund TrxID read on the portal */
+  refundTrxId: z.string().trim().regex(/^[A-Z0-9]{6,20}$/i, "invalid_trx_id").optional(),
+});
+export type RefundReleaseRequest = z.infer<typeof RefundReleaseRequest>;
 
 /** Pay the whole refund out in one go (decision 220): cash from the payer's open shift, by hand with its reference, or the
     gateway (claimed now, answered after the commit). A gateway refund that failed may be paid in cash (gateway-failed).
@@ -168,6 +185,8 @@ export const RefundVoucherSnapshot = z.object({
   /** credit-note lines (none for a reconciliation refund) */
   lines: z.array(z.object({ nameBn: z.string(), nameEn: z.string(), units: z.number().int().nullable(), vatRateBp: z.number().int(), netPaisa: Paisa, vatPaisa: Paisa, totalPaisa: Paisa })),
   netPaisa: Paisa, vatPaisa: Paisa, amountPaisa: Paisa,
+  /** decision 233: of the value, what lowered the due and what was paid back */
+  creditPaisa: Paisa.default(0), refundPaisa: Paisa.optional(),
   vatByRate: z.array(z.object({ rateBp: z.number().int(), netPaisa: Paisa, vatPaisa: Paisa })),
   paidBack: z.array(z.object({ method: PaymentMethod, way: PayoutWay, amountPaisa: Paisa, refundTrxId: z.string().nullable(), reference: z.string().nullable(), originalTrxId: z.string().nullable() })),
   recipient: z.object({ name: z.string(), phone: z.string(), relation: RecipientRelation }).nullable(),

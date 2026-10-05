@@ -68,6 +68,7 @@ function CountView({ id }: { id: string }) {
   if (failed) return <PageState icon="clipboard-check" title={P("error_generic")} />;
   if (!c) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
   const mine = c.createdBy.id === s.me?.userId;
+  const [selfNote, setSelfNote] = useState("");
   const counting = c.status === "counting" && mine;
   const run = async (f: () => Promise<StockCountView>) => { if (busy) return false; setBusy(true); try { show(await f()); setKey(crypto.randomUUID()); return true; } catch (e) { toast(E(e), "triangle-alert"); if (renewKey(e)) setKey(crypto.randomUUID()); await load(); return false; } finally { setBusy(false); } };
   const save = (lineId: string) => {
@@ -123,12 +124,15 @@ function CountView({ id }: { id: string }) {
         {c.status === "submitted" && !c.canDecide && <span className="t-small t-secondary">{P(mine ? "waiting_owner" : "owner_decides")}</span>}
         {c.canDecide && (
           <>
-            <Button variant="primary" icon="check" data-testid="approve-count" disabled={!s.online || busy} onClick={() => void run(() => purch.decideCount(c.id, "approve", "", key))}>{P("approve_adjust")}</Button>
+            {/* decision 234: the counter deciding as the only approver writes why; the count is flagged self-approved */}
+            {mine && <label className="field t-small" style={{ flexBasis: "100%" }}>{P("self_note")}<span className="t-small t-muted"> — {P("self_count_hint")}</span>
+              <textarea className="input" name="self-note" rows={2} value={selfNote} onChange={(e) => setSelfNote(e.target.value)} data-testid="self-note" /></label>}
+            <Button variant="primary" icon="check" data-testid="approve-count" disabled={!s.online || busy || (mine && selfNote.trim().length < 10)} onClick={() => void run(() => purch.decideCount(c.id, "approve", mine ? selfNote.trim() : "", key))}>{P("approve_adjust")}</Button>
             <Button icon="x" data-testid="reject-count" disabled={!s.online || busy} onClick={() => setRejecting(true)}>{P("reject")}</Button>
           </>
         )}
       </Card>
-      {(c.status === "approved" || c.status === "rejected") && <Callout tone={c.status === "approved" ? "info" : "warn"} icon="stamp">{P(`decided_${c.status}`, { name: F.name(c.decidedBy), at: F.dateTime(c.decidedAt), note: c.decisionNote ?? "" })}</Callout>}
+      {(c.status === "approved" || c.status === "rejected") && <Callout tone={c.status === "approved" ? "info" : "warn"} icon="stamp">{P(`decided_${c.status}`, { name: F.name(c.decidedBy), at: F.dateTime(c.decidedAt), note: c.decisionNote ?? "" })}{c.selfApproved && <> <Pill tone="warn" icon="user-check">{P("self_approved")}</Pill></>}</Callout>}
       <Dialog open={rejecting} onClose={() => setRejecting(false)} label={P("reject")}>
         <RejectForm onSubmit={async (note) => { if (await run(() => purch.decideCount(c.id, "reject", note, key))) setRejecting(false); }} />
       </Dialog>

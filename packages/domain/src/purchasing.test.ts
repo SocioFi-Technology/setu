@@ -82,6 +82,10 @@ describe("stock counts (prototype Count & adjust)", () => {
   it("only the owner / admin decides, never their own count; a rejection needs a note", () => {
     expect(countDecisionBlockers({ role: "pharmacist", isCounter: false, decision: "approve", note: "" })).toEqual(["not_approver"]);
     expect(countDecisionBlockers({ role: "owner", isCounter: true, decision: "approve", note: "" })).toEqual(["own_count"]);
+    // decision 234 (= 223): the only approver may decide their own count, with a note
+    expect(countDecisionBlockers({ role: "owner", isCounter: true, decision: "approve", note: "", onlyApprover: true })).toEqual(["note_required"]);
+    expect(countDecisionBlockers({ role: "owner", isCounter: true, decision: "approve", note: "Only approver at this facility", onlyApprover: true })).toEqual([]);
+    expect(countDecisionBlockers({ role: "owner", isCounter: true, decision: "approve", note: "Only approver at this facility", onlyApprover: false })).toEqual(["own_count"]);
     expect(countDecisionBlockers({ role: "admin", isCounter: false, decision: "reject", note: "recount" })).toEqual(["note_required"]);
     expect(countDecisionBlockers({ role: "owner", isCounter: false, decision: "approve", note: "" })).toEqual([]);
   });

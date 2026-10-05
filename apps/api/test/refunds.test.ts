@@ -448,6 +448,62 @@ describe.runIf(db)("Kamrul's decisions 220, 221, 223", () => {
     expect(back.refund.amountPaisa).toBe(due);
   });
 
+  it("233: a ৳40 pharmacy bill half paid, all ten tablets back — ৳20 off the due, ৳20 refunded in cash, one approval, one voucher, then void", { timeout: 40_000 }, async () => {
+    const { enc, compositionId } = await signedVisit({ meds: [COMET] });
+    const v0 = ok(await get(`/v1/pharmacy/encounters/${enc}`, "pharm"));
+    const d = ok(await post(`/v1/pharmacy/encounters/${enc}/dispense`, { compositionId, lines: [{ requestId: v0.lines[0].requestId, medicineKey: "comet", qty: 10 }] }, "pharm"));
+    const bill = ok(await get(`/v1/invoices/${d.bill.id}`, "pharm"));
+    const issued = ok(await post(`/v1/invoices/${d.bill.id}/issue`, { rev: bill.invoice.rev }, "pharm"));
+    const total = issued.invoice.totalPaisa as number, half = total / 2;
+    ok(await post(`/v1/invoices/${d.bill.id}/payments`, { method: "cash", amountPaisa: half, tenderedPaisa: half }, "pharm"), 201);
+    const rb = ok(await get(`/v1/invoices/${d.bill.id}/refundable`, "pharm"));
+    expect(rb).toMatchObject({ canReturn: true, duePaisa: half, confirmedLeftPaisa: half });
+    // the refund part needs a way back; the credit part needs none
+    expect(ok(await post(`/v1/invoices/${d.bill.id}/refunds`, { kind: "return", category: "patient-request", reason: "All ten brought back the next morning", lines: [{ chargeItemId: issued.lines[0].id, units: 10 }] }, "pharm"), 400).code).toBe("no_allocations");
+    const r = ok(await post(`/v1/invoices/${d.bill.id}/refunds`, { kind: "return", category: "patient-request", reason: "All ten brought back the next morning", lines: [{ chargeItemId: issued.lines[0].id, units: 10 }], allocations: [{ paymentId: rb.payments[0].id, amountPaisa: half, way: "cash" }] }, "pharm"), 201);
+    expect(r.refund).toMatchObject({ kind: "return", amountPaisa: total, creditPaisa: half, refundPaisa: half, status: "requested" });
+    ok(await approve(r.refund.id));
+    // money leaves: who took it is required
+    expect(ok(await post(`/v1/refunds/${r.refund.id}/pay`, { rev: ok(await get(`/v1/refunds/${r.refund.id}`, "pharm")).refund.rev }, "pharm"), 400).code).toBe("recipient_name");
+    const paid = ok(await post(`/v1/refunds/${r.refund.id}/pay`, { rev: ok(await get(`/v1/refunds/${r.refund.id}`, "pharm")).refund.rev, recipient: { name: "Karim Uddin", phone: "01912345678", relation: "child" } }, "pharm"));
+    expect(paid.view.refund).toMatchObject({ status: "paid", voucher: { number: expect.stringMatching(new RegExp(`^RF/${YY}/`)) } });
+    const after = ok(await get(`/v1/invoices/${d.bill.id}`, "pharm"));
+    expect(after.invoice).toMatchObject({ status: "balanced", paidPaisa: half, creditedPaisa: half, refundedPaisa: half });
+    expect(after.summary.duePaisa).toBe(0);
+    expect((await inTenant((tx) => tx.stockMove.findFirst({ where: { refType: "refund-line", refId: r.lines[0].id } })))?.qty).toBe(10);
+    const v = ok(await get(`/v1/refunds/${r.refund.id}/voucher`, "pharm"));
+    expect(v.voucher.snapshot).toMatchObject({ kind: "return", creditPaisa: half, refundPaisa: half, paidBack: [{ way: "cash", amountPaisa: half }] });
+    // every unit back and all the money refunded: the owner voids it (ADR 0005)
+    expect(ok(await post(`/v1/invoices/${d.bill.id}/void`, { reason: "Everything returned, money given back" }, "owner")).invoice.status).toBe("entered-in-error");
+  });
+
+  it("234: the only approver decides their own stock count with a note — flagged self-approved, on the exceptions list", { timeout: 40_000 }, async () => {
+    // the owner counts the fridge (any open fridge count left by another run is rejected first)
+    const open = ok(await get("/v1/pharmacy/counts?status=counting", "owner")).items?.concat(ok(await get("/v1/pharmacy/counts?status=submitted", "owner")).items ?? []) ?? [];
+    for (const c of open.filter((x: { location: string }) => x.location === "fridge")) {
+      let v = ok(await get(`/v1/pharmacy/counts/${c.id}`, "owner"));
+      if (v.status === "counting") { for (const l of v.lines) v = ok(await post(`/v1/pharmacy/counts/${c.id}/lines`, { rev: v.rev, lineId: l.id, countedQty: l.systemQty }, "pharm")); v = ok(await post(`/v1/pharmacy/counts/${c.id}/submit`, { rev: v.rev }, "pharm")); }
+      ok(await post(`/v1/pharmacy/counts/${c.id}/decision`, { decision: "reject", note: "leftover from an earlier test run" }, "admin"));
+    }
+    let c = ok(await post("/v1/pharmacy/counts", { location: "fridge" }, "owner"), 201);
+    c = ok(await get(`/v1/pharmacy/counts/${c.id}`, "owner"));
+    for (const l of c.lines) c = ok(await post(`/v1/pharmacy/counts/${c.id}/lines`, { rev: c.rev, lineId: l.id, countedQty: l.systemQty }, "owner"));
+    c = ok(await post(`/v1/pharmacy/counts/${c.id}/submit`, { rev: c.rev }, "owner"));
+    expect(c.canDecide).toBe(false); // the admin is there
+    expect(ok(await post(`/v1/pharmacy/counts/${c.id}/decision`, { decision: "approve", note: "Only approver today" }, "owner"), 403).code).toBe("own_count");
+    await owner2((o) => o.user.update({ where: { id: "u_e2e_admin" }, data: { active: false } }));
+    try {
+      expect(ok(await get(`/v1/pharmacy/counts/${c.id}`, "owner")).canDecide).toBe(true);
+      expect(ok(await post(`/v1/pharmacy/counts/${c.id}/decision`, { decision: "approve" }, "owner"), 400).code).toBe("note_required");
+      const done = ok(await post(`/v1/pharmacy/counts/${c.id}/decision`, { decision: "approve", note: "Only approver at the facility today" }, "owner"));
+      expect(done).toMatchObject({ status: "approved", selfApproved: true, decisionNote: "Only approver at the facility today" });
+    } finally { await owner2((o) => o.user.update({ where: { id: "u_e2e_admin" }, data: { active: true } })); }
+    const audit = await inTenant((tx) => tx.auditEvent.findFirst({ where: { entity: "StockCount", entityId: c.id, action: "approve" } }));
+    expect(audit?.detail).toMatchObject({ selfApproved: true, flag: "self-approved" });
+    const drill = ok(await get("/v1/owner/drill?period=today&what=selfApproved", "owner"));
+    expect(drill.rows.find((x: { id: string }) => x.id === c.id)).toMatchObject({ link: { kind: "count" }, status: "approved" });
+  });
+
   it("223: the only approver at the facility decides their own request with a note — flagged self-approved, on the exceptions list", { timeout: 40_000 }, async () => {
     const owner = new db!.PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
     const { view } = await opdBill(["rbs"], { method: "cash" });

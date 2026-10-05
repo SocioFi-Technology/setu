@@ -6,12 +6,12 @@
    transaction of its own; the public voucher check has no session and shows facility, number, date and amount only. */
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { PrintRequest, ReconcileRefundRequest, type RefundVoucherPrintResponse, RefundDecisionRequest, RefundListQuery, RefundPayRequest, RefundRequest, ResaleRequest, VerifyCode, type RefundableView, type RefundList, type RefundPayResponse, type RefundVoucherView, type RefundView, type VerifyResponse } from "@setu/contracts";
+import { PrintRequest, ReconcileRefundRequest, RefundReleaseRequest, type RefundVoucherPrintResponse, RefundDecisionRequest, RefundListQuery, RefundPayRequest, RefundRequest, ResaleRequest, VerifyCode, type RefundableView, type RefundList, type RefundPayResponse, type RefundVoucherView, type RefundView, type VerifyResponse } from "@setu/contracts";
 import { authorize } from "@setu/domain";
 import { command, query } from "../command.js";
 import { config } from "../config.js";
 import { err, forbidden } from "../errors.js";
-import { askGateway, checkRefund, decideRefund, payRefund, printVoucher, refundableView, refundHere, refundList, refundView, requestCaseRefund, requestRefund, resale, settleClaimed, voucherPdf, voucherView } from "../modules/refunds.js";
+import { askGateway, checkRefund, decideRefund, payRefund, printVoucher, refundableView, refundHere, refundList, refundView, releaseRefund, requestCaseRefund, requestRefund, resale, settleClaimed, voucherPdf, voucherView } from "../modules/refunds.js";
 import { requireSession } from "../plugins/session.js";
 import { clientKey } from "./billing.js";
 
@@ -114,6 +114,17 @@ export async function refundRoutes(app: FastifyInstance) {
         const { forTenant } = await import("@setu/db");
         return forTenant(s.tenantId, async (tx) => refundView(tx, s, await refundHere(tx, s, id)), { userId: s.userId });
       },
+    });
+  });
+
+  /* decision 235: the owner settles a gateway refund stuck "processing" from what the bKash merchant portal shows */
+  app.post("/v1/refunds/:id/release", { config: { ownTx: true } }, async (req, reply): Promise<RefundView> => {
+    requireRefund(req, "case"); // the owner's queue
+    const { id } = pid.parse(req.params);
+    const body = RefundReleaseRequest.parse(req.body);
+    return command(req, reply, async (tx, s) => {
+      const r = await releaseRefund(tx, s, id, body, new Date());
+      return { body: await refundView(tx, s, r.r), audit: r.audit };
     });
   });
 

@@ -86,7 +86,7 @@ export const DrillView = z.object({
     patient: z.object({ id: z.string(), nameBn: z.string(), nameEn: z.string().nullable(), facilityNo: z.string() }).nullable(),
     amountPaisa: Paisa.nullable(), by: Person.nullable(), approvedBy: Person.nullable(), detail: z.string().nullable(),
     /** where the row opens (a bill, a receipt, a shift) */
-    link: z.object({ kind: z.enum(["invoice", "receipt", "shift", "visit", "refund"]), id: z.string() }).nullable(),
+    link: z.object({ kind: z.enum(["invoice", "receipt", "shift", "visit", "refund", "count"]), id: z.string() }).nullable(),
     /** refunds (ADR 0013): its state — withdrawn is never shown as rejected */
     status: z.string().nullable().optional(),
   })),

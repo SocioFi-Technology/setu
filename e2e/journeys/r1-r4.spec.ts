@@ -215,6 +215,44 @@ test.describe("Journey R — refunds and returns", () => {
     expect(voided.invoice.status).toBe("entered-in-error");
   });
 
+  test("R5 (decision 233): a half-paid pharmacy bill, all ten tablets back — half off the due, half refunded in cash, one request and voucher", async ({ page, request }) => {
+    const b = await pharmacyBill(request, "R5", false);
+    await as(request, PHARM);
+    const inv = await getJ<{ invoice: { totalPaisa: number } }>(request, `/v1/invoices/${b.invoiceId}`);
+    const half = inv.invoice.totalPaisa / 2;
+    await post(request, `/v1/invoices/${b.invoiceId}/payments`, { method: "cash", amountPaisa: half, tenderedPaisa: half }, 201);
+    await login(page, PHARM);
+    await page.goto(`/m/ph/pay?inv=${b.invoiceId}`);
+    await page.getByTestId("pay-refund").click();
+    await expect(page.locator('[data-screen="ph/refund"][data-kind="return"]')).toBeVisible();
+    await expect(page.getByTestId("return-hint")).toContainText("lowers the due first");
+    await page.getByTestId("rf-lines").locator("tr[data-line]").first().getByRole("checkbox").check();
+    // the split: half of the value credits the due, the other half is refunded and needs a way back
+    await expect(page.getByTestId("rf-total")).toHaveText("৳ 20");
+    await expect(page.getByTestId("rf-split-refund")).toContainText("৳ 20");
+    await page.locator("select[name=rf-category]").selectOption("patient-request");
+    await page.fill("textarea[name=rf-reason]", "All ten brought back the next morning");
+    await page.getByTestId("rf-ways").getByRole("radio", { name: "Cash (from your drawer)" }).click();
+    await page.getByTestId("rf-request").click();
+    await expect(page.locator('[data-screen="ph/refund"][data-refund-status="requested"]')).toBeVisible();
+    await expect(page.getByTestId("rf-split")).toContainText("Off the due");
+    const url = page.url().replace(/^https?:\/\/[^/]+/, "");
+    await ownerApproves(page, b.number);
+    await login(page, PHARM);
+    await openShift(page.request);
+    await page.goto(url);
+    await page.fill("input[name=rf-recipient-name]", "Karim Uddin");
+    await page.fill("input[name=rf-recipient-phone]", "01912345678");
+    await page.locator("select[name=rf-recipient-relation]").selectOption("child");
+    await page.getByTestId("rf-pay-submit").click();
+    await expect(page.locator('[data-screen="ph/refund"][data-refund-status="paid"]')).toBeVisible();
+    await expect(page.getByTestId("voucher-number")).toHaveText(new RegExp(`^RF/${YY}/\\d{4,}$`));
+    await page.goto(`/m/ph/pay?inv=${b.invoiceId}`);
+    await expect(page.locator('[data-screen="ph/pay"]')).toHaveAttribute("data-invoice-status", "balanced");
+    await expect(page.getByTestId("pay-credited")).toContainText("৳ 20");
+    await expect(page.getByTestId("pay-refunded")).toContainText("৳ 20");
+  });
+
   test("R4: the owner's dashboard — refunds tile live, the medication incident on the leakage list, its list opens the refund", async ({ page, request }) => {
     // a wrong-dispense refund paid today (set up through the API)
     const b = await pharmacyBill(request, "R4", true);

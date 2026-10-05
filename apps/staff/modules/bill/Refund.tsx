@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { RefundableView, RefundList, RefundVoucherView, RefundView } from "@setu/contracts";
-import { PAYOUT_WAYS, RECIPIENT_RELATIONS, REFUND_CATEGORIES, RETURN_CATEGORIES, isWallet, paisaToInput, parseTaka, partOfLine, sum, type CashReason, type PayoutWay, type RefundCategory } from "@setu/domain";
+import { PAYOUT_WAYS, RECIPIENT_RELATIONS, REFUND_CATEGORIES, RETURN_CATEGORIES, isWallet, paisaToInput, parseTaka, partOfLine, returnSplit, sum, type CashReason, type PayoutWay, type RefundCategory } from "@setu/domain";
 import { Button, Callout, Card, PageState, Pill, Segmented, useToast, type Tone } from "@setu/ui";
 import { ApiFailure, refunds as api } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -99,15 +99,18 @@ function RequestForm({ invoiceId }: { invoiceId: string }) {
     return [{ l, part }];
   }), [v, picks]);
   const total = sum(parts.map((x) => x.part?.totalPaisa ?? 0));
+  // decision 233: a return credits the due first; what is left of the value is refunded (and needs a way back)
+  const split = kind === "return" ? returnSplit(total, v?.duePaisa ?? 0) : { creditPaisa: 0, refundPaisa: total };
+  const needsWay = split.refundPaisa > 0;
   const chosenPays = (v?.payments ?? []).filter((p) => payIds.includes(p.id));
   const ways = PAYOUT_WAYS.filter((w) => chosenPays.length > 0 && chosenPays.every((p) => p.ways.includes(w)));
   const wallet = chosenPays.some((p) => isWallet(p.method));
   // the refund spread over the chosen payments in order, never more than each holds (one way for all — decision 220)
   const allocations = useMemo(() => {
-    let left = total;
+    let left = kind === "return" ? returnSplit(total, v?.duePaisa ?? 0).refundPaisa : total;
     return chosenPays.map((p) => { const a = Math.min(left, p.leftPaisa); left -= a; return { paymentId: p.id, amountPaisa: a }; }).filter((a) => a.amountPaisa > 0);
   }, [total, payIds, v]); // eslint-disable-line react-hooks/exhaustive-deps
-  const covered = sum(allocations.map((a) => a.amountPaisa)) === total;
+  const covered = sum(allocations.map((a) => a.amountPaisa)) === (kind === "return" ? returnSplit(total, v?.duePaisa ?? 0).refundPaisa : total);
   const cats = kind === "return" ? RETURN_CATEGORIES : REFUND_CATEGORIES.filter((c) => c !== "overpayment");
 
   if (failed) return <Callout tone="warn" icon="triangle-alert">{B("error_generic")}</Callout>;
@@ -115,7 +118,7 @@ function RequestForm({ invoiceId }: { invoiceId: string }) {
   const blocked = kind === "refund" && v.blockers.length > 0;
   const gatewayOne = way === "gateway" && chosenPays.length > 1;
   const canSend = s.online && !busy && !blocked && parts.length > 0 && parts.every((x) => x.part) && total > 0 && category !== "" && reason.trim().length >= 10
-    && (kind === "return" || (way !== "" && covered && !gatewayOne && (!(way === "cash" && wallet) || cashReason !== "")));
+    && (!needsWay || (way !== "" && covered && !gatewayOne && (!(way === "cash" && wallet) || cashReason !== "")));
 
   const send = async () => {
     if (!canSend) return;
@@ -124,7 +127,7 @@ function RequestForm({ invoiceId }: { invoiceId: string }) {
       const r = await api.request(invoiceId, {
         kind, category: category as RefundCategory, reason: reason.trim(),
         lines: parts.map(({ l, part }) => (l.byUnits ? { chargeItemId: l.id, units: part!.units! } : { chargeItemId: l.id, amountPaisa: part!.totalPaisa })),
-        allocations: kind === "return" ? [] : allocations.map((a) => ({ ...a, way: way as PayoutWay, ...(way === "cash" && wallet ? { cashReason: cashReason as CashReason } : {}) })),
+        allocations: !needsWay ? [] : allocations.map((a) => ({ ...a, way: way as PayoutWay, ...(way === "cash" && wallet ? { cashReason: cashReason as CashReason } : {}) })),
       }, key);
       router.push(`/m/${mod}/refund?rf=${encodeURIComponent(r.refund.id)}`);
     } catch (e) { toast(E(e), "triangle-alert"); if (renew(e)) setKey(crypto.randomUUID()); } finally { setBusy(false); }
@@ -140,7 +143,7 @@ function RequestForm({ invoiceId }: { invoiceId: string }) {
       </div>
       <span>{v.patient ? <>{M.name(v.patient)} · <span className="num">{v.patient.facilityNo}</span></> : v.buyer?.name ?? B("walk_in")}</span>
       {!s.online && <Callout tone="warn" icon="cloud-off">{B("rf_online_only")}</Callout>}
-      {kind === "return" ? <Callout tone="info" icon="package-open" data-testid="return-hint">{B("rf_kind_return_hint")}</Callout>
+      {kind === "return" ? <Callout tone="info" icon="package-open" data-testid="return-hint">{(v.invoice.paidPaisa > 0 ? B("rf_kind_return_split_hint") : B("rf_kind_return_hint"))} {B("rf_due_now")}: <b className="num">{M.tk(v.duePaisa)}</b></Callout>
         : blocked && <Callout tone="warn" icon="circle-alert" data-testid="rf-blockers">{v.blockers.map((b) => B(`rf_b_${b}`)).join(" ")}</Callout>}
 
       <Card style={{ padding: 0, overflowX: "auto" }}>
@@ -186,7 +189,7 @@ function RequestForm({ invoiceId }: { invoiceId: string }) {
           </label>
         </div>
 
-        {kind === "refund" && (
+        {needsWay && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }} data-testid="rf-ways">
             <b>{B("rf_way_title")}</b>
             {v.payments.map((p) => (
@@ -215,7 +218,8 @@ function RequestForm({ invoiceId }: { invoiceId: string }) {
 
         <span style={{ display: "flex", gap: 16, alignItems: "baseline", flexWrap: "wrap" }}>
           {kind === "refund" && <span className="t-small">{B("rf_confirmed_left")}: <span className="num">{M.tk(v.confirmedLeftPaisa)}</span></span>}
-          <span>{kind === "return" ? B("rf_credit_total") : B("rf_total")}: <b className="num" style={{ fontSize: 18 }} data-testid="rf-total">{M.tk(total)}</b></span>
+          <span>{kind === "return" ? B("rf_credit_total") : B("rf_total")}: <b className="num" style={{ fontSize: 18 }} data-testid="rf-total">{M.tk(kind === "return" ? split.creditPaisa : total)}</b></span>
+          {kind === "return" && split.refundPaisa > 0 && <span data-testid="rf-split-refund">{B("rf_split_refund")}: <b className="num" style={{ fontSize: 18 }}>{M.tk(split.refundPaisa)}</b></span>}
         </span>
         <span><Button variant="primary" icon="send" data-testid="rf-request" disabled={!canSend} onClick={() => void send()}>{busy ? B("waiting_server") : B("rf_request")}</Button></span>
         <span className="t-small t-muted">{B("rf_requested_hint")}</span>
@@ -257,7 +261,8 @@ function RefundScreen({ id }: { id: string }) {
   const mine = r.requestedBy.id === s.me?.userId;
   const failedGw = v.allocations.find((a) => a.status === "open" && a.gatewayFailed);
   const manual = v.allocations.some((a) => a.status === "open" && a.way === "manual");
-  const recipientOk = isReturn || (name.trim().length >= 2 && phone.trim().length >= 10 && relation !== "");
+  const moneyLeaves = v.allocations.length > 0;
+  const recipientOk = !moneyLeaves || (name.trim().length >= 2 && phone.trim().length >= 10 && relation !== "");
   const recipient = name.trim() ? { name: name.trim(), phone: phone.trim(), relation: relation as (typeof RECIPIENT_RELATIONS)[number] } : undefined;
 
   return (
@@ -275,6 +280,7 @@ function RefundScreen({ id }: { id: string }) {
       {r.needsOwner && r.status === "requested" && <Callout tone="warn" icon="shield-alert" data-testid="rf-needs-owner">{B("rf_needs_owner")}</Callout>}
 
       <Card style={{ padding: 16, display: "flex", flexDirection: "column", gap: 6 }} data-testid="rf-detail">
+        {isReturn && <span className="t-small" data-testid="rf-split">{B("rf_split_credit")}: <b className="num">{M.tk(r.creditPaisa)}</b>{r.refundPaisa > 0 && <> · {B("rf_split_refund")}: <b className="num">{M.tk(r.refundPaisa)}</b></>}</span>}
         {v.lines.map((l) => (
           <span key={l.id} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
             <span>{s.lang === "bn" ? l.nameBn : l.nameEn}{l.units ? <span className="num"> ×{s.n(l.units)}</span> : null}</span>
@@ -314,11 +320,24 @@ function RefundScreen({ id }: { id: string }) {
         </Callout>
       )}
       {r.status === "approved" && failedGw && <Callout tone="bad" icon="circle-x" data-testid="rf-failed">{B("rf_failed", { why: failedGw.failReason ?? "—" })}</Callout>}
+      {/* decision 235: the owner settles a gateway refund stuck "processing" from what the bKash portal shows */}
+      {r.status === "approved" && paying && v.paying && s.me?.role === "owner" && (v.can.release ? (
+        <Card style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }} data-testid="rf-release">
+          <b>{B("rf_release_title")}</b>
+          <span className="t-small t-muted">{B("rf_release_hint", { minutes: Math.round((new Date(v.paying.releaseAt).getTime() - new Date(v.paying.claimedAt).getTime()) / 60000) })}</span>
+          <label className="field t-small">{B("rf_note")}<textarea name="rf-release-note" className="input" rows={2} value={note} onChange={(e) => setNote(e.target.value)} /></label>
+          <label className="field t-small">{B("rf_release_trx")}<input name="rf-release-trx" className="input num" value={reference} onChange={(e) => setReference(e.target.value.toUpperCase())} /></label>
+          <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Button variant="danger" icon="circle-x" data-testid="rf-release-not" disabled={busy || !s.online || note.trim().length < 10} onClick={() => void act("release", (k) => api.release(id, { outcome: "not-refunded", note: note.trim() }, k))}>{B("rf_release_not")}</Button>
+            <Button variant="primary" icon="check" data-testid="rf-release-yes" disabled={busy || !s.online || note.trim().length < 10 || reference.trim().length < 6} onClick={() => void act("release", (k) => api.release(id, { outcome: "refunded", note: note.trim(), refundTrxId: reference.trim() }, k))}>{B("rf_release_yes")}</Button>
+          </span>
+        </Card>
+      ) : <span className="t-small t-muted" data-testid="rf-release-wait">{B("rf_release_wait", { at: M.time(v.paying.releaseAt) })}</span>)}
 
       {r.status === "approved" && v.can.pay && (
         <Card style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }} data-testid="rf-pay">
-          <b>{isReturn ? B("rf_record_title") : B("rf_pay_title")}</b>
-          {!isReturn && (
+          <b>{!moneyLeaves ? B("rf_record_title") : B("rf_pay_title")}</b>
+          {moneyLeaves && (
             <>
               <span className="t-small t-muted">{B("rf_recipient_hint")}</span>
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -337,7 +356,7 @@ function RefundScreen({ id }: { id: string }) {
           <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Button variant="primary" icon={isReturn ? "package-check" : "undo-2"} data-testid="rf-pay-submit" disabled={busy || !s.online || !recipientOk || (manual && reference.trim().length < 3)}
               onClick={() => void act("pay", (k) => api.pay(id, { rev: r.rev, ...(recipient ? { recipient } : {}), ...(manual ? { reference: reference.trim() } : {}) }, k))}>
-              {busy ? B("waiting_server") : isReturn ? B("rf_record_btn", { amount: M.tk(r.amountPaisa) }) : B("rf_pay_btn", { amount: M.tk(r.amountPaisa) })}
+              {busy ? B("waiting_server") : !moneyLeaves ? B("rf_record_btn", { amount: M.tk(r.creditPaisa) }) : B("rf_pay_btn", { amount: M.tk(r.refundPaisa) })}
             </Button>
             {failedGw && <Button icon="banknote" data-testid="rf-switch-cash" disabled={busy || !s.online || !recipientOk} onClick={() => void act("cash", (k) => api.pay(id, { rev: r.rev, ...(recipient ? { recipient } : {}), switchToCash: true }, k))}>{B("rf_switch_cash")}</Button>}
           </span>

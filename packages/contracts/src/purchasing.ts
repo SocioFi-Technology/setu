@@ -95,6 +95,8 @@ export const StockCountView = z.object({
   varianceValuePaisa: z.number().int(),
   createdBy: Person, createdAt: z.string(), submittedAt: z.string().nullable(),
   decidedBy: Person.nullable(), decidedAt: z.string().nullable(), decisionNote: z.string().nullable(),
+  /** decision 234: decided by the person who counted, as the facility's only approver, with a note */
+  selfApproved: z.boolean().default(false),
   /** the owner / admin, not the person who counted, on a submitted count */
   canDecide: z.boolean(),
 });

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_BILLING_SETTINGS, voidBlockers } from "./billing.js";
 import { dispenseStatus, resaleBlockers } from "./pharmacy.js";
 import {
-  isSelfApproval, lineLock, partOfLine, payoutWayAllowed, recipientCheck, refundApprovalBlockers, refundRequestBlockers, refundSummary, refundWithdrawBlockers,
+  isSelfApproval, lineLock, partOfLine, payoutWayAllowed, recipientCheck, refundApprovalBlockers, refundRequestBlockers, returnSplit, refundSummary, refundWithdrawBlockers,
   type RequestInput,
 } from "./refund.js";
 
@@ -145,17 +145,34 @@ describe("one refund = one payout method (Kamrul, decision 220)", () => {
   });
 });
 
-describe("a return without refund on an unpaid pharmacy bill (Kamrul, decision 221)", () => {
+describe("a return on a pharmacy bill with a due (Kamrul, decisions 221 and 233)", () => {
+  const med = (totalPaisa: number, units: number) => ({ source: "dispense" as const, lock: null, part: { netPaisa: totalPaisa, vatPaisa: 0, totalPaisa, units } });
   const ret: RequestInput = {
     source: "bill", kind: "return", category: "patient-request", reason: "Brought back unopened before paying", billStatus: "issued", openRefund: false,
-    lines: [{ source: "dispense", lock: null, part: { netPaisa: 1_600, vatPaisa: 0, totalPaisa: 1_600, units: 4 } }], confirmedLeftPaisa: 0, confirmedPaisa: 0, pendingPayments: 0, allocations: [],
+    lines: [med(1_600, 4)], confirmedLeftPaisa: 0, duePaisa: 4_000, pendingPayments: 0, allocations: [],
   };
-  it("medicine lines, no money on the bill, no allocations: nothing blocks it", () => expect(refundRequestBlockers(ret)).toEqual([]));
-  it("only while no money was ever confirmed and no payment is pending; medicine only; no money goes back", () => {
-    expect(refundRequestBlockers({ ...ret, confirmedPaisa: 100 })).toEqual(["money_on_bill"]);
+  it("233: credit = min(value, due), refund = the rest", () => {
+    expect(returnSplit(1_600, 4_000)).toEqual({ creditPaisa: 1_600, refundPaisa: 0 });
+    expect(returnSplit(100_000, 50_000)).toEqual({ creditPaisa: 50_000, refundPaisa: 50_000 }); // ৳1,000 back on a ৳1,000 bill half paid
+    expect(returnSplit(30_000, 0)).toEqual({ creditPaisa: 0, refundPaisa: 30_000 });
+  });
+  it("nothing paid: the whole value is a credit, no allocations", () => {
+    expect(refundRequestBlockers(ret)).toEqual([]);
+    expect(refundRequestBlockers({ ...ret, allocations: [{ method: "cash", leftPaisa: 0, amountPaisa: 1_600, way: "cash", gatewayRefunds: false }] })).toContain("return_takes_no_money");
+  });
+  it("233: a ৳1,000 bill half paid, all ten tablets back — ৳500 credited, ৳500 refunded from the cash paid, one request", () => {
+    const half: RequestInput = { ...ret, billStatus: "partially-paid", lines: [med(100_000, 10)], duePaisa: 50_000, confirmedLeftPaisa: 50_000,
+      allocations: [{ method: "cash", leftPaisa: 50_000, amountPaisa: 50_000, way: "cash", gatewayRefunds: false }] };
+    expect(refundRequestBlockers(half)).toEqual([]);
+    expect(refundRequestBlockers({ ...half, allocations: [] })).toContain("no_allocations");
+    expect(refundRequestBlockers({ ...half, allocations: [{ ...half.allocations[0]!, amountPaisa: 40_000 }] })).toContain("allocation_mismatch");
+    expect(refundRequestBlockers({ ...half, confirmedLeftPaisa: 10_000 })).toContain("over_confirmed");
+    expect(refundRequestBlockers({ ...half, allocations: [{ ...half.allocations[0]!, way: "manual" }] })).toContain("payout_not_allowed");
+  });
+  it("nothing due (fully paid): a refund, not a return; a pending payment waits; medicine only; no services", () => {
+    expect(refundRequestBlockers({ ...ret, duePaisa: 0 })).toEqual(["money_on_bill"]);
     expect(refundRequestBlockers({ ...ret, pendingPayments: 1 })).toEqual(["payment_pending"]);
     expect(refundRequestBlockers({ ...ret, lines: [{ source: "desk", lock: null, part: { netPaisa: 100, vatPaisa: 0, totalPaisa: 100, units: null } }] })).toContain("category_line_mismatch");
-    expect(refundRequestBlockers({ ...ret, allocations: [{ method: "cash", leftPaisa: 0, amountPaisa: 1_600, way: "cash", gatewayRefunds: false }] })).toContain("return_takes_no_money");
     expect(refundRequestBlockers({ ...ret, billStatus: "draft" })).toEqual(["bill_not_refundable"]);
     expect(refundRequestBlockers({ ...ret, category: "cancelled-test" })).toContain("category_line_mismatch");
   });

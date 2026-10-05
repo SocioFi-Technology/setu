@@ -24,6 +24,7 @@ import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
 import { notFound } from "./frontdesk.js";
+import { facilityApprovers } from "./refunds.js";
 import { medRef } from "./pharmacy.js";
 
 export const PO_APPROVAL_TASK = "purchase-approval";
@@ -393,8 +394,9 @@ export async function countView(tx: Tx, s: SessionData, c: Count, now: Date): Pr
     submitBlockers: c.status === "counting" ? countSubmitBlockers(asCountLines(lines, exp)) : [],
     varianceValuePaisa: rows.reduce((a, { l, b }) => a + Math.abs(l.countedQty === null ? 0 : l.countedQty - exp.get(l.id)!) * b.costPaisa, 0),
     createdBy: who(c.createdById), createdAt: c.createdAt.toISOString(), submittedAt: iso(c.submittedAt),
-    decidedBy: c.decidedById ? who(c.decidedById) : null, decidedAt: iso(c.decidedAt), decisionNote: c.decisionNote,
-    canDecide: c.status === "submitted" && isStockApprover(s.role as Role) && c.createdById !== s.userId,
+    decidedBy: c.decidedById ? who(c.decidedById) : null, decidedAt: iso(c.decidedAt), decisionNote: c.decisionNote, selfApproved: c.selfApproved,
+    // decision 234: the counter decides their own count only as the facility's only approver (with a note — the screen asks)
+    canDecide: c.status === "submitted" && isStockApprover(s.role as Role) && (c.createdById !== s.userId || (await facilityApprovers(tx, s.organizationId)) === 1),
   };
 }
 export async function countList(tx: Tx, s: SessionData, status?: "counting" | "submitted" | "approved" | "rejected"): Promise<CountList> {
@@ -442,10 +444,13 @@ export async function submitCount(tx: Tx, s: SessionData, id: string, rev: numbe
 export async function decideCount(tx: Tx, s: SessionData, id: string, req: ApprovalDecision, now: Date): Promise<{ c: Count; audit: AuditEntry[] }> {
   const c = await countHere(tx, s, id, true);
   const note = req.note?.trim() ?? "";
-  const b = countDecisionBlockers({ role: s.role as Role, isCounter: c.createdById === s.userId, decision: req.decision, note });
+  // decision 234 (= 223): the person who counted decides only as the facility's only approver, with a note, flagged
+  const self = c.createdById === s.userId;
+  const onlyApprover = self && (await facilityApprovers(tx, s.organizationId)) === 1;
+  const b = countDecisionBlockers({ role: s.role as Role, isCounter: self, decision: req.decision, note, onlyApprover });
   if (b.includes("not_approver")) throw notApprover();
   if (b.includes("own_count")) throw err(403, "own_count", "নিজের গণনা নিজে অনুমোদন করা যায় না", "You cannot decide a count you made", { reason: "role", canRequest: false });
-  if (b.includes("note_required")) throw err(400, "note_required", "কারণ লিখুন (অন্তত ১০ অক্ষর)", "Write why (at least 10 characters)", { field: "note" });
+  if (b.includes("note_required")) throw err(400, "note_required", self ? "আপনিই এখানকার একমাত্র অনুমোদনকারী — নিজের গণনায় সিদ্ধান্তের কারণ লিখুন (অন্তত ১০ অক্ষর)" : "কারণ লিখুন (অন্তত ১০ অক্ষর)", self ? "You are the only approver here — write why you decide your own count (at least 10 characters)" : "Write why (at least 10 characters)", { field: "note" });
   const status = transition("STOCK_COUNT", STOCK_COUNT, c.status, req.decision);
   const moves: { batchId: string; qty: number }[] = [];
   if (req.decision === "approve") {
@@ -462,8 +467,8 @@ export async function decideCount(tx: Tx, s: SessionData, id: string, req: Appro
       moves.push({ batchId: l.batchId, qty: delta });
     }
   }
-  const done = await bumpCount(tx, c, { status, decidedById: s.userId, decidedAt: now, decisionNote: note || null, statusAt: now });
-  return { c: done, audit: [{ action: req.decision, entity: "StockCount", entityId: c.id, detail: { note: note || null, adjustments: moves } }] };
+  const done = await bumpCount(tx, c, { status, decidedById: s.userId, decidedAt: now, decisionNote: note || null, selfApproved: self, statusAt: now });
+  return { c: done, audit: [{ action: req.decision, entity: "StockCount", entityId: c.id, detail: { note: note || null, adjustments: moves, ...(self ? { selfApproved: true, flag: "self-approved" } : {}) } }] };
 }
 
 /* ───── transfers ───── */

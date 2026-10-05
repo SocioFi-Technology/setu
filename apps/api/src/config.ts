@@ -28,6 +28,8 @@ export const config = {
   fakeMessagingDevRoute: process.env.FAKE_MESSAGING_DEV_ROUTE === "1" && process.env.NODE_ENV !== "production",
   /** dev and tests only: POST /v1/dev/rollup/run (ADR 0008) — ROLLUP_DEV_ROUTE=1, never in production. */
   rollupDevRoute: process.env.ROLLUP_DEV_ROUTE === "1" && process.env.NODE_ENV !== "production",
+  /** decision 235: the owner may settle a gateway refund by hand only after it has been "processing" this long */
+  refundReleaseMinutes: Number(process.env.REFUND_RELEASE_MINUTES ?? 30),
   adapters: { payments: process.env.PAYMENTS_PROVIDER ?? "fake", sms: process.env.SMS_PROVIDER ?? "fake", ai: process.env.AI_PROVIDER ?? "fake" },
 };
 

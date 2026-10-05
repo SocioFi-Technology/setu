@@ -758,6 +758,24 @@ addendum.
 - **Pre-pilot (bKash sandbox):** the duplicate-refund and 11th-refund codes, Refund Status's `trxId` meaning, a manual
   release for a refund stuck "processing" (question 235).
 
+## Done (refunds, follow-up, 05/10/2026) — Kamrul's decisions 233–235 ✅
+ADR 0013 addendum 2; migrations `20261005220000_refunds_decisions_233_235`, `20261005220100_refunds_233_fix`.
+- **233 a return on a partly paid bill:** one request; credit = min(value, due) lowers the due (`Refund.creditPaisa` →
+  `Invoice.creditedPaisa`), the rest is refunded from confirmed money through the allocations (one way back, who took
+  it); one approval, one voucher with both parts (RF when money went back, CV when it only credited); the bill is
+  balanced when the due reaches what was paid; then the ADR 0005 void. A fully paid bill has no due → a refund. The
+  request screen shows the split ("Off the due" / "Refunded") and asks for a way back only when money leaves.
+- **234 one self-approval rule everywhere:** stock counts follow refunds — the counter decides their own count only as
+  the facility's only approver, with a note (`StockCount.selfApproved`, the count screen asks for the note, the
+  database re-checks with `facility_approvers`), flagged in the audit and counted on the owner's self-approved
+  exceptions row (drill rows open the count). Open question 186 is decided.
+- **235 the owner's manual release** of a bKash refund stuck "processing": `POST /v1/refunds/:id/release` (owner only,
+  after `REFUND_RELEASE_MINUTES` = 30 since the claim) — "not refunded on the portal" (note) hands the allocation back
+  failed so the cashier retries or pays cash; "refunded, TrxID" pays it; both audited (`owner-release`) and both open a
+  refund-reconciliation case. The refund screen shows the owner the release card after the wait (and the wait until then).
+- **Tests:** domain 313, api 273 (refunds 17: +233, +234; bkash 23: +235; purchasing's own-count case), typecheck 13/13;
+  Playwright: journey R gains R5 (233 on the screen) — see the run below.
+
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
 2. ~~MinIO image cannot be pulled~~ — dev and tests store receipts with `LocalFolderStorage` (A6–A7). Before staging: an S3-compatible adapter behind the same `Storage` interface.
@@ -810,7 +828,7 @@ addendum.
 5. ~~`/slice A12-A13`~~ — done 03/10/2026 (two sessions); **Journey A complete**. Kamrul to confirm open questions
    135–149.
 6. **Phase 2 pilot clinic, split in four slices (Kamrul, 03/10/2026):** ~~`/slice C1-C4`~~ owner dashboard + shift close
-   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → ~~SMS + bKash~~ (done 04/10/2026, two sessions; questions 205–219). **The four Phase 2 pilot-clinic slices are done.** ~~**Refunds**~~ done 05/10/2026 (two sessions; ADR 0013; questions 220–239). Then: Kamrul's call — the pre-pilot hardening (known gaps 3, 4, 10, 12: argon2id, PIN tries in Redis, composite keys, clinical sign-offs), real credentials (bKash sandbox, BulkSMSBD), then the pilot; or Phase 3 per `docs/BUILD-PLAN.md`. See open questions "Phase 2 plan".
+   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → ~~SMS + bKash~~ (done 04/10/2026, two sessions; questions 205–219). **The four Phase 2 pilot-clinic slices are done.** ~~**Refunds**~~ done 05/10/2026 (two sessions + the 233–235 follow-up; ADR 0013; questions 220–239, 233–235 decided). Then: Kamrul's call — the pre-pilot hardening (known gaps 3, 4, 10, 12: argon2id, PIN tries in Redis, composite keys, clinical sign-offs), real credentials (bKash sandbox, BulkSMSBD), then the pilot; or Phase 3 per `docs/BUILD-PLAN.md`. See open questions "Phase 2 plan".
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

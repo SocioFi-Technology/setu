@@ -11,6 +11,7 @@ const apiUrl = await standIn.start();
 Object.assign(process.env, {
   PAYMENTS_PROVIDER: "bkash", BKASH_BASE_URL: apiUrl, BKASH_APP_KEY: STANDIN_CREDENTIALS.appKey, BKASH_APP_SECRET: STANDIN_CREDENTIALS.appSecret,
   BKASH_USERNAME: STANDIN_CREDENTIALS.username, BKASH_PASSWORD: STANDIN_CREDENTIALS.password, BKASH_TIMEOUT_MS: "1500", PUBLIC_APP_URL: "https://setu.test",
+  REFUND_RELEASE_MINUTES: "0", // decision 235's 30 minutes, cut for the test
 });
 const { buildApp } = await import("../src/app.js");
 const { config } = await import("../src/config.js");
@@ -418,6 +419,33 @@ describe.runIf(db)("ADR 0013 bKash refund through the routes", () => {
     const retry = await post(`/v1/refunds/${r.id}/pay`, { rev, recipient });
     expect(retry.json().view.allocations[0]).toMatchObject({ status: "paid", refundTrxId: "RFLATE0001" });
     expect(sent()).toBe(1);
+  });
+
+  it("235: the owner settles a refund stuck 'processing' from the portal — not refunded hands it back; refunded pays it with the TrxID; both audited and checked", async () => {
+    const stuck = async () => {
+      const b = await paidByBkash();
+      const r = await approvedRefund(b);
+      standIn.failNextRefund = "503";
+      expect((await post(`/v1/refunds/${r.id}/pay`, { rev: r.rev, recipient })).json().outcome).toBe("paying");
+      return { b, r };
+    };
+    const one = await stuck();
+    // only the owner, with a note
+    expect((await post(`/v1/refunds/${one.r.id}/release`, { outcome: "not-refunded", note: "Portal shows no refund for this payment" })).statusCode).toBe(403);
+    expect((await post(`/v1/refunds/${one.r.id}/release`, { outcome: "not-refunded", note: "short" }, "owner")).statusCode).toBe(400);
+    const back = await post(`/v1/refunds/${one.r.id}/release`, { outcome: "not-refunded", note: "Portal shows no refund for this payment" }, "owner");
+    expect(back.statusCode, back.body).toBe(200);
+    expect(back.json()).toMatchObject({ refund: { status: "approved" }, allocations: [{ status: "open", gatewayFailed: true, needsReconciliation: true, reconciled: "waiting" }], can: { pay: true } });
+    expect(back.json().allocations[0].failReason).toContain("not refunded");
+    const two = await stuck();
+    expect((await post(`/v1/refunds/${two.r.id}/release`, { outcome: "refunded", note: "Portal: refund completed at 16:02" }, "owner")).json().code).toBe("trx_required");
+    const done = await post(`/v1/refunds/${two.r.id}/release`, { outcome: "refunded", note: "Portal: refund completed at 16:02", refundTrxId: "rfportal01" }, "owner");
+    expect(done.statusCode, done.body).toBe(200);
+    expect(done.json()).toMatchObject({ refund: { status: "paid", voucher: { number: expect.stringMatching(/^RF\//) } }, allocations: [{ status: "paid", refundTrxId: "RFPORTAL01", needsReconciliation: true }] });
+    const checks = await inTenant((tx) => tx.task.count({ where: { kind: "refund-reconciliation", status: "requested", focusId: { in: [back.json().allocations[0].id, done.json().allocations[0].id] } } }));
+    expect(checks).toBe(2);
+    const audit = await inTenant((tx) => tx.auditEvent.findMany({ where: { entity: "RefundAllocation", detail: { path: ["event"], equals: "owner-release" } } }));
+    expect(audit.length).toBeGreaterThanOrEqual(2);
   });
 
   it("no answer from bKash in time: the refund made there is found by Refund Status — paid once", async () => {

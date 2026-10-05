@@ -88673,7 +88673,8 @@
                                   "receipt",
                                   "shift",
                                   "visit",
-                                  "refund"
+                                  "refund",
+                                  "count"
                                 ]
                               },
                               "id": {
@@ -88989,6 +88990,11 @@
                       "minimum": 0,
                       "maximum": 1000000000
                     },
+                    "duePaisa": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1000000000
+                    },
                     "lines": {
                       "type": "array",
                       "items": {
@@ -89198,6 +89204,7 @@
                     "patient",
                     "buyer",
                     "confirmedLeftPaisa",
+                    "duePaisa",
                     "lines",
                     "payments",
                     "openRefundId",
@@ -89593,6 +89600,16 @@
                         "rev": {
                           "type": "integer"
                         },
+                        "creditPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        "refundPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
                         "needsOwner": {
                           "type": "boolean"
                         },
@@ -89755,6 +89772,8 @@
                         "netPaisa",
                         "vatPaisa",
                         "rev",
+                        "creditPaisa",
+                        "refundPaisa",
                         "needsOwner",
                         "requestedBy",
                         "requestedAt",
@@ -90238,6 +90257,9 @@
                         },
                         "check": {
                           "type": "boolean"
+                        },
+                        "release": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -90245,7 +90267,26 @@
                         "reject",
                         "withdraw",
                         "pay",
-                        "check"
+                        "check",
+                        "release"
+                      ]
+                    },
+                    "paying": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "claimedAt": {
+                          "type": "string"
+                        },
+                        "releaseAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "claimedAt",
+                        "releaseAt"
                       ]
                     }
                   },
@@ -90257,7 +90298,8 @@
                     "lines",
                     "allocations",
                     "timeline",
-                    "can"
+                    "can",
+                    "paying"
                   ]
                 }
               }
@@ -91005,6 +91047,16 @@
                         "rev": {
                           "type": "integer"
                         },
+                        "creditPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        "refundPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
                         "needsOwner": {
                           "type": "boolean"
                         },
@@ -91167,6 +91219,8 @@
                         "netPaisa",
                         "vatPaisa",
                         "rev",
+                        "creditPaisa",
+                        "refundPaisa",
                         "needsOwner",
                         "requestedBy",
                         "requestedAt",
@@ -91650,6 +91704,9 @@
                         },
                         "check": {
                           "type": "boolean"
+                        },
+                        "release": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -91657,7 +91714,26 @@
                         "reject",
                         "withdraw",
                         "pay",
-                        "check"
+                        "check",
+                        "release"
+                      ]
+                    },
+                    "paying": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "claimedAt": {
+                          "type": "string"
+                        },
+                        "releaseAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "claimedAt",
+                        "releaseAt"
                       ]
                     }
                   },
@@ -91669,7 +91745,8 @@
                     "lines",
                     "allocations",
                     "timeline",
-                    "can"
+                    "can",
+                    "paying"
                   ]
                 }
               }
@@ -91960,6 +92037,16 @@
                         "rev": {
                           "type": "integer"
                         },
+                        "creditPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        "refundPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
                         "needsOwner": {
                           "type": "boolean"
                         },
@@ -92122,6 +92209,8 @@
                         "netPaisa",
                         "vatPaisa",
                         "rev",
+                        "creditPaisa",
+                        "refundPaisa",
                         "needsOwner",
                         "requestedBy",
                         "requestedAt",
@@ -92605,6 +92694,9 @@
                         },
                         "check": {
                           "type": "boolean"
+                        },
+                        "release": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -92612,7 +92704,26 @@
                         "reject",
                         "withdraw",
                         "pay",
-                        "check"
+                        "check",
+                        "release"
+                      ]
+                    },
+                    "paying": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "claimedAt": {
+                          "type": "string"
+                        },
+                        "releaseAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "claimedAt",
+                        "releaseAt"
                       ]
                     }
                   },
@@ -92624,7 +92735,8 @@
                     "lines",
                     "allocations",
                     "timeline",
-                    "can"
+                    "can",
+                    "paying"
                   ]
                 }
               }
@@ -93116,6 +93228,16 @@
                             "rev": {
                               "type": "integer"
                             },
+                            "creditPaisa": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000000
+                            },
+                            "refundPaisa": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000000
+                            },
                             "needsOwner": {
                               "type": "boolean"
                             },
@@ -93278,6 +93400,8 @@
                             "netPaisa",
                             "vatPaisa",
                             "rev",
+                            "creditPaisa",
+                            "refundPaisa",
                             "needsOwner",
                             "requestedBy",
                             "requestedAt",
@@ -93761,6 +93885,9 @@
                             },
                             "check": {
                               "type": "boolean"
+                            },
+                            "release": {
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -93768,7 +93895,26 @@
                             "reject",
                             "withdraw",
                             "pay",
-                            "check"
+                            "check",
+                            "release"
+                          ]
+                        },
+                        "paying": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "claimedAt": {
+                              "type": "string"
+                            },
+                            "releaseAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "claimedAt",
+                            "releaseAt"
                           ]
                         }
                       },
@@ -93780,7 +93926,8 @@
                         "lines",
                         "allocations",
                         "timeline",
-                        "can"
+                        "can",
+                        "paying"
                       ]
                     }
                   },
@@ -94209,6 +94356,16 @@
                         "rev": {
                           "type": "integer"
                         },
+                        "creditPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        "refundPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
                         "needsOwner": {
                           "type": "boolean"
                         },
@@ -94371,6 +94528,8 @@
                         "netPaisa",
                         "vatPaisa",
                         "rev",
+                        "creditPaisa",
+                        "refundPaisa",
                         "needsOwner",
                         "requestedBy",
                         "requestedAt",
@@ -94854,6 +95013,9 @@
                         },
                         "check": {
                           "type": "boolean"
+                        },
+                        "release": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -94861,7 +95023,26 @@
                         "reject",
                         "withdraw",
                         "pay",
-                        "check"
+                        "check",
+                        "release"
+                      ]
+                    },
+                    "paying": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "claimedAt": {
+                          "type": "string"
+                        },
+                        "releaseAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "claimedAt",
+                        "releaseAt"
                       ]
                     }
                   },
@@ -94873,7 +95054,1082 @@
                     "lines",
                     "allocations",
                     "timeline",
-                    "can"
+                    "can",
+                    "paying"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
+                    },
+                    "shortfall": {
+                      "type": "integer"
+                    },
+                    "remaining": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
+                    },
+                    "shortfall": {
+                      "type": "integer"
+                    },
+                    "remaining": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/refunds/{id}/release": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "outcome": {
+                    "type": "string",
+                    "enum": [
+                      "not-refunded",
+                      "refunded"
+                    ]
+                  },
+                  "note": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 300
+                  },
+                  "refundTrxId": {
+                    "type": "string",
+                    "pattern": "^[A-Z0-9]{6,20}$"
+                  }
+                },
+                "required": [
+                  "outcome",
+                  "note"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "owner only, ≥ 30 min after the claim: checked on the bKash portal — not refunded (back to the cashier) or refunded with the TrxID; both audited, both open a statement check",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "refund": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "requested",
+                            "approved",
+                            "paid",
+                            "rejected",
+                            "withdrawn"
+                          ]
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "refund",
+                            "return"
+                          ]
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "bill",
+                            "reconciliation"
+                          ]
+                        },
+                        "caseTaskId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "selfApproved": {
+                          "type": "boolean"
+                        },
+                        "category": {
+                          "type": "string",
+                          "enum": [
+                            "cancelled-test",
+                            "wrong-dispense",
+                            "overpayment",
+                            "patient-request",
+                            "other"
+                          ]
+                        },
+                        "reason": {
+                          "type": "string"
+                        },
+                        "amountPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        "netPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        "vatPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        "rev": {
+                          "type": "integer"
+                        },
+                        "creditPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        "refundPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        "needsOwner": {
+                          "type": "boolean"
+                        },
+                        "requestedBy": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "nameBn": {
+                              "type": "string"
+                            },
+                            "nameEn": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "nameBn",
+                            "nameEn"
+                          ]
+                        },
+                        "requestedAt": {
+                          "type": "string"
+                        },
+                        "decidedBy": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "nameBn": {
+                              "type": "string"
+                            },
+                            "nameEn": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "nameBn",
+                            "nameEn"
+                          ]
+                        },
+                        "decidedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "decisionNote": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "withdrawnBy": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "nameBn": {
+                              "type": "string"
+                            },
+                            "nameEn": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "nameBn",
+                            "nameEn"
+                          ]
+                        },
+                        "withdrawnAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "withdrawNote": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "paidAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "recipient": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "phone": {
+                              "type": "string"
+                            },
+                            "relation": {
+                              "type": "string",
+                              "enum": [
+                                "self",
+                                "spouse",
+                                "parent",
+                                "child",
+                                "sibling",
+                                "other-relative",
+                                "other"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "phone",
+                            "relation"
+                          ]
+                        },
+                        "voucher": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "number": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "number"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "status",
+                        "kind",
+                        "source",
+                        "caseTaskId",
+                        "selfApproved",
+                        "category",
+                        "reason",
+                        "amountPaisa",
+                        "netPaisa",
+                        "vatPaisa",
+                        "rev",
+                        "creditPaisa",
+                        "refundPaisa",
+                        "needsOwner",
+                        "requestedBy",
+                        "requestedAt",
+                        "decidedBy",
+                        "decidedAt",
+                        "decisionNote",
+                        "withdrawnBy",
+                        "withdrawnAt",
+                        "withdrawNote",
+                        "paidAt",
+                        "recipient",
+                        "voucher"
+                      ]
+                    },
+                    "invoice": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "number": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "issued",
+                            "partially-paid",
+                            "balanced",
+                            "cancelled",
+                            "entered-in-error"
+                          ]
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "opd",
+                            "pharmacy",
+                            "otc"
+                          ]
+                        },
+                        "totalPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        "paidPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        "refundedPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        "encounterId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "number",
+                        "status",
+                        "kind",
+                        "totalPaisa",
+                        "paidPaisa",
+                        "refundedPaisa",
+                        "encounterId"
+                      ]
+                    },
+                    "patient": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "facilityNo": {
+                          "type": "string"
+                        },
+                        "nameBn": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "sex": {
+                          "type": "string",
+                          "enum": [
+                            "female",
+                            "male",
+                            "other"
+                          ]
+                        },
+                        "birthDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "approxAgeYears": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "approxAgeMonths": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "approxAgeAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "identityConfidence": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "unverified",
+                            "possible-duplicate",
+                            "provisional"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "facilityNo",
+                        "nameBn",
+                        "nameEn",
+                        "sex",
+                        "birthDate",
+                        "approxAgeYears",
+                        "approxAgeMonths",
+                        "approxAgeAt",
+                        "identityConfidence"
+                      ]
+                    },
+                    "buyer": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "phone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "phone"
+                      ]
+                    },
+                    "lines": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "chargeItemId": {
+                            "type": "string"
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "consultation",
+                              "order",
+                              "desk",
+                              "dispense",
+                              "sale"
+                            ]
+                          },
+                          "nameEn": {
+                            "type": "string"
+                          },
+                          "nameBn": {
+                            "type": "string"
+                          },
+                          "vatRateBp": {
+                            "type": "integer"
+                          },
+                          "units": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "netPaisa": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000000
+                          },
+                          "vatPaisa": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000000
+                          },
+                          "totalPaisa": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000000
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "chargeItemId",
+                          "source",
+                          "nameEn",
+                          "nameBn",
+                          "vatRateBp",
+                          "units",
+                          "netPaisa",
+                          "vatPaisa",
+                          "totalPaisa"
+                        ]
+                      }
+                    },
+                    "allocations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "paymentId": {
+                            "type": "string"
+                          },
+                          "method": {
+                            "type": "string",
+                            "enum": [
+                              "cash",
+                              "card",
+                              "bank",
+                              "bkash",
+                              "nagad"
+                            ]
+                          },
+                          "amountPaisa": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000000
+                          },
+                          "way": {
+                            "type": "string",
+                            "enum": [
+                              "cash",
+                              "gateway",
+                              "manual"
+                            ]
+                          },
+                          "cashReason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "no-wallet-access",
+                              "gateway-failed"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "open",
+                              "paying",
+                              "paid"
+                            ]
+                          },
+                          "gatewayFailed": {
+                            "type": "boolean"
+                          },
+                          "failReason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "refundTrxId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "reference": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "paidBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "paidAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "needsReconciliation": {
+                            "type": "boolean"
+                          },
+                          "reconciled": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "waiting",
+                              "matched",
+                              "resolved"
+                            ]
+                          },
+                          "payment": {
+                            "type": "object",
+                            "properties": {
+                              "trxId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "reference": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "confirmedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "trxId",
+                              "reference",
+                              "confirmedAt"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "paymentId",
+                          "method",
+                          "amountPaisa",
+                          "way",
+                          "cashReason",
+                          "status",
+                          "gatewayFailed",
+                          "failReason",
+                          "refundTrxId",
+                          "reference",
+                          "paidBy",
+                          "paidAt",
+                          "needsReconciliation",
+                          "reconciled",
+                          "payment"
+                        ]
+                      }
+                    },
+                    "timeline": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "event": {
+                            "type": "string",
+                            "enum": [
+                              "requested",
+                              "approved",
+                              "rejected",
+                              "withdrawn",
+                              "payout-started",
+                              "gateway-failed",
+                              "allocation-paid",
+                              "paid"
+                            ]
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "by": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "event",
+                          "at",
+                          "by",
+                          "note"
+                        ]
+                      }
+                    },
+                    "can": {
+                      "type": "object",
+                      "properties": {
+                        "approve": {
+                          "type": "boolean"
+                        },
+                        "reject": {
+                          "type": "boolean"
+                        },
+                        "withdraw": {
+                          "type": "boolean"
+                        },
+                        "pay": {
+                          "type": "boolean"
+                        },
+                        "check": {
+                          "type": "boolean"
+                        },
+                        "release": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "approve",
+                        "reject",
+                        "withdraw",
+                        "pay",
+                        "check",
+                        "release"
+                      ]
+                    },
+                    "paying": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "claimedAt": {
+                          "type": "string"
+                        },
+                        "releaseAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "claimedAt",
+                        "releaseAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "refund",
+                    "invoice",
+                    "patient",
+                    "buyer",
+                    "lines",
+                    "allocations",
+                    "timeline",
+                    "can",
+                    "paying"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
+                    },
+                    "shortfall": {
+                      "type": "integer"
+                    },
+                    "remaining": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
                   ]
                 }
               }
@@ -95288,6 +96544,17 @@
                               "maximum": 1000000000
                             },
                             "amountPaisa": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000000
+                            },
+                            "creditPaisa": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000000,
+                              "default": 0
+                            },
+                            "refundPaisa": {
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 1000000000
@@ -96098,6 +97365,17 @@
                                   "maximum": 1000000000
                                 },
                                 "amountPaisa": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 1000000000
+                                },
+                                "creditPaisa": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 1000000000,
+                                  "default": 0
+                                },
+                                "refundPaisa": {
                                   "type": "integer",
                                   "minimum": 0,
                                   "maximum": 1000000000
@@ -97484,6 +98762,16 @@
                         "rev": {
                           "type": "integer"
                         },
+                        "creditPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        "refundPaisa": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
                         "needsOwner": {
                           "type": "boolean"
                         },
@@ -97646,6 +98934,8 @@
                         "netPaisa",
                         "vatPaisa",
                         "rev",
+                        "creditPaisa",
+                        "refundPaisa",
                         "needsOwner",
                         "requestedBy",
                         "requestedAt",
@@ -98129,6 +99419,9 @@
                         },
                         "check": {
                           "type": "boolean"
+                        },
+                        "release": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -98136,7 +99429,26 @@
                         "reject",
                         "withdraw",
                         "pay",
-                        "check"
+                        "check",
+                        "release"
+                      ]
+                    },
+                    "paying": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "claimedAt": {
+                          "type": "string"
+                        },
+                        "releaseAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "claimedAt",
+                        "releaseAt"
                       ]
                     }
                   },
@@ -98148,7 +99460,8 @@
                     "lines",
                     "allocations",
                     "timeline",
-                    "can"
+                    "can",
+                    "paying"
                   ]
                 }
               }
