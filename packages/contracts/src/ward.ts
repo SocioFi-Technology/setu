@@ -220,7 +220,11 @@ export const WristbandRequest = z.object({ reason: z.string().trim().max(300).op
 export const WristbandView = z.object({
   code: z.string(), patient: ErPatient, admissionNumber: z.string().nullable(), bed: z.string().nullable(), ward: z.string().nullable(),
   printedBefore: z.number().int(), allergies: z.array(z.string()),
+  /** the QR as SVG, drawn by the server */ qrSvg: z.string(),
 });
+/* medicine labels for ward batches: GET /v1/nursing/labels?batches=id,id — the QR (SVG) with the medicine and batch */
+export const BatchLabels = z.object({ items: z.array(z.object({ batchId: z.string(), code: z.string(), medicine: z.string(), batchNo: z.string(), expiry: z.string(), ward: z.string(), qrSvg: z.string() })) });
+export type BatchLabels = z.infer<typeof BatchLabels>;
 export type WristbandView = z.infer<typeof WristbandView>;
 
 /* intake / output: POST /v1/nursing/encounters/:id/io (outbox, device time) · GET …/io?day= */

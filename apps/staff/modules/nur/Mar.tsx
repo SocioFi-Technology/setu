@@ -10,11 +10,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { DoseRecord, MarOrder, MarView, WitnessList } from "@setu/contracts";
-import { FIVE_CHECKS, SLOT_AHEAD_MAX_MS, dhakaDay, doseBlockers, doseTiming, format, type DoseOutcome, type FiveChecks } from "@setu/domain";
+import { FIVE_CHECKS, SLOT_AHEAD_MAX_MS, dhakaDay, doseBlockers, doseTiming, format, scanBlockers, type DoseOutcome, type FiveChecks } from "@setu/domain";
 import { Button, Callout, Card, Dialog, Pill, Segmented, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
-import { WardPatientPicker, hhmm, useErr, useN, useWardBanner } from "./common";
+import { ScanField, WardPatientPicker, WristbandButton, hhmm, useErr, useN, useWardBanner } from "./common";
 
 const SLOT_TONE: Record<string, Tone> = { scheduled: "neu", due: "warn", overdue: "bad", given: "ok", held: "off", refused: "off", missed: "bad" };
 const SLOT_ICON: Record<string, string> = { scheduled: "clock", due: "bell", overdue: "clock-alert", given: "circle-check", held: "pause", refused: "ban", missed: "circle-x" };
@@ -45,6 +45,7 @@ function MarFor({ enc }: { enc: string }) {
         <span className="t-small t-muted">{format.date(v.day, s.numerals === "bn")} · {N("mar_window", { n: v.windowMin })} · {s.L(v.sample.bn, v.sample.en)}</span>
       </div>
       {!s.online && <Callout tone="warn" icon="cloud-off" data-testid="mar-offline">{N("needs_connection")}</Callout>}
+      <div><WristbandButton encounterId={enc} /></div>
       {active.map((o) => <OrderRow key={o.id} o={o} day={v.day} onPick={(slot) => setPick({ order: o, slot })} onVial={() => setVialFor(o)} />)}
       {ended.map((o) => <OrderRow key={o.id} o={o} day={v.day} onPick={() => undefined} onVial={() => undefined} />)}
       <History v={v} onChanged={setV} />
@@ -93,6 +94,7 @@ function OrderRow({ o, day, onPick, onVial }: { o: MarOrder; day: string; onPick
                 {sl.record?.source === "patient-supplied" && <Pill tone="pend" icon="user-round">{N("source_patient")}</Pill>}
                 {sl.record?.witness && <span className="t-small t-muted">✓ {s.lang === "bn" ? sl.record.witness.nameBn : sl.record.witness.nameEn}</span>}
                 {sl.record?.amountGiven && <span className="t-small num">{sl.record.amountGiven}</span>}
+                {sl.record?.scan.override && <span data-slot-override="1"><Pill tone="warn" icon="scan-line">{N("scan_flagged", { reason: "" }).replace(/ · $/, "")}</Pill></span>}
                 {sl.errored.map((x) => <span key={x.id} className="t-small" data-slot-errored={x.id} style={{ color: "var(--warning-fg)", maxWidth: 160 }}>{N("errored_before", { t: hhmm(x.administeredAt, bnNum), name: s.lang === "bn" ? x.by.nameBn : x.by.nameEn })}</span>)}
               </button>
             );
@@ -120,6 +122,8 @@ function DoseDialog({ v, pick, onClose, onDone, onStale }: { v: MarView; pick: P
   const [at, setAt] = useState(localInput(new Date()));
   const [source, setSource] = useState<"ward-stock" | "patient-supplied">("ward-stock");
   const [reason, setReason] = useState(""); const [amount, setAmount] = useState("");
+  // ADR 0016: the bedside scans (the server checks them); "scanner not working" never for high-alert / controlled
+  const [band, setBand] = useState(""); const [med, setMed] = useState(""); const [noScanner, setNoScanner] = useState(false); const [overrideReason, setOverrideReason] = useState("");
   const [witnesses, setWitnesses] = useState<WitnessList["items"]>([]); const [witnessId, setWitnessId] = useState(""); const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false); const [msg, setMsg] = useState<string | null>(null); const [serverBlockers, setServerBlockers] = useState<string[]>([]);
   const key = useRef(crypto.randomUUID()); const inFlight = useRef(false);
@@ -132,13 +136,17 @@ function DoseDialog({ v, pick, onClose, onDone, onStale }: { v: MarView; pick: P
   const given = Number.isNaN(administeredAt.getTime()) ? now : administeredAt;
   const near = o.earlierRegimenGiven.find((x) => Math.abs(new Date(x.at).getTime() - given.getTime()) <= v.windowMin * 60_000) ?? null;
   const vialOpen = o.vial !== null && o.vial.source === "ward-stock";
-  const blockers = doseBlockers(
+  const blockers: string[] = (doseBlockers(
     { status: o.status, noteCurrent: true, patientId: v.patient.id, encounterId: v.encounterId, encounterOpen: true, startAt: new Date(o.startAt), times: o.times, prn: o.prn, prnMaxPer24h: o.prnMaxPer24h, medicineKey: o.medicine.key, highAlert: o.medicine.highAlert, controlled: o.medicine.controlled, multiDose: o.medicine.multiDose },
     { patientId: v.patient.id, encounterId: v.encounterId, outcome, slot, administeredAt: Number.isNaN(administeredAt.getTime()) ? now : administeredAt, now, checks, reason, recordedSlots: recorded, givenLast24h: o.givenLast24h,
       nurseId: s.me?.userId ?? "", preparedById: s.me?.userId ?? "", witnessId: needsWitness && outcome === "given" ? witnessId || null : null, witnessRole: w?.role ?? null, allergies: [],
       source, amountGiven: amount, vialOpen, earlierGivenNear: near !== null },
     v.windowMin,
-  ).concat(o.allergyBlock && outcome === "given" ? ["allergy"] : []);
+  ) as string[]).concat(o.allergyBlock && outcome === "given" ? ["allergy"] : [])
+    .concat(scanBlockers({ outcome, source, highAlert: o.medicine.highAlert, controlled: o.medicine.controlled, band: band ? "match" : "none", med: med ? "match" : "none", overrideReason: noScanner ? overrideReason : null }));
+  const overrideAllowed = !(o.medicine.highAlert || o.medicine.controlled);
+  const scanBand = (code: string) => { setBand(code); setChecks((c) => ({ ...c, patient: Boolean(code) })); setServerBlockers([]); };
+  const scanMed = (code: string) => { setMed(code); setChecks((c) => ({ ...c, drug: Boolean(code) })); setServerBlockers([]); };
   const pinOk = !(needsWitness && outcome === "given") || /^\d{4}$/.test(pin);
   const timing = doseTiming(slot, Number.isNaN(administeredAt.getTime()) ? now : administeredAt, v.windowMin);
   const reasonNeeded = outcome !== "given" || timing === "late" || timing === "early" || near !== null;
@@ -151,6 +159,7 @@ function DoseDialog({ v, pick, onClose, onDone, onStale }: { v: MarView; pick: P
         requestId: o.id, scheduledFor: pick.slot, outcome, administeredAt: administeredAt.toISOString(), checks, reason: reason.trim() || undefined, source,
         ...(o.medicine.multiDose && outcome === "given" ? { amountGiven: format.toEn(amount).trim() } : {}),
         ...(needsWitness && outcome === "given" ? { witness: { userId: witnessId, pin } } : {}),
+        ...(outcome === "given" ? { scan: { ...(band ? { band } : {}), ...(med && source === "ward-stock" ? { med } : {}), ...(noScanner && overrideReason.trim() ? { overrideReason: overrideReason.trim() } : {}) } } : {}),
       }, key.current);
       onDone(nv);
     } catch (e) {
@@ -160,7 +169,15 @@ function DoseDialog({ v, pick, onClose, onDone, onStale }: { v: MarView; pick: P
       if (e instanceof ApiFailure) {
         const b = e.body as { code: string; triesLeft?: number; blockers?: string[] };
         if (b.code === "witness_pin_wrong") setMsg(N("pin_wrong", { n: b.triesLeft ?? 0 }));
-        else { setMsg(err(e)); if (b.code === "dose_blocked" && Array.isArray(b.blockers)) setServerBlockers(b.blockers); }
+        else {
+          setMsg(err(e));
+          if (b.code === "dose_blocked" && Array.isArray(b.blockers)) {
+            setServerBlockers(b.blockers);
+            // a wrong scan is cleared so the right one can be scanned
+            if (b.blockers.includes("band_mismatch")) scanBand("");
+            if (b.blockers.some((x) => x === "med_mismatch" || x === "med_expired" || x === "med_not_on_ward")) scanMed("");
+          }
+        }
         if (b.code === "stale" || b.code === "dose_blocked") await onStale();
       } else setMsg(err(e));
     } finally { inFlight.current = false; setBusy(false); }
@@ -178,6 +195,15 @@ function DoseDialog({ v, pick, onClose, onDone, onStale }: { v: MarView; pick: P
         </span>
         <Segmented value={outcome} options={outcomes.map((x) => ({ value: x, label: N(`oc_${x}`) }))} onChange={(x) => setOutcome(x as DoseOutcome)} label={N("outcome")} />
         {outcome === "given" && (<>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }} data-testid="scans">
+            <b className="t-small">{N("scan_title")}</b>
+            <ScanField label={N("scan_band")} value={band} onScan={scanBand} testId="scan-band" disabled={busy} />
+            {source === "ward-stock" ? <ScanField label={N("scan_med")} value={med} onScan={scanMed} testId="scan-med" disabled={busy} /> : <span className="t-small t-muted">{N("scan_band_only")}</span>}
+            {overrideAllowed ? (<>
+              <label className="t-small" style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={noScanner} onChange={(e) => setNoScanner(e.target.checked)} data-testid="no-scanner" /> {N("scan_override")}</label>
+              {noScanner && <TextField label={N("scan_override_reason")} value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} name="overrideReason" data-testid="override-reason" />}
+            </>) : <span className="t-small t-muted" data-testid="no-override">{N("scan_override_no")}</span>}
+          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }} data-testid="five-checks">
             <b className="t-small">{N("five_checks")}</b>
             {FIVE_CHECKS.map((c) => (
@@ -234,6 +260,7 @@ function History({ v, onChanged }: { v: MarView; onChanged: (v: MarView) => void
             <b>{r.medicine}</b> · {N(`st_${r.status}`)} · <span className="num">{hhmm(r.administeredAt, bnNum)}</span>{r.scheduledFor ? ` (${hhmm(r.scheduledFor, bnNum)})` : ""}
             · {s.lang === "bn" ? r.by.nameBn : r.by.nameEn}{r.witness ? ` · ✓ ${s.lang === "bn" ? r.witness.nameBn : r.witness.nameEn}` : ""}
             {r.source === "patient-supplied" && <Pill tone="pend" icon="user-round">{N("source_patient")}</Pill>}
+            {r.scan.override && <Pill tone="warn" icon="scan-line">{N("scan_flagged", { reason: r.scan.override })}</Pill>}
             {r.reason && <span className="t-muted">· {r.reason}</span>}
           </span>
           {r.status === "entered-in-error" && r.error && <span className="t-muted">{N("st_entered-in-error")}: {r.error.reason}{r.errorStockDrawn ? ` · ${N("stock_drawn_q")} ${N(`sd_${r.errorStockDrawn}`)}` : ""}{r.returned > 0 ? ` · ${N("returned_n", { n: r.returned })}` : ""}</span>}

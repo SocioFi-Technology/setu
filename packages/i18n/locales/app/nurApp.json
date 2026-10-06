@@ -1126,5 +1126,377 @@
   "count_none": [
     "কোনো গণনা নেই",
     "No counts yet"
+  ],
+  "scan_title": [
+    "স্ক্যান",
+    "Scans"
+  ],
+  "scan_band": [
+    "রিস্টব্যান্ড স্ক্যান",
+    "Scan the wristband"
+  ],
+  "scan_med": [
+    "ওষুধের লেবেল স্ক্যান",
+    "Scan the medicine label"
+  ],
+  "scan_hint": [
+    "স্ক্যানার দিয়ে স্ক্যান করুন বা ক্যামেরা খুলুন",
+    "Scan with the scanner, or open the camera"
+  ],
+  "scan_camera": [
+    "ক্যামেরা",
+    "Camera"
+  ],
+  "scan_scanned": [
+    "স্ক্যান হয়েছে",
+    "Scanned"
+  ],
+  "scan_clear": [
+    "আবার",
+    "Rescan"
+  ],
+  "scan_override": [
+    "স্ক্যানার কাজ করছে না",
+    "Scanner not working"
+  ],
+  "scan_override_reason": [
+    "কারণ (অন্তত ১০ অক্ষর) — মালিকের ব্যতিক্রম তালিকায় যাবে",
+    "Reason (at least 10 characters) — goes on the owner's exceptions list"
+  ],
+  "scan_override_no": [
+    "উচ্চ-সতর্কতা/নিয়ন্ত্রিত ওষুধে স্ক্যান ছাড়া চলবে না",
+    "High-alert / controlled: both scans, no override"
+  ],
+  "scan_band_only": [
+    "রোগীর নিজের ওষুধ: শুধু রিস্টব্যান্ড",
+    "Patient's own supply: the wristband only"
+  ],
+  "scan_not_supported": [
+    "এই ডিভাইসে ক্যামেরা স্ক্যান নেই — স্ক্যানার ব্যবহার করুন",
+    "This device cannot scan with the camera — use the scanner"
+  ],
+  "scan_flagged": [
+    "স্ক্যান ছাড়া · {reason}",
+    "Without scans · {reason}"
+  ],
+  "b_band_required": [
+    "রিস্টব্যান্ড স্ক্যান করুন",
+    "Scan the wristband"
+  ],
+  "b_band_mismatch": [
+    "স্ক্যান মিলছে না — অন্য রোগীর রিস্টব্যান্ড",
+    "Scan mismatch — not this patient's wristband"
+  ],
+  "b_med_required": [
+    "ওষুধের লেবেল স্ক্যান করুন",
+    "Scan the medicine label"
+  ],
+  "b_med_mismatch": [
+    "স্ক্যান মিলছে না — অন্য ওষুধের লেবেল",
+    "Scan mismatch — another medicine's label"
+  ],
+  "b_med_expired": [
+    "এই ব্যাচের মেয়াদ শেষ",
+    "This batch is expired"
+  ],
+  "b_med_not_on_ward": [
+    "এই ব্যাচ রোগীর ওয়ার্ডের নয়",
+    "This batch is not on the patient's ward"
+  ],
+  "b_override_reason": [
+    "স্ক্যান ছাড়া দিলে কারণ লিখুন (অন্তত ১০ অক্ষর)",
+    "Without scans: give a reason (at least 10 characters)"
+  ],
+  "b_override_not_allowed": [
+    "উচ্চ-সতর্কতা/নিয়ন্ত্রিত ওষুধে স্ক্যান ছাড়া চলবে না",
+    "No override for a high-alert or controlled drug"
+  ],
+  "wristband": [
+    "রিস্টব্যান্ড",
+    "Wristband"
+  ],
+  "wristband_print": [
+    "রিস্টব্যান্ড ছাপুন",
+    "Print wristband"
+  ],
+  "wristband_reprint_reason": [
+    "আবার ছাপার কারণ",
+    "Reason for the reprint"
+  ],
+  "print": [
+    "ছাপুন",
+    "Print"
+  ],
+  "labels_print": [
+    "লেবেল ছাপুন",
+    "Print labels"
+  ],
+  "label_exp": [
+    "মেয়াদ {d}",
+    "Exp {d}"
+  ],
+  "io_tab": [
+    "ইনটেক/আউটপুট",
+    "Intake & output"
+  ],
+  "notes_tab": [
+    "নার্সিং নোট",
+    "Notes"
+  ],
+  "care_tab": [
+    "কেয়ার প্ল্যান",
+    "Care plan"
+  ],
+  "io_in": [
+    "ইনটেক",
+    "Intake"
+  ],
+  "io_out": [
+    "আউটপুট",
+    "Output"
+  ],
+  "io_balance": [
+    "ব্যালান্স",
+    "Balance"
+  ],
+  "io_day": [
+    "শিফট দিন {d} (শুরু {h}:০০)",
+    "Shift day {d} (from {h}:00)"
+  ],
+  "io_24h": [
+    "গত ২৪ ঘণ্টা: ইন {i} · আউট {o} · ব্যালান্স {b}",
+    "Last 24 h: in {i} · out {o} · balance {b}"
+  ],
+  "io_add": [
+    "যোগ করুন",
+    "Add"
+  ],
+  "io_route": [
+    "পথ",
+    "Route"
+  ],
+  "io_ml": [
+    "মি.লি.",
+    "mL"
+  ],
+  "io_note": [
+    "নোট",
+    "Note"
+  ],
+  "io_none": [
+    "এখনো কিছু নেই",
+    "Nothing yet"
+  ],
+  "r_oral": [
+    "মুখে",
+    "Oral"
+  ],
+  "r_iv": [
+    "IV",
+    "IV"
+  ],
+  "r_ng": [
+    "NG",
+    "NG"
+  ],
+  "r_other": [
+    "অন্যান্য",
+    "Other"
+  ],
+  "r_urine": [
+    "প্রস্রাব",
+    "Urine"
+  ],
+  "r_drain": [
+    "ড্রেন",
+    "Drain"
+  ],
+  "r_vomit": [
+    "বমি",
+    "Vomit"
+  ],
+  "r_stool": [
+    "পায়খানা",
+    "Stool"
+  ],
+  "r_ng-aspirate": [
+    "NG অ্যাসপিরেট",
+    "NG aspirate"
+  ],
+  "io_ml_n": [
+    "{n} মি.লি.",
+    "{n} mL"
+  ],
+  "io_balance_card": [
+    "২৪ঘ ব্যালান্স {n} মি.লি.",
+    "24 h balance {n} mL"
+  ],
+  "task_new": [
+    "নতুন কাজ",
+    "New task"
+  ],
+  "task_text": [
+    "কাজ",
+    "Task"
+  ],
+  "task_every": [
+    "প্রতি (ঘণ্টা) — খালি রাখলে একবার",
+    "Every (hours) — empty for once"
+  ],
+  "task_due": [
+    "প্রথম কখন",
+    "First due"
+  ],
+  "task_add": [
+    "কাজ যোগ",
+    "Add task"
+  ],
+  "task_done": [
+    "সম্পন্ন",
+    "Done"
+  ],
+  "task_cancel": [
+    "বাতিল",
+    "Cancel task"
+  ],
+  "task_overdue": [
+    "সময় পেরিয়েছে",
+    "Overdue"
+  ],
+  "task_none": [
+    "কোনো খোলা কাজ নেই",
+    "No open tasks"
+  ],
+  "task_every_n": [
+    "প্রতি {n} ঘণ্টা",
+    "Every {n} h"
+  ],
+  "task_once": [
+    "একবার",
+    "Once"
+  ],
+  "task_due_at": [
+    "সময় {t}",
+    "Due {t}"
+  ],
+  "task_done_by": [
+    "{name} · {t}",
+    "{name} · {t}"
+  ],
+  "tasks_overdue_n": [
+    "{n}টি কাজ বাকি",
+    "{n} task(s) overdue"
+  ],
+  "task_doctor_only_writes": [
+    "নার্স টিক দেবেন",
+    "A nurse ticks it"
+  ],
+  "ho_title": [
+    "শিফট হ্যান্ডওভার",
+    "Shift handover"
+  ],
+  "ho_shift": [
+    "শিফট {d} · {h}:০০",
+    "Shift {d} · {h}:00"
+  ],
+  "ho_open": [
+    "হ্যান্ডওভার শুরু",
+    "Start the handover"
+  ],
+  "ho_none": [
+    "এই শিফটের হ্যান্ডওভার শুরু হয়নি",
+    "This shift's handover has not started"
+  ],
+  "ho_on_duty": [
+    "দায়িত্বে: {name} · {t} থেকে",
+    "On duty: {name} since {t}"
+  ],
+  "hst_draft": [
+    "খসড়া",
+    "Draft"
+  ],
+  "hst_outgoing-signed": [
+    "স্বাক্ষরিত — গ্রহণের অপেক্ষায়",
+    "Signed — awaiting acceptance"
+  ],
+  "hst_accepted": [
+    "গ্রহণ করা হয়েছে",
+    "Accepted"
+  ],
+  "ho_reviewed": [
+    "দেখা হয়েছে",
+    "Reviewed"
+  ],
+  "ho_s": [
+    "S · পরিস্থিতি",
+    "S · Situation"
+  ],
+  "ho_b": [
+    "B · পটভূমি",
+    "B · Background"
+  ],
+  "ho_a": [
+    "A · মূল্যায়ন",
+    "A · Assessment"
+  ],
+  "ho_r": [
+    "R · সুপারিশ",
+    "R · Recommendation"
+  ],
+  "ho_sign": [
+    "স্বাক্ষর করে হস্তান্তর",
+    "Sign and hand over"
+  ],
+  "ho_not_all": [
+    "সব রোগী দেখা হয়নি",
+    "Not every patient reviewed"
+  ],
+  "ho_accept": [
+    "গ্রহণ করুন",
+    "Accept"
+  ],
+  "ho_accept_note": [
+    "গ্রহণের নোট",
+    "Acceptance note"
+  ],
+  "ho_unack": [
+    "স্বীকৃতিহীন এস্কেলেশন: {list} — গ্রহণের নোটে উল্লেখ করুন",
+    "Unacknowledged escalation: {list} — name it in the acceptance note"
+  ],
+  "ho_query": [
+    "প্রশ্ন করুন (খসড়ায় ফেরত)",
+    "Query (back to draft)"
+  ],
+  "ho_query_note": [
+    "প্রশ্ন",
+    "Query"
+  ],
+  "ho_left": [
+    "ওয়ার্ড ছেড়েছেন",
+    "Left the ward"
+  ],
+  "ho_due": [
+    "{due}টি ডোজ এখন · {overdue}টি বাকি",
+    "{due} dose(s) due · {overdue} overdue"
+  ],
+  "ho_signed_by": [
+    "হস্তান্তর: {name} · {t}",
+    "Handed over by {name} · {t}"
+  ],
+  "ho_accepted_by": [
+    "গ্রহণ: {name} · {t}",
+    "Accepted by {name} · {t}"
+  ],
+  "ho_query_from": [
+    "প্রশ্ন ({name}): {note}",
+    "Query ({name}): {note}"
+  ],
+  "ho_link": [
+    "হ্যান্ডওভার",
+    "Handover"
+  ],
+  "saved": [
+    "সংরক্ষিত",
+    "Saved"
   ]
 }

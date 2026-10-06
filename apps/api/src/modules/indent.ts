@@ -3,7 +3,8 @@
    needs the pharmacist's PIN and writes a register line; INDENT moves requested → partially-issued → issued, or the
    balance is cancelled. */
 import { randomUUID } from "node:crypto";
-import type { IndentCreate, IndentIssueRequest, IndentView, WardStock } from "@setu/contracts";
+import type { BatchLabels, IndentCreate, IndentIssueRequest, IndentView, WardStock } from "@setu/contracts";
+import { qrSvg } from "../receipts/template.js";
 import type { Tx } from "@setu/db";
 import { INDENT, batchLabel, dhakaDay, indentLineProblems, indentNumber, indentStateAfter, transition, wardStockLocation } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
@@ -144,3 +145,12 @@ export async function wardStock(tx: Tx, s: SessionData, wardId: string): Promise
   const returns = rets.map((r) => { const m = rmeds.get(r.batch.medicineKey); return { medicine: m ? `${m.brand} ${m.strength}` : r.batch.medicineKey, batchNo: r.batch.batchNo, qty: r.qty, reason: r.reason ?? "", by: rwho(r.byId), at: r.at.toISOString() }; });
   return { ward: { id: ward.id, name: ward.name }, returns, items: keys.map((k) => { const b = rows.filter((r) => r.medicineKey === k), m = meds.get(k); return { medicineKey: k, name: m ? `${m.brand} ${m.strength}` : k, issueUnit: m?.issueUnit ?? "unit", controlled: Boolean(m?.controlled), qty: b.reduce((a, x) => a + x.qtyOnHand, 0), batches: b.map((x) => ({ id: x.id, batchNo: x.batchNo, expiry: x.expiry, qty: x.qtyOnHand, label: batchLabel(x.id) })) }; }) };
 }
+
+/** ADR 0016: the medicine labels (QR) of ward batches — printed with an issue, reprinted on the ward. */
+export async function batchLabels(tx: Tx, s: SessionData, ids: string[]): Promise<BatchLabels> {
+  const rows = await tx.stockBatch.findMany({ where: { id: { in: ids.slice(0, 50) }, organizationId: s.organizationId, location: { startsWith: "ward:" } } });
+  const meds = new Map((await tx.medicine.findMany({ where: { key: { in: [...new Set(rows.map((r) => r.medicineKey))] } } })).map((m) => [m.key, m]));
+  const wards = new Map((await tx.location.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.location.slice(5)))] } }, select: { id: true, name: true } })).map((w) => [w.id, w.name]));
+  return { items: rows.map((b) => { const m = meds.get(b.medicineKey); const code = batchLabel(b.id); return { batchId: b.id, code, medicine: m ? `${m.brand} ${m.strength}` : b.medicineKey, batchNo: b.batchNo, expiry: b.expiry, ward: wards.get(b.location.slice(5)) ?? "", qrSvg: qrSvg(code) }; }) };
+}
+

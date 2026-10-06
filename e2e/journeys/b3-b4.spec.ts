@@ -228,7 +228,7 @@ test.describe("Journey B4–B7: the patient on the ward", () => {
     await expect(hist.locator('[data-dose-status="entered-in-error"]').filter({ hasText: "Ceftriaxone" }).first()).toContainText("1 returned");
     await expect(cef.locator("[data-ward-stock]")).toHaveAttribute("data-ward-stock", String(stockBefore + 1));
     // nursing notes: append-only
-    await page.goto(`/m/nur/io?enc=${ip.encounterId}`);
+    await page.goto(`/m/nur/io?enc=${ip.encounterId}&tab=notes`);
     await page.getByTestId("note-text").fill("Wound dressing changed, clean and dry. Patient ambulating with support.");
     await page.getByTestId("add-note").click();
     await expect(page.locator('[data-note-status="active"]').filter({ hasText: "Wound dressing changed" }).first()).toBeVisible();

@@ -6,18 +6,21 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { NursingNoteView, WardPatientView } from "@setu/contracts";
 import { noteOk } from "@setu/domain";
-import { Button, Callout, Card, Pill, TextArea } from "@setu/ui";
+import { Button, Callout, Card, Pill, Segmented, TextArea } from "@setu/ui";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { WardPatientPicker, hhmm, useErr, useN, useWardBanner } from "./common";
+import { CarePanel, IoPanel } from "./Io";
 
 export function NurNotes() {
   const enc = useSearchParams().get("enc"); const N = useN();
+  const tab0 = useSearchParams().get("tab");
   if (!enc) return <WardPatientPicker screen="nur/io" title={N("notes_title")} />;
-  return <NotesFor key={enc} enc={enc} />;
+  return <NotesFor key={enc} enc={enc} tab0={tab0 === "notes" || tab0 === "care" ? tab0 : "io"} />;
 }
 
-function NotesFor({ enc }: { enc: string }) {
+function NotesFor({ enc, tab0 }: { enc: string; tab0: "io" | "notes" | "care" }) {
+  const [tab, setTab] = useState<"io" | "notes" | "care">(tab0);
   const s = useSession(); const N = useN(); const err = useErr();
   const [v, setV] = useState<WardPatientView | null>(null); const [failed, setFailed] = useState<string | null>(null);
   const [text, setText] = useState(""); const [queued, setQueued] = useState<string[]>([]); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState<string | null>(null);
@@ -38,7 +41,11 @@ function NotesFor({ enc }: { enc: string }) {
   };
   return (
     <div data-screen="nur/io" style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 820 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{N("notes_title")}</h1>
+      <h1 className="t-h2" style={{ margin: 0 }}>{N(tab === "io" ? "io_tab" : tab === "care" ? "care_tab" : "notes_title")}</h1>
+      <Segmented value={tab} options={(["io", "notes", "care"] as const).map((x) => ({ value: x, label: N(`${x}_tab`) }))} onChange={(x) => setTab(x as typeof tab)} label={N("notes_title")} />
+      {tab === "io" && <IoPanel enc={enc} />}
+      {tab === "care" && <CarePanel enc={enc} />}
+      {tab === "notes" && (<>
       <Card style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14 }}>
         <TextArea label={N("notes_title")} value={text} onChange={(e) => setText(e.target.value)} rows={3} placeholder={N("note_ph")} name="note" data-testid="note-text" />
         {msg && <Callout tone="warn" icon="triangle-alert">{msg}</Callout>}
@@ -47,6 +54,7 @@ function NotesFor({ enc }: { enc: string }) {
       {queued.map((t, i) => <Card key={`q${i}`} style={{ padding: 12, display: "flex", flexDirection: "column", gap: 4 }} data-note-queued="1"><span>{t}</span><Pill tone="pend" icon="cloud-off">{N("saved_queued")}</Pill></Card>)}
       {v.notes.length === 0 && queued.length === 0 && <span className="t-small t-muted">{N("note_none")}</span>}
       {v.notes.map((n) => <NoteCard key={n.id} n={n} mine={n.writtenBy.id === s.me?.userId} onChanged={load} />)}
+      </>)}
     </div>
   );
 }

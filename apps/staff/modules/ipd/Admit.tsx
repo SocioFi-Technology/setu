@@ -12,6 +12,7 @@ import { ApiFailure, fd, ipd } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { bannerOf, useLabels } from "../fd/common";
 import { BedPicker, useI, type PickBed } from "./BedPicker";
+import { WristbandButton } from "../nur/common";
 
 type Src = "opd" | "er" | "direct";
 const RELS = ["husband", "wife", "father", "mother", "son", "daughter", "other"];
@@ -87,7 +88,10 @@ function DoneCard({ v, onNext }: { v: AdmissionView; onNext: () => void }) {
       <Callout tone="info" icon="badge-check">{I("admitted_msg", { number: v.number ?? "", bed: v.bed.name, ward: s.lang === "bn" ? v.bed.ward.nameBn ?? v.bed.ward.name : v.bed.ward.name })}</Callout>
       <span className="t-small" data-testid="ipd-bill">{I("ipd_bill")}{v.invoice ? ` · ${v.invoice.status}` : ""}</span>
       <span className="t-small t-muted" data-testid="legs">{I("legs")}: {v.legs.map((l) => `${l.bed} · ${l.status === "ended" ? I(`leg_${l.endReason ?? "ended"}`) : I(`st_${l.status}`)}`).join(" → ")}</span>
-      <div><Button variant="primary" icon="plus" onClick={onNext}>{I("admit_title")}</Button></div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+        {v.encounter && <WristbandButton encounterId={v.encounter.id} size="md" />}
+        <Button variant="primary" icon="plus" onClick={onNext}>{I("admit_title")}</Button>
+      </div>
     </Card>
   );
 }

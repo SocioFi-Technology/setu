@@ -48,6 +48,7 @@ import { NurMar } from "./nur/Mar";
 import { NurNotes } from "./nur/Notes";
 import { NurVitals } from "./nur/Vitals";
 import { NurWard } from "./nur/Ward";
+import { NurHandover } from "./nur/Handover";
 import { PhIndent } from "./ph/Indent";
 
 const SCREENS: Record<string, ComponentType> = {
@@ -111,6 +112,8 @@ const SCREENS: Record<string, ComponentType> = {
   "nur/vitals": NurVitals,
   "nur/mar": NurMar,
   "nur/io": NurNotes,
+  // slice B5–B6 (ADR 0016)
+  "nur/handover": NurHandover,
   "ipd/map": IpdMap,
   "ipd/transfer": IpdTransfer,
   "ipd/rounds": IpdRounds,

@@ -44665,6 +44665,9 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "qrSvg": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -44674,7 +44677,8 @@
                     "bed",
                     "ward",
                     "printedBefore",
-                    "allergies"
+                    "allergies",
+                    "qrSvg"
                   ]
                 }
               }

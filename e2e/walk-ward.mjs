@@ -101,7 +101,7 @@ await shot("nurse-napa-patients-own");
 await dlg.getByTestId("dose-record").click(); await dlg.waitFor({ state: "detached" });
 await page.locator('[data-order="insulin"]').getByTestId("open-vial").click(); await page.waitForTimeout(1500);
 await shot("nurse-mar-after-doses", true);
-await page.goto(`${BASE}/m/nur/io?enc=${ip.enc}`);
+await page.goto(`${BASE}/m/nur/io?enc=${ip.enc}&tab=notes`);
 await page.getByTestId("note-text").fill("ক্ষতের ড্রেসিং বদলানো হয়েছে, পরিষ্কার ও শুকনো।"); await page.getByTestId("add-note").click();
 await page.locator('[data-note-status="active"]').first().waitFor();
 await shot("nurse-notes");

@@ -8,10 +8,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { CountList, Escalation, IndentList, StockCountView, WardBoard, WardBoardBed, WardList, WardStock } from "@setu/contracts";
 import { format, informBlockers } from "@setu/domain";
-import { Button, Callout, Card, Dialog, Pill, SelectField, TextArea, TextField, useToast } from "@setu/ui";
+import { Button, Callout, Card, Dialog, Icon, Pill, SelectField, TextArea, TextField, useToast } from "@setu/ui";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
-import { News2Pill, hhmm, rememberWard, rememberedWard, useErr, useLabels, useN } from "./common";
+import { News2Pill, WristbandButton, hhmm, printLabels, rememberWard, rememberedWard, useErr, useLabels, useN } from "./common";
 
 const name = (p: { nameBn: string; nameEn: string | null }, bn: boolean) => (bn ? p.nameBn : p.nameEn || p.nameBn);
 
@@ -49,7 +49,8 @@ export function NurWard() {
         </div>
       </div>
       {!board ? <div aria-busy="true" className="t-muted">{N("loading")}</div> : (<>
-        <span className="t-small t-muted" data-testid="occupancy">{N("beds_occupied", { occ: occupied, n: board.beds.length })} · {N("sample_rule")}: NEWS2 ≥ {s.n(board.rule.threshold)}</span>
+        <span className="t-small t-muted" data-testid="occupancy">{N("beds_occupied", { occ: occupied, n: board.beds.length })} · {N("sample_rule")}: NEWS2 ≥ {s.n(board.rule.threshold)}{board.onDuty ? ` · ${N("ho_on_duty", { name: bn ? board.onDuty.nurse.nameBn : board.onDuty.nurse.nameEn, t: hhmm(board.onDuty.since, s.numerals === "bn") })}` : ""}</span>
+        <div><Button size="sm" icon="repeat" onClick={() => router.push("/m/nur/handover")} data-testid="open-handover">{N("ho_link")}</Button></div>
         {board.escalations.map((x) => (
           <Callout key={x.escalation.id} tone="bad" icon="siren" data-testid="escalation-banner" data-escalation={x.escalation.id} data-escalation-status={x.escalation.status} data-unacknowledged={x.escalation.unacknowledged ? "1" : "0"}>
             <span style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -98,6 +99,8 @@ function BedCard({ b, go, onArrive }: { b: WardBoardBed; go: (screen: string, en
           {b.obsOverdue ? <span data-obs="overdue"><Pill tone="bad" icon="clock-alert">{N("obs_overdue")}</Pill></span> : b.nextObsDueAt ? <span data-obs="due"><Pill tone="neu" icon="clock">{N("obs_due", { t: hhmm(b.nextObsDueAt, s.numerals === "bn") })}</Pill></span> : null}
           {b.doses.overdue > 0 && <span data-doses-overdue={b.doses.overdue}><Pill tone="bad" icon="pill">{N("doses_overdue", { n: b.doses.overdue })}</Pill></span>}
           {b.doses.due > 0 && <span data-doses-due={b.doses.due}><Pill tone="warn" icon="pill">{N("doses_due", { n: b.doses.due })}</Pill></span>}
+          {b.tasksOverdue > 0 && <span data-tasks-overdue={b.tasksOverdue}><Pill tone="bad" icon="clipboard-list">{N("tasks_overdue_n", { n: b.tasksOverdue })}</Pill></span>}
+          {b.ioBalance24hMl !== null && <span data-io-balance={b.ioBalance24hMl}><Pill tone="neu" icon="droplet">{N("io_balance_card", { n: b.ioBalance24hMl })}</Pill></span>}
         </span>
         {b.encounterId && (
           <span style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
@@ -105,6 +108,7 @@ function BedCard({ b, go, onArrive }: { b: WardBoardBed; go: (screen: string, en
             <Button size="sm" icon="pill" onClick={() => go("nur/mar", b.encounterId!)} data-testid="open-mar">{N("open_mar")}</Button>
             <Button size="sm" icon="notebook-pen" onClick={() => go("nur/io", b.encounterId!)} data-testid="open-notes">{N("open_notes")}</Button>
             <Button size="sm" icon="move-right" onClick={() => go("ipd/transfer", b.encounterId!)} data-testid="open-move">{N("open_move")}</Button>
+            <WristbandButton encounterId={b.encounterId!} />
           </span>
         )}
       </>) : b.arriving ? (
@@ -160,7 +164,9 @@ function StockPanel({ wardId }: { wardId: string }) {
       {stock && stock.items.length === 0 && <span className="t-small t-muted">{N("stock_empty")}</span>}
       {stock?.items.map((i) => (
         <span key={i.medicineKey} className="t-small" data-stock={i.medicineKey} data-stock-qty={i.qty} style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
-          <span>{i.name}{i.controlled ? <> · <Pill tone="crit">{N("controlled")}</Pill></> : null}</span><b className="num">{s.n(i.qty)} {i.issueUnit}</b>
+          <span>{i.name}{i.controlled ? <> · <Pill tone="crit">{N("controlled")}</Pill></> : null}</span>
+          <span style={{ display: "flex", gap: 6, alignItems: "center" }}><b className="num">{s.n(i.qty)} {i.issueUnit}</b>
+            <button type="button" className="t-small" style={{ border: 0, background: "none", color: "var(--text-link, var(--brand-primary))", cursor: "pointer" }} aria-label={N("labels_print")} title={N("labels_print")} onClick={() => void printLabels(i.batches.map((b) => b.id), N("labels_print")).catch((e) => toast(err(e), "triangle-alert"))} data-testid="stock-labels"><Icon name="tag" size={14} /></button></span>
         </span>
       ))}
       {stock && stock.returns.length > 0 && (

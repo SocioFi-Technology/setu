@@ -2,10 +2,10 @@
 /* Shared by the ward screens (ADR 0015): strings, the error text, the banner for an inpatient (bed and allergies), the
    ward remembered on this device, a PIN sheet for signing / stopping / issuing, and the NEWS2 pill. */
 import { useEffect, useRef, useState } from "react";
-import type { AllergyView, News2, PatientSummary } from "@setu/contracts";
+import type { AllergyView, BatchLabels, News2, PatientSummary, WristbandView } from "@setu/contracts";
 import { format } from "@setu/domain";
 import { fill } from "@setu/i18n";
-import { Button, Callout, Dialog, Pill, TextField, type BannerPatient } from "@setu/ui";
+import { Button, Callout, Dialog, Pill, TextField, useToast, type BannerPatient } from "@setu/ui";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { toBanner, useLabels } from "../fd/common";
@@ -107,3 +107,92 @@ export function WardPatientPicker({ screen, title }: { screen: string; title: st
     </div>
   );
 }
+
+/* ───── ADR 0016: scans and prints ───── */
+type Detector = { detect: (src: CanvasImageSource) => Promise<{ rawValue: string }[]> };
+/** A scan field: a keyboard-wedge scanner types the code and presses Enter; or the camera (BarcodeDetector) where the
+    tablet has it. `state` shows what the server will check (the field never claims a match on its own). */
+export function ScanField({ label, value, onScan, testId, disabled }: { label: string; value: string; onScan: (code: string) => void; testId: string; disabled?: boolean }) {
+  const N = useN();
+  const [text, setText] = useState(""); const [cam, setCam] = useState(false); const [camMsg, setCamMsg] = useState<string | null>(null);
+  const video = useRef<HTMLVideoElement | null>(null);
+  const can = typeof window !== "undefined" && "BarcodeDetector" in window;
+  useEffect(() => {
+    if (!cam) return;
+    let stop = false; let stream: MediaStream | null = null;
+    (async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        if (!video.current) return;
+        video.current.srcObject = stream; await video.current.play();
+        const det = new (window as unknown as { BarcodeDetector: new (o: { formats: string[] }) => Detector }).BarcodeDetector({ formats: ["qr_code"] });
+        while (!stop) {
+          const hits = await det.detect(video.current).catch(() => []);
+          if (hits[0]?.rawValue) { onScan(hits[0].rawValue); setCam(false); break; }
+          await new Promise((r) => setTimeout(r, 250));
+        }
+      } catch { setCamMsg(N("scan_not_supported")); setCam(false); }
+    })();
+    return () => { stop = true; stream?.getTracks().forEach((t) => t.stop()); };
+  }, [cam]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (value) return (
+    <span className="t-small" style={{ display: "flex", gap: 8, alignItems: "center" }} data-testid={testId} data-scanned="1">
+      <Pill tone="info" icon="scan-line">{label}: {N("scan_scanned")}</Pill>
+      <Button size="sm" onClick={() => onScan("")} disabled={disabled}>{N("scan_clear")}</Button>
+    </span>
+  );
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }} data-testid={testId} data-scanned="0">
+      <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
+        <TextField label={label} value={text} hint={N("scan_hint")} autoComplete="off" disabled={disabled} name={testId}
+          onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && text.trim()) { e.preventDefault(); onScan(text.trim()); setText(""); } }} data-testid={`${testId}-input`} />
+        {can && <Button size="sm" icon="camera" onClick={() => setCam(true)} disabled={disabled}>{N("scan_camera")}</Button>}
+      </div>
+      {cam && <video ref={video} muted playsInline style={{ width: 240, borderRadius: 8 }} />}
+      {camMsg && <span className="t-small t-muted">{camMsg}</span>}
+    </div>
+  );
+}
+const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+/** Prints in a window of its own (the app's styles never reach the label printer). */
+export function printHtml(title: string, body: string) {
+  const w = window.open("", "_blank", "width=480,height=640");
+  if (!w) return;
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>
+    body{font-family:system-ui,"Noto Sans Bengali",sans-serif;margin:8px} .band{display:flex;gap:10px;align-items:center;border:1px solid #000;padding:6px;width:250mm;max-width:100%}
+    .band svg,.label svg{width:22mm;height:22mm} .label{display:inline-flex;gap:6px;align-items:center;border:1px dashed #000;padding:4px;margin:3px;width:60mm} b{font-size:13px} small{font-size:10px}
+    @page{margin:4mm}</style></head><body>${body}<script>window.onload=()=>{window.print()}</script></body></html>`);
+  w.document.close();
+}
+export function wristbandHtml(v: WristbandView) {
+  return `<div class="band">${v.qrSvg}<div><b>${esc(v.patient.nameBn)} · ${esc(v.patient.nameEn ?? "")}</b><br><small>${esc(v.patient.facilityNo)} · ${esc(v.admissionNumber ?? "")} · ${esc(v.ward ?? "")} ${esc(v.bed ?? "")}</small><br><small>${v.allergies.length ? "ALLERGY: " + esc(v.allergies.join(", ")) : "NKDA"}</small></div></div>`;
+}
+export function labelsHtml(l: BatchLabels) {
+  return l.items.map((x) => `<div class="label">${x.qrSvg}<div><b>${esc(x.medicine)}</b><br><small>${esc(x.batchNo)} · exp ${esc(x.expiry)}<br>${esc(x.ward)}</small></div></div>`).join("");
+}
+/** Print the wristband: the first print needs nothing; a reprint asks why (the server says so). */
+export function WristbandButton({ encounterId, size = "sm" }: { encounterId: string; size?: "sm" | "md" }) {
+  const s = useSession(); const N = useN(); const err = useErr(); const toast = useToast();
+  const [ask, setAsk] = useState(false); const [reason, setReason] = useState(""); const [busy, setBusy] = useState(false);
+  const key = useRef(crypto.randomUUID());
+  const go = async () => {
+    setBusy(true);
+    try { const v = await ward.wristband(encounterId, reason.trim() || undefined, key.current); key.current = crypto.randomUUID(); setAsk(false); setReason(""); printHtml(N("wristband"), wristbandHtml(v)); }
+    catch (e) {
+      if (e instanceof ApiFailure) key.current = crypto.randomUUID();
+      if (e instanceof ApiFailure && e.body.code === "reason_required") setAsk(true); else toast(err(e), "triangle-alert");
+    } finally { setBusy(false); }
+  };
+  return (
+    <span style={{ display: "inline-flex", gap: 6, alignItems: "flex-end", flexWrap: "wrap" }} data-testid="wristband">
+      {ask && <TextField label={N("wristband_reprint_reason")} value={reason} onChange={(e) => setReason(e.target.value)} name="wristbandReason" data-testid="wristband-reason" />}
+      <Button size={size} icon="printer" disabled={busy || !s.online || (ask && reason.trim().length < 5)} onClick={() => void go()} data-testid="wristband-print">{N("wristband_print")}</Button>
+    </span>
+  );
+}
+export async function printLabels(batchIds: string[], title: string) {
+  if (!batchIds.length) return;
+  const l = await ward.labels(batchIds);
+  printHtml(title, labelsHtml(l));
+}
+

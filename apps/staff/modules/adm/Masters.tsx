@@ -6,7 +6,7 @@
    diagnosis lists stay read-only samples here. Writes keep their Idempotency-Key until they succeed. */
 import { useCallback, useEffect, useState } from "react";
 import type { FacilityView, PriceHistory, PriceItem, PriceList } from "@setu/contracts";
-import { format } from "@setu/domain";
+import { format, shiftHoursOk } from "@setu/domain";
 import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast } from "@setu/ui";
 import { adm } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -212,12 +212,15 @@ function Limits() {
 function EscalationReach() {
   const s = useSession(); const A = useA(); const E = useErr(); const toast = useToast();
   const [f, setF] = useState<FacilityView | null>(null); const [mins, setMins] = useState(""); const [duty, setDuty] = useState<string[]>([]);
+  const [hours, setHours] = useState(""); const [ioStart, setIoStart] = useState("");
   const [busy, setBusy] = useState(false); const [key, setKey] = useState(() => crypto.randomUUID());
-  const show = (x: FacilityView) => { setF(x); setMins(String(x.escalation.ackMinutes)); setDuty(x.escalation.dutyDoctorIds); };
+  const show = (x: FacilityView) => { setF(x); setMins(String(x.escalation.ackMinutes)); setDuty(x.escalation.dutyDoctorIds); setHours(x.shifts.startHours.join(", ")); setIoStart(String(x.shifts.ioDayStartHour)); };
   useEffect(() => { let stale = false; adm.facility().then((x) => { if (!stale) show(x); }).catch(() => undefined); return () => { stale = true; }; }, []); // eslint-disable-line react-hooks/exhaustive-deps
   if (!f) return null;
   const n = /^\d+$/.test(format.toEn(mins)) ? Number(format.toEn(mins)) : null;
-  const ok = n !== null && n >= 5 && n <= 120;
+  const hrs = format.toEn(hours).split(/[,\s]+/).filter(Boolean).map(Number);
+  const io = /^\d+$/.test(format.toEn(ioStart)) ? Number(format.toEn(ioStart)) : null;
+  const ok = n !== null && n >= 5 && n <= 120 && shiftHoursOk(hrs) && io !== null && io <= 23;
   return (
     <Card style={{ display: "flex", flexDirection: "column", gap: 10, padding: 16, maxWidth: 720, marginTop: 14 }} data-testid="escalation-reach">
       <b>{A("esc_title")}</b>
@@ -230,11 +233,17 @@ function EscalationReach() {
           <input type="checkbox" checked={duty.includes(d.id)} data-duty={d.id} onChange={(e) => setDuty(e.target.checked ? [...duty, d.id] : duty.filter((x) => x !== d.id))} /> {s.lang === "bn" ? d.nameBn : d.nameEn}
         </label>
       ))}
+      <b className="t-small">{A("shift_title")}</b>
+      <span className="t-small t-muted">{A("shift_note")}</span>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+        <TextField label={A("shift_hours")} value={hours} onChange={(e) => setHours(e.target.value)} data-testid="shift-hours" />
+        <TextField label={A("io_day_start")} value={ioStart} inputMode="numeric" onChange={(e) => setIoStart(e.target.value)} data-testid="io-day-start" />
+      </div>
       <span><Button variant="primary" icon="save" data-testid="esc-save" disabled={busy || !s.online || !ok}
         onClick={async () => {
           setBusy(true);
           const x = f.settings;
-          try { show(await adm.settings({ cashierLimitPaisa: x.cashierLimitPaisa, cashierLimitBp: x.cashierLimitBp, approverLimitPaisa: x.approverLimitPaisa, labelWidthMm: x.labelWidthMm, labelHeightMm: x.labelHeightMm, receiptFormat: x.receiptFormat ?? "a5", rxFormat: x.rxFormat ?? "a5", paymentMethods: x.paymentMethods, escalationAckMinutes: n!, escalationDutyDoctorIds: duty }, key)); setKey(crypto.randomUUID()); toast(A("saved"), "check"); }
+          try { show(await adm.settings({ cashierLimitPaisa: x.cashierLimitPaisa, cashierLimitBp: x.cashierLimitBp, approverLimitPaisa: x.approverLimitPaisa, labelWidthMm: x.labelWidthMm, labelHeightMm: x.labelHeightMm, receiptFormat: x.receiptFormat ?? "a5", rxFormat: x.rxFormat ?? "a5", paymentMethods: x.paymentMethods, escalationAckMinutes: n!, escalationDutyDoctorIds: duty, shiftStartHours: hrs, ioDayStartHour: io! }, key)); setKey(crypto.randomUUID()); toast(A("saved"), "check"); }
           catch (e) { if (renewKey(e)) setKey(crypto.randomUUID()); toast(E(e), "triangle-alert"); } finally { setBusy(false); }
         }}>{A("save")}</Button></span>
     </Card>

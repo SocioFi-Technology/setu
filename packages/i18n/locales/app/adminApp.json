@@ -1010,5 +1010,21 @@
   "esc_duty_all": [
     "কাউকে না বাছলে: সব সক্রিয় ডাক্তার",
     "None ticked: every active doctor"
+  ],
+  "shift_title": [
+    "শিফট ও ইনটেক/আউটপুট দিন",
+    "Shifts and the intake/output day"
+  ],
+  "shift_hours": [
+    "শিফট শুরু (ঘণ্টা, কমা দিয়ে)",
+    "Shift starts (hours, comma-separated)"
+  ],
+  "io_day_start": [
+    "ইনটেক/আউটপুট দিনের শুরু (ঘণ্টা)",
+    "Intake/output day starts (hour)"
+  ],
+  "shift_note": [
+    "নমুনা — পাইলটের আগে ক্লিনিশিয়ান ঠিক করবেন",
+    "Sample — a clinician decides before the pilot"
   ]
 }

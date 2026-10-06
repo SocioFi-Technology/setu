@@ -1,140 +1,558 @@
 {
-  "_about": ["মালিকের ড্যাশবোর্ড ও শিফট ক্লোজ (স্লাইস C1–C4), প্রোটোটাইপ Setu Owner Dashboard ও Billing থেকে", "Owner dashboard and shift close (slice C1–C4), from the prototypes Setu Owner Dashboard and Billing"],
-  "loading": ["লোড হচ্ছে…", "Loading…"],
-  "error_generic": ["কিছু একটা ভুল হয়েছে — আবার চেষ্টা করুন", "Something went wrong — try again"],
-  "needs_connection": ["এর জন্য সংযোগ দরকার", "This needs a connection"],
-  "dash_title": ["মালিকের ড্যাশবোর্ড", "Owner dashboard"],
-  "greet": ["শুভ দিন, {name}", "Hello, {name}"],
-  "p_today": ["আজ", "Today"],
-  "p_7d": ["৭ দিন", "7 days"],
-  "p_30d": ["৩০ দিন", "30 days"],
-  "vs_today": ["তুলনা: গত সপ্তাহের একই দিন, {h}টা পর্যন্ত", "vs the same day last week, up to {h}:00"],
-  "vs_period": ["তুলনা: আগের {n} দিন", "vs the {n} days before"],
-  "as_of": ["হালনাগাদ {at} · সার্ভার থেকে", "As of {at} · from the server"],
-  "k_revenue": ["আয়", "Revenue"],
-  "k_collections": ["সংগ্রহ", "Collections"],
-  "k_dues": ["বকেয়া", "Dues outstanding"],
-  "k_deposits": ["অগ্রিম জমা", "Deposits held"],
-  "k_discounts": ["ছাড়", "Discounts"],
-  "k_refunds": ["ফেরত", "Refunds"],
-  "k_sharePayable": ["ডাক্তার/রেফারেল প্রাপ্য", "Share payable"],
-  "k_supplierDues": ["সরবরাহকারী বকেয়া", "Supplier dues"],
-  "k_stockValue": ["স্টক মূল্য", "Stock value"],
-  "k_nearExpiry": ["মেয়াদ শেষের কাছে", "Near-expiry value"],
-  "collected_of": ["আয়ের {pct}%", "{pct}% of revenue"],
-  "comes_pharmacy": ["ফার্মেসি মডিউলের সাথে আসবে", "Comes with the pharmacy module"],
-  "comes_ipd": ["আইপিডি মডিউলের সাথে আসবে", "Comes with the IPD module"],
-  "comes_refunds": ["ফেরত (রিফান্ড) চালু হলে আসবে", "Comes with refunds"],
-  "comes_ledger": ["শেয়ার লেজারের সাথে আসবে", "Comes with the share ledger"],
-  "j_better": ["ভালো", "better"],
-  "j_worse": ["খারাপ", "worse"],
-  "j_same": ["একই", "same"],
-  "no_compare": ["তুলনার আগের তথ্য নেই", "nothing to compare with"],
-  "chart_title": ["আয় বনাম সংগ্রহ", "Revenue vs collected"],
-  "chart_revenue": ["আয় (বিল)", "Revenue (billed)"],
-  "chart_collected": ["সংগ্রহ (পেমেন্ট)", "Collected (payments)"],
-  "chart_y": ["Y: টাকা", "Y: taka"],
-  "chart_x_hour": ["X: ঘণ্টা", "X: hour of day"],
-  "chart_x_day": ["X: তারিখ", "X: date"],
-  "chart_table": ["তালিকা দেখুন", "Show as table"],
-  "chart_chart": ["চার্ট দেখুন", "Show as chart"],
-  "chart_empty": ["এই সময়ে কোনো আয় বা সংগ্রহ নেই", "No revenue or collections in this period"],
-  "by_method": ["পেমেন্ট মাধ্যম অনুযায়ী", "By payment method"],
-  "m_cash": ["নগদ টাকা", "Cash"],
-  "m_bkash": ["বিকাশ", "bKash"],
-  "m_nagad": ["Nagad", "Nagad"],
-  "m_card": ["কার্ড", "Card"],
-  "m_bank": ["ব্যাংক", "Bank"],
-  "ops_title": ["কার্যক্রম", "Operations"],
-  "o_opdVisits": ["ওপিডি ভিজিট", "OPD visits"],
-  "o_labTests": ["ল্যাব পরীক্ষা (প্রকাশিত)", "Lab tests released"],
-  "o_labTat": ["ল্যাব TAT (গড় মিনিট)", "Lab TAT (avg minutes)"],
-  "o_noShows": ["আসেননি", "No-shows"],
-  "o_cashVariance": ["নগদ গরমিল", "Cash variance"],
-  "o_reprints": ["আবার প্রিন্ট", "Reprints"],
-  "leak_title": ["লিকেজ ও সতর্কতা", "Leakage & alerts"],
-  "l_cashOutsideShift": ["শিফটের বাইরে নগদ নেওয়া", "Cash taken outside a shift"],
-  "l_shiftVariance": ["শিফটে নগদ গরমিল", "Cash variance in shifts"],
-  "l_discountAbovePolicy": ["নীতির বাইরে ছাড়", "Discounts above policy"],
-  "l_reprints": ["রসিদ/নথি আবার প্রিন্ট", "Receipts / documents reprinted"],
-  "l_notBilledHere": ["এখানে বিল হয়নি", "Not billed here"],
-  "l_refundsPaid": ["ফেরত দেওয়া রিফান্ড (কারণ ও অনুমোদনকারীসহ)", "Refunds paid (with reason and approver)"],
-  "l_medicationIncident": ["ভুল ওষুধ দেওয়া — ফেরত (ওষুধ-ঘটনা)", "Wrong dispense returned (medication incident)"],
-  "l_selfApproved": ["নিজের অনুরোধ নিজে অনুমোদিত (একমাত্র অনুমোদনকারী)", "Self-approved refunds (the only approver)"],
-  "l_manualRefundUnchecked": ["হাতে দেওয়া রিফান্ড — স্টেটমেন্টের সঙ্গে মেলানো বাকি", "Refunds paid by hand — not yet matched to a statement"],
-  "sev_high": ["উচ্চ", "High"],
-  "sev_review": ["পর্যালোচনা", "Review"],
-  "leak_none": ["এই সময়ে কিছু নেই", "Nothing in this period"],
-  "pending_title": ["আপনার অপেক্ষায়", "Waiting for you"],
-  "pending_approvals": ["অনুমোদন · {n}", "Approvals · {n}"],
-  "pending_shifts": ["শিফট হস্তান্তর · {n}", "Shifts handed over · {n}"],
-  "pending_stale": ["১২ ঘণ্টার বেশি খোলা শিফট · {n}", "Shifts open over 12 h · {n}"],
-  "missing_days": ["{n}টি আগের দিনের হিসাব তৈরি হচ্ছে — রাতের কাজে বা পরের বার খুললে পূর্ণ হবে", "{n} earlier day(s) are still being prepared — the nightly job or the next load completes them"],
-  "cash_split": ["কম {short} · বেশি {over}", "short {short} · over {over}"],
-  "drill_truncated": ["প্রথম {n}টি দেখানো হচ্ছে — মোট সব সারির", "Showing the first {n} — the total covers every row"],
-  "pending_reconcile": ["পেমেন্ট মিলিয়ে দেখা · {n}", "Payment reconciliation · {n}"],
-  "drill_logged": ["এই তালিকা দেখা লগ হয় · এটি সার্ভারের হিসাব", "Viewing this list is logged · server figures"],
-  "drill_total": ["মোট {total} · {n}টি", "Total {total} · {n} row(s)"],
-  "drill_empty": ["এই সময়ে কিছু নেই", "Nothing in this period"],
-  "drill_by": ["দিয়েছেন {name}", "by {name}"],
-  "drill_approved": ["অনুমোদন {name}", "approved by {name}"],
-  "drill_open": ["খুলুন", "Open"],
-  "close": ["বন্ধ", "Close"],
-  "sh_title": ["শিফট ক্লোজ", "Shift close"],
-  "sh_none": ["আপনার কোনো শিফট খোলা নেই", "You have no open shift"],
-  "sh_float": ["শুরুর ক্যাশ (ফ্লোট), টাকা", "Opening float (taka)"],
-  "sh_open": ["শিফট শুরু করুন", "Open the shift"],
-  "sh_opened": ["শিফট শুরু {at} · ফ্লোট {float}", "Shift opened {at} · float {float}"],
-  "sh_expected_now": ["ড্রয়ারে থাকার কথা (এখন)", "The drawer should hold (now)"],
-  "sh_cash_in": ["নগদ নেওয়া", "Cash taken"],
-  "sh_payments": ["{n}টি পেমেন্ট নিশ্চিত", "{n} payment(s) confirmed"],
-  "sh_count": ["নগদ গণনা — নোট অনুযায়ী", "Cash count — by note"],
-  "sh_note": ["৳{d}", "৳{d}"],
-  "sh_counted": ["গোনা হয়েছে", "Counted"],
-  "sh_expected": ["থাকার কথা", "Expected"],
-  "sh_variance": ["গরমিল", "Variance"],
-  "sh_matched": ["মিলেছে", "Matched"],
-  "sh_short": ["কম", "Short"],
-  "sh_over": ["বেশি", "Over"],
-  "sh_preview": ["গরমিল দেখানো হচ্ছে এখনকার হিসাবে — হস্তান্তরের সময় সার্ভার আবার হিসাব করবে", "The variance shown uses the current figures — the server recalculates it when you hand over"],
-  "sh_digital": ["ডিজিটাল টাকা — সিস্টেম বনাম সেটেলমেন্ট", "Digital money — system vs settlement"],
-  "sh_system": ["সিস্টেম", "System"],
-  "sh_settlement": ["সেটেলমেন্ট (আপনি দেখে লিখুন)", "Settlement (as you read it)"],
-  "sh_d_matched": ["ক্যাশিয়ারের লেখা অঙ্কের সাথে মিলেছে", "matches the cashier's figure"],
-  "sh_d_none": ["কিছু নেওয়া হয়নি", "nothing taken"],
-  "sh_done_handover": ["হস্তান্তর হয়েছে · সার্ভারে নিশ্চিত", "Handed over · confirmed by the server"],
-  "sh_d_unverified": ["সেটেলমেন্টের অঙ্ক ক্যাশিয়ার লিখেছেন — টার্মিনাল/ব্যাংক স্টেটমেন্টের সাথে মিলিয়ে নিন", "Settlement figures were entered by the cashier — check them against the terminal / bank statement"],
-  "sh_blind": ["না দেখে গণনা: ড্রয়ারে কত থাকার কথা তা গণনার পরে দেখানো হবে", "Blind count: what the drawer should hold is shown after you count"],
-  "sh_revealed": ["সার্ভারের হিসাব", "server figure"],
-  "sh_float_owner": ["ফ্লোট {float} — ক্যাশিয়ার শুরুতে লিখেছেন; আপনি যা দিয়েছিলেন তার সাথে মিলিয়ে নিন", "Float {float} — entered by the cashier when opening; check it matches what you handed over"],
-  "sh_d_pending": ["সেটেলমেন্ট লেখা হয়নি", "Settlement not entered"],
-  "sh_d_mismatch": ["মেলেনি {diff}", "Does not match {diff}"],
-  "sh_d_hint": ["মেলেনি দেখালেও শিফট বন্ধ করা যায় — মালিক দেখবেন", "A mismatch does not stop the hand-over — the owner sees it"],
-  "sh_reason": ["গরমিলের কারণ (অন্তত ১০ অক্ষর)", "Reason for the variance (at least 10 characters)"],
-  "sh_reason_needed": ["গরমিল আছে — কারণ ছাড়া হস্তান্তর করা যাবে না", "There is a variance — it cannot be handed over without a reason"],
-  "sh_handover": ["হস্তান্তর ও শিফট বন্ধ", "Hand over & close the shift"],
-  "sh_waiting": ["সার্ভারের অপেক্ষা…", "Waiting for the server…"],
-  "sh_closed": ["হস্তান্তর হয়েছে {at} · মালিক/অ্যাডমিনের অনুমোদনের অপেক্ষায়", "Handed over {at} · waiting for the owner / admin"],
-  "sh_recount": ["আবার গণনা করুন — {by}: {note}", "Count again — {by}: {note}"],
-  "sh_last": ["শেষ অনুমোদিত শিফট: {at} · গরমিল {variance}", "Last approved shift: {at} · variance {variance}"],
-  "sh_review_title": ["হস্তান্তর হওয়া শিফট", "Shifts handed over"],
-  "sh_review_none": ["অনুমোদনের অপেক্ষায় কোনো শিফট নেই", "No shift waiting for you"],
-  "sh_cashier": ["ক্যাশিয়ার {name}", "Cashier {name}"],
-  "sh_count_no": ["গণনা #{n}", "Count #{n}"],
-  "sh_why": ["কারণ: {reason}", "Reason: {reason}"],
-  "sh_review_note": ["নোট (গরমিল মেনে নিতে বা আবার গণনার জন্য — অন্তত ১০ অক্ষর)", "Note (to accept a variance or ask for a recount — at least 10 characters)"],
-  "sh_approve": ["অনুমোদন", "Approve"],
-  "sh_accept": ["গরমিল মেনে নিন", "Accept the variance"],
-  "sh_recount_btn": ["আবার গণনা চান", "Ask for a recount"],
-  "sh_own": ["নিজের শিফট নিজে অনুমোদন করা যায় না", "You cannot approve your own shift"],
-  "sh_done_approved": ["অনুমোদিত · সার্ভারে নিশ্চিত", "Approved · confirmed by the server"],
-  "sh_done_recount": ["আবার গণনার জন্য ফেরত পাঠানো হয়েছে", "Sent back for a recount"],
-  "sh_history": ["ইতিহাস", "History"],
-  "sh_my_title": ["আমার ড্রয়ার", "My drawer"],
-  "rs_requested": ["অনুমোদনের অপেক্ষায়", "Waiting for approval"],
-  "rs_approved": ["অনুমোদিত", "Approved"],
-  "rs_paid": ["দেওয়া হয়েছে", "Paid"],
-  "rs_rejected": ["প্রত্যাখ্যাত", "Rejected"],
-  "rs_withdrawn": ["প্রত্যাহার করা হয়েছে", "Withdrawn"],
-  "l_creditReturns": ["টাকা ছাড়া ফেরত (বকেয়া মওকুফ)", "Returns without refund (due written off)"]
+  "_about": [
+    "মালিকের ড্যাশবোর্ড ও শিফট ক্লোজ (স্লাইস C1–C4), প্রোটোটাইপ Setu Owner Dashboard ও Billing থেকে",
+    "Owner dashboard and shift close (slice C1–C4), from the prototypes Setu Owner Dashboard and Billing"
+  ],
+  "loading": [
+    "লোড হচ্ছে…",
+    "Loading…"
+  ],
+  "error_generic": [
+    "কিছু একটা ভুল হয়েছে — আবার চেষ্টা করুন",
+    "Something went wrong — try again"
+  ],
+  "needs_connection": [
+    "এর জন্য সংযোগ দরকার",
+    "This needs a connection"
+  ],
+  "dash_title": [
+    "মালিকের ড্যাশবোর্ড",
+    "Owner dashboard"
+  ],
+  "greet": [
+    "শুভ দিন, {name}",
+    "Hello, {name}"
+  ],
+  "p_today": [
+    "আজ",
+    "Today"
+  ],
+  "p_7d": [
+    "৭ দিন",
+    "7 days"
+  ],
+  "p_30d": [
+    "৩০ দিন",
+    "30 days"
+  ],
+  "vs_today": [
+    "তুলনা: গত সপ্তাহের একই দিন, {h}টা পর্যন্ত",
+    "vs the same day last week, up to {h}:00"
+  ],
+  "vs_period": [
+    "তুলনা: আগের {n} দিন",
+    "vs the {n} days before"
+  ],
+  "as_of": [
+    "হালনাগাদ {at} · সার্ভার থেকে",
+    "As of {at} · from the server"
+  ],
+  "k_revenue": [
+    "আয়",
+    "Revenue"
+  ],
+  "k_collections": [
+    "সংগ্রহ",
+    "Collections"
+  ],
+  "k_dues": [
+    "বকেয়া",
+    "Dues outstanding"
+  ],
+  "k_deposits": [
+    "অগ্রিম জমা",
+    "Deposits held"
+  ],
+  "k_discounts": [
+    "ছাড়",
+    "Discounts"
+  ],
+  "k_refunds": [
+    "ফেরত",
+    "Refunds"
+  ],
+  "k_sharePayable": [
+    "ডাক্তার/রেফারেল প্রাপ্য",
+    "Share payable"
+  ],
+  "k_supplierDues": [
+    "সরবরাহকারী বকেয়া",
+    "Supplier dues"
+  ],
+  "k_stockValue": [
+    "স্টক মূল্য",
+    "Stock value"
+  ],
+  "k_nearExpiry": [
+    "মেয়াদ শেষের কাছে",
+    "Near-expiry value"
+  ],
+  "collected_of": [
+    "আয়ের {pct}%",
+    "{pct}% of revenue"
+  ],
+  "comes_pharmacy": [
+    "ফার্মেসি মডিউলের সাথে আসবে",
+    "Comes with the pharmacy module"
+  ],
+  "comes_ipd": [
+    "আইপিডি মডিউলের সাথে আসবে",
+    "Comes with the IPD module"
+  ],
+  "comes_refunds": [
+    "ফেরত (রিফান্ড) চালু হলে আসবে",
+    "Comes with refunds"
+  ],
+  "comes_ledger": [
+    "শেয়ার লেজারের সাথে আসবে",
+    "Comes with the share ledger"
+  ],
+  "j_better": [
+    "ভালো",
+    "better"
+  ],
+  "j_worse": [
+    "খারাপ",
+    "worse"
+  ],
+  "j_same": [
+    "একই",
+    "same"
+  ],
+  "no_compare": [
+    "তুলনার আগের তথ্য নেই",
+    "nothing to compare with"
+  ],
+  "chart_title": [
+    "আয় বনাম সংগ্রহ",
+    "Revenue vs collected"
+  ],
+  "chart_revenue": [
+    "আয় (বিল)",
+    "Revenue (billed)"
+  ],
+  "chart_collected": [
+    "সংগ্রহ (পেমেন্ট)",
+    "Collected (payments)"
+  ],
+  "chart_y": [
+    "Y: টাকা",
+    "Y: taka"
+  ],
+  "chart_x_hour": [
+    "X: ঘণ্টা",
+    "X: hour of day"
+  ],
+  "chart_x_day": [
+    "X: তারিখ",
+    "X: date"
+  ],
+  "chart_table": [
+    "তালিকা দেখুন",
+    "Show as table"
+  ],
+  "chart_chart": [
+    "চার্ট দেখুন",
+    "Show as chart"
+  ],
+  "chart_empty": [
+    "এই সময়ে কোনো আয় বা সংগ্রহ নেই",
+    "No revenue or collections in this period"
+  ],
+  "by_method": [
+    "পেমেন্ট মাধ্যম অনুযায়ী",
+    "By payment method"
+  ],
+  "m_cash": [
+    "নগদ টাকা",
+    "Cash"
+  ],
+  "m_bkash": [
+    "বিকাশ",
+    "bKash"
+  ],
+  "m_nagad": [
+    "Nagad",
+    "Nagad"
+  ],
+  "m_card": [
+    "কার্ড",
+    "Card"
+  ],
+  "m_bank": [
+    "ব্যাংক",
+    "Bank"
+  ],
+  "ops_title": [
+    "কার্যক্রম",
+    "Operations"
+  ],
+  "o_opdVisits": [
+    "ওপিডি ভিজিট",
+    "OPD visits"
+  ],
+  "o_labTests": [
+    "ল্যাব পরীক্ষা (প্রকাশিত)",
+    "Lab tests released"
+  ],
+  "o_labTat": [
+    "ল্যাব TAT (গড় মিনিট)",
+    "Lab TAT (avg minutes)"
+  ],
+  "o_noShows": [
+    "আসেননি",
+    "No-shows"
+  ],
+  "o_cashVariance": [
+    "নগদ গরমিল",
+    "Cash variance"
+  ],
+  "o_reprints": [
+    "আবার প্রিন্ট",
+    "Reprints"
+  ],
+  "leak_title": [
+    "লিকেজ ও সতর্কতা",
+    "Leakage & alerts"
+  ],
+  "l_cashOutsideShift": [
+    "শিফটের বাইরে নগদ নেওয়া",
+    "Cash taken outside a shift"
+  ],
+  "l_shiftVariance": [
+    "শিফটে নগদ গরমিল",
+    "Cash variance in shifts"
+  ],
+  "l_discountAbovePolicy": [
+    "নীতির বাইরে ছাড়",
+    "Discounts above policy"
+  ],
+  "l_reprints": [
+    "রসিদ/নথি আবার প্রিন্ট",
+    "Receipts / documents reprinted"
+  ],
+  "l_notBilledHere": [
+    "এখানে বিল হয়নি",
+    "Not billed here"
+  ],
+  "l_refundsPaid": [
+    "ফেরত দেওয়া রিফান্ড (কারণ ও অনুমোদনকারীসহ)",
+    "Refunds paid (with reason and approver)"
+  ],
+  "l_medicationIncident": [
+    "ভুল ওষুধ দেওয়া — ফেরত (ওষুধ-ঘটনা)",
+    "Wrong dispense returned (medication incident)"
+  ],
+  "l_selfApproved": [
+    "নিজের অনুরোধ নিজে অনুমোদিত (একমাত্র অনুমোদনকারী)",
+    "Self-approved refunds (the only approver)"
+  ],
+  "l_manualRefundUnchecked": [
+    "হাতে দেওয়া রিফান্ড — স্টেটমেন্টের সঙ্গে মেলানো বাকি",
+    "Refunds paid by hand — not yet matched to a statement"
+  ],
+  "sev_high": [
+    "উচ্চ",
+    "High"
+  ],
+  "sev_review": [
+    "পর্যালোচনা",
+    "Review"
+  ],
+  "leak_none": [
+    "এই সময়ে কিছু নেই",
+    "Nothing in this period"
+  ],
+  "pending_title": [
+    "আপনার অপেক্ষায়",
+    "Waiting for you"
+  ],
+  "pending_approvals": [
+    "অনুমোদন · {n}",
+    "Approvals · {n}"
+  ],
+  "pending_shifts": [
+    "শিফট হস্তান্তর · {n}",
+    "Shifts handed over · {n}"
+  ],
+  "pending_stale": [
+    "১২ ঘণ্টার বেশি খোলা শিফট · {n}",
+    "Shifts open over 12 h · {n}"
+  ],
+  "missing_days": [
+    "{n}টি আগের দিনের হিসাব তৈরি হচ্ছে — রাতের কাজে বা পরের বার খুললে পূর্ণ হবে",
+    "{n} earlier day(s) are still being prepared — the nightly job or the next load completes them"
+  ],
+  "cash_split": [
+    "কম {short} · বেশি {over}",
+    "short {short} · over {over}"
+  ],
+  "drill_truncated": [
+    "প্রথম {n}টি দেখানো হচ্ছে — মোট সব সারির",
+    "Showing the first {n} — the total covers every row"
+  ],
+  "pending_reconcile": [
+    "পেমেন্ট মিলিয়ে দেখা · {n}",
+    "Payment reconciliation · {n}"
+  ],
+  "drill_logged": [
+    "এই তালিকা দেখা লগ হয় · এটি সার্ভারের হিসাব",
+    "Viewing this list is logged · server figures"
+  ],
+  "drill_total": [
+    "মোট {total} · {n}টি",
+    "Total {total} · {n} row(s)"
+  ],
+  "drill_empty": [
+    "এই সময়ে কিছু নেই",
+    "Nothing in this period"
+  ],
+  "drill_by": [
+    "দিয়েছেন {name}",
+    "by {name}"
+  ],
+  "drill_approved": [
+    "অনুমোদন {name}",
+    "approved by {name}"
+  ],
+  "drill_open": [
+    "খুলুন",
+    "Open"
+  ],
+  "close": [
+    "বন্ধ",
+    "Close"
+  ],
+  "sh_title": [
+    "শিফট ক্লোজ",
+    "Shift close"
+  ],
+  "sh_none": [
+    "আপনার কোনো শিফট খোলা নেই",
+    "You have no open shift"
+  ],
+  "sh_float": [
+    "শুরুর ক্যাশ (ফ্লোট), টাকা",
+    "Opening float (taka)"
+  ],
+  "sh_open": [
+    "শিফট শুরু করুন",
+    "Open the shift"
+  ],
+  "sh_opened": [
+    "শিফট শুরু {at} · ফ্লোট {float}",
+    "Shift opened {at} · float {float}"
+  ],
+  "sh_expected_now": [
+    "ড্রয়ারে থাকার কথা (এখন)",
+    "The drawer should hold (now)"
+  ],
+  "sh_cash_in": [
+    "নগদ নেওয়া",
+    "Cash taken"
+  ],
+  "sh_payments": [
+    "{n}টি পেমেন্ট নিশ্চিত",
+    "{n} payment(s) confirmed"
+  ],
+  "sh_count": [
+    "নগদ গণনা — নোট অনুযায়ী",
+    "Cash count — by note"
+  ],
+  "sh_note": [
+    "৳{d}",
+    "৳{d}"
+  ],
+  "sh_counted": [
+    "গোনা হয়েছে",
+    "Counted"
+  ],
+  "sh_expected": [
+    "থাকার কথা",
+    "Expected"
+  ],
+  "sh_variance": [
+    "গরমিল",
+    "Variance"
+  ],
+  "sh_matched": [
+    "মিলেছে",
+    "Matched"
+  ],
+  "sh_short": [
+    "কম",
+    "Short"
+  ],
+  "sh_over": [
+    "বেশি",
+    "Over"
+  ],
+  "sh_preview": [
+    "গরমিল দেখানো হচ্ছে এখনকার হিসাবে — হস্তান্তরের সময় সার্ভার আবার হিসাব করবে",
+    "The variance shown uses the current figures — the server recalculates it when you hand over"
+  ],
+  "sh_digital": [
+    "ডিজিটাল টাকা — সিস্টেম বনাম সেটেলমেন্ট",
+    "Digital money — system vs settlement"
+  ],
+  "sh_system": [
+    "সিস্টেম",
+    "System"
+  ],
+  "sh_settlement": [
+    "সেটেলমেন্ট (আপনি দেখে লিখুন)",
+    "Settlement (as you read it)"
+  ],
+  "sh_d_matched": [
+    "ক্যাশিয়ারের লেখা অঙ্কের সাথে মিলেছে",
+    "matches the cashier's figure"
+  ],
+  "sh_d_none": [
+    "কিছু নেওয়া হয়নি",
+    "nothing taken"
+  ],
+  "sh_done_handover": [
+    "হস্তান্তর হয়েছে · সার্ভারে নিশ্চিত",
+    "Handed over · confirmed by the server"
+  ],
+  "sh_d_unverified": [
+    "সেটেলমেন্টের অঙ্ক ক্যাশিয়ার লিখেছেন — টার্মিনাল/ব্যাংক স্টেটমেন্টের সাথে মিলিয়ে নিন",
+    "Settlement figures were entered by the cashier — check them against the terminal / bank statement"
+  ],
+  "sh_blind": [
+    "না দেখে গণনা: ড্রয়ারে কত থাকার কথা তা গণনার পরে দেখানো হবে",
+    "Blind count: what the drawer should hold is shown after you count"
+  ],
+  "sh_revealed": [
+    "সার্ভারের হিসাব",
+    "server figure"
+  ],
+  "sh_float_owner": [
+    "ফ্লোট {float} — ক্যাশিয়ার শুরুতে লিখেছেন; আপনি যা দিয়েছিলেন তার সাথে মিলিয়ে নিন",
+    "Float {float} — entered by the cashier when opening; check it matches what you handed over"
+  ],
+  "sh_d_pending": [
+    "সেটেলমেন্ট লেখা হয়নি",
+    "Settlement not entered"
+  ],
+  "sh_d_mismatch": [
+    "মেলেনি {diff}",
+    "Does not match {diff}"
+  ],
+  "sh_d_hint": [
+    "মেলেনি দেখালেও শিফট বন্ধ করা যায় — মালিক দেখবেন",
+    "A mismatch does not stop the hand-over — the owner sees it"
+  ],
+  "sh_reason": [
+    "গরমিলের কারণ (অন্তত ১০ অক্ষর)",
+    "Reason for the variance (at least 10 characters)"
+  ],
+  "sh_reason_needed": [
+    "গরমিল আছে — কারণ ছাড়া হস্তান্তর করা যাবে না",
+    "There is a variance — it cannot be handed over without a reason"
+  ],
+  "sh_handover": [
+    "হস্তান্তর ও শিফট বন্ধ",
+    "Hand over & close the shift"
+  ],
+  "sh_waiting": [
+    "সার্ভারের অপেক্ষা…",
+    "Waiting for the server…"
+  ],
+  "sh_closed": [
+    "হস্তান্তর হয়েছে {at} · মালিক/অ্যাডমিনের অনুমোদনের অপেক্ষায়",
+    "Handed over {at} · waiting for the owner / admin"
+  ],
+  "sh_recount": [
+    "আবার গণনা করুন — {by}: {note}",
+    "Count again — {by}: {note}"
+  ],
+  "sh_last": [
+    "শেষ অনুমোদিত শিফট: {at} · গরমিল {variance}",
+    "Last approved shift: {at} · variance {variance}"
+  ],
+  "sh_review_title": [
+    "হস্তান্তর হওয়া শিফট",
+    "Shifts handed over"
+  ],
+  "sh_review_none": [
+    "অনুমোদনের অপেক্ষায় কোনো শিফট নেই",
+    "No shift waiting for you"
+  ],
+  "sh_cashier": [
+    "ক্যাশিয়ার {name}",
+    "Cashier {name}"
+  ],
+  "sh_count_no": [
+    "গণনা #{n}",
+    "Count #{n}"
+  ],
+  "sh_why": [
+    "কারণ: {reason}",
+    "Reason: {reason}"
+  ],
+  "sh_review_note": [
+    "নোট (গরমিল মেনে নিতে বা আবার গণনার জন্য — অন্তত ১০ অক্ষর)",
+    "Note (to accept a variance or ask for a recount — at least 10 characters)"
+  ],
+  "sh_approve": [
+    "অনুমোদন",
+    "Approve"
+  ],
+  "sh_accept": [
+    "গরমিল মেনে নিন",
+    "Accept the variance"
+  ],
+  "sh_recount_btn": [
+    "আবার গণনা চান",
+    "Ask for a recount"
+  ],
+  "sh_own": [
+    "নিজের শিফট নিজে অনুমোদন করা যায় না",
+    "You cannot approve your own shift"
+  ],
+  "sh_done_approved": [
+    "অনুমোদিত · সার্ভারে নিশ্চিত",
+    "Approved · confirmed by the server"
+  ],
+  "sh_done_recount": [
+    "আবার গণনার জন্য ফেরত পাঠানো হয়েছে",
+    "Sent back for a recount"
+  ],
+  "sh_history": [
+    "ইতিহাস",
+    "History"
+  ],
+  "sh_my_title": [
+    "আমার ড্রয়ার",
+    "My drawer"
+  ],
+  "rs_requested": [
+    "অনুমোদনের অপেক্ষায়",
+    "Waiting for approval"
+  ],
+  "rs_approved": [
+    "অনুমোদিত",
+    "Approved"
+  ],
+  "rs_paid": [
+    "দেওয়া হয়েছে",
+    "Paid"
+  ],
+  "rs_rejected": [
+    "প্রত্যাখ্যাত",
+    "Rejected"
+  ],
+  "rs_withdrawn": [
+    "প্রত্যাহার করা হয়েছে",
+    "Withdrawn"
+  ],
+  "l_creditReturns": [
+    "টাকা ছাড়া ফেরত (বকেয়া মওকুফ)",
+    "Returns without refund (due written off)"
+  ],
+  "l_scanOverride": [
+    "স্ক্যান ছাড়া ডোজ (স্ক্যানার কাজ করছে না) — নার্স অনুযায়ী",
+    "Doses given without the scans (scanner not working) — per nurse"
+  ]
 }

@@ -12,7 +12,7 @@ import {
 import { authorize } from "@setu/domain";
 import { command, query } from "../command.js";
 import { err, forbidden } from "../errors.js";
-import { cancelIndent, createIndent, issueIndent, pharmacyIndents, wardHere, wardIndents, wardStock } from "../modules/indent.js";
+import { batchLabels, cancelIndent, createIndent, issueIndent, pharmacyIndents, wardHere, wardIndents, wardStock } from "../modules/indent.js";
 import { countList, countView, createCount, setCountLine, submitCount } from "../modules/purchasing.js";
 import { arriveBed, cancelMove, moveBed } from "../modules/ipd.js";
 import { markDoseError, marView, openVial, printWristband, recordDose, witnesses } from "../modules/mar.js";
@@ -165,6 +165,10 @@ export async function nursingRoutes(app: FastifyInstance) {
   app.post("/v1/nursing/encounters/:id/wristband", own, async (req, reply) => {
     requireAny(req, ["nur", "ward"], ["nur", "mar"], ["ipd", "admit"]); const { id } = pid.parse(req.params); const body = WristbandRequest.parse(req.body ?? {});
     return command(req, reply, async (tx, s) => { const r = await printWristband(tx, s, id, body.reason, new Date()); return { status: 201, body: r.view, audit: r.audit }; });
+  });
+  app.get("/v1/nursing/labels", async (req) => {
+    requireAny(req, ["nur", "ward"], ["ph", "indent"]); const { batches } = z.object({ batches: z.string().max(2000) }).parse(req.query ?? {});
+    return query(req, async (tx, s) => ({ body: await batchLabels(tx, s, batches.split(",").filter(Boolean)), audit: [] }));
   });
   app.get("/v1/nursing/encounters/:id/io", async (req) => {
     requireAny(req, ["nur", "io"], ["ipd", "rounds"]); const { id } = pid.parse(req.params); const { day } = z.object({ day: z.string().max(10).optional() }).parse(req.query ?? {});

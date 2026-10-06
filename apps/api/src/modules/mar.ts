@@ -16,6 +16,7 @@ import { activeAllergyFacts, toAllergyView } from "./consultation.js";
 import { getPatient, notFound, toSummary } from "./frontdesk.js";
 import { closedVisit, erPatientOf, inpatientHere, iso, peopleOf, stale, type Inpatient } from "./inpatient.js";
 import { config } from "../config.js";
+import { qrSvg } from "../receipts/template.js";
 import { requirePin } from "./pin.js";
 import { devHash } from "./users.js";
 
@@ -328,7 +329,7 @@ export async function printWristband(tx: Tx, s: SessionData, encounterId: string
   await tx.wristbandPrint.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, admissionId: ip.adm.id, encounterId: ip.e.id, patientId: ip.e.patientId, reason: before > 0 ? reason!.trim() : null, printedById: s.userId, printedAt: now } });
   const facts = await activeAllergyFacts(tx, ip.e.patientId);
   return {
-    view: { code: wristbandOf(ip.adm.id, ip.e.patient.facilityNo), patient: erPatientOf(ip.e.patient), admissionNumber: ip.adm.number, bed: ip.bed?.name ?? null, ward: ip.ward?.name ?? null, printedBefore: before, allergies: facts.map((f) => f.labelEn) },
+    view: { code: wristbandOf(ip.adm.id, ip.e.patient.facilityNo), qrSvg: qrSvg(wristbandOf(ip.adm.id, ip.e.patient.facilityNo)), patient: erPatientOf(ip.e.patient), admissionNumber: ip.adm.number, bed: ip.bed?.name ?? null, ward: ip.ward?.name ?? null, printedBefore: before, allergies: facts.map((f) => f.labelEn) },
     audit: [{ action: before > 0 ? "reprint" : "print", entity: "Wristband", entityId: ip.adm.id, patientId: ip.e.patientId, detail: { reason: before > 0 ? reason!.trim() : null } }],
   };
 }

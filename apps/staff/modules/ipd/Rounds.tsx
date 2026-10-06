@@ -14,6 +14,7 @@ import { Button, Callout, Card, PageState, Pill, SelectField, TextArea, TextFiel
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { News2Pill, PinSheet, hhmm, useErr, useLabels, useN, useWardBanner } from "../nur/common";
+import { CarePanel } from "../nur/Io";
 
 type Med = RoundView["activeOrders"][number]["medicine"];
 
@@ -82,6 +83,11 @@ function RoundFor({ enc }: { enc: string }) {
             {v.overnight.vitals.map((x, i) => <span key={i} className="t-small" style={{ display: "flex", gap: 8, alignItems: "center" }}><span className="num">{hhmm(x.at, bnNum)}</span><News2Pill n={x.news2} /><span className="t-muted">{x.summary}</span></span>)}
             {v.overnight.doses.filter((d) => d.status !== "given").map((d, i) => <span key={i} className="t-small" data-overnight-dose={d.status}>{d.medicine} · {N(`st_${d.status}`)} · {hhmm(d.at, bnNum)}{d.reason ? ` — ${d.reason}` : ""}</span>)}
             {v.overnight.notes.filter((n) => n.status === "active").map((n) => <span key={n.id} className="t-small">{hhmm(n.effectiveAt, bnNum)} · {n.text}</span>)}
+          </Card>
+          {v.io24h && <span className="t-small" data-testid="round-io">{N("io_24h", { i: N("io_ml_n", { n: v.io24h.inMl }), o: N("io_ml_n", { n: v.io24h.outMl }), b: N("io_ml_n", { n: v.io24h.balanceMl }) })}</span>}
+          <Card style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14 }} data-testid="round-care">
+            <b>{N("care_tab")}</b>
+            <CarePanel enc={enc} />
           </Card>
           <Card style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14 }} data-testid="active-orders">
             <b>{N("active_orders")}</b>
