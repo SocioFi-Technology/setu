@@ -1015,6 +1015,19 @@ open escalations and due doses, and cannot be accepted over an unacknowledged es
 - **Decision 286 (Kamrul, 06/10/2026):** every open escalation, acknowledged or not and however recent, is listed on the
   handover sheet and must be named in the acceptance note; acceptance is refused otherwise (ADR 0016 amendment).
 
+## Done (B5–B6 follow-ups, 06/10/2026) — Kamrul: 280–285 accepted as built; two follow-ups before B7–B9 ✅
+- **Digit-only scan codes (`9733b09`, ADR 0016 amendment 2, migration `20261006091400_digit_scan_codes`):** a wedge
+  scanner under a Bangla layout types Bangla digits, which the scan field reads back as Latin (decision 253). Wristband
+  `91` + 10-digit print serial + 8-digit HMAC; medicine label `92` + 10-digit serial (new append-only `BatchLabel`, made
+  at the indent issue or the first print) + mod 97-10 check digits; labels print through `POST /v1/nursing/labels`.
+  The dose dialog opens with the cursor in the band field, jumps to the medicine field after the band, and a digit typed
+  while a five-rights tick has the focus goes to the next empty scan field (journey B5 caught that one). Lettered bands
+  from before no longer verify — reprint.
+- **Production refusals (`c596a22`, external review A1):** `NODE_ENV=production` refuses to start without
+  `SESSION_SECRET` (32+ characters) or `DATABASE_URL_APP` (the in-memory demo login), beside `WRISTBAND_SECRET`.
+  `apps/api/test/config.test.ts` starts the config in a child process (5 cases).
+- **Tests:** domain 408; api b5b6 + mar + ward + indent 44/44, config 5/5; journeys b3-b4 and b5-b6 green; typecheck 13/13.
+
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
 2. ~~MinIO image cannot be pulled~~ — dev and tests store receipts with `LocalFolderStorage` (A6–A7). Before staging: an S3-compatible adapter behind the same `Storage` interface.
