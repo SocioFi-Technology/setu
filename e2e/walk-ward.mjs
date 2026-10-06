@@ -77,29 +77,35 @@ await page.getByTestId("sign-round").click(); await page.getByTestId("pin").fill
 await page.getByTestId("open-round").waitFor();
 await shot("doctor-round-signed", true);
 
-// ── the ward nurse: MAR ──
+// ── the ward nurse: MAR (ADR 0016: the doses scan the wristband and the ward batch labels) ──
+await api.post("/api/v1/auth/login", { data: { identifier: NURSE, password: "setu1234" } });
+const band = (await (await api.post(`/api/v1/nursing/encounters/${ip.enc}/wristband`, { headers: { "idempotency-key": crypto.randomUUID() }, data: { reason: "walk: band for the doses" } })).json()).code;
+const stockNow = await (await api.get(`/api/v1/nursing/wards/${ip.wardId}/stock`)).json();
+const labelOf = (k) => stockNow.items.find((i) => i.medicineKey === k)?.batches.find((b) => b.qty > 0)?.label;
+const scan = async (med) => { const d = page.getByTestId("dose-dialog"); await d.getByTestId("scan-band-input").fill(band); await d.getByTestId("scan-band-input").press("Enter"); if (med) { await d.getByTestId("scan-med-input").fill(med); await d.getByTestId("scan-med-input").press("Enter"); } };
 await login(NURSE);
 await page.goto(`${BASE}/m/nur/mar?enc=${ip.enc}`); await page.locator("[data-order]").first().waitFor();
 await shot("nurse-mar", true);
 const cef = page.locator('[data-order="ceftriaxone"]');
 await cef.locator("[data-slot]:not([disabled])").first().click();
 const dlg = page.getByTestId("dose-dialog");
-await dlg.locator('[data-check="patient"]').check(); await dlg.locator('[data-check="drug"]').check();
-await shot("nurse-dose-checks-incomplete");
+await shot("nurse-dose-scans-needed");
+await scan(labelOf("ceftriaxone"));
+await shot("nurse-dose-scanned-checks-incomplete");
 await ticks(dlg);
 if (await dlg.getByTestId("dose-reason").isVisible()) await dlg.getByTestId("dose-reason").fill("রাতের শিফট বদলের সময় দেরি");
 await shot("nurse-dose-ready");
 await dlg.getByTestId("dose-record").click(); await dlg.waitFor({ state: "detached" });
 await page.locator('[data-order="morphine"]').getByTestId("give-prn").click();
-await ticks(dlg); await dlg.getByTestId("witness-pick").selectOption("u_e2l_nurse"); await dlg.getByTestId("witness-pin").fill("0000");
+await scan(labelOf("morphine")); await ticks(dlg); await dlg.getByTestId("witness-pick").selectOption("u_e2l_nurse"); await dlg.getByTestId("witness-pin").fill("0000");
 await dlg.getByTestId("dose-record").click(); await dlg.getByTestId("dose-error").waitFor();
 await shot("nurse-morphine-wrong-witness-pin");
 await dlg.getByTestId("witness-pin").fill("1234"); await dlg.getByTestId("dose-record").click(); await dlg.waitFor({ state: "detached" });
 await page.locator('[data-order="napa"]').getByTestId("give-prn").click();
-await ticks(dlg); await dlg.getByRole("radio", { name: "রোগীর নিজের" }).click();
+await dlg.getByRole("radio", { name: "রোগীর নিজের" }).click(); await scan(); await ticks(dlg);
 await shot("nurse-napa-patients-own");
 await dlg.getByTestId("dose-record").click(); await dlg.waitFor({ state: "detached" });
-await page.locator('[data-order="insulin"]').getByTestId("open-vial").click(); await page.waitForTimeout(1500);
+await page.locator('[data-order="insulin"]').getByTestId("open-vial").click(); await page.getByTestId("vial-confirm").click(); await page.waitForTimeout(1500);
 await shot("nurse-mar-after-doses", true);
 await page.goto(`${BASE}/m/nur/io?enc=${ip.enc}&tab=notes`);
 await page.getByTestId("note-text").fill("ক্ষতের ড্রেসিং বদলানো হয়েছে, পরিষ্কার ও শুকনো।"); await page.getByTestId("add-note").click();

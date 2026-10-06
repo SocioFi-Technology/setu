@@ -166,7 +166,7 @@ function StockPanel({ wardId }: { wardId: string }) {
         <span key={i.medicineKey} className="t-small" data-stock={i.medicineKey} data-stock-qty={i.qty} style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
           <span>{i.name}{i.controlled ? <> · <Pill tone="crit">{N("controlled")}</Pill></> : null}</span>
           <span style={{ display: "flex", gap: 6, alignItems: "center" }}><b className="num">{s.n(i.qty)} {i.issueUnit}</b>
-            <button type="button" className="t-small" style={{ border: 0, background: "none", color: "var(--text-link, var(--brand-primary))", cursor: "pointer" }} aria-label={N("labels_print")} title={N("labels_print")} onClick={() => void printLabels(i.batches.map((b) => b.id), N("labels_print")).catch((e) => toast(err(e), "triangle-alert"))} data-testid="stock-labels"><Icon name="tag" size={14} /></button></span>
+            <button type="button" className="t-small" style={{ border: 0, background: "none", color: "var(--text-link, var(--brand-primary))", cursor: "pointer" }} aria-label={N("labels_print")} title={N("labels_print")} onClick={() => void printLabels(i.batches.map((b) => b.id), N("labels_print"), N("label_exp_short")).then((ok) => { if (!ok) toast(N("print_blocked"), "printer"); }).catch((e) => toast(err(e), "triangle-alert"))} data-testid="stock-labels"><Icon name="tag" size={14} /></button></span>
         </span>
       ))}
       {stock && stock.returns.length > 0 && (
@@ -182,7 +182,7 @@ function StockPanel({ wardId }: { wardId: string }) {
         {!adding && <Button size="sm" icon="plus" onClick={() => setAdding(true)} disabled={!s.online} data-testid="indent-new">{N("indent_new")}</Button>}</span>
       {adding && <IndentForm wardId={wardId} onDone={async (n) => { setAdding(false); if (n) toast(N("indent_sent", { n }), "send"); await load(); }} />}
       {indents && indents.items.length === 0 && <span className="t-small t-muted">{N("indent_none")}</span>}
-      {indents?.items.map((x) => (
+      {indents && [...indents.items.filter((x) => x.status === "requested" || x.status === "partially-issued"), ...indents.items.filter((x) => x.status === "issued" || x.status === "cancelled").sort((p, q) => q.requestedAt.localeCompare(p.requestedAt)).slice(0, 3)].map((x) => (
         <div key={x.id} className="card" style={{ padding: 10, display: "flex", flexDirection: "column", gap: 4 }} data-indent={x.number} data-indent-status={x.status}>
           <span style={{ display: "flex", justifyContent: "space-between", gap: 6 }}><b className="num">{x.number}</b><Pill tone={x.status === "issued" ? "ok" : x.status === "cancelled" ? "off" : "pend"}>{N(`ist_${x.status}`)}</Pill></span>
           {x.lines.map((l) => <span key={l.id} className="t-small num">{N("indent_line", { name: l.name, req: l.requested, iss: l.issued })}</span>)}

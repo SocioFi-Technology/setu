@@ -154,21 +154,23 @@ export function ScanField({ label, value, onScan, testId, disabled }: { label: s
   );
 }
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+/** A print window opened on the click itself (a window opened after awaiting the server is blocked as a pop-up). */
+export const openPrintWindow = () => window.open("", "_blank", "width=480,height=640");
 /** Prints in a window of its own (the app's styles never reach the label printer). */
-export function printHtml(title: string, body: string) {
-  const w = window.open("", "_blank", "width=480,height=640");
-  if (!w) return;
+export function printHtml(w: Window | null, title: string, body: string): boolean {
+  if (!w || w.closed) return false;
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>
     body{font-family:system-ui,"Noto Sans Bengali",sans-serif;margin:8px} .band{display:flex;gap:10px;align-items:center;border:1px solid #000;padding:6px;width:250mm;max-width:100%}
     .band svg,.label svg{width:22mm;height:22mm} .label{display:inline-flex;gap:6px;align-items:center;border:1px dashed #000;padding:4px;margin:3px;width:60mm} b{font-size:13px} small{font-size:10px}
     @page{margin:4mm}</style></head><body>${body}<script>window.onload=()=>{window.print()}</script></body></html>`);
   w.document.close();
+  return true;
 }
-export function wristbandHtml(v: WristbandView) {
-  return `<div class="band">${v.qrSvg}<div><b>${esc(v.patient.nameBn)} · ${esc(v.patient.nameEn ?? "")}</b><br><small>${esc(v.patient.facilityNo)} · ${esc(v.admissionNumber ?? "")} · ${esc(v.ward ?? "")} ${esc(v.bed ?? "")}</small><br><small>${v.allergies.length ? "ALLERGY: " + esc(v.allergies.join(", ")) : "NKDA"}</small></div></div>`;
+export function wristbandHtml(v: WristbandView, t: { allergy: string; nkda: string }) {
+  return `<div class="band">${v.qrSvg}<div><b>${esc(v.patient.nameBn)} · ${esc(v.patient.nameEn ?? "")}</b><br><small>${esc(v.patient.facilityNo)} · ${esc(v.admissionNumber ?? "")} · ${esc(v.ward ?? "")} ${esc(v.bed ?? "")}</small><br><small>${v.allergies.length ? `${esc(t.allergy)}: ${esc(v.allergies.join(", "))}` : esc(t.nkda)}</small></div></div>`;
 }
-export function labelsHtml(l: BatchLabels) {
-  return l.items.map((x) => `<div class="label">${x.qrSvg}<div><b>${esc(x.medicine)}</b><br><small>${esc(x.batchNo)} · exp ${esc(x.expiry)}<br>${esc(x.ward)}</small></div></div>`).join("");
+export function labelsHtml(l: BatchLabels, t: { exp: string }) {
+  return l.items.map((x) => `<div class="label">${x.qrSvg}<div><b>${esc(x.medicine)}</b><br><small>${esc(x.batchNo)} · ${esc(t.exp)} ${esc(x.expiry)}<br>${esc(x.ward)}</small></div></div>`).join("");
 }
 /** Print the wristband: the first print needs nothing; a reprint asks why (the server says so). */
 export function WristbandButton({ encounterId, size = "sm" }: { encounterId: string; size?: "sm" | "md" }) {
@@ -177,8 +179,13 @@ export function WristbandButton({ encounterId, size = "sm" }: { encounterId: str
   const key = useRef(crypto.randomUUID());
   const go = async () => {
     setBusy(true);
-    try { const v = await ward.wristband(encounterId, reason.trim() || undefined, key.current); key.current = crypto.randomUUID(); setAsk(false); setReason(""); printHtml(N("wristband"), wristbandHtml(v)); }
+    const w = openPrintWindow();
+    try {
+      const v = await ward.wristband(encounterId, reason.trim() || undefined, key.current); key.current = crypto.randomUUID(); setAsk(false); setReason("");
+      if (!printHtml(w, N("wristband"), wristbandHtml(v, { allergy: N("band_allergy"), nkda: N("band_nkda") }))) toast(N("print_blocked"), "printer");
+    }
     catch (e) {
+      w?.close();
       if (e instanceof ApiFailure) key.current = crypto.randomUUID();
       if (e instanceof ApiFailure && e.body.code === "reason_required") setAsk(true); else toast(err(e), "triangle-alert");
     } finally { setBusy(false); }
@@ -190,9 +197,10 @@ export function WristbandButton({ encounterId, size = "sm" }: { encounterId: str
     </span>
   );
 }
-export async function printLabels(batchIds: string[], title: string) {
-  if (!batchIds.length) return;
-  const l = await ward.labels(batchIds);
-  printHtml(title, labelsHtml(l));
+/** Opens the window on the click, then fills it; false when the browser blocked it. */
+export async function printLabels(batchIds: string[], title: string, exp: string): Promise<boolean> {
+  if (!batchIds.length) return true;
+  const w = openPrintWindow();
+  try { return printHtml(w, title, labelsHtml(await ward.labels(batchIds), { exp })); } catch (e) { w?.close(); throw e; }
 }
 

@@ -1260,8 +1260,8 @@
     "Balance"
   ],
   "io_day": [
-    "শিফট দিন {d} (শুরু {h}:০০)",
-    "Shift day {d} (from {h}:00)"
+    "শিফট দিন {d} (শুরু {t})",
+    "Shift day {d} (from {t})"
   ],
   "io_24h": [
     "গত ২৪ ঘণ্টা: ইন {i} · আউট {o} · ব্যালান্স {b}",
@@ -1396,8 +1396,8 @@
     "Shift handover"
   ],
   "ho_shift": [
-    "শিফট {d} · {h}:০০",
-    "Shift {d} · {h}:00"
+    "শিফট {d} · {t}",
+    "Shift {d} · {t}"
   ],
   "ho_open": [
     "হ্যান্ডওভার শুরু",
@@ -1498,5 +1498,33 @@
   "saved": [
     "সংরক্ষিত",
     "Saved"
+  ],
+  "b_med_empty": [
+    "এই ব্যাচে কিছু নেই — হাতের ভায়াল/প্যাকের লেবেল স্ক্যান করুন",
+    "This batch has none left — scan the label of the pack in hand"
+  ],
+  "print_blocked": [
+    "প্রিন্ট উইন্ডো খোলা যায়নি — পপ-আপ চালু করুন",
+    "The print window was blocked — allow pop-ups"
+  ],
+  "band_allergy": [
+    "অ্যালার্জি",
+    "ALLERGY"
+  ],
+  "band_nkda": [
+    "জানা অ্যালার্জি নেই (NKDA)",
+    "NKDA"
+  ],
+  "label_exp_short": [
+    "মেয়াদ",
+    "Exp"
+  ],
+  "task_not_due": [
+    "এখনো সময় হয়নি ({t}) — তবুও সম্পন্ন?",
+    "Not due yet ({t}) — done anyway?"
+  ],
+  "task_done_anyway": [
+    "হ্যাঁ, সম্পন্ন",
+    "Yes, done"
   ]
 }

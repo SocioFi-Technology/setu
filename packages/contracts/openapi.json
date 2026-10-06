@@ -44845,6 +44845,75 @@
         }
       }
     },
+    "/v1/nursing/labels": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "batches",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "medicine labels (QR) of ward batches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "batchId": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "medicine": {
+                            "type": "string"
+                          },
+                          "batchNo": {
+                            "type": "string"
+                          },
+                          "expiry": {
+                            "type": "string"
+                          },
+                          "ward": {
+                            "type": "string"
+                          },
+                          "qrSvg": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "batchId",
+                          "code",
+                          "medicine",
+                          "batchNo",
+                          "expiry",
+                          "ward",
+                          "qrSvg"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/nursing/encounters/{id}/io": {
       "get": {
         "parameters": [
@@ -142571,7 +142640,8 @@
                               "medicationIncident",
                               "selfApproved",
                               "creditReturns",
-                              "scanOverride"
+                              "scanOverride",
+                              "ownSupply"
                             ]
                           },
                           "count": {
@@ -142788,7 +142858,8 @@
                 "medicationIncident",
                 "selfApproved",
                 "creditReturns",
-                "scanOverride"
+                "scanOverride",
+                "ownSupply"
               ]
             },
             "required": true,
@@ -142828,7 +142899,8 @@
                         "medicationIncident",
                         "selfApproved",
                         "creditReturns",
-                        "scanOverride"
+                        "scanOverride",
+                        "ownSupply"
                       ]
                     },
                     "period": {

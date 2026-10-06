@@ -125,12 +125,15 @@ test.describe("Journey B5–B6: scans, intake/output, care tasks, the shift hand
     await dlg.getByTestId("dose-record").click();
     await expect(dlg).toHaveCount(0);
     await expect(page.getByTestId("mar-history").locator("[data-dose]").filter({ hasText: "Without scans" }).first()).toBeVisible();
-    // the wristband reprint asks why (the band was printed for the scans)
-    await page.getByTestId("wristband-print").click();
-    await expect(page.getByTestId("wristband-reason")).toBeVisible();
-    await page.getByTestId("wristband-reason").fill("Band soaked and torn");
+    // the wristband reprint (from the ward board) asks why — and retires the earlier band
+    await page.goto("/m/nur/ward");
+    await page.getByTestId("ward-pick").selectOption(ctx.wardId);
+    const bed = page.locator(`[data-bed-patient="${ctx.facilityNo}"]`);
+    await bed.getByTestId("wristband-print").click();
+    await expect(bed.getByTestId("wristband-reason")).toBeVisible();
+    await bed.getByTestId("wristband-reason").fill("Band soaked and torn");
     const popup = page.waitForEvent("popup");
-    await page.getByTestId("wristband-print").click();
+    await bed.getByTestId("wristband-print").click();
     const w = await popup;
     await expect(w.locator(".band svg")).toBeVisible();
     await expect(w.locator(".band")).toContainText(ctx.facilityNo);

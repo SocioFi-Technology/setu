@@ -14,6 +14,7 @@ describe("scan-to-verify (walkthrough B5: Record locked until band + medicine sc
     expect(scanBlockers({ ...base, band: "match", med: "mismatch" })).toEqual(["med_mismatch"]);
     expect(scanBlockers({ ...base, band: "match", med: "expired" })).toEqual(["med_expired"]);
     expect(scanBlockers({ ...base, band: "match", med: "not-on-ward" })).toEqual(["med_not_on_ward"]);
+    expect(scanBlockers({ ...base, band: "match", med: "empty" })).toEqual(["med_empty"]);
     expect(scanBlockers({ ...base, ...ok })).toEqual([]);
   });
   it("the patient's own supply: the wristband only; held / refused / missed: no scans", () => {
@@ -30,10 +31,11 @@ describe("scan-to-verify (walkthrough B5: Record locked until band + medicine sc
     expect(scanBlockers({ ...base, band: "mismatch", med: "none", overrideReason: "Scanner broken on ward" })).toEqual(["band_mismatch"]);
   });
   it("codes: the wristband carries the admission and the facility number with a signature; the label a batch", () => {
-    expect(wristbandPayload("adm_1", "E2L-240201")).toBe("adm_1.E2L-240201");
-    expect(parseWristband("SETU-WB1.adm_1.E2L-240201.abc123")).toEqual({ admissionId: "adm_1", facilityNo: "E2L-240201", sig: "abc123" });
+    expect(wristbandPayload("adm_1", "E2L-240201", 2)).toBe("adm_1.E2L-240201.2");
+    expect(parseWristband("SETU-WB1.adm_1.E2L-240201.2.abc123")).toEqual({ admissionId: "adm_1", facilityNo: "E2L-240201", printNo: 2, sig: "abc123" });
     expect(parseWristband("SETU-MB1.b1")).toBeNull();
-    expect(parseWristband(" setu-wb1.x.y.z ")).toEqual({ admissionId: "x", facilityNo: "y", sig: "z" });
+    expect(parseWristband("SETU-WB1.adm_1.E2L-240201.abc123")).toBeNull(); // no print number: an old-format band
+    expect(parseWristband(" setu-wb1.x.y.1.z ")).toEqual({ admissionId: "x", facilityNo: "y", printNo: 1, sig: "z" });
     expect(batchLabel("bt_9")).toBe("SETU-MB1.bt_9");
     expect(parseBatchLabel("SETU-MB1.bt_9")).toBe("bt_9");
     expect(parseBatchLabel("SETU-WB1.a.b.c")).toBeNull();
@@ -95,5 +97,8 @@ describe("the shift handover", () => {
     expect(handoverAcceptBlockers({ outgoingId: "n1", incomingId: "n2", note: "All fine", unacknowledged: esc })).toEqual(["escalation_not_named"]);
     expect(handoverAcceptBlockers({ outgoingId: "n1", incomingId: "n2", note: "3b-05 NEWS2 9 — duty doctor called again", unacknowledged: esc })).toEqual([]);
     expect(handoverAcceptBlockers({ outgoingId: "n1", incomingId: "n2", note: "E2L-240201 watched hourly", unacknowledged: esc })).toEqual([]);
+    // whole words only (review): 2A-12 does not name 2A-1
+    expect(handoverAcceptBlockers({ outgoingId: "n1", incomingId: "n2", note: "2A-12 stable", unacknowledged: [{ bed: "2A-1", facilityNo: "E2L-1" }] })).toEqual(["escalation_not_named"]);
+    expect(handoverAcceptBlockers({ outgoingId: "n1", incomingId: "n2", note: "2A-1: doctor called again", unacknowledged: [{ bed: "2A-1", facilityNo: "E2L-1" }] })).toEqual([]);
   });
 });

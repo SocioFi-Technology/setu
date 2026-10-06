@@ -6,6 +6,7 @@
    back to draft. Accepted is final; the board then shows who holds the ward. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HandoverPatientView, HandoverView, WardHandover, WardList } from "@setu/contracts";
+import { format } from "@setu/domain";
 import { Button, Callout, Card, Pill, SelectField, TextArea, useToast } from "@setu/ui";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -41,7 +42,7 @@ export function NurHandover() {
         </div>
       </div>
       {!w ? <div aria-busy="true" className="t-muted">{N("loading")}</div> : (<>
-        <span className="t-small t-muted" data-testid="ho-shift">{N("ho_shift", { d: w.shift.day, h: String(w.shift.startHour).padStart(2, "0") })}{w.onDuty ? ` · ${N("ho_on_duty", { name: bn ? w.onDuty.nurse.nameBn : w.onDuty.nurse.nameEn, t: hhmm(w.onDuty.since, bnNum) })}` : ""}</span>
+        <span className="t-small t-muted" data-testid="ho-shift">{N("ho_shift", { d: format.date(w.shift.day, bnNum), t: hhmm(w.shift.start, bnNum) })}{w.onDuty ? ` · ${N("ho_on_duty", { name: bn ? w.onDuty.nurse.nameBn : w.onDuty.nurse.nameEn, t: hhmm(w.onDuty.since, bnNum) })}` : ""}</span>
         {!h ? (
           <Card style={{ display: "flex", flexDirection: "column", gap: 8, padding: 16 }}>
             <span>{N("ho_none")}</span>
@@ -93,11 +94,11 @@ function Sheet({ h, onChanged, onReload }: { h: HandoverView; onChanged: (v: Han
       </Card>}
       {sign && <PinSheet title={N("ho_sign")} action={N("ho_sign")} onClose={() => setSign(false)} submit={async (pin) => {
         try { onChanged(await ward.signHandover(h.id, { rev: h.rev, pin }, signKey.current)); signKey.current = crypto.randomUUID(); setSign(false); }
-        catch (e) { signKey.current = crypto.randomUUID(); if (e instanceof ApiFailure && e.body.code === "not_all_reviewed") { setSign(false); toast(err(e), "triangle-alert"); await onReload(); return; } throw e; }
+        catch (e) { if (e instanceof ApiFailure) signKey.current = crypto.randomUUID(); if (e instanceof ApiFailure && e.body.code === "not_all_reviewed") { setSign(false); toast(err(e), "triangle-alert"); await onReload(); return; } throw e; }
       }} />}
       {accept && <PinSheet title={N("ho_accept")} action={N("ho_accept")} icon="badge-check" onClose={() => setAccept(false)} submit={async (pin) => {
         try { onChanged(await ward.acceptHandover(h.id, { rev: h.rev, pin, note: note.trim() }, acceptKey.current)); acceptKey.current = crypto.randomUUID(); setAccept(false); await onReload(); /* who holds the ward now */ }
-        catch (e) { acceptKey.current = crypto.randomUUID(); if (e instanceof ApiFailure && e.body.code === "escalation_not_named") { setAccept(false); toast(err(e), "bell-ring"); return; } throw e; }
+        catch (e) { if (e instanceof ApiFailure) acceptKey.current = crypto.randomUUID(); if (e instanceof ApiFailure && (e.body.code === "escalation_not_named" || e.body.code === "sheet_outdated")) { setAccept(false); toast(err(e), "bell-ring"); return; } throw e; }
       }} />}
     </div>
   );

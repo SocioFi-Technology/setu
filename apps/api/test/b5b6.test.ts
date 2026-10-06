@@ -95,9 +95,15 @@ describe.runIf(db)("B5: Record locked until the wristband and the medicine are s
     expect(first.statusCode, first.body).toBe(201); expect(first.json()).toMatchObject({ printedBefore: 0 });
     expect((await c.post(`/v1/nursing/encounters/${a.encounterId}/wristband`, {})).statusCode).toBe(400);
     const again = await c.post(`/v1/nursing/encounters/${a.encounterId}/wristband`, { reason: "Band wet and torn" });
-    expect(again.statusCode).toBe(201); expect(again.json().code).toBe(first.json().code);
-    const own = await raw(a.encounterId, { requestId: o.id, scheduledFor: null, outcome: "given", administeredAt: now(), checks: TICKS, source: "patient-supplied", scan: { band: first.json().code } });
+    expect(again.statusCode).toBe(201); expect(again.json().code).not.toBe(first.json().code);
+    // the reprint retires the first band (a spare kept at the station never verifies — review)
+    const old = await raw(a.encounterId, { requestId: o.id, scheduledFor: null, outcome: "given", administeredAt: now(), checks: TICKS, source: "patient-supplied", scan: { band: first.json().code } });
+    expect(old.statusCode).toBe(422); expect(old.json().blockers).toContain("band_mismatch");
+    const own = await raw(a.encounterId, { requestId: o.id, scheduledFor: null, outcome: "given", administeredAt: now(), checks: TICKS, source: "patient-supplied", scan: { band: again.json().code } });
     expect(own.statusCode, own.body).toBe(201);
+    // the owner's exceptions count doses from the patient's own supply, per nurse
+    const drill = (await c.get("/v1/owner/drill?what=ownSupply&period=today", "owner")).json();
+    expect(drill.rows.find((x: { by: { id: string } }) => x.by.id === "u_e2l_nurse")).toBeTruthy();
   });
 });
 
@@ -185,5 +191,24 @@ describe.runIf(db)("the shift handover", () => {
     const q = await c.post(`/v1/nursing/handovers/${v.id}/query`, { rev: v.rev, note: "What is the plan for the drain?" }, "nurse2");
     expect(q.statusCode, q.body).toBe(200);
     expect(q.json()).toMatchObject({ status: "draft", query: { note: "What is the plan for the drain?", by: { id: "u_e2l_nurse2" } } });
+  });
+  it("a patient admitted while the sheet is a draft joins it unreviewed (signing waits); one admitted after signing blocks acceptance", async () => {
+    const w = await h.ownWard(3); const a = await h.admit(w, 0);
+    let v = (await c.post(`/v1/nursing/wards/${a.wardId}/handover`, {})).json();
+    v = (await c.put(`/v1/nursing/handovers/${v.id}/patients/${a.encounterId}`, { rev: v.rev, reviewed: true }, "nurse")).json();
+    const b = await h.admit(w, 1);
+    const g = (await c.get(`/v1/nursing/wards/${a.wardId}/handover`)).json().handover;
+    expect(g.patients.find((p: { encounterId: string }) => p.encounterId === b.encounterId)).toMatchObject({ reviewed: false, onWard: true });
+    expect(g.signBlockers).toEqual(["not_all_reviewed"]);
+    expect((await c.post(`/v1/nursing/handovers/${v.id}/sign`, { rev: g.rev, pin: "1234" })).statusCode).toBe(422);
+    v = (await c.put(`/v1/nursing/handovers/${v.id}/patients/${b.encounterId}`, { rev: g.rev, reviewed: true }, "nurse")).json();
+    v = (await c.post(`/v1/nursing/handovers/${v.id}/sign`, { rev: v.rev, pin: "1234" })).json();
+    expect(v.status).toBe("outgoing-signed");
+    await h.admit(w, 2);
+    const acc = await c.post(`/v1/nursing/handovers/${v.id}/accept`, { rev: v.rev, pin: "1234", note: "ok" }, "nurse2");
+    expect(acc.statusCode).toBe(409); expect(acc.json().code).toBe("sheet_outdated");
+    // the signed sheet stays in hand for the ward (whatever the clock shift) and opening returns it, never a second sheet
+    expect((await c.get(`/v1/nursing/wards/${a.wardId}/handover`)).json().handover.id).toBe(v.id);
+    expect((await c.post(`/v1/nursing/wards/${a.wardId}/handover`, {}, "nurse2")).json().id).toBe(v.id);
   });
 });

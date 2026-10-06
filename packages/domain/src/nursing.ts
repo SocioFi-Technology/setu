@@ -5,8 +5,8 @@ import type { DoseOutcome, DoseSource } from "./mar.js";
 /* ───── scans ───── */
 /** What a scan found: nothing scanned, the right one, or why it is wrong. */
 export type BandScan = "none" | "match" | "mismatch";
-export type MedScan = "none" | "match" | "mismatch" | "expired" | "not-on-ward";
-export type ScanBlocker = "band_required" | "band_mismatch" | "med_required" | "med_mismatch" | "med_expired" | "med_not_on_ward" | "override_reason" | "override_not_allowed";
+export type MedScan = "none" | "match" | "mismatch" | "expired" | "not-on-ward" | "empty";
+export type ScanBlocker = "band_required" | "band_mismatch" | "med_required" | "med_mismatch" | "med_expired" | "med_not_on_ward" | "med_empty" | "override_reason" | "override_not_allowed";
 export const OVERRIDE_REASON_MIN = 10;
 export interface ScanFacts {
   outcome: DoseOutcome; source: DoseSource; highAlert: boolean; controlled: boolean;
@@ -23,6 +23,8 @@ export function scanBlockers(x: ScanFacts): ScanBlocker[] {
   if (medNeeded && x.med === "mismatch") out.push("med_mismatch");
   if (medNeeded && x.med === "expired") out.push("med_expired");
   if (medNeeded && x.med === "not-on-ward") out.push("med_not_on_ward");
+  // a label of a batch with nothing left proves a shelf bin, not the dose in hand (review)
+  if (medNeeded && x.med === "empty") out.push("med_empty");
   if (out.length) return out;
   const missing: ScanBlocker[] = [];
   if (x.band === "none") missing.push("band_required");
@@ -35,11 +37,12 @@ export function scanBlockers(x: ScanFacts): ScanBlocker[] {
   return [];
 }
 /** The wristband QR: `SETU-WB1.<admissionId>.<facilityNo>.<signature>`; the signature is an HMAC of this payload. */
-export const wristbandPayload = (admissionId: string, facilityNo: string) => `${admissionId}.${facilityNo}`;
-export const wristbandCode = (admissionId: string, facilityNo: string, sig: string) => `SETU-WB1.${wristbandPayload(admissionId, facilityNo)}.${sig}`;
-export function parseWristband(code: string): { admissionId: string; facilityNo: string; sig: string } | null {
-  const m = /^SETU-WB1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9-]+)\.([A-Za-z0-9_-]+)$/i.exec(code.trim());
-  return m ? { admissionId: m[1]!, facilityNo: m[2]!, sig: m[3]! } : null;
+/** The band carries its print number: a reprint retires every earlier band (only the latest verifies — review). */
+export const wristbandPayload = (admissionId: string, facilityNo: string, printNo: number) => `${admissionId}.${facilityNo}.${printNo}`;
+export const wristbandCode = (admissionId: string, facilityNo: string, printNo: number, sig: string) => `SETU-WB1.${wristbandPayload(admissionId, facilityNo, printNo)}.${sig}`;
+export function parseWristband(code: string): { admissionId: string; facilityNo: string; printNo: number; sig: string } | null {
+  const m = /^SETU-WB1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9-]+)\.(\d{1,4})\.([A-Za-z0-9_-]+)$/i.exec(code.trim());
+  return m ? { admissionId: m[1]!, facilityNo: m[2]!, printNo: Number(m[3]), sig: m[4]! } : null;
 }
 /** The medicine label QR on a ward batch. */
 export const batchLabel = (batchId: string) => `SETU-MB1.${batchId}`;
@@ -103,8 +106,9 @@ export const handoverSignBlockers = (x: { patients: { reviewed: boolean }[] }): 
 export function handoverAcceptBlockers(x: { outgoingId: string; incomingId: string; note: string; unacknowledged: { bed: string; facilityNo: string }[] }): ("same_nurse" | "escalation_not_named")[] {
   const out: ("same_nurse" | "escalation_not_named")[] = [];
   if (x.outgoingId === x.incomingId) out.push("same_nurse");
-  const note = x.note.toLowerCase();
-  if (x.unacknowledged.some((e) => !note.includes(e.bed.toLowerCase()) && !note.includes(e.facilityNo.toLowerCase()))) out.push("escalation_not_named");
+  // whole words only: "2A-12" never names 2A-1 (review)
+  const words = new Set(x.note.toLowerCase().split(/[^a-z0-9\u0980-\u09ff-]+/).filter(Boolean));
+  if (x.unacknowledged.some((e) => !words.has(e.bed.toLowerCase()) && !words.has(e.facilityNo.toLowerCase()))) out.push("escalation_not_named");
   return out;
 }
 export const QUERY_NOTE_MIN = 5;

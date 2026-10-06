@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 session 1 done (06/10/2026); next: see Next)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); next: see Next)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -992,10 +992,26 @@ open escalations and due doses, and cannot be accepted over an unacknowledged es
   `scanOverride` leakage + drill per nurse; ward batch labels on indent issues and ward stock.
 - **Seed:** the inpatient's intake/output and two care tasks. **Tests:** api b5b6 8 (new), mar 18, ward 15; domain 408.
 - **Fixed on the way:** the pharmacy's issued-indent list showed the oldest 100 (new issues fell off it).
-- **Known until session 2:** the MAR screen does not send scans yet, so `journeys/b3-b4.spec.ts` (B6 doses) and
-  `walk-ward.mjs` fail on given doses; session 2 adds the scan fields to the dose dialog, the wristband print, I/O and
-  care plan tabs, the handover screen, `journeys/b5-b6.spec.ts`, reviews and the hands-on walk. Do not push session 1
-  alone (CI's journeys would fail) — or push with session 2.
+- Session 1 alone left the MAR screen without scans — resolved in session 2 (below).
+
+## Done (slice B5–B6, session 2 of 2, 06/10/2026) — the screens, journey B5–B6, reviews, hands-on ✅
+- **Screens:** the dose dialog scans the wristband and the medicine label (keyboard-wedge or the camera's
+  BarcodeDetector; the scans tick right patient / right drug; a refused scan is cleared and shown as a mismatch;
+  "scanner not working" with a reason, not offered for high-alert / controlled; overrides flagged); wristband print on
+  the ward card and the admission card (a reprint asks why), medicine labels with an indent issue and from ward stock
+  (QR drawn by the server, printed from a window opened on the click); `nur/io` tabs — intake & output (quick add, free
+  entry, shift-day totals, 24 h, outbox) and care plan; `nur/handover` (whole-ward sheet, SBAR, reviewed, sign / accept
+  with PINs, unacknowledged escalations named, query); board: 24 h balance, overdue tasks, nurse on duty; round: I/O and
+  the care plan; admin: shift starts and the I/O day start; owner: `scanOverride` and `ownSupply` exceptions per nurse.
+- **Journey:** `e2e/journeys/b5-b6.spec.ts` (4 tests, its own ward and patient per run); `b3-b4.spec.ts` doses scan at
+  the bedside. Hands-on: `e2e/walk-b5b6.mjs <outDir>` (Bangla, 16 shots); `walk-ward.mjs` scans too.
+- **Reviews:** clinical safety (11) and code (9) — fixed: the handover across the shift change, new patients during the
+  draft and after signing, "left the ward" (a flag, not English text), whole-word escalation naming, reprints retire
+  earlier bands, empty-batch labels, own-supply on the exceptions, care tasks on closed visits / early ticks, the
+  production wristband secret, keys kept on network errors, print windows opened on the click, i18n of the band and
+  labels, entry times that froze, shift times in the numeral setting, the labels path in OpenAPI, one board build per
+  handover request; the scan-mismatch audit records what was scanned. Open questions 280–285 and the pre-pilot list.
+- **Tests:** domain 408, api b5b6 9, mar 18, ward 15; journeys b5-b6 4/4, b3-b4 5/5.
 
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
@@ -1058,7 +1074,7 @@ open escalations and due doses, and cannot be accepted over an unacknowledged es
 5. ~~`/slice A12-A13`~~ — done 03/10/2026 (two sessions); **Journey A complete**. Kamrul to confirm open questions
    135–149.
 6. **Phase 2 pilot clinic, split in four slices (Kamrul, 03/10/2026):** ~~`/slice C1-C4`~~ owner dashboard + shift close
-   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → ~~SMS + bKash~~ (done 04/10/2026, two sessions; questions 205–219). **The four Phase 2 pilot-clinic slices are done.** ~~**Refunds**~~ done 05/10/2026 (two sessions + the 233–235 follow-up; ADR 0013; questions 220–239, 233–235 decided). **Phase 3 Journey B started:** ~~`/slice B1-B2`~~ done 05/10/2026 (two sessions; ADR 0014; questions 240–253). ~~`/slice B3-B4`~~ done 06/10/2026 (two sessions; ADR 0015 + amendment; questions 254–269). Next: `/slice B5-B6` per `docs/CLAUDE-CODE-GUIDE.md` (OT / discharge per the build plan). Or Kamrul's call — the pre-pilot hardening (known gaps 3, 4, 10, 12: argon2id, PIN tries in Redis, composite keys, clinical sign-offs), real credentials (bKash sandbox, BulkSMSBD), then the pilot; or Phase 3 per `docs/BUILD-PLAN.md`. See open questions "Phase 2 plan".
+   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → ~~SMS + bKash~~ (done 04/10/2026, two sessions; questions 205–219). **The four Phase 2 pilot-clinic slices are done.** ~~**Refunds**~~ done 05/10/2026 (two sessions + the 233–235 follow-up; ADR 0013; questions 220–239, 233–235 decided). **Phase 3 Journey B started:** ~~`/slice B1-B2`~~ done 05/10/2026 (two sessions; ADR 0014; questions 240–253). ~~`/slice B3-B4`~~ done 06/10/2026 (two sessions; ADR 0015 + amendment; questions 254–269). ~~`/slice B5-B6`~~ done 06/10/2026 (two sessions; ADR 0016; questions 270–285). Next: `/slice B7-B9` (walkthrough B8 the IPD bill, B9 the discharge checklist; B7 the round is done). Or Kamrul's call — the pre-pilot hardening (known gaps 3, 4, 10, 12: argon2id, PIN tries in Redis, composite keys, clinical sign-offs), real credentials (bKash sandbox, BulkSMSBD), then the pilot; or Phase 3 per `docs/BUILD-PLAN.md`. See open questions "Phase 2 plan".
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

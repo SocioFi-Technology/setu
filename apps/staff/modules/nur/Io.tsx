@@ -26,7 +26,7 @@ export function IoPanel({ enc }: { enc: string }) {
   useEffect(() => { void load(); }, [load]);
   const add = async (body: IoEntryRequest) => {
     if (busy) return; setBusy(true);
-    try { const r = await ward.addIo(enc, body, crypto.randomUUID()); if (r.queued) setQueued((q) => [body, ...q]); else await load(); setMl(""); setNote(""); }
+    try { const r = await ward.addIo(enc, body, crypto.randomUUID()); if (r.queued) setQueued((q) => [body, ...q]); else await load(); setMl(""); setNote(""); setAt(localInput(new Date())); }
     catch (e) { toast(err(e), "triangle-alert"); } finally { setBusy(false); }
   };
   const n = /^\d+$/.test(format.toEn(ml)) ? Number(format.toEn(ml)) : null;
@@ -39,7 +39,7 @@ export function IoPanel({ enc }: { enc: string }) {
         <span><span className="t-small t-muted">{N("io_in")}</span><br /><b className="num">{mlS(v.totals.inMl)}</b></span>
         <span><span className="t-small t-muted">{N("io_out")}</span><br /><b className="num">{mlS(v.totals.outMl)}</b></span>
         <span><span className="t-small t-muted">{N("io_balance")}</span><br /><b className="num" style={{ color: v.totals.balanceMl < 0 ? "var(--warning-fg)" : undefined }}>{v.totals.balanceMl > 0 ? "+" : ""}{mlS(v.totals.balanceMl)}</b></span>
-        <span className="t-small t-muted" style={{ gridColumn: "1 / -1" }}>{N("io_day", { d: format.date(v.day, bnNum), h: v.dayStartHour })} · {N("io_24h", { i: mlS(v.last24h.inMl), o: mlS(v.last24h.outMl), b: mlS(v.last24h.balanceMl) })} · {s.L(v.sample.bn, v.sample.en)}</span>
+        <span className="t-small t-muted" style={{ gridColumn: "1 / -1" }}>{N("io_day", { d: format.date(v.day, bnNum), t: format.digits(`${String(v.dayStartHour).padStart(2, "0")}:00`, bnNum) })} · {N("io_24h", { i: mlS(v.last24h.inMl), o: mlS(v.last24h.outMl), b: mlS(v.last24h.balanceMl) })} · {s.L(v.sample.bn, v.sample.en)}</span>
       </Card>
       <Card style={{ display: "flex", flexDirection: "column", gap: 10, padding: 14 }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -82,6 +82,7 @@ export function CarePanel({ enc }: { enc: string }) {
   const [l, setL] = useState<CareTaskList | null>(null);
   const [text, setText] = useState(""); const [every, setEvery] = useState(""); const [due, setDue] = useState(localInput(new Date()));
   const [busy, setBusy] = useState(false); const [cancelOpen, setCancelOpen] = useState<string | null>(null); const [reason, setReason] = useState("");
+  const [early, setEarly] = useState<string | null>(null);
   const key = useRef(crypto.randomUUID());
   const load = useCallback(async () => { try { setL(await ward.tasks(enc)); } catch (e) { toast(err(e), "triangle-alert"); } }, [enc]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { void load(); }, [load]);
@@ -97,7 +98,7 @@ export function CarePanel({ enc }: { enc: string }) {
         <TextField label={N("task_every")} value={every} onChange={(e) => setEvery(e.target.value)} inputMode="numeric" data-testid="task-every" />
         <TextField label={N("task_due")} type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} data-testid="task-due" />
         <Button variant="primary" icon="plus" disabled={!canAdd} onClick={() => void run(async () => {
-          try { const r = await ward.addTask(enc, { text: text.trim(), everyHours: everyN, dueAt: new Date(due).toISOString() }, key.current); key.current = crypto.randomUUID(); setText(""); setEvery(""); return r; }
+          try { const r = await ward.addTask(enc, { text: text.trim(), everyHours: everyN, dueAt: new Date(due).toISOString() }, key.current); key.current = crypto.randomUUID(); setText(""); setEvery(""); setDue(localInput(new Date())); return r; }
           catch (e) { if (e instanceof ApiFailure) key.current = crypto.randomUUID(); throw e; }
         })} data-testid="task-add">{N("task_add")}</Button>
       </Card>
@@ -108,7 +109,13 @@ export function CarePanel({ enc }: { enc: string }) {
           <b style={{ flex: 1, minWidth: 160 }}>{t.text}</b>
           <span className="t-small">{t.everyHours ? N("task_every_n", { n: t.everyHours }) : N("task_once")} · {N("task_due_at", { t: hhmm(t.dueAt, bnNum) })}</span>
           {t.overdue && <Pill tone="bad" icon="clock-alert">{N("task_overdue")}</Pill>}
-          {s.me?.role === "nurse" && <Button size="sm" variant="primary" icon="check" disabled={busy || !s.online} onClick={() => void run(() => ward.completeTask(t.id, crypto.randomUUID()))} data-testid="task-done">{N("task_done")}</Button>}
+          {s.me?.role === "nurse" && early !== t.id && <Button size="sm" variant="primary" icon="check" disabled={busy || !s.online}
+            onClick={() => { if (new Date(t.dueAt).getTime() - Date.now() > 30 * 60_000) setEarly(t.id); else void run(() => ward.completeTask(t.id, crypto.randomUUID())); }} data-testid="task-done">{N("task_done")}</Button>}
+          {early === t.id && (<span style={{ display: "flex", gap: 6, alignItems: "center" }} data-testid="task-early">
+            <span className="t-small" style={{ color: "var(--warning-fg)" }}>{N("task_not_due", { t: hhmm(t.dueAt, bnNum) })}</span>
+            <Button size="sm" variant="primary" disabled={busy || !s.online} onClick={() => { setEarly(null); void run(() => ward.completeTask(t.id, crypto.randomUUID())); }} data-testid="task-done-anyway">{N("task_done_anyway")}</Button>
+            <Button size="sm" onClick={() => setEarly(null)}>{N("cancel")}</Button>
+          </span>)}
           {cancelOpen !== t.id ? <Button size="sm" icon="x" disabled={busy || !s.online} onClick={() => { setCancelOpen(t.id); setReason(""); }}>{N("task_cancel")}</Button> : (
             <span style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
               <TextArea label={N("reason")} value={reason} onChange={(e) => setReason(e.target.value)} rows={1} name="taskCancelReason" />

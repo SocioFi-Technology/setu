@@ -1147,3 +1147,31 @@ Commit after each step, push at the end of each session.
 - Handovers are never deleted, so a test run within the same shift reuses that shift's handover (session 2's spec
   plans for it).
 
+## Slice B5–B6, session 2 (screens, journey, reviews, hands-on) — 06/10/2026
+### Decided in the session from the reviews (defaults — Kamrul to confirm)
+280. **A wristband reprint retires every earlier band** (the band carries its print number; only the latest verifies),
+     and reprints are made from the ward board, not the MAR. Built.
+281. **The escalation named in the acceptance note must appear as a whole word** (bed or patient number): "2A-12" does
+     not name 2A-1. Built.
+282. **A signed handover stays in hand across the shift change** (signed 13:50, accepted 14:05); opening returns it,
+     never a second sheet. A draft never signed in an earlier shift is left behind. Built.
+283. **Patients admitted during the draft join the sheet unreviewed** (signing waits); **one admitted after signing
+     blocks acceptance** until the sheet is queried back. A patient who leaves is marked left (and is unmarked and
+     unreviewed if they come back). Built.
+284. **Doses from the patient's own supply are counted per nurse on the owner's exceptions** (`ownSupply`), and the
+     stock-short message no longer suggests recording the patient's own supply. Built.
+285. A label of a batch with nothing left is refused ("scan the pack in hand"); a care task cannot be ticked on a closed
+     visit, and ticking one more than 30 minutes before it is due asks first. Production refuses to start without a
+     WRISTBAND_SECRET of at least 32 characters. Built.
+
+### For the clinician pre-pilot list
+- An escalation raised minutes before the handover is not yet "unacknowledged" (its acknowledgement time has not
+  passed) and does not need naming — the most dangerous moment; decide whether every open escalation must be named.
+- The patient's own supply of a high-alert or controlled drug: wristband and witness only, no medicine scan; and no
+  register line for a controlled drug from the patient's own supply.
+- Override friction: no reason codes and no limit per shift; the count includes doses later marked entered-in-error.
+- Labels are per batch, not per pack: scanning proves the batch, not the dose in hand.
+- Who may accept a handover (any nurse of the facility today, not the ward's roster); one "reviewed" tick per patient.
+- Wedge scanners on a Bangla keyboard layout will not type codes; no auto-focus from band to medicine.
+- Recurring tasks run from when they were done, not a fixed schedule; a wrong tick cannot be marked entered-in-error.
+

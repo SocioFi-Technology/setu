@@ -14,7 +14,7 @@ import { FIVE_CHECKS, SLOT_AHEAD_MAX_MS, dhakaDay, doseBlockers, doseTiming, for
 import { Button, Callout, Card, Dialog, Pill, Segmented, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
-import { ScanField, WardPatientPicker, WristbandButton, hhmm, useErr, useN, useWardBanner } from "./common";
+import { ScanField, WardPatientPicker, hhmm, useErr, useN, useWardBanner } from "./common";
 
 const SLOT_TONE: Record<string, Tone> = { scheduled: "neu", due: "warn", overdue: "bad", given: "ok", held: "off", refused: "off", missed: "bad" };
 const SLOT_ICON: Record<string, string> = { scheduled: "clock", due: "bell", overdue: "clock-alert", given: "circle-check", held: "pause", refused: "ban", missed: "circle-x" };
@@ -45,7 +45,6 @@ function MarFor({ enc }: { enc: string }) {
         <span className="t-small t-muted">{format.date(v.day, s.numerals === "bn")} · {N("mar_window", { n: v.windowMin })} · {s.L(v.sample.bn, v.sample.en)}</span>
       </div>
       {!s.online && <Callout tone="warn" icon="cloud-off" data-testid="mar-offline">{N("needs_connection")}</Callout>}
-      <div><WristbandButton encounterId={enc} /></div>
       {active.map((o) => <OrderRow key={o.id} o={o} day={v.day} onPick={(slot) => setPick({ order: o, slot })} onVial={() => setVialFor(o)} />)}
       {ended.map((o) => <OrderRow key={o.id} o={o} day={v.day} onPick={() => undefined} onVial={() => undefined} />)}
       <History v={v} onChanged={setV} />

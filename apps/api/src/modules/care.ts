@@ -113,6 +113,8 @@ async function openTask(tx: Tx, s: SessionData, id: string) {
 export async function completeTask(tx: Tx, s: SessionData, id: string, now: Date): Promise<{ list: CareTaskList; audit: AuditEntry[] }> {
   requireNurse(s);
   const t = await openTask(tx, s, id);
+  // the visit is still open (a discharged patient's task is not ticked — review)
+  if (!(await inpatientHere(tx, s, t.encounterId)).open) throw closedVisit();
   const to = transition("care-task", CARE_TASK, "requested", "complete");
   const n = await tx.careTask.updateMany({ where: { id: t.id, status: "requested" }, data: { status: to, completedById: s.userId, completedAt: now } });
   if (n.count !== 1) throw stale();

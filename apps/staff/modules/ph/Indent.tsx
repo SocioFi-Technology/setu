@@ -74,7 +74,7 @@ function IndentCard({ x, onIssued }: { x: IndentView; onIssued: (v: IndentView) 
         </div>
       ))}
       {x.cancel && <span className="t-small t-muted">{N("ist_cancelled")}: {x.cancel.reason}</span>}
-      {x.issues.some((i) => i.label) && <div><Button size="sm" icon="tag" onClick={() => void printLabels([...new Set(x.issues.flatMap((i) => (i.label ? [i.label.slice(9)] : [])))], N("labels_print")).catch((e) => toast(err(e), "triangle-alert"))} data-testid="issue-labels">{N("labels_print")}</Button></div>}
+      {x.issues.some((i) => i.label) && <div><Button size="sm" icon="tag" onClick={() => void printLabels([...new Set(x.issues.flatMap((i) => (i.label ? [i.label.slice(9)] : [])))], N("labels_print"), N("label_exp_short")).then((ok) => { if (!ok) toast(N("print_blocked"), "printer"); }).catch((e) => toast(err(e), "triangle-alert"))} data-testid="issue-labels">{N("labels_print")}</Button></div>}
       {msg && <Callout tone="warn" icon="triangle-alert" data-testid="issue-error">{msg}</Callout>}
       {open && <div><Button variant="primary" icon="package-check" disabled={!valid || busy || !s.online} onClick={() => (controlled ? setPin(true) : void issue())} data-testid="issue">{N("issue")}</Button></div>}
       {pin && <PinSheet title={N("controlled_pin")} action={N("issue")} icon="package-check" onClose={() => setPin(false)} submit={(p) => issue(p)} />}

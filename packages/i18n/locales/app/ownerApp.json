@@ -554,5 +554,9 @@
   "l_scanOverride": [
     "স্ক্যান ছাড়া ডোজ (স্ক্যানার কাজ করছে না) — নার্স অনুযায়ী",
     "Doses given without the scans (scanner not working) — per nurse"
+  ],
+  "l_ownSupply": [
+    "রোগীর নিজের ওষুধ থেকে দেওয়া ডোজ — নার্স অনুযায়ী",
+    "Doses from the patient's own supply — per nurse"
   ]
 }

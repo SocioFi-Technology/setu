@@ -44,3 +44,5 @@ if (process.env.DATABASE_URL && !process.env.DATABASE_URL_APP)
 if (process.env.NODE_ENV === "production" && !/^https:\/\//.test(config.publicAppUrl)) throw new Error("PUBLIC_APP_URL must be https in production (payment links and bKash's return use it)");
 if (process.env.NODE_ENV === "production" && config.adapters.payments === "fake") throw new Error("PAYMENTS_PROVIDER=fake is not allowed in production");
 if (process.env.NODE_ENV === "production" && config.adapters.sms === "fake") throw new Error("SMS_PROVIDER=fake is not allowed in production");
+// ADR 0016 review: wristbands are forged with the published dev secret — production sets its own
+if (process.env.NODE_ENV === "production" && (!process.env.WRISTBAND_SECRET || process.env.WRISTBAND_SECRET.length < 32)) throw new Error("WRISTBAND_SECRET (at least 32 characters) is required in production");
