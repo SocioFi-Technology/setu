@@ -495,14 +495,16 @@ export async function removeDiscount(tx: Tx, s: SessionData, id: string, rev: nu
 
 /** `hereIds`: the facility's bill ids, read once by the list (a per-item read crossed the 5 s transaction limit on a
     clinic with thousands of bills — seen in the refunds slice's e2e run). */
-async function approvalItem(tx: Tx, s: SessionData, t: TaskRow, now: Date, hereIds?: string[]): Promise<ApprovalItem | null> {
+async function approvalItem(tx: Tx, s: SessionData, t: TaskRow, now: Date): Promise<ApprovalItem | null> {
   const inv = t.focusId ? await tx.invoice.findFirst({ where: { id: t.focusId, organizationId: s.organizationId } }) : null;
   if (!inv?.patientId) return null;
   const p = await tx.patient.findFirst({ where: { id: inv.patientId } });
   if (!p) return null;
   const day = dhakaDay(now);
-  const here = hereIds ?? (await tx.invoice.findMany({ where: { organizationId: s.organizationId }, select: { id: true } })).map((i) => i.id);
-  const mine = await tx.task.findMany({ where: { kind: DISCOUNT_TASK, requestedById: t.requestedById, focusId: { in: here }, requestedAt: { gte: new Date(`${day}T00:00:00+06:00`) } }, select: { detail: true } });
+  // the requester's discounts today at this facility — a join, never a list of every bill the facility has (it grows)
+  const mine = await tx.$queryRaw<{ detail: unknown }[]>`
+    SELECT t."detail" FROM "Task" t JOIN "Invoice" i ON i."id" = t."focusId"
+    WHERE i."organizationId" = ${s.organizationId} AND t."kind" = ${DISCOUNT_TASK} AND t."requestedById" = ${t.requestedById} AND t."requestedAt" >= ${new Date(`${day}T00:00:00+06:00`)}`;
   const who = await people(tx, [t.requestedById, t.decidedById]);
   const lineId = t.kind === BILL_ELSEWHERE_TASK ? (t.detail as unknown as NotBilledDetail).lineId : null;
   const line = lineId ? await tx.chargeItem.findFirst({ where: { id: lineId }, select: { id: true, nameEn: true, nameBn: true } }) : null;
@@ -520,10 +522,16 @@ async function approvalItem(tx: Tx, s: SessionData, t: TaskRow, now: Date, hereI
 
 export async function approvalList(tx: Tx, s: SessionData, status: "requested" | "approved" | "rejected", now: Date): Promise<ApprovalList> {
   // Only this facility's bills (security review A6–A7: other facilities' tasks must not crowd the list out).
-  const here = (await tx.invoice.findMany({ where: { organizationId: s.organizationId }, select: { id: true } })).map((i) => i.id);
-  const tasks = await tx.task.findMany({ where: { kind: { in: APPROVAL_KINDS }, status, focusId: { in: here } }, orderBy: { requestedAt: status === "requested" ? "asc" : "desc" }, take: 100 });
+  // a join on this facility's bills (reading every bill id the facility ever had made the list slow as bills grew)
+  const rows = status === "requested"
+    ? await tx.$queryRaw<{ id: string }[]>`SELECT t."id" FROM "Task" t JOIN "Invoice" i ON i."id" = t."focusId"
+        WHERE i."organizationId" = ${s.organizationId} AND t."kind" = ANY(${APPROVAL_KINDS}::text[]) AND t."status"::text = ${status} ORDER BY t."requestedAt" ASC LIMIT 100`
+    : await tx.$queryRaw<{ id: string }[]>`SELECT t."id" FROM "Task" t JOIN "Invoice" i ON i."id" = t."focusId"
+        WHERE i."organizationId" = ${s.organizationId} AND t."kind" = ANY(${APPROVAL_KINDS}::text[]) AND t."status"::text = ${status} ORDER BY t."requestedAt" DESC LIMIT 100`;
+  const ids = rows.map((r) => r.id);
+  const tasks = await tx.task.findMany({ where: { id: { in: ids } }, orderBy: { requestedAt: status === "requested" ? "asc" : "desc" } });
   const items: ApprovalItem[] = [];
-  for (const t of tasks) { const i = await approvalItem(tx, s, t, now, here); if (i) items.push(i); }
+  for (const t of tasks) { const i = await approvalItem(tx, s, t, now); if (i) items.push(i); }
   return { items };
 }
 
