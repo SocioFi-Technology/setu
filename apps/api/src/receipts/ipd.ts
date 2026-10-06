@@ -35,7 +35,7 @@ const page = (lang: ReceiptLangMode, title: string, body: string) => `<!doctype 
     h1{margin:3mm 0 1mm}table{width:100%;border-collapse:collapse}td,th{padding:1px 2px;vertical-align:top;text-align:left}
     .head{display:flex;justify-content:space-between;gap:4mm;border-bottom:0.5pt solid #000;padding-bottom:2mm}
     .meta td:nth-child(odd){white-space:nowrap;padding-right:3mm}.lines thead th{border-bottom:0.5pt solid #000}.totals{margin-top:2mm}.totals tr.strong td{font-weight:700;border-top:0.5pt solid #000}
-    .words{margin:2mm 0}.qr svg{width:100%;height:100%;display:block}.tag{font-size:7.5pt;border:0.5pt solid #000;border-radius:2pt;padding:0 2pt;white-space:nowrap}
+    .lines td.r,.lines th.r{white-space:nowrap}.words{margin:2mm 0}.qr svg{width:100%;height:100%;display:block}.tag{font-size:7.5pt;border:0.5pt solid #000;border-radius:2pt;padding:0 2pt;white-space:nowrap}
     .dup{font-weight:700;letter-spacing:.5px;margin-bottom:1mm}hr{border:0;border-top:0.5pt dashed #000;margin:1.5mm 0}.day td{padding-top:2mm;font-weight:700}
     .wm{position:fixed;top:40%;left:-10%;width:120%;text-align:center;transform:rotate(-30deg);font-size:28pt;font-weight:700;color:rgba(0,0,0,.1);z-index:0;pointer-events:none}
   </style></head><body>${body}</body></html>`;
@@ -79,7 +79,8 @@ export function depositReceiptHtml(i: DepositPrintInput): string {
   return page(i.lang, i.number, `${wm}${body}`);
 }
 
-export interface InterimLine { serviceDay: string; nameEn: string; nameBn: string; tag: string; qty: number; unitPaisa: number | null; totalPaisa: number; credit: boolean }
+export interface InterimLine { serviceDay: string; nameEn: string; nameBn: string; tag: string; qty: number; unitPaisa: number | null; totalPaisa: number; credit: boolean;
+  /** a bed day: named from its number and class in the print's language and digits */ bedDay?: { n: number; clsEn: string; clsBn: string; beyond: boolean } }
 export interface InterimPrintInput {
   seller: { nameEn: string; nameBn: string | null; address: string | null };
   patient: { nameBn: string; nameEn: string; facilityNo: string }; admission: { number: string; admittedAt: Date; bed: string | null; bedClass: string; dayNo: number; doctor: { nameBn: string; nameEn: string } };
@@ -91,11 +92,15 @@ export interface InterimPrintInput {
 export function interimBillHtml(i: InterimPrintInput): string {
   const { L, Ls, tk, num, name, when, day } = helpers(i.lang);
   const { dup, wm } = dupParts(i.lang, L, num, i.print);
+  const bedDayName = (d: NonNullable<InterimLine["bedDay"]>) => {
+    const one = (lang: "bn" | "en") => `${t(lang, "billingApp", "ib_bed_day").replace("{n}", format.digits(d.n, lang === "bn" && i.lang === "bn")).replace("{cls}", lang === "bn" ? d.clsBn : d.clsEn)}${d.beyond ? ` ${t(lang, "billingApp", "ib_beyond")}` : ""}`;
+    return i.lang === "both" ? `${one("bn")} · ${one("en")}` : one(i.lang);
+  };
   const byDay = new Map<string, InterimLine[]>();
   for (const l of i.lines) byDay.set(l.serviceDay, [...(byDay.get(l.serviceDay) ?? []), l]);
   const rows = [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([d, ls]) =>
     `<tr class="day"><td colspan="5">${esc(day(d))}</td></tr>` + ls.map((l) =>
-      `<tr><td>${esc(name(l.nameBn, l.nameEn))}${l.credit ? ` (${esc(L("ib_credit"))})` : ""}</td><td><span class="tag">${esc(L(`ib_tag_${l.tag}`))}</span></td><td class="r num">${esc(num(l.qty))}</td><td class="r num">${l.unitPaisa === null ? "—" : esc(tk(l.unitPaisa))}</td><td class="r num">${esc(tk(l.totalPaisa))}</td></tr>`).join("")).join("");
+      `<tr><td>${esc(l.bedDay ? bedDayName(l.bedDay) : name(l.nameBn, l.nameEn))}${l.credit ? ` (${esc(L("ib_credit"))})` : ""}</td><td><span class="tag">${esc(L(`ib_tag_${l.tag}`))}</span></td><td class="r num">${esc(num(l.qty))}</td><td class="r num">${l.unitPaisa === null ? "—" : esc(tk(l.unitPaisa))}</td><td class="r num">${esc(tk(l.totalPaisa))}</td></tr>`).join("")).join("");
   const deps = i.deposits.map((d) => `<tr><td class="num">${esc(when(d.at))}</td><td>${esc(L(`m_${d.method}`))}${d.trxId ? ` · <span class="num">${esc(d.trxId)}</span>` : ""}</td><td class="r num">${esc(tk(d.amountPaisa))}</td></tr>`).join("");
   const reprint = i.print.copy > 0
     ? Ls("r_reprinted", { n: num(i.print.copy), at: when(i.print.printedAt), name: name(i.print.printedBy.nameBn, i.print.printedBy.nameEn), reason: L(`rr_${i.print.reason}`) })

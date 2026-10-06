@@ -536,8 +536,8 @@
     "Waiting {d}"
   ],
   "ds_by_hand": [
-    "হাতে লেখা (B10/B11 না আসা পর্যন্ত)",
-    "Recorded by hand (until B10 / B11)"
+    "হাতে লেখা (স্বয়ংক্রিয় ধাপ পরে আসবে)",
+    "Recorded by hand (the automatic step comes later)"
   ],
   "ds_reminded": [
     "মনে করানো: {name} · {at} ({n})",
@@ -596,16 +596,16 @@
     "Open"
   ],
   "ds_step_hint_summary": [
-    "সারাংশ স্বাক্ষরের পাতা আসবে B11-এ; এখন কাগজে স্বাক্ষর করে এখানে চিহ্ন দিন",
-    "The summary page comes with B11; sign it on paper for now and mark it here"
+    "সারাংশ স্বাক্ষরের পাতা পরে আসবে; এখন কাগজে স্বাক্ষর করে এখানে চিহ্ন দিন",
+    "The summary page comes later; sign it on paper for now and mark it here"
   ],
   "ds_step_hint_final-bill": [
-    "চূড়ান্ত বিল আসবে B10-এ; এখন কাগজের বিল দিয়ে এখানে চিহ্ন দিন",
-    "The final bill comes with B10; mark it here after the paper bill"
+    "চূড়ান্ত বিলের পাতা পরে আসবে; এখন কাগজের বিল দিয়ে এখানে চিহ্ন দিন",
+    "The final bill page comes later; mark it here after the paper bill"
   ],
   "ds_step_hint_payment": [
-    "জমা থেকে মেটানো আসবে B10-এ; এখন হাতে মিলিয়ে চিহ্ন দিন",
-    "Settling against the deposit comes with B10; settle by hand and mark it here"
+    "জমা থেকে মেটানো পরে আসবে; এখন হাতে মিলিয়ে চিহ্ন দিন",
+    "Settling against the deposit comes later; settle by hand and mark it here"
   ],
   "ds_order_from_round": [
     "ছুটির আদেশ",

@@ -70,7 +70,7 @@ export function DischargeSteps({ v, onChange, only }: { v: DischargeView; onChan
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
               {mine && x.can.take && <Button size="sm" icon="hand" disabled={busy || !s.online} onClick={() => void act(() => discharge.take(id, x.key), I("ds_taken_msg"))} data-testid={`take-${x.key}`}>{I("ds_take")}</Button>}
               {mine && x.can.done && <Button size="sm" variant="primary" icon="check" disabled={busy || !s.online} onClick={() => setDoing(x)} data-testid={`done-${x.key}`}>{I("ds_mark_done")}</Button>}
-              {x.can.remind && (x.blocking || x.department === "doctor") && <Button size="sm" icon="bell" disabled={busy || !s.online} onClick={() => void act(() => discharge.remind(id, x.key), I("ds_reminded_msg"))} data-testid={`remind-${x.key}`}>{I("ds_remind")}</Button>}
+              {x.can.remind && !x.can.done && (x.blocking || x.department === "doctor") && <Button size="sm" icon="bell" disabled={busy || !s.online} onClick={() => void act(() => discharge.remind(id, x.key), I("ds_reminded_msg"))} data-testid={`remind-${x.key}`}>{I("ds_remind")}</Button>}
             </div>
           </div>
         );

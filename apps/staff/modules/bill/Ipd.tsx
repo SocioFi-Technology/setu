@@ -91,7 +91,11 @@ function IpdBill({ admissionId }: { admissionId: string }) {
   const writer = WRITERS.includes(s.me?.role ?? "");
   const cls = v.classes.find((c) => c.key === v.admission.bedClass);
   const clsName = cls ? (bn ? cls.nameBn : cls.nameEn) : v.admission.bedClass;
-  const guardian = v.guardian ? `${v.guardian.name}${v.guardian.relationship ? ` (${v.guardian.relationship})` : ""}` : "—";
+  const rel = (r: string) => { const t = s.t("ipdApp", `rel_${r}`); return t === `rel_${r}` ? r : t; };
+  const guardian = v.guardian ? `${v.guardian.name}${v.guardian.relationship ? ` (${rel(v.guardian.relationship)})` : ""}` : "—";
+  const className = (k: string | null) => { const c = v.classes.find((x) => x.key === k); return c ? (bn ? c.nameBn : c.nameEn) : k ?? ""; };
+  const lineName = (l: IpdLine) => l.source === "bed-day" && l.dayNo !== null && !l.creditOf
+    ? `${B("ib_bed_day", { n: l.dayNo, cls: className(l.bedClass) })}${v.package && l.tag === "excluded" ? ` ${B("ib_beyond")}` : ""}` : bn ? l.nameBn : l.nameEn;
   const lines = showOld ? v.lines : v.lines.filter((l) => !l.superseded);
   const days = [...new Set(lines.map((l) => l.serviceDay ?? l.postedAt.slice(0, 10)))].sort();
   const signed = (p: number) => (p < 0 ? `−${M.tk(-p)}` : M.tk(p));
@@ -139,7 +143,7 @@ function IpdBill({ admissionId }: { admissionId: string }) {
                   <tr key={l.id} data-line={l.key} data-tag={l.tag} data-superseded={l.superseded ? "1" : "0"} data-credit={l.creditOf ? "1" : "0"}
                     style={{ opacity: l.superseded ? 0.55 : 1, background: l.tag === "package" ? "var(--brand-subtle, transparent)" : undefined }}>
                     <td style={{ textDecoration: l.superseded ? "line-through" : undefined }}>
-                      {bn ? l.nameBn : l.nameEn}
+                      {lineName(l)}
                       {l.superseded && <div className="t-small t-muted" style={{ textDecoration: "none" }}>{B("ib_superseded", { reason: reason(l.superseded.reason) })}</div>}
                       {l.creditOf && <div className="t-small t-muted">{B("ib_credit")}</div>}
                     </td>
@@ -203,11 +207,10 @@ function Deposits({ v, writer, open, setOpen, onChange }: { v: IpdBillView; writ
         {writer && v.can.deposit && !open && <Button size="sm" icon="plus" onClick={() => setOpen({ method: "cash", amount: "" })} data-testid="take-deposit">{B("ib_take_deposit")}</Button>}</span>
       {v.deposits.items.length === 0 && <span className="t-small t-muted">{B("ib_deposits_none")}</span>}
       {v.deposits.items.map((d) => (
-        <div key={d.id} className="t-small" data-deposit={d.method} data-status={d.status} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-          <span className="num">{M.dateTime(d.confirmedAt ?? d.createdAt)}</span>
-          <span>{B(`m_${d.method}`)}{d.to ? ` → ${d.to === "guardian" ? B("ib_dep_to_guardian", { name: v.guardian?.name ?? "" }) : B("ib_dep_to_patient")}` : ""}{d.phoneLast4 ? ` ··${d.phoneLast4}` : ""}</span>
-          <span style={{ flex: 1 }} />
+        <div key={d.id} className="t-small" data-deposit={d.method} data-status={d.status} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", borderTop: "1px solid var(--border-subtle)", paddingTop: 6 }}>
+          <span style={{ flexBasis: "100%" }}><span className="num">{M.dateTime(d.confirmedAt ?? d.createdAt)}</span> · {B(`m_${d.method}`)}{d.to ? ` → ${d.to === "guardian" ? B("ib_dep_to_guardian", { name: v.guardian?.name ?? "" }) : B("ib_dep_to_patient")}` : ""}{d.phoneLast4 ? ` ··${s.n(Number(d.phoneLast4)).padStart(4, s.numerals === "bn" ? "০" : "0")}` : ""}</span>
           <b className="num">{M.tk(d.amountPaisa)}</b>
+          <span style={{ flex: 1 }} />
           <Pill tone={d.status === "confirmed" ? "ok" : d.status === "failed" ? "bad" : "pend"}>{B(d.status === "confirmed" ? "ib_dep_status_confirmed" : d.status === "failed" ? "ib_dep_status_failed" : "ib_dep_status_pending")}</Pill>
           {d.status === "confirmed" && writer && <Button size="sm" icon="receipt-text" onClick={() => setReceiptOf(d.id)} data-testid="deposit-receipt">{d.receipt ? d.receipt.number : B("ib_dep_receipt")}</Button>}
         </div>
@@ -262,7 +265,8 @@ function DepositReceiptDialog({ paymentId, onClose }: { paymentId: string; onClo
   const [lang, setLang] = useState<"both" | "bn" | "en">("both"); const [paper, setPaper] = useState<"a5" | "thermal">("thermal");
   const [reason, setReason] = useState<(typeof REPRINT)[number] | "">(""); const [shown, setShown] = useState<string | null>(null); const [busy, setBusy] = useState(false);
   const key = useRef(crypto.randomUUID());
-  useEffect(() => { ipdBill.receipt(paymentId).then((x) => { setR(x); setPrints(x.prints); }).catch((e) => toast(E(e), "triangle-alert")); }, [paymentId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const asked = useRef(false); // the receipt is made once (a second request would race the one-receipt-per-payment rule)
+  useEffect(() => { if (asked.current) return; asked.current = true; ipdBill.receipt(paymentId).then((x) => { setR(x); setPrints(x.prints); }).catch((e) => toast(E(e), "triangle-alert")); }, [paymentId]); // eslint-disable-line react-hooks/exhaustive-deps
   const print = async () => {
     if (!r || busy || (prints > 0 && !reason)) return; setBusy(true);
     try { const x = await ipdBill.printReceipt(r.id, { format: paper, lang, ...(prints > 0 ? { reason: reason as (typeof REPRINT)[number] } : {}) }, key.current); setShown(x.print.pdfUrl); setPrints(x.view.prints.length); setReason(""); key.current = crypto.randomUUID(); }

@@ -609,7 +609,7 @@
   "ib_clearance": ["ছাড়পত্র যাচাই", "Discharge clearance"],
   "ib_clearance_none": ["ছুটির আদেশ হয়নি", "No discharge ordered"],
   "ib_view_only": ["আপনি এই বিল শুধু দেখতে পারেন", "You can view this bill but not change it"],
-  "ib_final_later": ["চূড়ান্ত বিল ও জমা থেকে মেটানো আসবে পরের ধাপে (B10)", "The final bill and settling against the deposit come next (B10)"],
+  "ib_final_later": ["চূড়ান্ত বিল ও জমা থেকে মেটানো পরে আসবে", "The final bill and settling against the deposit come later"],
   "pk_title": ["প্যাকেজ", "Packages"],
   "pk_hint": ["মূল্য শ্রেণি অনুযায়ী; ভর্তি রোগীর দাম ভর্তির সময়েরটাই থাকে", "Prices per class; an admitted patient keeps the price at admission"],
   "pk_days": ["দিন", "Days"],
@@ -629,5 +629,7 @@
   "ib_p_as_of": ["{at} পর্যন্ত", "As of {at}"],
   "ib_p_note": ["এটি চলমান হিসাব; চূড়ান্ত বিল ছুটির সময় দেওয়া হবে", "A running statement; the final bill is issued at discharge"],
   "cancel": ["বাতিল", "Cancel"],
-  "ib_discharged_pill": ["ছুটি হয়েছে", "Discharged"]
+  "ib_discharged_pill": ["ছুটি হয়েছে", "Discharged"],
+  "ib_bed_day": ["শয্যা · দিন {n} · {cls}", "Bed · day {n} · {cls}"],
+  "ib_beyond": ["(প্যাকেজের বাইরে)", "(beyond package)"]
 }
