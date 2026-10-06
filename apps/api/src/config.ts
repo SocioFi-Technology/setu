@@ -46,3 +46,7 @@ if (process.env.NODE_ENV === "production" && config.adapters.payments === "fake"
 if (process.env.NODE_ENV === "production" && config.adapters.sms === "fake") throw new Error("SMS_PROVIDER=fake is not allowed in production");
 // ADR 0016 review: wristbands are forged with the published dev secret — production sets its own
 if (process.env.NODE_ENV === "production" && (!process.env.WRISTBAND_SECRET || process.env.WRISTBAND_SECRET.length < 32)) throw new Error("WRISTBAND_SECRET (at least 32 characters) is required in production");
+// external review A1: sessions are signed with the published dev secret, and with no DATABASE_URL_APP the API serves the
+// in-memory demo login — neither may ever run in production
+if (process.env.NODE_ENV === "production" && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32)) throw new Error("SESSION_SECRET (at least 32 characters) is required in production");
+if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL_APP) throw new Error("DATABASE_URL_APP is required in production (without it the API would serve the in-memory demo login)");
