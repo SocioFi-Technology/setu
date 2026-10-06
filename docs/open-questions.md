@@ -1233,3 +1233,6 @@ Built on the cautious reading; Kamrul to confirm or change.
      test reaches the bill through the doctor's order and a medicine through the stock drawn, as at the OPD desk.
 300. **The class preview decides "up" or "down" by the daily rate only**; a package priced higher in a "cheaper" class,
      or moving back to a class already occupied that day, makes its estimate rough. It is an estimate on screen only.
+
+### Decided by Kamrul (06/10/2026) — B7–B9 session 2
+298–300 accepted as built.
