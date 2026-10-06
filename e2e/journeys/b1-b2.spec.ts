@@ -186,7 +186,7 @@ test.describe("Journey B — B1 arrival and triage, B2 orders and disposition, t
     await expect(page.locator(`[data-bed="${bed1}"]`)).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator(`[data-bed="${bed1}"]`)).toContainText("reserved for this patient");
     await expect(page.locator('[data-bed="2A-05"]')).toHaveAttribute("data-pickable", "0");
-    await expect(page.getByTestId("deposit-note")).toContainText("does not block the admission");
+    await expect(page.getByTestId("admit-deposit")).toContainText("Never blocks the admission"); // ADR 0017: card or bank at the desk
     await expect(page.locator('[data-check="guardian"]')).toHaveAttribute("data-check-ok", "0");
     await expect(page.getByTestId("admit")).toBeDisabled();
     await page.getByTestId("guardian-name").fill("রাশেদ চৌধুরী");

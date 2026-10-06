@@ -1223,3 +1223,13 @@ Built on the cautious reading; Kamrul to confirm or change.
   (source `deposit-excess`, owner approval, paid at the counter) **in the same transaction that issues the bill**, so
   the issued bill holds exactly its total and the patient leaves with a voucher for the rest; the bill is never issued
   while the excess is unassigned.
+
+## Slice B7–B9, session 2 (screens, journey, reviews, hands-on) — 06/10/2026
+Built on the cautious reading; Kamrul to confirm or change.
+298. **A price is the one its line was first posted at** (review): a later price-list or bed-rate change never re-prices
+     a running bill; a bed day in a class newly entered takes today's rate. A class with no rate set leaves bed days
+     unpriced (it would block the final bill) — a new ward's class gets the sample rate.
+299. **Charges by hand are services only** (transfusion, oxygen, inpatient consult, dressing, nebulisation — samples): a
+     test reaches the bill through the doctor's order and a medicine through the stock drawn, as at the OPD desk.
+300. **The class preview decides "up" or "down" by the daily rate only**; a package priced higher in a "cheaper" class,
+     or moving back to a class already occupied that day, makes its estimate rough. It is an estimate on screen only.
