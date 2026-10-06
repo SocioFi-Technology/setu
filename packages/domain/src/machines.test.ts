@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALLERGY, BED, INVOICE, REFUND, CLAIM, DISCHARGE, DOCUMENT, ENCOUNTER, ORDER, PAYMENT, TransitionError, can, transition } from "./machines.js";
+import { ADMISSION, ALLERGY, BED, INVOICE, REFUND, CLAIM, DISCHARGE, DOCUMENT, ENCOUNTER, ORDER, PAYMENT, TransitionError, can, transition } from "./machines.js";
 
 describe("document", () => {
   it("offline sign is queued, never final, until the server acks (rule 1)", () => {
@@ -41,11 +41,18 @@ describe("consultation flow (slice A5)", () => {
     expect(transition("order", ORDER, "draft", "order")).toBe("active");
   });
 });
-describe("discharge (walkthrough B9/B10)", () => {
-  it("final bill needs pharmacy clearance first", () => {
-    expect(can(DISCHARGE, "summary-signed", "finalBill")).toBe(false);
-    const s = transition("discharge", DISCHARGE, "summary-signed", "clearPharmacy");
-    expect(transition("discharge", DISCHARGE, s, "finalBill")).toBe("final-bill");
+describe("discharge (ADR 0017)", () => {
+  it("ordered → completed or cancelled, once", () => {
+    expect(transition("discharge", DISCHARGE, "ordered", "complete")).toBe("completed");
+    expect(transition("discharge", DISCHARGE, "ordered", "cancel")).toBe("cancelled");
+    expect(can(DISCHARGE, "completed", "cancel")).toBe(false);
+    expect(can(DISCHARGE, "cancelled", "complete")).toBe(false);
+  });
+  it("a cancelled discharge puts the bed back; an admission is discharged once", () => {
+    expect(transition("bed", BED, "discharge-pending", "cancelDischarge")).toBe("occupied");
+    expect(can(BED, "occupied", "cancelDischarge")).toBe(false);
+    expect(transition("admission", ADMISSION, "admitted", "discharge")).toBe("discharged");
+    expect(can(ADMISSION, "discharged", "discharge")).toBe(false);
   });
 });
 describe("bed (walkthrough B12)", () => {

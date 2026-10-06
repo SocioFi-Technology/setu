@@ -165,36 +165,36 @@ export const ALLERGY: Table<AllergyState, AllergyEvent> = { active: { markError:
 /* ADR 0014: `vacate` = a transfer out (leg 2 of a two-leg bed move frees the source bed into cleaning); `release`
    gives back a reservation that was never occupied. Block / unblock and mark-ready are ward actions. */
 export type BedState ="vacant" | "reserved" | "occupied" | "discharge-pending" | "cleaning" | "blocked";
-export type BedEvent = "reserve" | "occupy" | "release" | "vacate" | "startDischarge" | "leave" | "markReady" | "block" | "unblock";
+export type BedEvent = "reserve" | "occupy" | "release" | "vacate" | "startDischarge" | "cancelDischarge" | "leave" | "markReady" | "block" | "unblock";
 export const BED: Table<BedState, BedEvent> = {
   vacant: { reserve: "reserved", occupy: "occupied", block: "blocked" },
   reserved: { occupy: "occupied", release: "vacant" },
   occupied: { startDischarge: "discharge-pending", vacate: "cleaning" },
-  "discharge-pending": { leave: "cleaning" },
+  // ADR 0017: a discharge order cancelled before the bed was released puts the bed back
+  "discharge-pending": { leave: "cleaning", cancelDischarge: "occupied" },
   cleaning: { markReady: "vacant" },
   blocked: { unblock: "vacant" },
 };
 
 /* ADR 0014 (review): an admission request (the ER's admit disposition) is completed by the desk or cancelled; a bed
    assignment (one leg of a move) is reserved, then occupied, and ends once — never deleted. */
-export type AdmissionState = "requested" | "admitted" | "cancelled";
-export type AdmissionEvent = "admit" | "cancel";
-export const ADMISSION: Table<AdmissionState, AdmissionEvent> = { requested: { admit: "admitted", cancel: "cancelled" }, admitted: {}, cancelled: {} };
+/* ADR 0017: an admitted patient is discharged when the ward releases the bed (the checklist's last step). */
+export type AdmissionState = "requested" | "admitted" | "cancelled" | "discharged";
+export type AdmissionEvent = "admit" | "cancel" | "discharge";
+export const ADMISSION: Table<AdmissionState, AdmissionEvent> = { requested: { admit: "admitted", cancel: "cancelled" }, admitted: { discharge: "discharged" }, cancelled: {}, discharged: {} };
 export type BedAssignmentState = "reserved" | "occupied" | "ended";
 export type BedAssignmentEvent = "occupy" | "end";
 export const BED_ASSIGNMENT: Table<BedAssignmentState, BedAssignmentEvent> = { reserved: { occupy: "occupied", end: "ended" }, occupied: { end: "ended" }, ended: {} };
 
-/* Discharge: final bill cannot be settled before pharmacy clearance (walkthrough B9/B10). */
-export type DischargeState = "initiated" | "summary-signed" | "pharmacy-cleared" | "final-bill" | "paid" | "left";
-export type DischargeEvent = "signSummary" | "clearPharmacy" | "finalBill" | "pay" | "leave";
-export const DISCHARGE: Table<DischargeState, DischargeEvent> = {
-  initiated: { signSummary: "summary-signed" },
-  "summary-signed": { clearPharmacy: "pharmacy-cleared" },
-  "pharmacy-cleared": { finalBill: "final-bill" },
-  "final-bill": { pay: "paid" },
-  paid: { leave: "left" },
-  left: {},
-};
+/* ADR 0017 (replaces the linear machine): a discharge is ordered by the doctor, then completed when the bed is released
+   or cancelled by the doctor before that. Its six steps each run waiting → in-progress → done; which step starts when
+   is the step graph in discharge.ts. */
+export type DischargeState = "ordered" | "completed" | "cancelled";
+export type DischargeEvent = "complete" | "cancel";
+export const DISCHARGE: Table<DischargeState, DischargeEvent> = { ordered: { complete: "completed", cancel: "cancelled" }, completed: {}, cancelled: {} };
+export type DischargeStepState = "waiting" | "in-progress" | "done";
+export type DischargeStepEvent = "start" | "finish";
+export const DISCHARGE_STEP: Table<DischargeStepState, DischargeStepEvent> = { waiting: { start: "in-progress" }, "in-progress": { finish: "done" }, done: {} };
 
 /* ADR 0015: a recorded dose is never changed — a wrong one is marked entered-in-error with a reason. "scheduled" / "due"
    are views of a slot (no row); a row is written at given | held | refused | missed. */

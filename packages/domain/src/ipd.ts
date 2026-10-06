@@ -3,7 +3,7 @@
 import { toEn } from "./format.js";
 import { BED, ENCOUNTER, transition, type BedState, type EncounterState } from "./machines.js";
 
-export interface BedClass { key: string; nameBn: string; nameEn: string; /** per-day sample price, paisa (billing comes with the IPD bill slice) */ perDayPaisa: number }
+export interface BedClass { key: string; nameBn: string; nameEn: string; /** per-day sample price, paisa — the seed for each facility's BedClassRate (ADR 0017) */ perDayPaisa: number }
 /** The admin masters hold the real classes; these are the sample defaults the seed and the picker use. */
 export const BED_CLASSES_SAMPLE: readonly BedClass[] = [
   { key: "General", nameBn: "সাধারণ ওয়ার্ড", nameEn: "General ward", perDayPaisa: 120_000 },
@@ -37,10 +37,10 @@ export const CONSENTS: readonly ConsentKind[] = [
   { key: "blood", nameBn: "রক্ত গ্রহণের সম্মতি", nameEn: "Blood transfusion", required: false },
 ];
 export const isConsentKey = (k: string) => CONSENTS.some((c) => c.key === k);
-export interface AdmissionForm { bedId: string | null; diagnosis: string; guardianName: string; guardianPhone: string; consents: string[] }
+export interface AdmissionForm { bedId: string | null; diagnosis: string; guardianName: string; guardianPhone: string; consents: string[]; /** ADR 0017: the deposit taken at the desk (shown, never blocking) */ depositPaisa?: number }
 export type ChecklistKey = "bed" | "diagnosis" | "guardian" | "consents" | "deposit";
-export interface ChecklistItem { key: ChecklistKey; ok: boolean; /** consents: how many required ones are missing */ missing?: number; /** deposit: taken at the counter (later slice), never blocks */ blocks: boolean }
-/** The prototype's checklist. Deposit shows but does not block (ADR 0014: money comes with the IPD bill slice). */
+export interface ChecklistItem { key: ChecklistKey; ok: boolean; /** consents: how many required ones are missing */ missing?: number; /** deposit: shown, never blocks (B1–B2 decision) */ blocks: boolean }
+/** The prototype's checklist. The deposit shows but never blocks (ADR 0014; ADR 0017 takes it at the desk). */
 export function admissionChecklist(f: AdmissionForm): ChecklistItem[] {
   const missing = CONSENTS.filter((c) => c.required && !f.consents.includes(c.key)).length;
   return [
@@ -49,7 +49,7 @@ export function admissionChecklist(f: AdmissionForm): ChecklistItem[] {
     // hands-on 05/10/2026: the phone is typed in Bangla or Latin digits (decision 239 applies to phones too)
     { key: "guardian", ok: f.guardianName.trim().length >= 2 && /^(\+?880)?0?1[3-9]\d{8}$/.test(guardianPhoneDigits(f.guardianPhone)), blocks: true },
     { key: "consents", ok: missing === 0, missing, blocks: true },
-    { key: "deposit", ok: false, blocks: false },
+    { key: "deposit", ok: (f.depositPaisa ?? 0) > 0, blocks: false },
   ];
 }
 /** The guardian's mobile as the API stores it: Latin digits, no spaces or dashes. */
