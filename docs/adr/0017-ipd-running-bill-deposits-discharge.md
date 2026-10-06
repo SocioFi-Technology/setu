@@ -110,8 +110,9 @@ domain model says "Task per step"; `Task.status` is the approval machine, so ste
   remove the manual path (decision 8). Admin may do any step.
 - **Blocking**: an unfinished step that a waiting step depends on, when that waiting step's other dependencies are
   done. The header names who is blocking: the department and, when someone has taken the step ("I'll take it"), the
-  person — "Blocked by Pharmacy · Md. Jewel Rana". Steps show how long they have waited; "Remind" notifies the step's
-  department in the app (a Communication, kind `discharge-remind`), at most once every 10 minutes per step.
+  person — "Blocked by Pharmacy · Md. Jewel Rana". Steps show how long they have waited; "Remind" marks the step
+  reminded (who, when — shown on the department's discharge list) and, for the doctor's steps, sends a doctor-inbox
+  notice (kind `discharge-remind`); at most once every 10 minutes per step.
 - **The order** (doctor, PIN): BED `startDischarge` (occupied → discharge-pending), the target time (default three
   hours). No bed move while discharge-pending. **Cancel** (doctor, reason, before step 6): steps stop, BED
   `cancelDischarge` (discharge-pending → occupied, new event).

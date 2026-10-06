@@ -15,7 +15,7 @@
    - a pending wallet amount is reserved, so confirmations can never overpay;
    - provider callbacks are recorded once; a repeat is a no-op, an out-of-order or backwards one is refused, and money
      reported on a failed or superseded attempt opens a reconciliation Task instead of being applied. */
-import type { ApprovalItem, ApprovalList, BillingWorklist, ChargeDefinitionList, DiscountRequest, InvoiceView, NewPaymentRequest, PaymentView, ProviderCallbackResponse, ReconcileItem, ReconcileList } from "@setu/contracts";
+import type { ApprovalItem, ApprovalList, BillingWorklist, ChargeSourceWire, ChargeDefinitionList, DiscountRequest, InvoiceView, NewPaymentRequest, PaymentView, ProviderCallbackResponse, ReconcileItem, ReconcileList } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
   APPROVAL, INVOICE, PAYMENT, approvalBlockers, billKindsFor, type Plan, type Role, billTotals, checkNewPayment, decideProviderEvent, dhakaDay, discountDecision, discountLimit, discountToPaisa,
@@ -71,6 +71,8 @@ const PENDING_DB = ["initiated", "link_sent", "waiting_customer"];
 /** What the bill asks to be paid: its total less returned medicine credited off it (decision 221). */
 export const dueBase = (inv: { totalPaisa: number; creditedPaisa: number }) => inv.totalPaisa - inv.creditedPaisa;
 
+/** A line's source as the contracts spell it (the database enum's bed_day is "bed-day", ADR 0017). */
+export const wireSource = (x: string) => x.replace(/_/g, "-") as ChargeSourceWire;
 export function requireWriter(s: SessionData) { if (!WRITE_ROLES.includes(s.role)) throw readOnlyRole(); }
 
 async function people(tx: Tx, ids: (string | null | undefined)[]) {
@@ -164,7 +166,7 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
     },
     encounter: e ? { ...toVitalsEncounter(e), practitioner: e.practitionerId ? who(e.practitionerId) : null } : null,
     lines: lines.map((l) => ({
-      id: l.id, position: l.position, source: l.source, sourceId: l.sourceId, code: l.code, nameEn: l.nameEn, nameBn: l.nameBn, unitPaisa: l.unitPaisa,
+      id: l.id, position: l.position, source: wireSource(l.source), sourceId: l.sourceId, code: l.code, nameEn: l.nameEn, nameBn: l.nameBn, unitPaisa: l.unitPaisa,
       qty: l.qty, vatRateBp: l.vatRateBp, grossPaisa: l.grossPaisa, discountPaisa: l.discountPaisa, netPaisa: l.netPaisa, vatPaisa: l.vatPaisa, totalPaisa: l.totalPaisa,
       editable: inv.status === "draft" && l.source === "desk",
       notBilled: l.notBilledTaskId && l.notBilledReason && l.notBilledAt

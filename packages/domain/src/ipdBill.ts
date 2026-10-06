@@ -116,7 +116,7 @@ export function desiredLines(f: StayFacts, now: Date): DesiredLine[] {
     } else {
       // a manual charge of several units: each unit counts against the limit
       const inc = Array.from({ length: x.m.qty }, () => covered(x.m.code)).every(Boolean);
-      out.push({ ...blank, key: `manual:${x.m.id}`, source: "desk", tag: inc ? "included" : "excluded", code: x.m.code, nameEn: x.m.nameEn, nameBn: x.m.nameBn, unitPaisa: inc ? 0 : x.m.unitPaisa, qty: x.m.qty, vatRateBp: x.m.vatRateBp, sourceId: x.m.id });
+      out.push({ ...blank, key: `manual:${x.m.id}`, source: "desk", tag: inc ? "included" : "excluded", code: x.m.code, nameEn: x.m.nameEn, nameBn: x.m.nameBn, unitPaisa: inc ? 0 : x.m.unitPaisa, qty: x.m.qty, vatRateBp: x.m.vatRateBp });
     }
   }
   for (const st of [...f.stock].sort((a, b) => a.at.getTime() - b.at.getTime())) {
@@ -216,3 +216,32 @@ export function classPreview(x: ClassPreviewInput): ClassPreview {
   const extraPaisa = (packageToPaisa ?? 0) - (x.packageNowPaisa ?? 0) + (b - a) * billable;
   return { direction, appliesFrom, perDayFromPaisa: a, perDayToPaisa: b, packageFromPaisa: x.packageNowPaisa, packageToPaisa, extraPaisa, estDays: PREVIEW_EST_DAYS };
 }
+
+/* ───── sample packages (decision 5: seeded, pending sign-off; editing comes in a later slice) ───── */
+export interface PackageSample {
+  code: string; nameEn: string; nameBn: string; days: number; prices: Record<string, Paisa>;
+  services: { code: string; limit: number | null; nameEn: string; nameBn: string }[];
+  medicines: { key: string; nameEn: string; nameBn: string }[];
+  excluded: { nameEn: string; nameBn: string }[];
+}
+const EXCLUDED_SAMPLE = [
+  { nameEn: "Extra bed days at the daily rate", nameBn: "অতিরিক্ত শয্যা-দিন দৈনিক হারে" },
+  { nameEn: "Blood & transfusion, as used", nameBn: "রক্ত ও ট্রান্সফিউশন, যতটুকু লাগে" },
+  { nameEn: "ICU / HDU, as used", nameBn: "আইসিইউ / এইচডিইউ, যতটুকু লাগে" },
+  { nameEn: "Medicines outside the list, at MRP", nameBn: "তালিকার বাইরের ওষুধ, এমআরপিতে" },
+  { nameEn: "Imaging (USG, X-ray), at the price list", nameBn: "ইমেজিং (ইউএসজি, এক্স-রে), মূল্যতালিকায়" },
+  { nameEn: "Other specialist consults, at the price list", nameBn: "অন্য বিশেষজ্ঞের পরামর্শ, মূল্যতালিকায়" },
+];
+const PKG_MEDS = [
+  { key: "napa", nameEn: "Paracetamol", nameBn: "প্যারাসিটামল" },
+  { key: "metronidazole", nameEn: "Metronidazole", nameBn: "মেট্রোনিডাজল" },
+  { key: "pantoprazole-iv", nameEn: "Pantoprazole IV", nameBn: "প্যান্টোপ্রাজল আইভি" },
+  { key: "ns", nameEn: "Normal saline", nameBn: "নরমাল স্যালাইন" },
+];
+const CBC2 = { code: "test:cbc", limit: 2, nameEn: "CBC", nameBn: "সিবিসি" };
+export const PACKAGES_SAMPLE: readonly PackageSample[] = [
+  { code: "PKG-LAP-01", nameEn: "Laparoscopic cystectomy", nameBn: "ল্যাপারোস্কোপিক সিস্টেক্টমি", days: 3, prices: { General: 4_800_000, Cabin: 6_200_000 }, services: [CBC2], medicines: PKG_MEDS, excluded: EXCLUDED_SAMPLE },
+  { code: "PKG-CS-01", nameEn: "Caesarean section", nameBn: "সিজারিয়ান ডেলিভারি", days: 3, prices: { General: 4_500_000, Cabin: 5_800_000 }, services: [CBC2], medicines: PKG_MEDS, excluded: EXCLUDED_SAMPLE },
+  { code: "PKG-NVD-01", nameEn: "Normal delivery", nameBn: "স্বাভাবিক প্রসব", days: 2, prices: { General: 2_500_000, Cabin: 3_200_000 }, services: [{ ...CBC2, limit: 1 }], medicines: PKG_MEDS, excluded: EXCLUDED_SAMPLE },
+  { code: "PKG-OBS-24", nameEn: "Observation 24 h", nameBn: "২৪ ঘণ্টা পর্যবেক্ষণ", days: 1, prices: { General: 600_000 }, services: [], medicines: PKG_MEDS.slice(0, 1), excluded: EXCLUDED_SAMPLE },
+];

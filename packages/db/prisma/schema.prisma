@@ -479,7 +479,7 @@ model Admission {
   sourceEncounterId    String?
   /// opd | er | direct
   source               String
-  /// requested | admitted | cancelled
+  /// requested | admitted | cancelled | discharged (ADMISSION machine)
   status               String
   number               String?
   admittingDoctorId    String
@@ -494,6 +494,14 @@ model Admission {
   consents             String[]   @default([])
   /// the IPD bill draft (Invoice kind ipd)
   invoiceId            String?
+  /// ADR 0017: the package as applied (prices per class, days, items) — set once, never re-priced by a catalogue change
+  packageId            String?
+  packageSnapshot      Json?
+  packageAppliedById   String?
+  packageAppliedAt     DateTime?
+  /// ADR 0017: discharged when the ward released the bed (the checklist's last step)
+  dischargedById       String?
+  dischargedAt         DateTime?
   requestedById        String
   requestedAt          DateTime   @default(now())
   admittedById         String?
@@ -1094,6 +1102,10 @@ enum ChargeSource {
   /// ADR 0009: a dispense of a prescription line (sourceId = MedicationDispense) / an over-the-counter sale line
   dispense
   sale
+  /// ADR 0017, IPD bills only: the package, a bed day (midnight census), ward stock drawn for the patient
+  package
+  bed_day      @map("bed-day")
+  stock
 }
 
 /// ADR 0009: opd = the visit's consultation and tests bill; pharmacy = the visit's dispensed medicines; otc = an
@@ -1109,35 +1121,50 @@ enum InvoiceKind {
 /// A bill line (FHIR ChargeItem). Name, price and VAT rate are copied from the price list when the line is added, so a
 /// later price change never alters a bill. unitPaisa null = no price set: the line is shown and blocks issuing.
 model ChargeItem {
-  id              String       @id @default(cuid())
-  tenantId        String
-  invoiceId       String
-  invoice         Invoice      @relation(fields: [invoiceId], references: [id])
-  position        Int
-  source          ChargeSource
+  id               String       @id @default(cuid())
+  tenantId         String
+  invoiceId        String
+  invoice          Invoice      @relation(fields: [invoiceId], references: [id])
+  position         Int
+  source           ChargeSource
   /// consultation → the Encounter id; order → the ServiceRequest id; desk → null
-  sourceId        String?
+  sourceId         String?
   /// ADR 0009: medicine lines — the batch the units came from and the medicine
-  batchId         String?
-  medicineKey     String?
-  definitionId    String?
-  code            String
-  nameEn          String
-  nameBn          String
-  unitPaisa       Int?
-  qty             Int          @default(1)
-  vatRateBp       Int          @default(0)
-  grossPaisa      Int          @default(0)
-  discountPaisa   Int          @default(0)
-  netPaisa        Int          @default(0)
-  vatPaisa        Int          @default(0)
-  totalPaisa      Int          @default(0)
+  batchId          String?
+  medicineKey      String?
+  definitionId     String?
+  code             String
+  nameEn           String
+  nameBn           String
+  unitPaisa        Int?
+  qty              Int          @default(1)
+  vatRateBp        Int          @default(0)
+  grossPaisa       Int          @default(0)
+  discountPaisa    Int          @default(0)
+  netPaisa         Int          @default(0)
+  vatPaisa         Int          @default(0)
+  totalPaisa       Int          @default(0)
   /// decision 98: "Not billed here" — an unpriced order line excluded by an approved bill-elsewhere Task
-  notBilledReason String?
-  notBilledTaskId String?
-  notBilledAt     DateTime?
-  addedById       String
-  createdAt       DateTime     @default(now())
+  notBilledReason  String?
+  notBilledTaskId  String?
+  notBilledAt      DateTime?
+  /// ADR 0017 (IPD bills): the source key (pkg, bed:<n>, order:<id>, stock:<ref>:<id>:<batch>, manual:<id>, credit:<key>),
+  /// the tag (package | included | excluded), the bed day and its class; posted by the census or a sync = auto
+  key              String?
+  tag              String?
+  serviceDay       String?
+  dayNo            Int?
+  bedClass         String?
+  auto             Boolean      @default(false)
+  /// a re-priced line: the line that replaced it (set once; the old line keeps every value)
+  supersededById   String?
+  supersededAt     DateTime?
+  supersededReason String?
+  /// a credit line: the line it reverses (qty negative); on the reversed line, the credit line
+  creditOfId       String?
+  creditedById     String?
+  addedById        String?
+  createdAt        DateTime     @default(now())
 
   @@unique([invoiceId, position])
   @@index([tenantId, invoiceId])
@@ -1249,6 +1276,9 @@ model Receipt {
   duePaisa       Int
   /// ADR 0013 (decision 221): returned medicine credited off the bill — paid + due + credited = total
   creditedPaisa  Int            @default(0)
+  /// ADR 0017: bill | deposit — a deposit receipt is a money receipt for one confirmed payment on the IPD bill (DR/yy/nnnn)
+  kind           String         @default("bill")
+  paymentId      String?        @unique
   /// everything the receipt prints (seller, patient, lines, totals, paid by, pending, cashier)
   snapshot       Json
   createdById    String
@@ -2463,4 +2493,120 @@ model BatchLabel {
 
   @@unique([tenantId, batchId])
   @@unique([tenantId, serial])
+}
+
+/// ADR 0017: a facility's bed-class daily rates (seeded from the sample classes, `sample` until the owner sets them).
+model BedClassRate {
+  id             String   @id @default(cuid())
+  tenantId       String
+  organizationId String
+  bedClass       String
+  nameEn         String
+  nameBn         String
+  perDayPaisa    Int
+  sample         Boolean  @default(true)
+  updatedAt      DateTime @default(now())
+
+  @@unique([tenantId, organizationId, bedClass])
+}
+
+/// ADR 0017: an IPD package (catalogue). Admissions keep a snapshot, so changes never re-price an admitted patient.
+model Package {
+  id             String         @id @default(cuid())
+  tenantId       String
+  organizationId String
+  code           String
+  nameEn         String
+  nameBn         String
+  /// bed days included
+  days           Int
+  validFrom      String
+  validTo        String?
+  /// a sample pending sign-off (decision 5)
+  sample         Boolean        @default(true)
+  active         Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  prices         PackagePrice[]
+  items          PackageItem[]
+
+  @@unique([tenantId, organizationId, code])
+}
+
+model PackagePrice {
+  id         String  @id @default(cuid())
+  tenantId   String
+  packageId  String
+  package    Package @relation(fields: [packageId], references: [id])
+  bedClass   String
+  pricePaisa Int
+
+  @@unique([packageId, bedClass])
+}
+
+/// included: a service by charge code (limit null = any number) or a medicine by key; excluded: text shown on the bill
+model PackageItem {
+  id        String  @id @default(cuid())
+  tenantId  String
+  packageId String
+  package   Package @relation(fields: [packageId], references: [id])
+  /// service | medicine | excluded
+  kind      String
+  code      String?
+  limitQty  Int?
+  nameEn    String
+  nameBn    String
+  position  Int
+
+  @@index([packageId])
+}
+
+/// ADR 0017: the discharge of an admission — ordered by the doctor, completed at the bed release or cancelled.
+model Discharge {
+  id             String          @id @default(cuid())
+  tenantId       String
+  organizationId String
+  admissionId    String
+  encounterId    String
+  patientId      String
+  /// ordered | completed | cancelled (DISCHARGE machine)
+  status         String
+  advice         String
+  targetAt       DateTime
+  orderedById    String
+  orderedAt      DateTime
+  cancelledById  String?
+  cancelledAt    DateTime?
+  cancelReason   String?
+  completedAt    DateTime?
+  steps          DischargeStep[]
+
+  @@index([tenantId, organizationId, status])
+  @@index([tenantId, admissionId])
+}
+
+/// One of the six steps (DISCHARGE_STEP machine): waiting → in-progress → done.
+model DischargeStep {
+  id           String    @id @default(cuid())
+  tenantId     String
+  dischargeId  String
+  discharge    Discharge @relation(fields: [dischargeId], references: [id])
+  /// order | summary | pharmacy | final-bill | payment | bed-release
+  key          String
+  /// waiting | in-progress | done
+  status       String
+  startedAt    DateTime?
+  /// "I'll take it": the person the header names when the step blocks
+  takenById    String?
+  takenAt      DateTime?
+  doneById     String?
+  doneAt       DateTime?
+  /// done by hand with a PIN until slices B10 / B11 complete it from the real event (decision 8)
+  byHand       Boolean   @default(false)
+  note         String?
+  detail       Json?
+  remindedById String?
+  remindedAt   DateTime?
+  reminders    Int       @default(0)
+
+  @@unique([dischargeId, key])
 }

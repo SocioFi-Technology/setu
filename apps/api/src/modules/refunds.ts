@@ -24,7 +24,7 @@ import { config } from "../config.js";
 import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
-import { invoiceHere, RECONCILE_TASK } from "./billing.js";
+import { invoiceHere, RECONCILE_TASK, wireSource } from "./billing.js";
 import { notFound } from "./frontdesk.js";
 import { deliverInApp } from "./lab.js";
 import { batchFor } from "./purchasing.js";
@@ -117,7 +117,7 @@ export async function refundableView(tx: Tx, s: SessionData, invoiceId: string):
   return {
     invoice: billRef(inv), patient: await patientOf(tx, inv), buyer: buyerOf(inv), confirmedLeftPaisa, duePaisa: dueOf(inv),
     lines: lines.map(({ l, left, lock, byUnits, controlled }) => ({
-      id: l.id, source: l.source, nameEn: l.nameEn, nameBn: l.nameBn, qty: l.qty, netPaisa: l.netPaisa, vatPaisa: l.vatPaisa, totalPaisa: l.totalPaisa, vatRateBp: l.vatRateBp,
+      id: l.id, source: wireSource(l.source), nameEn: l.nameEn, nameBn: l.nameBn, qty: l.qty, netPaisa: l.netPaisa, vatPaisa: l.vatPaisa, totalPaisa: l.totalPaisa, vatRateBp: l.vatRateBp,
       left, lock, byUnits, controlled,
     })),
     payments: pays.map(({ p, method, gw, ways, leftPaisa }) => ({ id: p.id, method, amountPaisa: p.amountPaisa, trxId: p.trxId, reference: p.reference, confirmedAt: iso(p.confirmedAt), leftPaisa, ways, gatewayRefunds: gw })),
@@ -708,7 +708,7 @@ export async function refundView(tx: Tx, s: SessionData, r: Rf): Promise<RefundV
     invoice: billRef(inv), patient: await patientOf(tx, inv), buyer: buyerOf(inv),
     lines: r.lines.map((l) => {
       const c = items.find((i) => i.id === l.chargeItemId)!;
-      return { id: l.id, chargeItemId: l.chargeItemId, source: c.source, nameEn: c.nameEn, nameBn: c.nameBn, vatRateBp: c.vatRateBp, units: l.units, netPaisa: l.netPaisa, vatPaisa: l.vatPaisa, totalPaisa: l.totalPaisa };
+      return { id: l.id, chargeItemId: l.chargeItemId, source: wireSource(c.source), nameEn: c.nameEn, nameBn: c.nameBn, vatRateBp: c.vatRateBp, units: l.units, netPaisa: l.netPaisa, vatPaisa: l.vatPaisa, totalPaisa: l.totalPaisa };
     }),
     allocations: r.allocations.map((a) => {
       const p = pays.find((x) => x.id === a.paymentId);

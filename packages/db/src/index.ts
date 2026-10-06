@@ -102,6 +102,12 @@ export async function refundSweepTargets(before: Date): Promise<{ tenantId: stri
   return rows.map((r) => ({ tenantId: r.tenant_id, allocationId: r.allocation_id }));
 }
 
+/** Admitted patients whose IPD bill lacks a bed day that is due (ADR 0017: the 00:01 Dhaka census). */
+export async function bedDaySweepTargets(now: Date): Promise<{ tenantId: string; admissionId: string }[]> {
+  const rows = await prisma.$queryRaw<{ tenant_id: string; admission_id: string }[]>`SELECT * FROM bed_day_sweep_targets(${now}::timestamptz)`;
+  return rows.map((r) => ({ tenantId: r.tenant_id, admissionId: r.admission_id }));
+}
+
 /** Open escalations past their in-app acknowledgement time, not yet raised to the doctors on duty (ADR 0015). */
 export async function escalationSweepTargets(now: Date): Promise<{ tenantId: string; escalationId: string }[]> {
   const rows = await prisma.$queryRaw<{ tenant_id: string; escalation_id: string }[]>`SELECT * FROM escalation_sweep_targets(${now}::timestamptz)`;

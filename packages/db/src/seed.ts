@@ -1,7 +1,7 @@
 /* Demo tenant used by dev, e2e and the journeys: Green Life Clinic, Mirpur (the prototype's sample facility).
    Sample people match the walkthrough so Playwright specs read like the journey text. */
 import { createHash } from "node:crypto";
-import { ANALYTES_SAMPLE, ICD11_SAMPLE, INPATIENT_MEDICINES_SAMPLE, MEDICINES_SAMPLE, MRP_SAMPLE, wardMedicine, wardStockLocation, RANGES_SAMPLE, TESTS_SAMPLE, emptySections, labFlag, patientAgeYears, priceListSample, rangeFor, rxQuantity } from "@setu/domain";
+import { ANALYTES_SAMPLE, BED_CLASSES_SAMPLE, PACKAGES_SAMPLE, ICD11_SAMPLE, INPATIENT_MEDICINES_SAMPLE, MEDICINES_SAMPLE, MRP_SAMPLE, wardMedicine, wardStockLocation, RANGES_SAMPLE, TESTS_SAMPLE, emptySections, labFlag, patientAgeYears, priceListSample, rangeFor, rxQuantity } from "@setu/domain";
 import { owner as prisma } from "./owner.ts";
 import { SEED_BED_STATES, SEED_WARDS, SEED_WARD_STOCK } from "./wards.ts";
 import { seedInpatient } from "./inpatient.ts";
@@ -113,6 +113,32 @@ async function seedLabHistory(tenantId: string, organizationId: string, branchId
   }
   if (!(await prisma.provenance.count({ where: { targetType: "Observation", targetId: `${idPrefix}lb_rahima_20260812` } })))
     await prisma.provenance.create({ data: { tenantId, targetType: "Observation", targetId: `${idPrefix}lb_rahima_20260812`, activity: "lab-validate", agentId: pathId, onBehalfOf: organizationId, source: "provider_verified", recorded: at, detail: { seeded: true, verifiedBy: techId } } });
+}
+
+/* ADR 0017: the bed-class daily rates (from the sample classes) and the sample packages, for a facility with beds.
+   Upsert: a re-seed refreshes sample rows only (an owner-set rate or package is left alone). */
+export async function seedIpdCatalogue(tenantId: string, organizationId: string) {
+  for (const c of BED_CLASSES_SAMPLE) {
+    const cur = await prisma.bedClassRate.findFirst({ where: { tenantId, organizationId, bedClass: c.key } });
+    if (cur && !cur.sample) continue;
+    const data = { nameEn: c.nameEn, nameBn: c.nameBn, perDayPaisa: c.perDayPaisa, sample: true };
+    await prisma.bedClassRate.upsert({ where: { tenantId_organizationId_bedClass: { tenantId, organizationId, bedClass: c.key } }, update: data, create: { tenantId, organizationId, bedClass: c.key, ...data } });
+  }
+  for (const p of PACKAGES_SAMPLE) {
+    const cur = await prisma.package.findFirst({ where: { tenantId, organizationId, code: p.code } });
+    if (cur && !cur.sample) continue;
+    const pkg = await prisma.package.upsert({ where: { tenantId_organizationId_code: { tenantId, organizationId, code: p.code } },
+      update: { nameEn: p.nameEn, nameBn: p.nameBn, days: p.days }, create: { tenantId, organizationId, code: p.code, nameEn: p.nameEn, nameBn: p.nameBn, days: p.days, validFrom: "2026-10-01", sample: true } });
+    await prisma.packagePrice.deleteMany({ where: { packageId: pkg.id } });
+    await prisma.packageItem.deleteMany({ where: { packageId: pkg.id } });
+    await prisma.packagePrice.createMany({ data: Object.entries(p.prices).map(([bedClass, pricePaisa]) => ({ tenantId, packageId: pkg.id, bedClass, pricePaisa })) });
+    let position = 0;
+    await prisma.packageItem.createMany({ data: [
+      ...p.services.map((x) => ({ tenantId, packageId: pkg.id, kind: "service", code: x.code, limitQty: x.limit, nameEn: x.nameEn, nameBn: x.nameBn, position: ++position })),
+      ...p.medicines.map((x) => ({ tenantId, packageId: pkg.id, kind: "medicine", code: x.key, limitQty: null, nameEn: x.nameEn, nameBn: x.nameBn, position: ++position })),
+      ...p.excluded.map((x) => ({ tenantId, packageId: pkg.id, kind: "excluded", code: null, limitQty: null, nameEn: x.nameEn, nameBn: x.nameBn, position: ++position })),
+    ] });
+  }
 }
 
 /* Slice A6: the prototype's sample price list for one facility (every row `sample`), with a consultation fee for each of
@@ -355,6 +381,8 @@ async function main() {
   }
   for (const t of [tenant.id, "t_clinicdemo", "t_litedemo", E2E.tenant, LITE.tenant]) { await seedCatalogues(t); await seedLabCatalogues(t); }
   for (const [t, o] of [[tenant.id, org.id], ["t_clinicdemo", "o_clinicdemo"], ["t_litedemo", "o_litedemo"], [E2E.tenant, E2E.org], [LITE.tenant, LITE.org]] as const) await seedPriceList(t, o);
+  // ADR 0017: bed-class rates and sample packages wherever there are beds
+  for (const [t, o] of [[tenant.id, org.id], ["t_litedemo", "o_litedemo"], [LITE.tenant, LITE.org]] as const) await seedIpdCatalogue(t, o);
   for (const [t, o, by] of [[tenant.id, org.id, "u_jewel"], [E2E.tenant, E2E.org, "u_e2e_pharm"], [LITE.tenant, LITE.org, "u_e2l_pharm"]] as const) await seedStock(t, o, by);
   /* ADR 0015: Ward 3B's opening stock (received there as the seed's opening; the E2E reset tops it up) and the
      walkthrough inpatient with a signed round note, when none is admitted yet. */
