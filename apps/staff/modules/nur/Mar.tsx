@@ -145,8 +145,9 @@ function DoseDialog({ v, pick, onClose, onDone, onStale }: { v: MarView; pick: P
   ) as string[]).concat(o.allergyBlock && outcome === "given" ? ["allergy"] : [])
     .concat(scanBlockers({ outcome, source, highAlert: o.medicine.highAlert, controlled: o.medicine.controlled, band: band ? "match" : "none", med: med ? "match" : "none", overrideReason: noScanner ? overrideReason : null }));
   const overrideAllowed = !(o.medicine.highAlert || o.medicine.controlled);
-  const scanBand = (code: string) => { setBand(code); setChecks((c) => ({ ...c, patient: Boolean(code) })); setServerBlockers([]); };
-  const scanMed = (code: string) => { setMed(code); setChecks((c) => ({ ...c, drug: Boolean(code) })); setServerBlockers([]); };
+  // a new scan clears the server's last answer; a scan cleared because the server refused it keeps the "mismatch" shown
+  const scanBand = (code: string, fromServer = false) => { setBand(code); setChecks((c) => ({ ...c, patient: Boolean(code) })); if (!fromServer) setServerBlockers([]); };
+  const scanMed = (code: string, fromServer = false) => { setMed(code); setChecks((c) => ({ ...c, drug: Boolean(code) })); if (!fromServer) setServerBlockers([]); };
   const pinOk = !(needsWitness && outcome === "given") || /^\d{4}$/.test(pin);
   const timing = doseTiming(slot, Number.isNaN(administeredAt.getTime()) ? now : administeredAt, v.windowMin);
   const reasonNeeded = outcome !== "given" || timing === "late" || timing === "early" || near !== null;
@@ -174,8 +175,8 @@ function DoseDialog({ v, pick, onClose, onDone, onStale }: { v: MarView; pick: P
           if (b.code === "dose_blocked" && Array.isArray(b.blockers)) {
             setServerBlockers(b.blockers);
             // a wrong scan is cleared so the right one can be scanned
-            if (b.blockers.includes("band_mismatch")) scanBand("");
-            if (b.blockers.some((x) => x === "med_mismatch" || x === "med_expired" || x === "med_not_on_ward")) scanMed("");
+            if (b.blockers.includes("band_mismatch")) scanBand("", true);
+            if (b.blockers.some((x) => x === "med_mismatch" || x === "med_expired" || x === "med_not_on_ward")) scanMed("", true);
           }
         }
         if (b.code === "stale" || b.code === "dose_blocked") await onStale();
@@ -197,8 +198,8 @@ function DoseDialog({ v, pick, onClose, onDone, onStale }: { v: MarView; pick: P
         {outcome === "given" && (<>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }} data-testid="scans">
             <b className="t-small">{N("scan_title")}</b>
-            <ScanField label={N("scan_band")} value={band} onScan={scanBand} testId="scan-band" disabled={busy} />
-            {source === "ward-stock" ? <ScanField label={N("scan_med")} value={med} onScan={scanMed} testId="scan-med" disabled={busy} /> : <span className="t-small t-muted">{N("scan_band_only")}</span>}
+            <ScanField label={N("scan_band")} value={band} onScan={(c) => scanBand(c)} testId="scan-band" disabled={busy} />
+            {source === "ward-stock" ? <ScanField label={N("scan_med")} value={med} onScan={(c) => scanMed(c)} testId="scan-med" disabled={busy} /> : <span className="t-small t-muted">{N("scan_band_only")}</span>}
             {overrideAllowed ? (<>
               <label className="t-small" style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={noScanner} onChange={(e) => setNoScanner(e.target.checked)} data-testid="no-scanner" /> {N("scan_override")}</label>
               {noScanner && <TextField label={N("scan_override_reason")} value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} name="overrideReason" data-testid="override-reason" />}

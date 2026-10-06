@@ -32,6 +32,20 @@ async function inpatient(request: APIRequestContext) {
   }
   throw new Error("the seeded inpatient is not on a ward — run pnpm db:reset-e2e");
 }
+/** ADR 0016: what the nurse scans at the bedside — the wristband (printed through the API) and ward batch labels. */
+async function bedsideCodes(request: APIRequestContext, encounterId: string, wardId: string) {
+  await as(request, NURSE);
+  const r = await request.post(`/api/v1/nursing/encounters/${encounterId}/wristband`, { headers: { "idempotency-key": crypto.randomUUID() }, data: { reason: "journey: band for the doses" } });
+  expect(r.status(), await r.text()).toBe(201);
+  const band = (await r.json()).code as string;
+  const label = async (key: string) => (await getJ<{ items: { medicineKey: string; batches: { label: string; qty: number }[] }[] }>(request, `/v1/nursing/wards/${wardId}/stock`)).items.find((i) => i.medicineKey === key)!.batches.find((b) => b.qty > 0)!.label;
+  return { band, label };
+}
+async function scan(page: Page, band: string, med?: string) {
+  const dlg = page.getByTestId("dose-dialog");
+  await dlg.getByTestId("scan-band-input").fill(band); await dlg.getByTestId("scan-band-input").press("Enter");
+  if (med) { await dlg.getByTestId("scan-med-input").fill(med); await dlg.getByTestId("scan-med-input").press("Enter"); }
+}
 async function pickWard(page: Page, wardId: string) {
   await page.goto("/m/nur/ward");
   await page.getByTestId("ward-pick").selectOption(wardId);
@@ -140,6 +154,7 @@ test.describe("Journey B4–B7: the patient on the ward", () => {
 
   test("B6 the MAR: the stopped order takes no dose; five checks; a high-alert PRN needs a witness (#24); the patient's own supply; entered-in-error; notes", async ({ page, request }) => {
     const ip = await inpatient(request);
+    const codes = await bedsideCodes(request, ip.encounterId, ip.wardId);
     await login(page, NURSE);
     await page.goto(`/m/nur/mar?enc=${ip.encounterId}`);
     await expect(page.locator("[data-order]").first()).toBeVisible();
@@ -156,6 +171,10 @@ test.describe("Journey B4–B7: the patient on the ward", () => {
     await slot.click();
     const dlg = page.getByTestId("dose-dialog");
     await expect(dlg).toBeVisible();
+    // walkthrough B5: Record stays locked until the wristband and the medicine are scanned
+    await expect(dlg.locator('[data-blocker="band_required"]')).toBeVisible();
+    await scan(page, codes.band, await codes.label("ceftriaxone"));
+    await expect(dlg.locator('[data-blocker="band_required"]')).toHaveCount(0);
     for (const c of ["patient", "drug", "dose", "route"]) await dlg.locator(`[data-check="${c}"]`).check();
     await expect(dlg.getByTestId("dose-record")).toBeDisabled();
     await expect(dlg.locator('[data-blocker="checks_incomplete"]')).toBeVisible();
@@ -169,6 +188,8 @@ test.describe("Journey B4–B7: the patient on the ward", () => {
     const mor = page.locator('[data-order="morphine"]');
     await mor.getByTestId("give-prn").click();
     await expect(dlg.getByTestId("witness")).toBeVisible();
+    await expect(dlg.getByTestId("no-override")).toBeVisible(); // no "scanner not working" for a controlled drug
+    await scan(page, codes.band, await codes.label("morphine"));
     for (const c of ["patient", "drug", "dose", "route", "time"]) await dlg.locator(`[data-check="${c}"]`).check();
     await expect(dlg.getByTestId("dose-record")).toBeDisabled();
     await expect(dlg.getByTestId("witness-pick").locator("option", { hasText: "Lite Nurse Two" })).toHaveCount(0);
@@ -192,6 +213,7 @@ test.describe("Journey B4–B7: the patient on the ward", () => {
     const insSlot = ins.locator("[data-slot]:not([disabled])").first();
     const insAt = await insSlot.getAttribute("data-slot-at");
     await insSlot.click();
+    await scan(page, codes.band, await codes.label("insulin"));
     for (const c of ["patient", "drug", "dose", "route", "time"]) await dlg.locator(`[data-check="${c}"]`).check();
     await expect(dlg.locator('[data-blocker="amount_required"]')).toBeVisible();
     await dlg.getByTestId("amount-given").fill("4 IU");
@@ -205,8 +227,9 @@ test.describe("Journey B4–B7: the patient on the ward", () => {
     // Napa PRN from the patient's own supply: shown distinctly
     const napa = page.locator('[data-order="napa"]');
     await napa.getByTestId("give-prn").click();
-    for (const c of ["patient", "drug", "dose", "route", "time"]) await dlg.locator(`[data-check="${c}"]`).check();
     await dlg.getByRole("radio", { name: "Patient's own supply" }).click();
+    await scan(page, codes.band); // the patient's own supply: the wristband only
+    for (const c of ["patient", "drug", "dose", "route", "time"]) await dlg.locator(`[data-check="${c}"]`).check();
     await dlg.getByTestId("dose-record").click();
     await expect(dlg).toHaveCount(0);
     const hist = page.getByTestId("mar-history");
