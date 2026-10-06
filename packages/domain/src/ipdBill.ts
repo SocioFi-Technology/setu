@@ -18,8 +18,8 @@ export interface PackageSnapshot {
   packageId: string; code: string; nameEn: string; nameBn: string;
   /** bed days included */ days: number;
   /** package price per bed class, paisa */ prices: Record<string, Paisa>;
-  /** included services by charge code (e.g. test:cbc), with a limit (null = any number) */ services: { code: string; limit: number | null }[];
-  /** included medicines by key (the package's medicine list) */ medicines: string[];
+  /** included services by charge code (e.g. test:cbc), with a limit (null = any number) */ services: { code: string; limit: number | null; nameEn?: string; nameBn?: string }[];
+  /** included medicines by key (the package's medicine list) */ medicines: string[]; medicineNames?: Record<string, { nameEn: string; nameBn: string }>;
   /** shown on the bill as "not in the package" (text only) */ excluded: { nameEn: string; nameBn: string }[];
 }
 export interface ClassRate { perDayPaisa: Paisa; nameEn: string; nameBn: string }

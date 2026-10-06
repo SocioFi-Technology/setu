@@ -15,7 +15,7 @@ import { smsPhone, smsText } from "./lab.js";
 
 const dash = <T extends string>(s: string) => s.replace(/_/g, "-") as T;
 type RangeLabel = "adult" | "adult-female" | "adult-male";
-const INBOX_KINDS: InboxKind[] = ["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital", "substitution-notice", "return-notice", "news2-escalation"];
+const INBOX_KINDS: InboxKind[] = ["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital", "substitution-notice", "return-notice", "news2-escalation", "discharge-remind"];
 const MAX_ITEMS = 200;
 
 function requireDoctor(s: SessionData) {

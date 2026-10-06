@@ -41,7 +41,7 @@ export const BILL_ELSEWHERE_TASK = "bill-elsewhere";
 const APPROVAL_KINDS = [DISCOUNT_TASK, BILL_ELSEWHERE_TASK];
 const OPEN_BILL = { notIn: ["cancelled", "entered_in_error"] as ("cancelled" | "entered_in_error")[] };
 /** Visits whose orders are billed: placed and not revoked or declined. */
-const BILLED_ORDER_STATES = ["active", "centre_chosen", "accepted", "partially_accepted", "in_progress", "partially_complete", "complete"] as const;
+export const BILLED_ORDER_STATES = ["active", "centre_chosen", "accepted", "partially_accepted", "in_progress", "partially_complete", "complete"] as const;
 /** the pharmacist writes pharmacy and OTC bills only — invoiceHere hides every other kind from them (ADR 0009) */
 const WRITE_ROLES = ["cashier", "owner", "admin", "pharmacist"];
 
@@ -713,6 +713,8 @@ export async function decideReconcile(tx: Tx, s: SessionData, taskId: string, ac
 }
 
 /* ───── payments ───── */
+/** A bill that takes money: issued or partly paid — or (ADR 0017, IPD only) the running IPD bill's draft, for deposits. */
+export const takesPayment = (inv: { status: string; kind: string }) => inv.status === "issued" || inv.status === "partially_paid" || (inv.kind === "ipd" && inv.status === "draft");
 /** PAYMENT `confirm`, then the bill's confirmed money and INVOICE payPart / payAll. The database checks that the bill's
     paid amount is the sum of its confirmed payments. */
 async function confirmPayment(tx: Tx, p: Pay, inv: Inv, by: string | null, trxId: string | null, now: Date) {
@@ -721,9 +723,19 @@ async function confirmPayment(tx: Tx, p: Pay, inv: Inv, by: string | null, trxId
   if (n.count !== 1) throw stale();
   const rows = (await tx.payment.findMany({ where: { invoiceId: inv.id } })).map(toRow);
   const s = paymentSummary(dueBase(inv), rows);
+  // ADR 0017: a deposit on the running IPD bill adds to its confirmed money; the bill stays a draft until B10 issues it
+  if (inv.kind === "ipd" && inv.status === "draft") { await tx.invoice.update({ where: { id: inv.id }, data: { paidPaisa: s.confirmedPaisa, statusAt: now } }); return; }
   const event = invoiceEventAfterConfirm(dueBase(inv), s.confirmedPaisa);
   const next = undash<"balanced">(transition("INVOICE", INVOICE, dash<InvoiceState>(inv.status), event));
   await tx.invoice.update({ where: { id: inv.id }, data: { paidPaisa: s.confirmedPaisa, status: next, statusAt: now } });
+}
+
+/** ADR 0017: confirm a cash / card / bank deposit on the running IPD bill (the bill stays a draft). */
+export async function confirmIpdDeposit(tx: Tx, paymentId: string, by: string, now: Date) {
+  const p = (await tx.payment.findFirst({ where: { id: paymentId } }))!;
+  const inv = (await tx.invoice.findFirst({ where: { id: p.invoiceId } }))!;
+  if (inv.kind !== "ipd") throw new Error("confirmIpdDeposit: not an IPD bill");
+  await confirmPayment(tx, p, inv, by, null, now);
 }
 
 /** Review (decision 221): while a return without refund is open on the bill, no money is taken — the due it leaves is not
@@ -773,6 +785,7 @@ export async function attachLink(tenantId: string, paymentId: string, now: Date,
 export async function addPayment(tx: Tx, s: SessionData, invoiceId: string, req: NewPaymentRequest, now: Date): Promise<{ inv: Inv; payment: Pay }> {
   requireWriter(s);
   const inv = await invoiceHere(tx, s, invoiceId, true);
+  if (inv.kind === "ipd") throw err(409, "ipd_deposit", "ভর্তি রোগীর টাকা আইপিডি বিলে জমা হিসেবে নিন", "Take an inpatient's money as a deposit on the IPD bill");
   if (inv.status !== "issued" && inv.status !== "partially_paid")
     throw err(409, "not_payable", inv.status === "draft" ? "আগে বিল ইস্যু করুন" : "এই বিলে আর টাকা নেওয়া যায় না", inv.status === "draft" ? "Issue the bill first" : "This bill takes no more payments");
   await refuseWhileReturnOpen(tx, inv.id);
@@ -824,7 +837,7 @@ async function walletPaymentHere(tx: Tx, s: SessionData, paymentId: string) {
 /** A failed wallet payment: cancel the old link, PAYMENT `retry` (attempt + 1, old reference kept as superseded), new link. */
 export async function retryPayment(tx: Tx, s: SessionData, paymentId: string, now: Date): Promise<{ inv: Inv; payment: Pay }> {
   const { p, inv } = await walletPaymentHere(tx, s, paymentId);
-  if (inv.status !== "issued" && inv.status !== "partially_paid") throw err(409, "not_payable", "এই বিলে আর টাকা নেওয়া যায় না", "This bill takes no more payments");
+  if (!takesPayment(inv)) throw err(409, "not_payable", "এই বিলে আর টাকা নেওয়া যায় না", "This bill takes no more payments");
   await refuseWhileReturnOpen(tx, inv.id);
   // a new link only for a method the facility still takes (controls review); checking or cancelling a pending one still works
   const methods = (await tx.organization.findFirst({ where: { id: s.organizationId }, select: { paymentMethods: true } }))?.paymentMethods ?? [];
@@ -951,7 +964,7 @@ export async function handleProviderEvent(tx: Tx, provider: PaymentProvider, ten
       await record("refused", "amount-mismatch");
       return { body: { outcome: "refused", reason: "amount-mismatch" }, audit: audit("refused", "amount-mismatch") };
     }
-    if (inv.status !== "issued" && inv.status !== "partially_paid") {
+    if (!takesPayment(inv)) {
       await reconcile("money reported on a bill that takes no payments");
       await record("refused", "bill-not-payable");
       return { body: { outcome: "refused", reason: "bill-not-payable" }, audit: audit("refused", "bill-not-payable") };
@@ -1007,7 +1020,7 @@ async function applyAnswer(tenantId: string, provider: PaymentProvider, paymentI
     if (a.outcome === "pending") return result("pending");
     const kind = a.outcome === "confirm" ? "confirmed" : "failed";
     const event = { tenantId, provider: provider.name, eventId: `execute:${ref}`, providerRef: ref, kind, paymentId: p.id, trxId: st?.trxId ?? null, amountPaisa: st?.amountPaisa ?? null, receivedAt: now };
-    if (a.outcome === "confirm" && inv.status !== "issued" && inv.status !== "partially_paid") {
+    if (a.outcome === "confirm" && !takesPayment(inv)) {
       // money taken on a bill that no longer takes payments (voided meanwhile): never lost — the owner reconciles it
       await tx.task.create({ data: { tenantId, kind: RECONCILE_TASK, status: "requested", focusId: p.id, reason: "money taken on a bill that takes no payments", requestedById: `provider:${provider.name}`, requestedAt: now,
         detail: { providerRef: ref, trxId: a.trxId, amountPaisa: st!.amountPaisa, paymentAmountPaisa: p.amountPaisa, invoiceId: inv.id } as object } });
@@ -1157,13 +1170,15 @@ const smsPhone = (phone: string | null | undefined) => (phone && /^1[3-9]\d{8}$/
 export async function queueLinkSms(tx: Tx, p: Pay, by: string): Promise<string | null> {
   // bKash only: the words say bKash (Nagad has no gateway of its own yet)
   if (!p.linkCode || !p.patientId || p.method !== "bkash") return null;
-  const inv = (await tx.invoice.findFirst({ where: { id: p.invoiceId }, select: { number: true, encounterId: true } }))!;
-  const to = smsPhone((await tx.patient.findFirst({ where: { id: p.patientId }, select: { phone: true } }))?.phone);
+  const inv = (await tx.invoice.findFirst({ where: { id: p.invoiceId }, select: { number: true, encounterId: true, kind: true } }))!;
+  // ADR 0017: the number the link was made for (a deposit link may go to the guardian); an IPD bill is named by its admission
+  const to = smsPhone(p.phone ?? (await tx.patient.findFirst({ where: { id: p.patientId }, select: { phone: true } }))?.phone);
+  const number = inv.number ?? (inv.kind === "ipd" ? (await tx.admission.findFirst({ where: { invoiceId: p.invoiceId }, select: { number: true } }))?.number ?? "" : "");
   if (!to) return null;
   const o = await tx.organization.findFirst({ where: { id: p.organizationId }, select: { name: true, nameBn: true } });
   const { t, fill } = await import("@setu/i18n");
   const amount = walletAmount(p.amountPaisa).replace(/\.00$/, "");
-  const vars = (facility: string) => ({ facility, number: inv.number ?? "", amount });
+  const vars = (facility: string) => ({ facility, number, amount });
   // both languages, then the link once (a bilingual SMS is Unicode: every character costs)
   const text = `${fill(t("bn", "billingApp", "sms_payment_link"), vars(smsSafeName(o?.nameBn ?? o?.name ?? "")))}\n${fill(t("en", "billingApp", "sms_payment_link"), vars(smsSafeName(o?.name ?? "")))}\n${config.publicAppUrl}/p/${p.linkCode}`;
   const c = await tx.communication.create({ data: {

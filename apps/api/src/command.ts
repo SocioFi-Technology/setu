@@ -81,6 +81,7 @@ export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (
   } catch (e) {
     // Two requests with the same key raced: the loser rolls back entirely and answers with the winner's response.
     if (!isUniqueViolation(e)) throw e;
+    if (process.env.SETU_TEST_ERRORS) console.error("unique violation", e);
     // Not a key race: another write took the same unique slot at the same moment (e.g. two shift opens) — a clean 409,
     // never a raw 500 (security review C1–C4 #8).
     return send(await forTenant(s.tenantId, async (tx) => {

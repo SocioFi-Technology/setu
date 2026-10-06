@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import type { AdmissionItem, AdmissionList, AdmissionView, AdmitRequest, BedActionRequest, BedBoard, BedView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
-  ADMISSION, ADMISSION_SEQUENCE, BED, BED_CLASSES_SAMPLE, CONSENTS, DEPARTMENTS_SAMPLE, admissionBlockers, admissionChecklist, admissionEncounterState, admissionNumber, bedPickable, dhakaDay,
+  ADMISSION, ADMISSION_SEQUENCE, BED, CONSENTS, DEPARTMENTS_SAMPLE, admissionBlockers, admissionChecklist, admissionEncounterState, admissionNumber, bedPickable, dhakaDay,
   finishSource, guardianPhoneDigits, isAdmissionClass, isConsentKey, occupyLeg, reserveLeg, transition, type AdmissionForm, type BedState, type EncounterState,
 } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
@@ -13,11 +13,13 @@ import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
 import { bedNotFree, dash, endAssignment, erDoctors, erPatient, iso, isUnique, resolvedPatient, stale, under, type DbBedState, type DbEncStatus } from "./er.js";
 import { branchOf, getPatient, notFound, toSummary } from "./frontdesk.js";
+import { classRates, packageList, packageSnapshot, syncAdmission, takeDeposit } from "./ipdBill.js";
 
 type Bed = NonNullable<Awaited<ReturnType<Tx["location"]["findFirst"]>>>;
 type Live = NonNullable<Awaited<ReturnType<Tx["bedAssignment"]["findFirst"]>>>;
 type PatientRow = NonNullable<Awaited<ReturnType<Tx["patient"]["findFirst"]>>>;
-const classes = () => BED_CLASSES_SAMPLE.filter((c) => c.key !== "ER").map((c) => ({ ...c, sample: true as const }));
+/** ADR 0017: the facility's class rates (BedClassRate), without the ER bay */
+const classes = async (tx: Tx, organizationId: string) => (await classRates(tx, organizationId)).rows.filter((c) => c.key !== "ER");
 async function people(tx: Tx, ids: (string | null | undefined)[]) {
   const want = [...new Set(ids.filter((x): x is string => Boolean(x)))];
   const rows = want.length ? await tx.user.findMany({ where: { id: { in: want } }, select: { id: true, nameBn: true, nameEn: true } }) : [];
@@ -56,7 +58,7 @@ export async function bedBoard(tx: Tx, s: SessionData, cls?: string): Promise<{ 
   const counts = { vacant: 0, reserved: 0, occupied: 0, dischargePending: 0, cleaning: 0, blocked: 0 };
   for (const v of views) counts[v.state === "discharge-pending" ? "dischargePending" : v.state]++;
   const wards = [...c.wards.values()].map((w) => ({ id: w.id, name: w.name, nameBn: w.nameBn, beds: views.filter((v) => v.ward.id === w.id) })).filter((w) => w.beds.length);
-  return { board: { wards, classes: classes(), counts }, patientIds: views.flatMap((v) => (v.patient ? [v.patient.id] : [])) };
+  return { board: { wards, classes: await classes(tx, s.organizationId), counts }, patientIds: views.flatMap((v) => (v.patient ? [v.patient.id] : [])) };
 }
 /** Ward actions through BED: block (reason), unblock, mark ready. Never on a bed somebody holds. */
 export async function bedAction(tx: Tx, s: SessionData, bedId: string, req: BedActionRequest, now: Date): Promise<{ bed: BedView; audit: AuditEntry[] }> {
@@ -92,14 +94,18 @@ async function admissionItems(tx: Tx, s: SessionData, rows: Adm[]): Promise<Admi
 }
 export async function admissionList(tx: Tx, s: SessionData, now: Date): Promise<{ list: AdmissionList; patientIds: string[] }> {
   const dayStart = new Date(`${dhakaDay(now)}T00:00:00+06:00`);
-  const [requested, admitted, doctors] = await Promise.all([
+  const [requested, admitted, doctors, packages, org] = await Promise.all([
     tx.admission.findMany({ where: { organizationId: s.organizationId, status: "requested" }, orderBy: { requestedAt: "asc" } }),
     tx.admission.findMany({ where: { organizationId: s.organizationId, status: "admitted", admittedAt: { gte: dayStart } }, orderBy: { admittedAt: "desc" } }),
     erDoctors(tx, s),
+    packageList(tx, s),
+    tx.organization.findFirst({ where: { id: s.organizationId }, select: { paymentMethods: true } }),
   ]);
   const list: AdmissionList = {
     requested: await admissionItems(tx, s, requested), admitted: await admissionItems(tx, s, admitted),
-    options: { doctors: doctors.map((d) => ({ id: d.id, nameBn: d.nameBn, nameEn: d.nameEn, speciality: d.speciality })), departments: DEPARTMENTS_SAMPLE.map((d) => ({ ...d })), consents: CONSENTS.map((c) => ({ ...c })), classes: classes() },
+    options: { doctors: doctors.map((d) => ({ id: d.id, nameBn: d.nameBn, nameEn: d.nameEn, speciality: d.speciality })), departments: DEPARTMENTS_SAMPLE.map((d) => ({ ...d })), consents: CONSENTS.map((c) => ({ ...c })), classes: await classes(tx, s.organizationId),
+      packages: packages.items.map((p) => ({ id: p.id, code: p.code, nameEn: p.nameEn, nameBn: p.nameBn, days: p.days, prices: p.prices, sample: p.sample })),
+      paymentMethods: (org?.paymentMethods ?? []) as AdmissionList["options"]["paymentMethods"] },
   };
   return { list, patientIds: [...requested, ...admitted].map((a) => a.patientId) };
 }
@@ -118,7 +124,8 @@ export async function admissionView(tx: Tx, s: SessionData, id: string): Promise
   const who = await people(tx, [a.requestedById, a.admittedById]);
   const transferIds = [...new Set((await tx.bedAssignment.findMany({ where: { patientId: a.patientId, OR: [{ encounterId: a.encounterId ?? "" }, { encounterId: a.sourceEncounterId ?? "" }] }, select: { transferId: true } })).map((r) => r.transferId))];
   const legs = transferIds.length ? await tx.bedAssignment.findMany({ where: { transferId: { in: transferIds } }, orderBy: { createdAt: "asc" } }) : [];
-  const form: AdmissionForm = { bedId: a.bedId, diagnosis: a.diagnosis, guardianName: a.guardianName ?? "", guardianPhone: a.guardianPhone ?? "", consents: a.consents };
+  const deposits = a.invoiceId ? (await tx.payment.aggregate({ where: { invoiceId: a.invoiceId, status: "confirmed" }, _sum: { amountPaisa: true } }))._sum.amountPaisa ?? 0 : 0;
+  const form: AdmissionForm = { bedId: a.bedId, diagnosis: a.diagnosis, guardianName: a.guardianName ?? "", guardianPhone: a.guardianPhone ?? "", consents: a.consents, depositPaisa: deposits };
   return {
     id: a.id, number: a.number, status: a.status as AdmissionView["status"], source: a.source as AdmissionView["source"], patient: toSummary(await getPatient(tx, a.patientId)),
     encounter: enc ? { id: enc.id, status: dash(enc.status), token: enc.token } : null,
@@ -160,6 +167,10 @@ export async function admit(tx: Tx, s: SessionData, req: AdmitRequest, now: Date
   if (badConsent) throw err(400, "unknown_consent", "অজানা সম্মতিপত্র", "Unknown consent", { field: "consents" });
   if (blockers.length) throw err(422, "admission_blocked", `${blockers.length}টি ধাপ বাকি — ভর্তি হয়নি`, `${blockers.length} step(s) left — not admitted`, { blockers: admissionChecklist(form).filter((c) => c.blocks && !c.ok) as unknown as Record<string, unknown>[] });
   if (!isAdmissionClass(req.bedClass)) throw err(400, "bed_class", "এই শ্রেণিতে ভর্তি হয় না", "Not an admission class", { field: "bedClass" });
+  // ADR 0017: the package (optional) — a snapshot, priced for the admission class
+  const pkg = req.packageId ? await packageSnapshot(tx, s.organizationId, req.packageId, dhakaDay(now)) : null;
+  if (req.packageId && !pkg) throw err(422, "package_unknown", "এই প্যাকেজ চালু নেই", "This package is not available", { field: "packageId" });
+  if (pkg && pkg.snap.prices[req.bedClass] === undefined) throw err(422, "package_class", "এই শ্রেণির জন্য প্যাকেজের দাম নেই", "The package has no price for this class", { field: "packageId" });
   const doctor = (await erDoctors(tx, s)).find((d) => d.id === req.admittingDoctorId);
   if (!doctor) throw err(400, "doctor_unknown", "এই ডাক্তার এই প্রতিষ্ঠানে নেই", "No such doctor at this facility", { field: "admittingDoctorId" });
   const bed = await tx.location.findFirst({ where: { id: req.bedId!, organizationId: s.organizationId, kind: "bed" } });
@@ -237,6 +248,7 @@ export async function admit(tx: Tx, s: SessionData, req: AdmitRequest, now: Date
   const data = {
     status: transition("admission", ADMISSION, "requested", "admit"), encounterId: enc.id, number, admittingDoctorId: doctor.id, department: req.department.trim(), diagnosis: req.diagnosis.trim(), bedClass: req.bedClass, bedId: bed.id,
     guardianName: req.guardian.name.trim(), guardianRelationship: req.guardian.relationship.trim() || null, guardianPhone: guardianPhoneDigits(req.guardian.phone), consents: req.consents, admittedById: s.userId, admittedAt: now,
+    ...(pkg ? { packageId: pkg.row.id, packageSnapshot: pkg.snap as object, packageAppliedById: s.userId, packageAppliedAt: now } : {}),
   };
   let adm: Adm;
   try {
@@ -247,9 +259,16 @@ export async function admit(tx: Tx, s: SessionData, req: AdmitRequest, now: Date
     if (isUnique(x)) throw err(409, "admission_requested", "এই রোগীর একটি ভর্তি অনুরোধ ইতিমধ্যে খোলা", "An admission is already requested for this patient");
     throw x;
   }
-  // the IPD bill draft — opened here and nowhere else (later slices add bed days, deposits, packages, pharmacy)
+  // the IPD bill draft — opened here and nowhere else; day 1 (and the package) posted now (ADR 0017)
   const inv = await tx.invoice.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, branchId: branch.id, patientId, encounterId: enc.id, kind: "ipd", status: "draft", createdById: s.userId, statusAt: now } });
-  await tx.admission.update({ where: { id: adm.id }, data: { invoiceId: inv.id } });
+  adm = await tx.admission.update({ where: { id: adm.id }, data: { invoiceId: inv.id } });
+  audit.push(...await syncAdmission(tx, adm, s.userId, now, "admit"));
+  // the deposit taken at the desk (cash / card / bank; never blocking — B1–B2 decision)
+  if (req.deposit) {
+    if (!["receptionist", "cashier", "owner", "admin"].includes(s.role)) throw err(403, "forbidden", "জমা নেন ডেস্ক বা ক্যাশিয়ার", "The desk or the cashier takes the deposit", { reason: "role", canRequest: false });
+    const d = await takeDeposit(tx, s, adm, req.deposit, now);
+    audit.push(...d.audit);
+  }
   audit.push({ action: request ? "update" : "create", entity: "Admission", entityId: adm.id, patientId, detail: { event: "admit", number, bed: bed.name, bedClass: req.bedClass, doctorId: doctor.id, invoiceId: inv.id, consents: req.consents } });
   audit.push({ action: "create", entity: "Invoice", entityId: inv.id, patientId, detail: { kind: "ipd", encounterId: enc.id, admissionId: adm.id } });
   return { view: await admissionView(tx, s, adm.id), audit };
@@ -311,13 +330,17 @@ async function arriveLeg(tx: Tx, s: SessionData, a: Adm, encounterId: string, no
   const nd = await tx.location.updateMany({ where: { id: dest.id, bedState: dest.bedState }, data: { bedState: under<DbBedState>(leg.destination), bedNote: null } });
   if (nd.count !== 1) throw stale();
   await tx.bedAssignment.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, encounterId, patientId: a.patientId, bedId: dest.id, status: "occupied", transferId: res.transferId, occupiedAt: now, occupiedById: s.userId } });
-  await tx.admission.update({ where: { id: a.id }, data: { bedId: dest.id, bedClass: dest.bedClass ?? a.bedClass } });
-  audit.push({ action: "update", entity: "Location", entityId: dest.id, patientId: a.patientId, detail: { event: "occupy", bed: dest.name, from: srcBed?.name ?? null, transferId: res.transferId, leg: 2 } });
+  const a2 = await tx.admission.update({ where: { id: a.id }, data: { bedId: dest.id, bedClass: dest.bedClass ?? a.bedClass } });
+  audit.push({ action: "update", entity: "Location", entityId: dest.id, patientId: a.patientId, detail: { event: "occupy", bed: dest.name, from: srcBed?.name ?? null, transferId: res.transferId, leg: 2, fromClass: a.bedClass, toClass: a2.bedClass } });
+  // ADR 0017: a move up re-prices today's bed day (and the package) by supersession, audited with the move
+  audit.push(...await syncAdmission(tx, a2, s.userId, now, a2.bedClass !== a.bedClass ? "class-change" : "bed-move"));
 }
 export async function moveBed(tx: Tx, s: SessionData, admissionId: string, req: { bedId: string; reason: string; handoverNote?: string; mode: "now" | "reserve" }, now: Date): Promise<{ view: AdmissionView; audit: AuditEntry[] }> {
   requireMover(s);
   if (req.reason.trim().length < 5) throw err(400, "reason_required", "কারণ লিখুন (অন্তত ৫ অক্ষর)", "Give the reason (at least 5 characters)", { field: "reason" });
   const { a, e } = await admittedHere(tx, s, admissionId);
+  // ADR 0017: no bed move while a discharge is ordered (the bed is discharge-pending)
+  if (await tx.discharge.findFirst({ where: { admissionId: a.id, status: "ordered" }, select: { id: true } })) throw err(409, "discharge_ordered", "ছুটির আদেশ হয়েছে — শয্যা বদল হয় না", "A discharge is ordered — no bed move");
   if (await tx.bedAssignment.findFirst({ where: { encounterId: e.id, status: "reserved" } })) throw err(409, "move_pending", "একটি শয্যা বদল আগেই অপেক্ষায়", "A bed move is already waiting");
   const dest = await tx.location.findFirst({ where: { id: req.bedId, organizationId: s.organizationId, kind: "bed" } });
   if (!dest || !isAdmissionClass(dest.bedClass ?? "")) throw err(400, "bed_unknown", "এই শয্যা পাওয়া যায়নি", "No such ward bed", { field: "bedId" });

@@ -14,6 +14,7 @@
      template (facility + what to do), sent through the Messenger adapter after the write commits;
    - an order is cancelled (ORDER revoke) only before its first tube is collected, with a reason, and the visit's
      draft bill is refreshed (D5, decision 99). */
+import { syncForEncounter } from "./ipdBill.js";
 import { SMS_MAYBE_SENT, SMS_QUEUED_MAX_MS, SMS_QUEUED_STUCK_MS, SMS_SENDING_STUCK_MS } from "@setu/domain";
 import { randomUUID } from "node:crypto";
 import type { CallbackRequest, CommunicationItem, CorrectRequest, LabOrder, LabReportView, LabResult, LabVisitView, LabWorklist, ReleaseRequest, ResultEntryRequest, SpecimenRejectRequest, ValidateRequest, VerifyRequest } from "@setu/contracts";
@@ -980,6 +981,8 @@ export async function revokeOrder(tx: Tx, s: SessionData, orderId: string, reaso
   if (u.count !== 1) throw stale();
   await tx.provenance.create({ data: provenance(s, "ServiceRequest", o.id, "order-revoke", now, { reason: reason.trim() }) });
   const audit: AuditEntry[] = [{ action: "update", entity: "ServiceRequest", entityId: o.id, patientId: o.patientId, detail: { event: "revoke", from: dash(o.status), to, reason: reason.trim(), testCode: o.testCode } }];
+  // ADR 0017: an inpatient's revoked order leaves the running bill by a credit line
+  if (o.encounterId) audit.push(...await syncForEncounter(tx, s, o.encounterId, now, "order-revoked"));
   // A cancellation by the lab tells the ordering doctor (their inbox).
   if (s.role !== "doctor" && o.group === "lab") {
     const cid = await deliverInApp(tx, s, { patientId: o.patientId, encounterId: o.encounterId }, { kind: "order-cancelled", channel: "doctor_inbox", recipientUserId: o.orderedById, serviceRequestId: o.id }, now);

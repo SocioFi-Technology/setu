@@ -16,6 +16,7 @@ import { batchLabels, cancelIndent, createIndent, issueIndent, pharmacyIndents, 
 import { countList, countView, createCount, setCountLine, submitCount } from "../modules/purchasing.js";
 import { arriveBed, cancelMove, moveBed } from "../modules/ipd.js";
 import { markDoseError, marView, openVial, printWristband, recordDose, witnesses } from "../modules/mar.js";
+import { syncForEncounter } from "../modules/ipdBill.js";
 import { addIo, cancelTask, completeTask, createTask, ioView, markIoError, taskList } from "../modules/care.js";
 import { acceptHandover, openHandover, queryHandover, signHandover, updateHandoverPatient, wardHandover } from "../modules/handover.js";
 import { amendRound, openRound, roundView, roundWorklist, saveRound, signRound, stopOrder, wardMedicines } from "../modules/rounds.js";
@@ -70,15 +71,17 @@ export async function nursingRoutes(app: FastifyInstance) {
   app.post("/v1/nursing/encounters/:id/doses", own, async (req, reply) => {
     requireAny(req, ["nur", "mar"]); const { id } = pid.parse(req.params); const body = DoseRequest.parse(req.body ?? {});
     // the witness's PIN is never stored, not even hashed into the idempotency record
-    return command(req, reply, async (tx, s) => { const r = await recordDose(tx, s, id, body, new Date()); return { status: 201, body: r.view, audit: r.audit }; }, { hashOmit: ["witness"] });
+    return command(req, reply, async (tx, s) => { const now = new Date(); const r = await recordDose(tx, s, id, body, now);
+      // ADR 0017: stock drawn for the patient goes on the running bill
+      return { status: 201, body: r.view, audit: [...r.audit, ...await syncForEncounter(tx, s, r.view.encounterId, now, "dose")] }; }, { hashOmit: ["witness"] });
   });
   app.post("/v1/nursing/doses/:id/entered-in-error", own, async (req, reply) => {
     requireAny(req, ["nur", "mar"]); const { id } = pid.parse(req.params); const body = DoseErrorRequest.parse(req.body ?? {});
-    return command(req, reply, async (tx, s) => { const r = await markDoseError(tx, s, id, body.reason, new Date(), body.stockDrawn ?? null); return { body: r.view, audit: r.audit }; });
+    return command(req, reply, async (tx, s) => { const now = new Date(); const r = await markDoseError(tx, s, id, body.reason, now, body.stockDrawn ?? null); return { body: r.view, audit: [...r.audit, ...await syncForEncounter(tx, s, r.view.encounterId, now, "dose-error")] }; });
   });
   app.post("/v1/nursing/encounters/:id/vials", own, async (req, reply) => {
     requireAny(req, ["nur", "mar"]); const { id } = pid.parse(req.params); const body = VialOpenRequest.parse(req.body ?? {});
-    return command(req, reply, async (tx, s) => { const r = await openVial(tx, s, id, body, new Date()); return { status: 201, body: r.view, audit: r.audit }; });
+    return command(req, reply, async (tx, s) => { const now = new Date(); const r = await openVial(tx, s, id, body, now); return { status: 201, body: r.view, audit: [...r.audit, ...await syncForEncounter(tx, s, r.view.encounterId, now, "vial")] }; });
   });
   app.get("/v1/nursing/witnesses", async (req) => { requireAny(req, ["nur", "mar"]); return query(req, async (tx, s) => ({ body: await witnesses(tx, s), audit: [] })); });
   /* ── ward stock and indents ── */

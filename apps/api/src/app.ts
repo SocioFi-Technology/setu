@@ -25,6 +25,7 @@ import { metaRoutes } from "./routes/meta.js";
 import { vitalsRoutes } from "./routes/vitals.js";
 import { erRoutes } from "./routes/er.js";
 import { ipdRoutes } from "./routes/ipd.js";
+import { ipdBillRoutes } from "./routes/ipdBill.js";
 import { nursingRoutes } from "./routes/nursing.js";
 
 export async function buildApp() {
@@ -49,7 +50,7 @@ export async function buildApp() {
     const sc = (e as { statusCode?: number }).statusCode;
     if (typeof sc === "number" && sc >= 400 && sc < 500)
       return reply.code(sc).send({ code: "bad_request", message_bn: "অনুরোধটি ঠিক নেই", message_en: "The request could not be read" });
-    req.log.error(e);
+    req.log.error(e); if (process.env.SETU_TEST_ERRORS) console.error(e);
     return reply.code(500).send({ code: "internal", message_bn: "সার্ভারে সমস্যা হয়েছে", message_en: "Something went wrong" });
   });
 
@@ -67,6 +68,7 @@ export async function buildApp() {
   await app.register(doctorRoutes);
   await app.register(erRoutes);
   await app.register(ipdRoutes);
+  await app.register(ipdBillRoutes);
   await app.register(nursingRoutes);
   await app.register(documentRoutes);
   await app.register(ownerRoutes);

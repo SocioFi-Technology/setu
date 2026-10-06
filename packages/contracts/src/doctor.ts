@@ -9,7 +9,7 @@ import { Interpretation } from "./vitals.js";
 
 const Person = z.object({ id: z.string(), nameBn: z.string(), nameEn: z.string() });
 
-export const InboxKind = z.enum(["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital", "substitution-notice", "return-notice", "news2-escalation"]);
+export const InboxKind = z.enum(["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital", "substitution-notice", "return-notice", "news2-escalation", "discharge-remind"]);
 export const InboxSeverity = z.enum(["critical", "abnormal", "normal", "notice"]);
 export const InboxResult = z.object({
   code: z.string(), nameEn: z.string(), nameBn: z.string(), value: z.number(), unit: z.string(), decimals: z.number().int(),

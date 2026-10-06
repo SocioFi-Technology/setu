@@ -80,7 +80,7 @@ function resultUrl(outcome: string, code: string | null): string {
 }
 
 /** ADR 0012: send this payment's queued link SMS now (after the commit); anything left is the sweep's. */
-async function sendLinkSms(s: ReturnType<typeof requireSession>, paymentId: string) {
+export async function sendLinkSms(s: ReturnType<typeof requireSession>, paymentId: string) {
   const { forTenant } = await import("@setu/db");
   const ids = await forTenant(s.tenantId, (tx) => tx.communication.findMany({ where: { paymentId, kind: "payment-link", status: "preparation" }, select: { id: true } }), { userId: s.userId });
   await dispatchSms(s, ids.map((x) => x.id), { ip: null, route: "payment-link" }).catch((e) => console.error(`payment ${paymentId}: link SMS not sent`, e));

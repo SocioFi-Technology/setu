@@ -6,7 +6,8 @@ import type { Interpretation } from "./vitals.js";
 /** substitution-notice (ADR 0009): the pharmacist gave a same-generic substitute for one of the doctor's lines. */
 /** return-notice (ADR 0013): medicine given for the doctor's line came back as a wrong dispense (a medication incident). */
 /** news2-escalation (ADR 0015): a ward NEWS2 score at or above the threshold (or a red score) for the admitting doctor. */
-export type InboxKind = "report-inbox" | "correction-notice" | "results-withdrawn" | "order-cancelled" | "critical-vital" | "substitution-notice" | "return-notice" | "news2-escalation";
+/** discharge-remind (ADR 0017): the ward reminds the doctor of a discharge step that waits on them. */
+export type InboxKind = "report-inbox" | "correction-notice" | "results-withdrawn" | "order-cancelled" | "critical-vital" | "substitution-notice" | "return-notice" | "news2-escalation" | "discharge-remind";
 export type InboxSeverity = "critical" | "abnormal" | "normal" | "notice";
 const RANK: Record<InboxSeverity, number> = { critical: 0, abnormal: 1, normal: 2, notice: 3 };
 

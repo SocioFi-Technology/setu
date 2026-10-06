@@ -19,6 +19,7 @@ import { getPatient, notFound, toSummary } from "./frontdesk.js";
 import { closedVisit, dayOfStay, erPatientOf, inpatientHere, iso, latestNews2, news2OfBatch, peopleOf, stale, type Enc } from "./inpatient.js";
 import { isActive, medWire, ordersOf } from "./mar.js";
 import { requirePin } from "./pin.js";
+import { syncForEncounter } from "./ipdBill.js";
 import { devHash } from "./users.js";
 import { escWire, noteWire } from "./ward.js";
 
@@ -220,8 +221,11 @@ export async function signRound(tx: Tx, s: SessionData, id: string, body: { rev:
   if (signed.count !== 1) throw stale();
   const drafts = await tx.serviceRequest.findMany({ where: { compositionId: c.id, status: "draft" }, select: { id: true } });
   if (drafts.length) { transition("order", ORDER, "draft", "order"); await tx.serviceRequest.updateMany({ where: { compositionId: c.id, status: "draft" }, data: { status: "active", orderedAt: now, statusAt: now } }); }
+  // ADR 0017: the orders go on the running bill (Included up to the package's limit)
+  const billAudit = drafts.length ? await syncForEncounter(tx, s, ip.e.id, now, "order") : [];
   await tx.provenance.create({ data: { tenantId: s.tenantId, targetType: "Composition", targetId: c.id, activity: c.amendsId ? "sign-amendment" : "sign", agentId: s.userId, onBehalfOf: s.organizationId, recorded: now, source: "provider_verified", detail: { kind: KIND, version: c.version, lines: lines.length, orders: drafts.length } } });
   audit.push({ action: "sign", entity: "Composition", entityId: c.id, patientId: ip.e.patientId, detail: { kind: KIND, version: c.version, to, amends: c.amendsId, lines: lines.map((l) => l.medicineKey), labOrders: drafts.length } });
+  audit.push(...billAudit);
   return { ...(await roundView(tx, s, ip.e.id, now)), audit };
 }
 

@@ -32,12 +32,13 @@ export function authorize(role: Role, plan: Plan, moduleKey: string, screenKey: 
   return { allowed: true };
 }
 
-/** ADR 0014: `ipd` is the inpatient running bill, opened by the admission; the pay screens take it up in the IPD bill slice. */
+/** ADR 0014: `ipd` is the inpatient running bill, opened by the admission (its screen: bill/ipd, ADR 0017). */
 export type BillKind = "opd" | "pharmacy" | "otc" | "ipd";
 /** ADR 0009: which bills this role may open and take money on. Billing (bill/opd) sees every kind; the pharmacist
     (pharmacy screens) sees only the pharmacy and over-the-counter bills — never an OPD bill. */
 export function billKindsFor(role: Role, plan: Plan): BillKind[] {
-  if (authorize(role, plan, "bill", "opd").allowed) return ["opd", "pharmacy", "otc"];
+  // ADR 0017: the IPD running bill's payments (deposits, their links) for whoever has the IPD bill screen (Hospital Lite up)
+  if (authorize(role, plan, "bill", "opd").allowed) return authorize(role, plan, "bill", "ipd").allowed ? ["opd", "pharmacy", "otc", "ipd"] : ["opd", "pharmacy", "otc"];
   if (authorize(role, plan, "ph", "otc").allowed) return ["pharmacy", "otc"];
   return [];
 }
