@@ -56,7 +56,7 @@ await page.goto(`${BASE}/m/nur/mar?enc=${enc}`); await page.locator('[data-order
 await shot("nurse-mar");
 await page.locator('[data-order="ceftriaxone"] [data-slot]:not([disabled])').first().click(); await ticks();
 await shot("nurse-dose-locked-until-scanned");
-await scan(band.replace(/\.[^.]+$/, ".AAAAAAAAAAAAAAAAAAAAAA"), label("ceftriaxone"));
+await scan(band.replace(/\d{8}$/, (d) => String((Number(d) + 1) % 1e8).padStart(8, "0")), label("ceftriaxone"));
 if (await dlg.getByTestId("dose-reason").isVisible()) await dlg.getByTestId("dose-reason").fill("রাউন্ডের সময় একটু আগে দেওয়া");
 await dlg.getByTestId("dose-record").click(); await dlg.locator('[data-blocker="band_mismatch"]').waitFor();
 await shot("nurse-scan-mismatch");

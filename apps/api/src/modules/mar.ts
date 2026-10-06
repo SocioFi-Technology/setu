@@ -7,7 +7,7 @@ import type { DoseRecord, DoseRequest, MarOrder, MarView, WristbandView } from "
 import type { Tx } from "@setu/db";
 import {
   DOSE_REASON_MIN, DOSE_WINDOW_MIN, PRN_WINDOW_MS, allergyMatches, dhakaDay, doseBlockers, doseConsumption, doseErrorNeedsAnswer, doseErrorReturns, doseTiming, marSlotRange, type StockDrawn, slotState, slotsBetween, wardStockLocation, type DoseOutcome,
-  parseBatchLabel, parseWristband, scanBlockers, wristbandCode, wristbandPayload, type BandScan, type MedScan,
+  parseBatchLabel, parseWristband, scanBlockers, serial10, wristbandCode, type BandScan, type MedScan,
 } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
 import { HttpError, err } from "../errors.js";
@@ -300,29 +300,32 @@ export async function witnesses(tx: Tx, s: SessionData) {
 export { stale };
 
 /* ───── ADR 0016: scans and the wristband ───── */
-const wristbandSig = (admissionId: string, facilityNo: string, printNo: number) => createHmac("sha256", config.wristbandSecret).update(`wristband:${wristbandPayload(admissionId, facilityNo, printNo)}`).digest("base64url").slice(0, 22);
-export const wristbandOf = (admissionId: string, facilityNo: string, printNo: number) => wristbandCode(admissionId, facilityNo, printNo, wristbandSig(admissionId, facilityNo, printNo));
+/** The band's 8-digit signature: an HMAC of the tenant and the print serial, in decimal (digit-only codes, so a wedge
+    scanner under a Bangla layout still types them — ADR 0016 amendment 2). */
+const wristbandSig = (tenantId: string, serial: string) => String(BigInt(`0x${createHmac("sha256", config.wristbandSecret).update(`wristband:${tenantId}:${serial}`).digest("hex").slice(0, 15)}`) % 100_000_000n).padStart(8, "0");
 async function verifyScans(tx: Tx, s: SessionData, ip: Awaited<ReturnType<typeof inpatientHere>>, medicineKey: string, multiDose: boolean, scan: DoseRequest["scan"], now: Date): Promise<{ band: BandScan; med: MedScan; batchId: string | null; bandSeen: string | null; batchSeen: string | null }> {
-  let band: BandScan = "none";
+  let band: BandScan = "none"; let bandSeen: string | null = null;
   if (scan?.band) {
     const w = parseWristband(scan.band);
-    const sigOk = w ? timingSafeEq(w.sig, wristbandSig(w.admissionId, w.facilityNo, w.printNo)) : false;
-    // only the latest print verifies: a reprint retires every earlier band (review)
-    const latest = await tx.wristbandPrint.count({ where: { admissionId: ip.adm.id } });
-    band = w && sigOk && w.admissionId === ip.adm.id && w.facilityNo === ip.e.patient.facilityNo && w.printNo === latest ? "match" : "mismatch";
+    const print = w && timingSafeEq(w.sig, wristbandSig(s.tenantId, w.serial)) ? await tx.wristbandPrint.findFirst({ where: { serial: w.serial } }) : null;
+    // only the latest print of this admission verifies: a reprint retires every earlier band (review)
+    const latest = await tx.wristbandPrint.findFirst({ where: { admissionId: ip.adm.id }, orderBy: [{ printedAt: "desc" }, { id: "desc" }], select: { id: true } });
+    band = print && print.admissionId === ip.adm.id && print.patientId === ip.e.patientId && latest?.id === print.id ? "match" : "mismatch";
+    bandSeen = w ? `print ${w.serial}${print ? ` (admission ${print.admissionId})` : " (unknown or forged)"}` : "unreadable";
   }
-  let med: MedScan = "none"; let batchId: string | null = null;
+  let med: MedScan = "none"; let batchId: string | null = null; let batchSeen: string | null = null;
   if (scan?.med) {
-    const id = parseBatchLabel(scan.med);
-    const b = id ? await tx.stockBatch.findFirst({ where: { id, organizationId: s.organizationId } }) : null;
+    const l = parseBatchLabel(scan.med);
+    const label = l ? await tx.batchLabel.findFirst({ where: { serial: l.serial, organizationId: s.organizationId } }) : null;
+    const b = label ? await tx.stockBatch.findFirst({ where: { id: label.batchId, organizationId: s.organizationId } }) : null;
+    batchSeen = l ? (b ? b.id : `label ${l.serial} (unknown)`) : "unreadable";
     if (!b || b.medicineKey !== medicineKey) med = "mismatch";
     else if (!ip.ward || b.location !== wardStockLocation(ip.ward.id)) med = "not-on-ward";
     else if (b.expiry < dhakaDay(now)) med = "expired";
     else if (!multiDose && b.qtyOnHand <= 0) med = "empty";
     else { med = "match"; batchId = b.id; }
   }
-  const w0 = scan?.band ? parseWristband(scan.band) : null;
-  return { band, med, batchId, bandSeen: w0 ? `${w0.admissionId}/${w0.facilityNo}/#${w0.printNo}` : scan?.band ? "unreadable" : null, batchSeen: scan?.med ? parseBatchLabel(scan.med) ?? "unreadable" : null };
+  return { band, med, batchId, bandSeen, batchSeen };
 }
 const timingSafeEq = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 /** Print the wristband: the first at admission; a reprint needs a reason (≥5). Returns what the band carries. */
@@ -330,10 +333,13 @@ export async function printWristband(tx: Tx, s: SessionData, encounterId: string
   const ip = await inpatientHere(tx, s, encounterId);
   const before = await tx.wristbandPrint.count({ where: { admissionId: ip.adm.id } });
   if (before > 0 && (reason ?? "").trim().length < 5) throw err(400, "reason_required", "আবার ছাপার কারণ লিখুন (অন্তত ৫ অক্ষর)", "Give the reason for the reprint (at least 5 characters)", { field: "reason" });
-  await tx.wristbandPrint.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, admissionId: ip.adm.id, encounterId: ip.e.id, patientId: ip.e.patientId, reason: before > 0 ? reason!.trim() : null, printedById: s.userId, printedAt: now } });
+  const seq = await tx.sequence.upsert({ where: { tenantId_name: { tenantId: s.tenantId, name: "wristband" } }, create: { tenantId: s.tenantId, name: "wristband", value: 1 }, update: { value: { increment: 1 } } });
+  const serial = serial10(seq.value);
+  await tx.wristbandPrint.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, admissionId: ip.adm.id, encounterId: ip.e.id, patientId: ip.e.patientId, reason: before > 0 ? reason!.trim() : null, printedById: s.userId, printedAt: now, serial } });
+  const code = wristbandCode(serial, wristbandSig(s.tenantId, serial));
   const facts = await activeAllergyFacts(tx, ip.e.patientId);
   return {
-    view: { code: wristbandOf(ip.adm.id, ip.e.patient.facilityNo, before + 1), qrSvg: qrSvg(wristbandOf(ip.adm.id, ip.e.patient.facilityNo, before + 1)), patient: erPatientOf(ip.e.patient), admissionNumber: ip.adm.number, bed: ip.bed?.name ?? null, ward: ip.ward?.name ?? null, printedBefore: before, allergies: facts.map((f) => f.labelEn) },
+    view: { code, qrSvg: qrSvg(code), patient: erPatientOf(ip.e.patient), admissionNumber: ip.adm.number, bed: ip.bed?.name ?? null, ward: ip.ward?.name ?? null, printedBefore: before, allergies: facts.map((f) => f.labelEn) },
     audit: [{ action: before > 0 ? "reprint" : "print", entity: "Wristband", entityId: ip.adm.id, patientId: ip.e.patientId, detail: { reason: before > 0 ? reason!.trim() : null } }],
   };
 }

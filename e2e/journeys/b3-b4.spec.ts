@@ -38,7 +38,13 @@ async function bedsideCodes(request: APIRequestContext, encounterId: string, war
   const r = await request.post(`/api/v1/nursing/encounters/${encounterId}/wristband`, { headers: { "idempotency-key": crypto.randomUUID() }, data: { reason: "journey: band for the doses" } });
   expect(r.status(), await r.text()).toBe(201);
   const band = (await r.json()).code as string;
-  const label = async (key: string) => (await getJ<{ items: { medicineKey: string; batches: { label: string; qty: number }[] }[] }>(request, `/v1/nursing/wards/${wardId}/stock`)).items.find((i) => i.medicineKey === key)!.batches.find((b) => b.qty > 0)!.label;
+  // the label a nurse prints for a ward batch with stock (its digit-only code is made on first print)
+  const label = async (key: string) => {
+    const batch = (await getJ<{ items: { medicineKey: string; batches: { id: string; qty: number }[] }[] }>(request, `/v1/nursing/wards/${wardId}/stock`)).items.find((i) => i.medicineKey === key)!.batches.find((b) => b.qty > 0)!;
+    const r = await request.post("/api/v1/nursing/labels", { headers: { "idempotency-key": crypto.randomUUID() }, data: { batchIds: [batch.id] } });
+    expect(r.status(), await r.text()).toBe(200);
+    return (await r.json()).items[0].code as string;
+  };
   return { band, label };
 }
 async function scan(page: Page, band: string, med?: string) {

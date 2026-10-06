@@ -44846,20 +44846,40 @@
       }
     },
     "/v1/nursing/labels": {
-      "get": {
+      "post": {
         "parameters": [
           {
             "schema": {
               "type": "string"
             },
             "required": true,
-            "name": "batches",
-            "in": "query"
+            "name": "idempotency-key",
+            "in": "header"
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "batchIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "batchIds"
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "medicine labels (QR) of ward batches",
+            "description": "medicine labels (digit-only codes, QR) of ward batches; a missing label is created",
             "content": {
               "application/json": {
                 "schema": {
@@ -53119,7 +53139,10 @@
                                   "type": "integer"
                                 },
                                 "label": {
-                                  "type": "string"
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
@@ -53442,6 +53465,12 @@
                                 "at": {
                                   "type": "string"
                                 },
+                                "batchId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
                                 "label": {
                                   "type": [
                                     "string",
@@ -53454,6 +53483,7 @@
                                 "qty",
                                 "by",
                                 "at",
+                                "batchId",
                                 "label"
                               ]
                             }
@@ -53794,6 +53824,12 @@
                           "at": {
                             "type": "string"
                           },
+                          "batchId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "label": {
                             "type": [
                               "string",
@@ -53806,6 +53842,7 @@
                           "qty",
                           "by",
                           "at",
+                          "batchId",
                           "label"
                         ]
                       }
@@ -54201,6 +54238,12 @@
                           "at": {
                             "type": "string"
                           },
+                          "batchId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "label": {
                             "type": [
                               "string",
@@ -54213,6 +54256,7 @@
                           "qty",
                           "by",
                           "at",
+                          "batchId",
                           "label"
                         ]
                       }
@@ -54666,6 +54710,12 @@
                                 "at": {
                                   "type": "string"
                                 },
+                                "batchId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
                                 "label": {
                                   "type": [
                                     "string",
@@ -54678,6 +54728,7 @@
                                 "qty",
                                 "by",
                                 "at",
+                                "batchId",
                                 "label"
                               ]
                             }
@@ -55023,6 +55074,12 @@
                           "at": {
                             "type": "string"
                           },
+                          "batchId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "label": {
                             "type": [
                               "string",
@@ -55035,6 +55092,7 @@
                           "qty",
                           "by",
                           "at",
+                          "batchId",
                           "label"
                         ]
                       }

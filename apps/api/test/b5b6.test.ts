@@ -28,20 +28,21 @@ describe.runIf(db)("B5: Record locked until the wristband and the medicine are s
   it("no scan → refused; the right band and label → given, recorded with the batch scanned; held needs no scan", async () => {
     const w = await h.ownWard(1); const a = await h.admit(w);
     const iss = await issue(a.wardId, "ceftriaxone", 2);
-    expect(iss.issues[0].label).toMatch(/^SETU-MB1\./);
+    expect(iss.issues[0].label).toMatch(/^92\d{12}$/); // digit-only: a wedge on a Bangla layout types it
     const hhmm = dhakaHHMM(2), hhmm2 = dhakaHHMM(4);
     const r = await h.signRound(a.encounterId, [line("ceftriaxone", { doseText: "1 g IV", times: [hhmm, hhmm2] })]);
     const o = orderOf(r, "ceftriaxone");
     const base = { requestId: o.id, scheduledFor: slotAt(hhmm), outcome: "given", administeredAt: now(), checks: TICKS, source: "ward-stock" };
     const none = await raw(a.encounterId, base);
     expect(none.statusCode).toBe(422); expect(none.json().blockers).toEqual(expect.arrayContaining(["band_required", "med_required"]));
-    const band = await bandOf(c, a.encounterId), med = (await labelOf(a.encounterId, o.id))!;
+    const band = await bandOf(c, a.encounterId), med = (await labelOf(c, a.encounterId, o.id))!;
     const onlyBand = await raw(a.encounterId, { ...base, scan: { band } });
     expect(onlyBand.json().blockers).toEqual(["med_required"]);
     const ok = await raw(a.encounterId, { ...base, scan: { band, med } });
     expect(ok.statusCode, ok.body).toBe(201);
     const rec = ok.json().orders.find((x: { id: string }) => x.id === o.id).slots.find((x: { at: string }) => x.at === slotAt(hhmm)).record;
-    expect(rec.scan).toMatchObject({ band: true, medBatchId: med.slice(9), override: null });
+    const scanned = await tenant((tx) => tx.batchLabel.findFirst({ where: { serial: med.slice(2, 12) } }));
+    expect(rec.scan).toMatchObject({ band: true, medBatchId: scanned!.batchId, override: null });
     // held: no scan needed
     expect((await raw(a.encounterId, { requestId: o.id, scheduledFor: slotAt(hhmm2), outcome: "held", administeredAt: now(), checks: TICKS, reason: "NPO for theatre", source: "ward-stock" })).statusCode).toBe(201);
   });
@@ -51,15 +52,15 @@ describe.runIf(db)("B5: Record locked until the wristband and the medicine are s
     const r = await h.signRound(a.encounterId, [line("ceftriaxone", { doseText: "1 g IV", times: [dhakaHHMM(2)] })]);
     const o = orderOf(r, "ceftriaxone");
     const base = { requestId: o.id, scheduledFor: slotAt(dhakaHHMM(2)), outcome: "given", administeredAt: now(), checks: TICKS, source: "ward-stock" };
-    const med = (await labelOf(a.encounterId, o.id))!;
+    const med = (await labelOf(c, a.encounterId, o.id))!;
     const otherBand = await bandOf(c, b.encounterId);
     const wrongPatient = await raw(a.encounterId, { ...base, scan: { band: otherBand, med } });
     expect(wrongPatient.statusCode).toBe(422); expect(wrongPatient.json().blockers).toContain("band_mismatch");
     const mine = await bandOf(c, a.encounterId);
-    const forged = mine.replace(/\.[^.]+$/, ".AAAAAAAAAAAAAAAAAAAAAA");
+    const forged = mine.replace(/\d{8}$/, (d) => String((Number(d) + 1) % 1e8).padStart(8, "0"));
     expect((await raw(a.encounterId, { ...base, scan: { band: forged, med } })).json().blockers).toContain("band_mismatch");
     const panto = await tenant((tx) => tx.stockBatch.findFirst({ where: { location: `ward:${a.wardId}`, medicineKey: "pantoprazole-iv" } }));
-    expect((await raw(a.encounterId, { ...base, scan: { band: mine, med: `SETU-MB1.${panto!.id}` } })).json().blockers).toContain("med_mismatch");
+    expect((await raw(a.encounterId, { ...base, scan: { band: mine, med: (await c.post("/v1/nursing/labels", { batchIds: [panto!.id] })).json().items[0].code } })).json().blockers).toContain("med_mismatch");
     // even the override cannot pass a wrong scan
     expect((await raw(a.encounterId, { ...base, scan: { band: otherBand, overrideReason: "Scanner is broken today" } })).json().blockers).toContain("band_mismatch");
     const audited = await tenant((tx) => tx.auditEvent.count({ where: { entity: "MedicationAdministration", entityId: o.id, detail: { path: ["event"], equals: "scan-mismatch" } } }));
@@ -228,5 +229,14 @@ describe.runIf(db)("the shift handover", () => {
     expect(unnamed.statusCode).toBe(422); expect(unnamed.json().code).toBe("escalation_not_named");
     const ok = await c.post(`/v1/nursing/handovers/${v.id}/accept`, { rev: v.rev, pin: "1234", note: `${bed} NEWS2 6 — doctor acknowledged, obs every 15 min` }, "nurse2");
     expect(ok.statusCode, ok.body).toBe(200);
+  });
+  it("digit-only codes: a band typed as Bangla digits by a wedge on a Bangla layout verifies", async () => {
+    const w = await h.ownWard(1); const a = await h.admit(w);
+    const r = await h.signRound(a.encounterId, [line("napa", { route: "oral", doseText: "500 mg", times: [], prn: true, prnMaxPer24h: 4 })]);
+    const band = await bandOf(c, a.encounterId);
+    expect(band).toMatch(/^91\d{18}$/);
+    const bn = band.replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[Number(d)]!);
+    const ok = await raw(a.encounterId, { requestId: r.activeOrders[0].id, scheduledFor: null, outcome: "given", administeredAt: now(), checks: TICKS, source: "patient-supplied", scan: { band: bn } });
+    expect(ok.statusCode, ok.body).toBe(201);
   });
 });

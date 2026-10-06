@@ -60,3 +60,19 @@ not only unacknowledged ones: the sheet lists them (`openEscalations`, each mark
 acceptance note names each by bed or patient number as a whole word, or acceptance is refused (`escalation_not_named`).
 A clinician may relax this later, never tighten it.
 
+
+## Amendment 2 — Kamrul, 06/10/2026: scan codes are digits only
+A keyboard-wedge scanner types keystrokes. Under a Bangla layout (Avro, Bijoy) letters arrive mangled while digits arrive
+as Bangla digits, which the scan field turns back into Latin digits (decision 253). So every code we print is digits
+only, after a two-digit prefix that says what it is; this replaces the lettered `SETU-WB1` / `SETU-MB1` payloads above.
+- **Wristband:** `91` + the print's 10-digit serial (per-tenant sequence `wristband`, stored on `WristbandPrint.serial`)
+  + an 8-digit signature (HMAC-SHA256 of tenant and serial with `WRISTBAND_SECRET`, reduced to decimal). The serial finds
+  the print; it verifies only if it is this admission's latest print for this patient (a reprint still retires earlier
+  bands). Eight digits (10⁸) is enough for a bedside identity check made by a signed-in nurse: a forger must also hit a
+  real serial of the right admission, and every scan is recorded. Bands printed before this change no longer verify —
+  reprint them (none exist outside test data).
+- **Medicine label:** `92` + the label's 10-digit serial (sequence `batch-label`, table `BatchLabel`, one per ward
+  batch, append-only, made at the indent issue or when the ward first prints it) + two ISO 7064 mod 97-10 check digits,
+  which catch a misread. Printing labels is now `POST /v1/nursing/labels { batchIds }`, since it may create a label.
+- **The dose dialog:** the band field has the cursor when the dialog opens; after a band scan the cursor moves to the
+  medicine field, so a nurse scans band then medicine with no tap between.

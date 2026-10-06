@@ -166,9 +166,10 @@ export async function nursingRoutes(app: FastifyInstance) {
     requireAny(req, ["nur", "ward"], ["nur", "mar"], ["ipd", "admit"]); const { id } = pid.parse(req.params); const body = WristbandRequest.parse(req.body ?? {});
     return command(req, reply, async (tx, s) => { const r = await printWristband(tx, s, id, body.reason, new Date()); return { status: 201, body: r.view, audit: r.audit }; });
   });
-  app.get("/v1/nursing/labels", async (req) => {
-    requireAny(req, ["nur", "ward"], ["ph", "indent"]); const { batches } = z.object({ batches: z.string().max(2000) }).parse(req.query ?? {});
-    return query(req, async (tx, s) => ({ body: await batchLabels(tx, s, batches.split(",").filter(Boolean)), audit: [] }));
+  // a write: a batch without a label gets one (its digit-only code) when it is first printed
+  app.post("/v1/nursing/labels", own, async (req, reply) => {
+    requireAny(req, ["nur", "ward"], ["ph", "indent"]); const { batchIds } = z.object({ batchIds: z.array(z.string().max(64)).min(1).max(50) }).parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const r = await batchLabels(tx, s, batchIds); return { body: r, audit: [{ action: "print", entity: "BatchLabel", detail: { batches: r.items.map((x) => x.batchId) } }] }; });
   });
   app.get("/v1/nursing/encounters/:id/io", async (req) => {
     requireAny(req, ["nur", "io"], ["ipd", "rounds"]); const { id } = pid.parse(req.params); const { day } = z.object({ day: z.string().max(10).optional() }).parse(req.query ?? {});

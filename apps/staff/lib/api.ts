@@ -362,7 +362,7 @@ export const ward = {
   submitCount: (id: string, rev: number, key: string) => call<StockCountView>("POST", `/v1/nursing/counts/${enc(id)}/submit`, { rev }, key),
   // ADR 0016
   wristband: (encounterId: string, reason: string | undefined, key: string) => call<WristbandView>("POST", `/v1/nursing/encounters/${enc(encounterId)}/wristband`, reason ? { reason } : {}, key),
-  labels: (batchIds: string[]) => call<BatchLabels>("GET", `/v1/nursing/labels?batches=${enc(batchIds.join(","))}`),
+  labels: (batchIds: string[]) => call<BatchLabels>("POST", "/v1/nursing/labels", { batchIds }, k()),
   io: (encounterId: string, day?: string) => call<IoView>("GET", `/v1/nursing/encounters/${enc(encounterId)}/io${day ? `?day=${day}` : ""}`),
   addIo: (encounterId: string, body: IoEntryRequest, key: string) => write<IoEntryView>("POST", `/v1/nursing/encounters/${enc(encounterId)}/io`, body, "io-entry", key),
   ioError: (id: string, reason: string) => call<IoEntryView>("POST", `/v1/nursing/io/${enc(id)}/entered-in-error`, { reason }, k()),

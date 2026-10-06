@@ -57,7 +57,7 @@ async function codes(request: APIRequestContext) {
   await as(request, NURSE2);
   const band = (await post(request, `/v1/nursing/encounters/${ctx.encounterId}/wristband`, { reason: "journey: the band to scan" })).code as string;
   const stock = await getJ(request, `/v1/nursing/wards/${ctx.wardId}/stock`);
-  const label = (k: string) => stock.items.find((i: { medicineKey: string }) => i.medicineKey === k).batches[0].label as string;
+  const label = (k: string) => stock.items.find((i: { medicineKey: string }) => i.medicineKey === k).batches[0].label as string; // issued batches carry their label
   return { band, label };
 }
 async function scan(page: Page, band: string, med?: string) {
@@ -83,19 +83,26 @@ test.describe("Journey B5–B6: scans, intake/output, care tasks, the shift hand
     const firstAt = await first.getAttribute("data-slot-at");
     await first.click();
     const dlg = page.getByTestId("dose-dialog");
+    await expect(dlg.getByTestId("scan-band-input")).toBeFocused(); // ready for the scanner
     await ticks(page);
     await expect(dlg.getByTestId("dose-record")).toBeDisabled();
     await expect(dlg.locator('[data-blocker="band_required"]')).toBeVisible();
     await expect(dlg.locator('[data-blocker="med_required"]')).toBeVisible();
     // a code that is not this patient's band: refused by the server, cleared, shown as a mismatch
-    await scan(page, c.band.replace(/\.[^.]+$/, ".AAAAAAAAAAAAAAAAAAAAAA"), c.label("ceftriaxone"));
+    // the scanner types into the focused field; after the band the cursor jumps to the medicine field
+    await page.keyboard.type(c.band.replace(/\d{8}$/, (d) => String((Number(d) + 1) % 1e8).padStart(8, "0"))); await page.keyboard.press("Enter");
+    await expect(dlg.getByTestId("scan-med-input")).toBeFocused();
+    await page.keyboard.type(c.label("ceftriaxone")); await page.keyboard.press("Enter");
+    await expect(dlg.getByTestId("scan-med")).toHaveAttribute("data-scanned", "1");
     await expect(dlg.getByTestId("dose-record")).toBeEnabled();
     if (await dlg.getByTestId("dose-reason").isVisible()) await dlg.getByTestId("dose-reason").fill("Given at the round, early");
     await dlg.getByTestId("dose-record").click();
     await expect(dlg.locator('[data-blocker="band_mismatch"]')).toBeVisible();
     await expect(dlg.getByTestId("scan-band")).toHaveAttribute("data-scanned", "0");
-    // the right band: given, with the batch scanned
-    await scan(page, c.band);
+    // the right band, typed by a wedge on a Bangla layout (Bangla digits): read back; the cursor then jumps to the medicine
+    await dlg.getByTestId("scan-band-input").click();
+    await page.keyboard.type(c.band.replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[Number(d)]!)); await page.keyboard.press("Enter");
+    await expect(dlg.getByTestId("scan-band")).toHaveAttribute("data-scanned", "1");
     await ticks(page);
     await dlg.getByTestId("dose-record").click();
     await expect(dlg).toHaveCount(0);

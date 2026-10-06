@@ -195,7 +195,7 @@ export const IndentView = z.object({
   id: z.string(), number: z.string(), status: IndentStatusWire, ward: z.object({ id: z.string(), name: z.string() }), note: z.string().nullable(), requestedBy: Person, requestedAt: z.string(),
   lines: z.array(z.object({ id: z.string(), medicineKey: z.string(), name: z.string(), issueUnit: z.string(), controlled: z.boolean(), requested: z.number().int(), issued: z.number().int(), storeAvailable: z.number().int() })),
   /** `label`: the ward batch's medicine-label QR to print with the issue (ADR 0016) */
-  issues: z.array(z.object({ lineId: z.string(), qty: z.number().int(), by: Person, at: z.string(), label: z.string().nullable() })),
+  issues: z.array(z.object({ lineId: z.string(), qty: z.number().int(), by: Person, at: z.string(), batchId: z.string().nullable(), label: z.string().nullable() })),
   cancel: z.object({ by: Person, reason: z.string() }).nullable(),
 });
 export type IndentView = z.infer<typeof IndentView>;
@@ -204,7 +204,7 @@ export type IndentList = z.infer<typeof IndentList>;
 export const IndentIssueRequest = z.object({ lines: z.array(z.object({ lineId: z.string().max(64), qty: z.number().int().min(1).max(500) })).min(1).max(30), pin: z.string().regex(/^\d{4}$/).optional() });
 export type IndentIssueRequest = z.infer<typeof IndentIssueRequest>;
 export const WardStock = z.object({ ward: z.object({ id: z.string(), name: z.string() }), items: z.array(z.object({ medicineKey: z.string(), name: z.string(), issueUnit: z.string(), controlled: z.boolean(), qty: z.number().int(),
-  /** `label`: the batch's medicine-label QR (ADR 0016) */ batches: z.array(z.object({ id: z.string(), batchNo: z.string(), expiry: z.string(), qty: z.number().int(), label: z.string() })) })),
+  /** `label`: the batch's digit-only medicine-label code (null until a label is printed or it came by an issue) */ batches: z.array(z.object({ id: z.string(), batchNo: z.string(), expiry: z.string(), qty: z.number().int(), label: z.string().nullable() })) })),
   /** units put back from doses marked entered-in-error ("stock not drawn"), last 7 days — for the next count to check */
   returns: z.array(z.object({ medicine: z.string(), batchNo: z.string(), qty: z.number().int(), reason: z.string(), by: Person, at: z.string() })),
 });
@@ -222,7 +222,7 @@ export const WristbandView = z.object({
   printedBefore: z.number().int(), allergies: z.array(z.string()),
   /** the QR as SVG, drawn by the server */ qrSvg: z.string(),
 });
-/* medicine labels for ward batches: GET /v1/nursing/labels?batches=id,id — the QR (SVG) with the medicine and batch */
+/* medicine labels for ward batches: POST /v1/nursing/labels { batchIds } — creates a missing label; the QR (SVG) with the medicine and batch */
 export const BatchLabels = z.object({ items: z.array(z.object({ batchId: z.string(), code: z.string(), medicine: z.string(), batchNo: z.string(), expiry: z.string(), ward: z.string(), qrSvg: z.string() })) });
 export type BatchLabels = z.infer<typeof BatchLabels>;
 export type WristbandView = z.infer<typeof WristbandView>;

@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import type { BatchLabels, IndentCreate, IndentIssueRequest, IndentView, WardStock } from "@setu/contracts";
 import { qrSvg } from "../receipts/template.js";
 import type { Tx } from "@setu/db";
-import { INDENT, batchLabel, dhakaDay, indentLineProblems, indentNumber, indentStateAfter, transition, wardStockLocation } from "@setu/domain";
+import { INDENT, batchLabelCode, dhakaDay, serial10, indentLineProblems, indentNumber, indentStateAfter, transition, wardStockLocation } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
@@ -37,10 +37,11 @@ async function views(tx: Tx, s: SessionData, inds: Ind[], now: Date): Promise<In
   ]);
   const M = new Map(meds.map((m) => [m.key, m])), W = new Map(wards.map((w) => [w.id, w]));
   const who = await peopleOf(tx, [...inds.flatMap((i) => [i.requestedById, i.cancelledById]), ...issues.map((x) => x.byId)]);
+  const labels = await labelsOf(tx, issues.flatMap((x) => (x.toBatchId ? [x.toBatchId] : [])));
   return inds.map((i) => ({
     id: i.id, number: i.number, status: wire(i.status), ward: { id: i.wardId, name: W.get(i.wardId)?.name ?? "" }, note: i.note, requestedBy: who(i.requestedById), requestedAt: i.requestedAt.toISOString(),
     lines: [...i.lines].sort((a, b) => a.position - b.position).map((l) => { const m = M.get(l.medicineKey); return { id: l.id, medicineKey: l.medicineKey, name: m ? `${m.brand} ${m.strength}` : l.medicineKey, issueUnit: m?.issueUnit ?? "unit", controlled: Boolean(m?.controlled), requested: l.qtyRequested, issued: l.qtyIssued, storeAvailable: avail.get(l.medicineKey) ?? 0 }; }),
-    issues: issues.filter((x) => x.indentId === i.id).map((x) => ({ lineId: x.lineId, qty: x.qty, by: who(x.byId), at: x.at.toISOString(), label: x.toBatchId ? batchLabel(x.toBatchId) : null })),
+    issues: issues.filter((x) => x.indentId === i.id).map((x) => ({ lineId: x.lineId, qty: x.qty, by: who(x.byId), at: x.at.toISOString(), batchId: x.toBatchId ?? null, label: x.toBatchId ? labels.get(x.toBatchId) ?? null : null })),
     cancel: i.cancelledById ? { by: who(i.cancelledById), reason: i.cancelReason ?? "" } : null,
   }));
 }
@@ -95,6 +96,7 @@ export async function issueIndent(tx: Tx, s: SessionData, id: string, body: Inde
       const out = await tx.stockMove.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, batchId: b.id, kind: "transfer", qty: -n, refType: "indent-issue", refId: ref, byId: s.userId, at: now } });
       await tx.stockMove.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, batchId: dest.id, kind: "transfer", qty: n, refType: "indent-issue", refId: ref, byId: s.userId, at: now } });
       await tx.wardIndentIssue.create({ data: { id: ref, tenantId: s.tenantId, indentId: i.id, lineId: l.id, medicineKey: l.medicineKey, qty: n, fromBatchId: b.id, toBatchId: dest.id, byId: s.userId, at: now } });
+      await ensureLabels(tx, s, [dest.id]); // the ward batch's label, to print with the issue
       if (m.controlled) await tx.controlledDrugRegister.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, medicineKey: l.medicineKey, kind: "issue", stockMoveId: out.id, batchId: b.id, qty: n, location: wardLoc, balanceAfter: b.qtyOnHand - n, indentId: i.id, byId: s.userId, at: now } });
       left -= n;
     }
@@ -143,14 +145,32 @@ export async function wardStock(tx: Tx, s: SessionData, wardId: string): Promise
   const rmeds = new Map((await tx.medicine.findMany({ where: { key: { in: [...new Set(rets.map((r) => r.batch.medicineKey))] } } })).map((m) => [m.key, m]));
   const rwho = await peopleOf(tx, rets.map((r) => r.byId));
   const returns = rets.map((r) => { const m = rmeds.get(r.batch.medicineKey); return { medicine: m ? `${m.brand} ${m.strength}` : r.batch.medicineKey, batchNo: r.batch.batchNo, qty: r.qty, reason: r.reason ?? "", by: rwho(r.byId), at: r.at.toISOString() }; });
-  return { ward: { id: ward.id, name: ward.name }, returns, items: keys.map((k) => { const b = rows.filter((r) => r.medicineKey === k), m = meds.get(k); return { medicineKey: k, name: m ? `${m.brand} ${m.strength}` : k, issueUnit: m?.issueUnit ?? "unit", controlled: Boolean(m?.controlled), qty: b.reduce((a, x) => a + x.qtyOnHand, 0), batches: b.map((x) => ({ id: x.id, batchNo: x.batchNo, expiry: x.expiry, qty: x.qtyOnHand, label: batchLabel(x.id) })) }; }) };
+  const labels = await labelsOf(tx, rows.map((r) => r.id));
+  return { ward: { id: ward.id, name: ward.name }, returns, items: keys.map((k) => { const b = rows.filter((r) => r.medicineKey === k), m = meds.get(k); return { medicineKey: k, name: m ? `${m.brand} ${m.strength}` : k, issueUnit: m?.issueUnit ?? "unit", controlled: Boolean(m?.controlled), qty: b.reduce((a, x) => a + x.qtyOnHand, 0), batches: b.map((x) => ({ id: x.id, batchNo: x.batchNo, expiry: x.expiry, qty: x.qtyOnHand, label: labels.get(x.id) ?? null })) }; }) };
 }
 
 /** ADR 0016: the medicine labels (QR) of ward batches — printed with an issue, reprinted on the ward. */
+/** The digit-only label codes of these batches (those that have one). */
+export async function labelsOf(tx: Tx, batchIds: string[]): Promise<Map<string, string>> {
+  if (!batchIds.length) return new Map();
+  return new Map((await tx.batchLabel.findMany({ where: { batchId: { in: batchIds } } })).map((l) => [l.batchId, batchLabelCode(l.serial)]));
+}
+/** A label for each ward batch that has none yet (at an issue, or when the ward prints labels). */
+export async function ensureLabels(tx: Tx, s: SessionData, batchIds: string[]): Promise<Map<string, string>> {
+  const have = await labelsOf(tx, batchIds);
+  for (const id of [...new Set(batchIds)].filter((x) => !have.has(x))) {
+    const seq = await tx.sequence.upsert({ where: { tenantId_name: { tenantId: s.tenantId, name: "batch-label" } }, create: { tenantId: s.tenantId, name: "batch-label", value: 1 }, update: { value: { increment: 1 } } });
+    const serial = serial10(seq.value);
+    await tx.batchLabel.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, batchId: id, serial, createdById: s.userId } });
+    have.set(id, batchLabelCode(serial));
+  }
+  return have;
+}
 export async function batchLabels(tx: Tx, s: SessionData, ids: string[]): Promise<BatchLabels> {
   const rows = await tx.stockBatch.findMany({ where: { id: { in: ids.slice(0, 50) }, organizationId: s.organizationId, location: { startsWith: "ward:" } } });
+  const codes = await ensureLabels(tx, s, rows.map((r) => r.id));
   const meds = new Map((await tx.medicine.findMany({ where: { key: { in: [...new Set(rows.map((r) => r.medicineKey))] } } })).map((m) => [m.key, m]));
   const wards = new Map((await tx.location.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.location.slice(5)))] } }, select: { id: true, name: true } })).map((w) => [w.id, w.name]));
-  return { items: rows.map((b) => { const m = meds.get(b.medicineKey); const code = batchLabel(b.id); return { batchId: b.id, code, medicine: m ? `${m.brand} ${m.strength}` : b.medicineKey, batchNo: b.batchNo, expiry: b.expiry, ward: wards.get(b.location.slice(5)) ?? "", qrSvg: qrSvg(code) }; }) };
+  return { items: rows.map((b) => { const m = meds.get(b.medicineKey); const code = codes.get(b.id)!; return { batchId: b.id, code, medicine: m ? `${m.brand} ${m.strength}` : b.medicineKey, batchNo: b.batchNo, expiry: b.expiry, ward: wards.get(b.location.slice(5)) ?? "", qrSvg: qrSvg(code) }; }) };
 }
 

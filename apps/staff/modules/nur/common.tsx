@@ -3,7 +3,7 @@
    ward remembered on this device, a PIN sheet for signing / stopping / issuing, and the NEWS2 pill. */
 import { useEffect, useRef, useState } from "react";
 import type { AllergyView, BatchLabels, News2, PatientSummary, WristbandView } from "@setu/contracts";
-import { format } from "@setu/domain";
+import { format, normaliseScan } from "@setu/domain";
 import { fill } from "@setu/i18n";
 import { Button, Callout, Dialog, Pill, TextField, useToast, type BannerPatient } from "@setu/ui";
 import { ApiFailure, ward } from "../../lib/api";
@@ -112,10 +112,11 @@ export function WardPatientPicker({ screen, title }: { screen: string; title: st
 type Detector = { detect: (src: CanvasImageSource) => Promise<{ rawValue: string }[]> };
 /** A scan field: a keyboard-wedge scanner types the code and presses Enter; or the camera (BarcodeDetector) where the
     tablet has it. `state` shows what the server will check (the field never claims a match on its own). */
-export function ScanField({ label, value, onScan, testId, disabled }: { label: string; value: string; onScan: (code: string) => void; testId: string; disabled?: boolean }) {
+export function ScanField({ label, value, onScan, testId, disabled, focus, autoFocus }: { label: string; value: string; onScan: (code: string) => void; testId: string; disabled?: boolean; /** bump to move the cursor here */ focus?: number; autoFocus?: boolean }) {
   const N = useN();
   const [text, setText] = useState(""); const [cam, setCam] = useState(false); const [camMsg, setCamMsg] = useState<string | null>(null);
-  const video = useRef<HTMLVideoElement | null>(null);
+  const video = useRef<HTMLVideoElement | null>(null); const box = useRef<HTMLDivElement | null>(null);
+  useEffect(() => { if (focus) box.current?.querySelector("input")?.focus(); }, [focus]);
   const can = typeof window !== "undefined" && "BarcodeDetector" in window;
   useEffect(() => {
     if (!cam) return;
@@ -142,10 +143,12 @@ export function ScanField({ label, value, onScan, testId, disabled }: { label: s
     </span>
   );
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }} data-testid={testId} data-scanned="0">
+    <div ref={box} style={{ display: "flex", flexDirection: "column", gap: 4 }} data-testid={testId} data-scanned="0">
       <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
         <TextField label={label} value={text} hint={N("scan_hint")} autoComplete="off" disabled={disabled} name={testId}
-          onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && text.trim()) { e.preventDefault(); onScan(text.trim()); setText(""); } }} data-testid={`${testId}-input`} />
+          autoFocus={autoFocus}
+          // codes are digits only: a wedge under a Bangla layout types Bangla digits — read back as Latin (decision 253)
+          onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && normaliseScan(text)) { e.preventDefault(); onScan(normaliseScan(text)); setText(""); } }} data-testid={`${testId}-input`} />
         {can && <Button size="sm" icon="camera" onClick={() => setCam(true)} disabled={disabled}>{N("scan_camera")}</Button>}
       </div>
       {cam && <video ref={video} muted playsInline style={{ width: 240, borderRadius: 8 }} />}

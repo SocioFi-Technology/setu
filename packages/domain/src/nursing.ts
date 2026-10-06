@@ -36,19 +36,30 @@ export function scanBlockers(x: ScanFacts): ScanBlocker[] {
   if (reason.length < OVERRIDE_REASON_MIN) return ["override_reason"];
   return [];
 }
-/** The wristband QR: `SETU-WB1.<admissionId>.<facilityNo>.<signature>`; the signature is an HMAC of this payload. */
-/** The band carries its print number: a reprint retires every earlier band (only the latest verifies — review). */
-export const wristbandPayload = (admissionId: string, facilityNo: string, printNo: number) => `${admissionId}.${facilityNo}.${printNo}`;
-export const wristbandCode = (admissionId: string, facilityNo: string, printNo: number, sig: string) => `SETU-WB1.${wristbandPayload(admissionId, facilityNo, printNo)}.${sig}`;
-export function parseWristband(code: string): { admissionId: string; facilityNo: string; printNo: number; sig: string } | null {
-  const m = /^SETU-WB1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9-]+)\.(\d{1,4})\.([A-Za-z0-9_-]+)$/i.exec(code.trim());
-  return m ? { admissionId: m[1]!, facilityNo: m[2]!, printNo: Number(m[3]), sig: m[4]! } : null;
+/* Scan codes are digits only (Kamrul, 06/10/2026): a keyboard-wedge scanner types keystrokes, and under a Bangla layout
+   (Avro, Bijoy) letters arrive mangled while digits arrive as Bangla digits, which normaliseScan turns back (decision
+   253). A two-digit prefix says what was scanned.
+   · wristband: 91 + the print's 10-digit serial + an 8-digit signature (an HMAC of the tenant and the serial, in decimal)
+   · medicine label: 92 + the label's 10-digit serial + 2 check digits (ISO 7064 mod 97-10, catches a misread) */
+export const WRISTBAND_PREFIX = "91", LABEL_PREFIX = "92";
+const toLatinDigits = (s: string) => s.replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d)));
+/** What a scan field keeps: Latin digits only (Bangla digits converted, everything else — Enter, spaces — dropped). */
+export const normaliseScan = (raw: string) => toLatinDigits(raw).replace(/\D/g, "");
+export const serial10 = (n: number | bigint) => String(n).padStart(10, "0");
+export const wristbandCode = (serial: string, sig8: string) => `${WRISTBAND_PREFIX}${serial}${sig8}`;
+export function parseWristband(code: string): { serial: string; sig: string } | null {
+  const m = /^91(\d{10})(\d{8})$/.exec(normaliseScan(code));
+  return m ? { serial: m[1]!, sig: m[2]! } : null;
 }
-/** The medicine label QR on a ward batch. */
-export const batchLabel = (batchId: string) => `SETU-MB1.${batchId}`;
-export function parseBatchLabel(code: string): string | null {
-  const m = /^SETU-MB1\.([A-Za-z0-9_-]+)$/i.exec(code.trim());
-  return m ? m[1]! : null;
+/** ISO 7064 mod 97-10 check digits for a digit string. */
+export function mod97Check(digits: string): string {
+  const r = Number(BigInt(`${digits}00`) % 97n);
+  return String(98 - r).padStart(2, "0");
+}
+export const batchLabelCode = (serial: string) => `${LABEL_PREFIX}${serial}${mod97Check(serial)}`;
+export function parseBatchLabel(code: string): { serial: string } | null {
+  const m = /^92(\d{10})(\d{2})$/.exec(normaliseScan(code));
+  return m && mod97Check(m[1]!) === m[2] ? { serial: m[1]! } : null;
 }
 
 /* ───── intake / output ───── */

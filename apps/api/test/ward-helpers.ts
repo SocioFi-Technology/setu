@@ -82,7 +82,7 @@ export async function bandOf(c: ReturnType<typeof client>, encounterId: string):
   bands.set(encounterId, r.json().code);
   return r.json().code as string;
 }
-export async function labelOf(encounterId: string, requestId: string): Promise<string | undefined> {
+export async function labelOf(c: ReturnType<typeof client>, encounterId: string, requestId: string): Promise<string | undefined> {
   const { forTenant } = await import("@setu/db");
   return forTenant(T, async (tx) => {
     const o = await tx.medicationRequest.findFirst({ where: { id: requestId } });
@@ -91,13 +91,19 @@ export async function labelOf(encounterId: string, requestId: string): Promise<s
     // a batch with stock first; an opened multi-dose vial's batch may be at 0 and its label is still on the vial
     const b = (await tx.stockBatch.findFirst({ where: { location: `ward:${live.bed.parentId}`, medicineKey: o.medicineKey, qtyOnHand: { gt: 0 } }, orderBy: { expiry: "asc" } }))
       ?? (await tx.stockBatch.findFirst({ where: { location: `ward:${live.bed.parentId}`, medicineKey: o.medicineKey }, orderBy: { expiry: "asc" } }));
-    return b ? `SETU-MB1.${b.id}` : undefined;
+    return b?.id;
+  }).then(async (id) => {
+    if (!id) return undefined;
+    // the label a nurse would print for that batch (its digit-only code; made on first print)
+    const r = await c.post("/v1/nursing/labels", { batchIds: [id] });
+    expect(r.statusCode, r.body).toBe(200);
+    return r.json().items[0].code as string;
   });
 }
 /** Adds the bedside scans to a given dose that has none (`scan: {}` sends none on purpose). */
 export async function withScans(c: ReturnType<typeof client>, encounterId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
   if (body.outcome !== "given" || body.scan !== undefined) return body;
   const band = await bandOf(c, encounterId);
-  const med = (body.source ?? "ward-stock") === "ward-stock" ? await labelOf(encounterId, body.requestId as string) : undefined;
+  const med = (body.source ?? "ward-stock") === "ward-stock" ? await labelOf(c, encounterId, body.requestId as string) : undefined;
   return { ...body, scan: { band, ...(med ? { med } : {}) } };
 }

@@ -2444,6 +2444,23 @@ model WristbandPrint {
   reason         String?
   printedById    String
   printedAt      DateTime @default(now())
+  /// the 10-digit serial in the band's digit-only code (ADR 0016 amendment 2)
+  serial         String?
 
+  @@unique([tenantId, serial])
   @@index([tenantId, admissionId])
+}
+
+/// ADR 0016 amendment 2: the digit-only medicine label of a ward batch (92 + serial + mod-97 check). Append-only.
+model BatchLabel {
+  id             String   @id @default(cuid())
+  tenantId       String
+  organizationId String
+  batchId        String
+  serial         String
+  createdById    String
+  createdAt      DateTime @default(now())
+
+  @@unique([tenantId, batchId])
+  @@unique([tenantId, serial])
 }

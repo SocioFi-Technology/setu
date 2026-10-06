@@ -122,7 +122,7 @@ function DoseDialog({ v, pick, onClose, onDone, onStale }: { v: MarView; pick: P
   const [source, setSource] = useState<"ward-stock" | "patient-supplied">("ward-stock");
   const [reason, setReason] = useState(""); const [amount, setAmount] = useState("");
   // ADR 0016: the bedside scans (the server checks them); "scanner not working" never for high-alert / controlled
-  const [band, setBand] = useState(""); const [med, setMed] = useState(""); const [noScanner, setNoScanner] = useState(false); const [overrideReason, setOverrideReason] = useState("");
+  const [band, setBand] = useState(""); const [med, setMed] = useState(""); const [medFocus, setMedFocus] = useState(0); const [noScanner, setNoScanner] = useState(false); const [overrideReason, setOverrideReason] = useState("");
   const [witnesses, setWitnesses] = useState<WitnessList["items"]>([]); const [witnessId, setWitnessId] = useState(""); const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false); const [msg, setMsg] = useState<string | null>(null); const [serverBlockers, setServerBlockers] = useState<string[]>([]);
   const key = useRef(crypto.randomUUID()); const inFlight = useRef(false);
@@ -144,6 +144,21 @@ function DoseDialog({ v, pick, onClose, onDone, onStale }: { v: MarView; pick: P
   ) as string[]).concat(o.allergyBlock && outcome === "given" ? ["allergy"] : [])
     .concat(scanBlockers({ outcome, source, highAlert: o.medicine.highAlert, controlled: o.medicine.controlled, band: band ? "match" : "none", med: med ? "match" : "none", overrideReason: noScanner ? overrideReason : null }));
   const overrideAllowed = !(o.medicine.highAlert || o.medicine.controlled);
+  // after the band, the scanner's next keystrokes go to the medicine field (no tap between the two scans)
+  useEffect(() => { if (band && !med && source === "ward-stock") setMedFocus((n) => n + 1); }, [band]); // eslint-disable-line react-hooks/exhaustive-deps
+  // a scanner typing while the cursor is off a text field (say on a five-rights tick) still reaches the next empty scan
+  // field: the first digit moves the cursor there, and the keystroke lands in it
+  useEffect(() => {
+    if (outcome !== "given") return;
+    const k = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.altKey || e.metaKey || !/^[0-9০-৯]$/.test(e.key)) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || (t.tagName === "INPUT" && !["checkbox", "radio", "button", "submit"].includes((t as HTMLInputElement).type)))) return;
+      if (!band) document.querySelector<HTMLInputElement>('[data-testid="scan-band-input"]')?.focus();
+      else if (!med && source === "ward-stock") document.querySelector<HTMLInputElement>('[data-testid="scan-med-input"]')?.focus();
+    };
+    window.addEventListener("keydown", k, true); return () => window.removeEventListener("keydown", k, true);
+  }, [outcome, band, med, source]);
   // a new scan clears the server's last answer; a scan cleared because the server refused it keeps the "mismatch" shown
   const scanBand = (code: string, fromServer = false) => { setBand(code); setChecks((c) => ({ ...c, patient: Boolean(code) })); if (!fromServer) setServerBlockers([]); };
   const scanMed = (code: string, fromServer = false) => { setMed(code); setChecks((c) => ({ ...c, drug: Boolean(code) })); if (!fromServer) setServerBlockers([]); };
@@ -197,8 +212,8 @@ function DoseDialog({ v, pick, onClose, onDone, onStale }: { v: MarView; pick: P
         {outcome === "given" && (<>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }} data-testid="scans">
             <b className="t-small">{N("scan_title")}</b>
-            <ScanField label={N("scan_band")} value={band} onScan={(c) => scanBand(c)} testId="scan-band" disabled={busy} />
-            {source === "ward-stock" ? <ScanField label={N("scan_med")} value={med} onScan={(c) => scanMed(c)} testId="scan-med" disabled={busy} /> : <span className="t-small t-muted">{N("scan_band_only")}</span>}
+            <ScanField label={N("scan_band")} value={band} onScan={(c) => scanBand(c)} testId="scan-band" disabled={busy} autoFocus />
+            {source === "ward-stock" ? <ScanField label={N("scan_med")} value={med} onScan={(c) => scanMed(c)} testId="scan-med" disabled={busy} focus={medFocus} /> : <span className="t-small t-muted">{N("scan_band_only")}</span>}
             {overrideAllowed ? (<>
               <label className="t-small" style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={noScanner} onChange={(e) => setNoScanner(e.target.checked)} data-testid="no-scanner" /> {N("scan_override")}</label>
               {noScanner && <TextField label={N("scan_override_reason")} value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} name="overrideReason" data-testid="override-reason" />}

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { CARE_TASK, HANDOVER, can, transition } from "./machines.js";
 import {
-  IO_MAX_ML, handoverAcceptBlockers, batchLabel, currentShift, ioBlockers, ioTotals, nextCareDue, parseBatchLabel, parseWristband, scanBlockers, shiftDay,
-  handoverSignBlockers, taskOverdue, wristbandPayload,
+  IO_MAX_ML, handoverAcceptBlockers, batchLabelCode, mod97Check, normaliseScan, wristbandCode, currentShift, ioBlockers, ioTotals, nextCareDue, parseBatchLabel, parseWristband, scanBlockers, shiftDay,
+  handoverSignBlockers, taskOverdue,
 } from "./nursing.js";
 
 describe("scan-to-verify (walkthrough B5: Record locked until band + medicine scanned)", () => {
@@ -30,15 +30,22 @@ describe("scan-to-verify (walkthrough B5: Record locked until band + medicine sc
     // a mismatch is never overridden
     expect(scanBlockers({ ...base, band: "mismatch", med: "none", overrideReason: "Scanner broken on ward" })).toEqual(["band_mismatch"]);
   });
-  it("codes: the wristband carries the admission and the facility number with a signature; the label a batch", () => {
-    expect(wristbandPayload("adm_1", "E2L-240201", 2)).toBe("adm_1.E2L-240201.2");
-    expect(parseWristband("SETU-WB1.adm_1.E2L-240201.2.abc123")).toEqual({ admissionId: "adm_1", facilityNo: "E2L-240201", printNo: 2, sig: "abc123" });
-    expect(parseWristband("SETU-MB1.b1")).toBeNull();
-    expect(parseWristband("SETU-WB1.adm_1.E2L-240201.abc123")).toBeNull(); // no print number: an old-format band
-    expect(parseWristband(" setu-wb1.x.y.1.z ")).toEqual({ admissionId: "x", facilityNo: "y", printNo: 1, sig: "z" });
-    expect(batchLabel("bt_9")).toBe("SETU-MB1.bt_9");
-    expect(parseBatchLabel("SETU-MB1.bt_9")).toBe("bt_9");
-    expect(parseBatchLabel("SETU-WB1.a.b.c")).toBeNull();
+  it("codes are digits only: a wedge scanner on a Bangla layout types Bangla digits, and the field reads them back", () => {
+    const band = wristbandCode("0000001234", "87654321");
+    expect(band).toBe("91000000123487654321");
+    expect(parseWristband(band)).toEqual({ serial: "0000001234", sig: "87654321" });
+    // the same keystrokes under Bijoy / Avro: Bangla digits, with the Enter the wedge adds
+    const bn = band.replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[Number(d)]!) + "\n";
+    expect(normaliseScan(bn)).toBe(band);
+    expect(parseWristband(bn)).toEqual({ serial: "0000001234", sig: "87654321" });
+    expect(parseWristband("92000000123487654321")).toBeNull();
+    expect(parseWristband("SETU-WB1.adm.E2L-1.1.sig")).toBeNull(); // the old lettered format never parses
+    const label = batchLabelCode("0000000042");
+    expect(label).toMatch(/^920000000042\d{2}$/);
+    expect(parseBatchLabel(label)).toEqual({ serial: "0000000042" });
+    expect(parseBatchLabel(label.replace(/\d$/, (d) => String((Number(d) + 1) % 10)))).toBeNull(); // a misread check digit
+    expect(parseBatchLabel(band)).toBeNull();
+    expect(mod97Check("0000000042")).toHaveLength(2);
   });
 });
 
