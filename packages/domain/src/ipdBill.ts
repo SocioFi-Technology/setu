@@ -91,18 +91,21 @@ export function desiredLines(f: StayFacts, now: Date): DesiredLine[] {
     if (!c) continue;
     const r = f.rates[c];
     const inc = Boolean(pkg) && d <= pkg!.days;
+    // a class with no rate set is unpriced (it blocks the final bill), never ৳0 (review)
+    const rate = f.rates[c] ? f.rates[c]!.perDayPaisa : null;
     out.push({ ...blank, key: `bed:${d}`, source: "bed-day", tag: inc ? "included" : "excluded", code: `bed:${c}`,
       nameEn: `Bed · day ${d} · ${r?.nameEn ?? c}${pkg && !inc ? " (beyond package)" : ""}`, nameBn: `শয্যা · দিন ${d} · ${r?.nameBn ?? c}${pkg && !inc ? " (প্যাকেজের বাইরে)" : ""}`,
-      unitPaisa: inc ? 0 : rateOf(f.rates, c), qty: 1, vatRateBp: 0, serviceDay: day, dayNo: d, bedClass: c });
+      unitPaisa: inc ? 0 : rate, qty: 1, vatRateBp: 0, serviceDay: day, dayNo: d, bedClass: c });
   }
   // services count against the package's limits in the order they were placed (orders and manual charges alike)
   const used = new Map<string, number>();
-  const covered = (code: string) => {
+  /** `qty` units of `code` inside the package's limit? Counted only when the whole line is covered (review). */
+  const covered = (code: string, qty = 1) => {
     const it = pkg?.services.find((x) => x.code === code);
     if (!it) return false;
     const k = used.get(code) ?? 0;
-    if (it.limit !== null && k >= it.limit) return false;
-    used.set(code, k + 1);
+    if (it.limit !== null && k + qty > it.limit) return false;
+    used.set(code, k + qty);
     return true;
   };
   const services = [
@@ -115,7 +118,7 @@ export function desiredLines(f: StayFacts, now: Date): DesiredLine[] {
       out.push({ ...blank, key: `order:${x.o.id}`, source: "order", tag: inc ? "included" : "excluded", code: x.o.code, nameEn: x.o.nameEn, nameBn: x.o.nameBn, unitPaisa: inc ? 0 : x.o.unitPaisa, qty: 1, vatRateBp: x.o.vatRateBp, sourceId: x.o.id });
     } else {
       // a manual charge of several units: each unit counts against the limit
-      const inc = Array.from({ length: x.m.qty }, () => covered(x.m.code)).every(Boolean);
+      const inc = covered(x.m.code, x.m.qty);
       out.push({ ...blank, key: `manual:${x.m.id}`, source: "desk", tag: inc ? "included" : "excluded", code: x.m.code, nameEn: x.m.nameEn, nameBn: x.m.nameBn, unitPaisa: inc ? 0 : x.m.unitPaisa, qty: x.m.qty, vatRateBp: x.m.vatRateBp });
     }
   }
@@ -148,6 +151,24 @@ export function reconcileLines(posted: PostedLine[], desired: DesiredLine[]): Re
   return out;
 }
 
+/** A price is taken when its line is first posted and never re-priced by a later price-list or bed-rate change (review):
+    a wanted line priced like an earlier posted line of the same key and the same priced item (an order's code, a bed
+    day's class) keeps that line's price. Included (৳0) lines and credit lines say nothing about a price. */
+export interface PricedLine { key: string | null; code: string; tag: IpdTag | null; unitPaisa: Paisa | null; position: number; creditOfId: string | null }
+export function keepPostedPrices(desired: DesiredLine[], posted: PricedLine[]): DesiredLine[] {
+  const first = new Map<string, Paisa>();
+  for (const p of [...posted].sort((a, b) => a.position - b.position)) {
+    if (!p.key || p.creditOfId || p.tag !== "excluded" || p.unitPaisa === null) continue;
+    const k = `${p.key}|${p.code}`;
+    if (!first.has(k)) first.set(k, p.unitPaisa);
+  }
+  return desired.map((d) => {
+    if (d.tag !== "excluded" || (d.source !== "order" && d.source !== "bed-day")) return d;
+    const was = first.get(`${d.key}|${d.code}`);
+    return was === undefined ? d : { ...d, unitPaisa: was };
+  });
+}
+
 /* ───── amounts and totals ───── */
 /** A line's amounts; a credit line has a negative quantity and mirrors its original exactly. */
 export function ipdLineAmounts(unitPaisa: Paisa | null, qty: number, vatRateBp: number) {
@@ -158,14 +179,14 @@ export function ipdLineAmounts(unitPaisa: Paisa | null, qty: number, vatRateBp: 
   const signed = (n: number) => (sign < 0 ? 0 - n : n); // 0 − 0 is 0, never −0
   return { grossPaisa: signed(gross), discountPaisa: 0, netPaisa: signed(gross), vatPaisa: signed(vat), totalPaisa: signed(gross + vat) };
 }
-export interface TotalsLine { tag: IpdTag | null; unitPaisa: Paisa | null; qty: number; vatRateBp: number; superseded: boolean }
+export interface TotalsLine { tag: IpdTag | null; unitPaisa: Paisa | null; qty: number; vatRateBp: number; superseded: boolean; /** credited, or a credit line */ credit?: boolean }
 export interface IpdTotals { packagePaisa: Paisa; excludedPaisa: Paisa; includedLines: number; subtotalPaisa: Paisa; vatPaisa: Paisa; totalPaisa: Paisa; unpriced: number }
 /** Totals over the lines that are not superseded (credit lines count, negative). */
 export function ipdTotals(lines: TotalsLine[]): IpdTotals {
   const t: IpdTotals = { packagePaisa: 0, excludedPaisa: 0, includedLines: 0, subtotalPaisa: 0, vatPaisa: 0, totalPaisa: 0, unpriced: 0 };
   for (const l of lines) {
     if (l.superseded) continue;
-    if (l.unitPaisa === null) t.unpriced++;
+    if (l.unitPaisa === null && !l.credit) t.unpriced++;
     const a = ipdLineAmounts(l.unitPaisa, l.qty, l.vatRateBp);
     t.subtotalPaisa += a.netPaisa; t.vatPaisa += a.vatPaisa; t.totalPaisa += a.totalPaisa;
     if (l.tag === "package") t.packagePaisa += a.totalPaisa;

@@ -101,7 +101,7 @@ domain model says "Task per step"; `Task.status` is the approval machine, so ste
 |---|---|---|---|---|
 | 1 | Doctor's discharge order | doctor | — | the order itself (PIN, advice, target time) |
 | 2 | Discharge summary | doctor | 1 | by hand with PIN until B11 signs the summary |
-| 3 | Pharmacy clearance | pharmacist | 1 | PIN: no dose error unanswered, patient's own medicines handed back |
+| 3 | Pharmacy clearance | pharmacist | 1 | PIN: the patient's own medicines handed back (or none) — a dose error is answered when it is recorded |
 | 4 | Final bill | cashier / owner | 3 | by hand with PIN until B10 issues the final bill |
 | 5 | Payment and clearance | cashier / owner | 4 | by hand with PIN until B10 settles against the deposit |
 | 6 | Bed release to cleaning | nurse | 2 and 5 | PIN |
@@ -143,3 +143,12 @@ plan: the lock page (Hospital Lite and up).
   becomes a refund request (source `deposit-excess`, owner approval, paid at the counter) in the same transaction that
   issues the bill: the issued bill holds exactly its total, the patient leaves with a voucher for the rest, and the bill
   is never issued while an excess is unassigned.
+
+## Addendum — the session 2 review (06/10/2026)
+- The OPD bill routes never reach the IPD running bill (they could have voided or issued it): `billKindsFor` is back to
+  opd / pharmacy / otc, and only the routes the deposits share (wallet retry / check / cancel / SMS, reconciliation, the
+  receipt view and print) ask for it. The database keeps the IPD bill a draft until the final-bill step (B10) lifts it.
+- A wallet deposit's retry is not capped by a "due" (the running bill has none). The money receipt names who took the
+  money. Payment and clearance by hand is refused while a deposit link is waiting, and keeps the bill as it stood.
+- Who posted an IPD line is the signed-in user (null only for the census); rates and packages are read-only for the app
+  role until the owner's publish step; the census lists only open draft bills and never for a future time.

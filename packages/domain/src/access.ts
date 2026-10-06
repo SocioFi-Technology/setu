@@ -37,8 +37,8 @@ export type BillKind = "opd" | "pharmacy" | "otc" | "ipd";
 /** ADR 0009: which bills this role may open and take money on. Billing (bill/opd) sees every kind; the pharmacist
     (pharmacy screens) sees only the pharmacy and over-the-counter bills — never an OPD bill. */
 export function billKindsFor(role: Role, plan: Plan): BillKind[] {
-  // ADR 0017: the IPD running bill's payments (deposits, their links) for whoever has the IPD bill screen (Hospital Lite up)
-  if (authorize(role, plan, "bill", "opd").allowed) return authorize(role, plan, "bill", "ipd").allowed ? ["opd", "pharmacy", "otc", "ipd"] : ["opd", "pharmacy", "otc"];
+  // the IPD running bill is not here (review): its routes are its own, and the payment routes its deposits share ask for it
+  if (authorize(role, plan, "bill", "opd").allowed) return ["opd", "pharmacy", "otc"];
   if (authorize(role, plan, "ph", "otc").allowed) return ["pharmacy", "otc"];
   return [];
 }

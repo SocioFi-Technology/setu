@@ -18,7 +18,7 @@
 import type { ApprovalItem, ApprovalList, BillingWorklist, ChargeSourceWire, ChargeDefinitionList, DiscountRequest, InvoiceView, NewPaymentRequest, PaymentView, ProviderCallbackResponse, ReconcileItem, ReconcileList } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
-  APPROVAL, INVOICE, PAYMENT, approvalBlockers, billKindsFor, type Plan, type Role, billTotals, checkNewPayment, decideProviderEvent, dhakaDay, discountDecision, discountLimit, discountToPaisa,
+  APPROVAL, INVOICE, PAYMENT, approvalBlockers, authorize, billKindsFor, type Plan, type Role, billTotals, checkNewPayment, decideProviderEvent, dhakaDay, discountDecision, discountLimit, discountToPaisa,
   LINK_CODE_ALPHABET, LINK_SMS_MAX, STUCK_MINUTES, smsSafeName, walletAmount, LINK_CODE_LENGTH, answerOutcome, decideReturn, invoiceEventAfterConfirm, isWallet, type ReturnStatus, issueBlockers, notBilledBlockers, paidBy, paymentSummary, reconcileApplyBlockers, syncOrderLines, transition, voidBlockers, type BillingSettings, type DiscountCategory, type InvoiceState,
   type PaymentMethod, type PaymentRow, type PaymentState, type ProviderEventKind,
 } from "@setu/domain";
@@ -90,12 +90,16 @@ const settingsOf = (o: Awaited<ReturnType<typeof orgOf>>): BillingSettings =>
   ({ cashierLimitPaisa: o.cashierDiscountLimitPaisa, cashierLimitBp: o.cashierDiscountLimitBp, approverLimitPaisa: o.approverLimitPaisa });
 const toRow = (p: Pay): PaymentRow => ({ id: p.id, method: p.method as PaymentMethod, amountPaisa: p.amountPaisa, status: dash<PaymentState>(p.status), trxId: p.trxId, reference: p.reference });
 
-/** A bill at the session's facility and branch, locked for this transaction (two counters never interleave). */
-export async function invoiceHere(tx: Tx, s: SessionData, id: string, lock = false): Promise<Inv> {
+/** A bill at the session's facility and branch, locked for this transaction (two counters never interleave). `ipd`: the
+    route also serves the IPD running bill's deposits (their wallet links, receipts, reconciliation) — never the OPD bill's
+    edit, issue, void or discount routes (review, ADR 0017). */
+export async function invoiceHere(tx: Tx, s: SessionData, id: string, lock = false, opts: { ipd?: boolean } = {}): Promise<Inv> {
   if (lock) await tx.$queryRaw`SELECT 1 FROM "Invoice" WHERE "id" = ${id} FOR UPDATE`;
   const branch = await branchOf(tx, s);
   const inv = await tx.invoice.findFirst({ where: { id, organizationId: s.organizationId, branchId: branch.id } });
-  if (!inv || !billKindsFor(s.role as Role, s.plan as Plan).includes(inv.kind)) throw notFound();
+  const kinds: string[] = billKindsFor(s.role as Role, s.plan as Plan);
+  if (opts.ipd && authorize(s.role as Role, s.plan as Plan, "bill", "ipd").allowed) kinds.push("ipd");
+  if (!inv || !kinds.includes(inv.kind)) throw notFound();
   return inv;
 }
 /** Any approval still requested on the bill (discount or "Not billed here"): lines are locked and Issue is refused. */
@@ -684,7 +688,7 @@ export async function decideReconcile(tx: Tx, s: SessionData, taskId: string, ac
   const t0 = await tx.task.findFirst({ where: { id: taskId, kind: RECONCILE_TASK } });
   const p0 = t0?.focusId ? await tx.payment.findFirst({ where: { id: t0.focusId, organizationId: s.organizationId } }) : null;
   if (!t0 || !p0) throw notFound();
-  const inv = await invoiceHere(tx, s, p0.invoiceId, true);
+  const inv = await invoiceHere(tx, s, p0.invoiceId, true, { ipd: true });
   const t = (await tx.task.findFirst({ where: { id: taskId } }))!;
   const p = (await tx.payment.findFirst({ where: { id: p0.id } }))!;
   const d = t.detail as unknown as ReconcileDetail;
@@ -828,7 +832,7 @@ async function walletPaymentHere(tx: Tx, s: SessionData, paymentId: string) {
   requireWriter(s);
   const p0 = await tx.payment.findFirst({ where: { id: paymentId, organizationId: s.organizationId } });
   if (!p0) throw notFound();
-  const inv = await invoiceHere(tx, s, p0.invoiceId, true);
+  const inv = await invoiceHere(tx, s, p0.invoiceId, true, { ipd: true });
   const p = (await tx.payment.findFirst({ where: { id: paymentId } }))!;
   if (!isWallet(p.method as PaymentMethod)) throw err(409, "not_wallet", "এটি ওয়ালেট পেমেন্ট নয়", "This is not a wallet payment");
   return { p, inv };
@@ -844,7 +848,8 @@ export async function retryPayment(tx: Tx, s: SessionData, paymentId: string, no
   if (!methods.includes(p.method)) throw err(422, "method_off", "এই প্রতিষ্ঠানে এই পেমেন্ট মাধ্যম চালু নেই", "This facility does not take this payment method", { field: "method" });
   const status = undash<"initiated">(transition("PAYMENT", PAYMENT, dash<PaymentState>(p.status), "retry"));
   const others = (await tx.payment.findMany({ where: { invoiceId: inv.id, id: { not: p.id } } })).map(toRow);
-  if (p.amountPaisa > paymentSummary(dueBase(inv), others).openPaisa) throw err(409, "amount_over_open", "বকেয়ার চেয়ে বেশি (অপেক্ষমাণ পেমেন্টসহ)", "More than is still due (counting pending payments)", { field: "amountPaisa" });
+  // a deposit on the running IPD bill has no "due" to stay under (review M4)
+  if (!(inv.kind === "ipd" && inv.status === "draft") && p.amountPaisa > paymentSummary(dueBase(inv), others).openPaisa) throw err(409, "amount_over_open", "বকেয়ার চেয়ে বেশি (অপেক্ষমাণ পেমেন্টসহ)", "More than is still due (counting pending payments)", { field: "amountPaisa" });
   if (p.providerRef) await providerOf(p).cancel(p.providerRef);
   await tx.payment.update({ where: { id: p.id }, data: { status, attempt: p.attempt + 1, providerRef: null, linkUrl: null, linkExpiresAt: null, failReason: null,
     linkCode: null, providerSignature: null, executeClaimedAt: null, supersededLinkCodes: p.linkCode ? [...p.supersededLinkCodes, p.linkCode] : p.supersededLinkCodes,

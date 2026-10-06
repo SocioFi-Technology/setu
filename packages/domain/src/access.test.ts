@@ -71,8 +71,8 @@ describe("bill kinds by role (ADR 0009)", () => {
     expect(billKindsFor("owner", "clinic")).toEqual(["opd", "pharmacy", "otc"]);
     expect(billKindsFor("pharmacist", "clinic")).toEqual(["pharmacy", "otc"]);
     expect(billKindsFor("doctor", "clinic")).toEqual([]);
-    // ADR 0017: the IPD bill with its screen (Hospital Lite and up)
-    expect(billKindsFor("cashier", "lite")).toEqual(["opd", "pharmacy", "otc", "ipd"]);
+    // ADR 0017 (review): never the IPD running bill — the OPD routes cannot void or issue it
+    expect(billKindsFor("cashier", "lite")).toEqual(["opd", "pharmacy", "otc"]);
     expect(billKindsFor("pharmacist", "lite")).toEqual(["pharmacy", "otc"]);
     expect(holdsShift("pharmacist", "clinic")).toBe(true);
     expect(holdsShift("cashier", "clinic")).toBe(true);

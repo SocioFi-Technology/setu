@@ -35,7 +35,7 @@ async function people(tx: Tx, ids: string[]) {
 async function receiptHere(tx: Tx, s: SessionData, id: string): Promise<Rc> {
   const r = await tx.receipt.findFirst({ where: { id, organizationId: s.organizationId } });
   if (!r) throw notFound();
-  await invoiceHere(tx, s, r.invoiceId); // same facility and branch as the bill
+  await invoiceHere(tx, s, r.invoiceId, false, { ipd: r.kind === "deposit" }); // same facility and branch as the bill
   return r;
 }
 
@@ -111,7 +111,7 @@ export async function printReceipt(tx: Tx, s: SessionData, receiptId: string, re
   const r0 = await receiptHere(tx, s, receiptId);
   // Receipts cannot be locked FOR UPDATE (setu_app has no UPDATE on them): the bill's row lock serialises two prints,
   // and the unique (receiptId, copy) is the backstop.
-  await invoiceHere(tx, s, r0.invoiceId, true);
+  await invoiceHere(tx, s, r0.invoiceId, true, { ipd: r0.kind === "deposit" });
   const copy = await tx.receiptPrint.count({ where: { receiptId: r0.id } });
   if (copy > 0 && !req.reason) throw err(409, "reprint_needs_reason", "আবার প্রিন্টের কারণ বেছে নিন", "Choose a reason to reprint", { field: "reason" });
   if (copy === 0 && req.reason) throw err(409, "not_printed_yet", "মূল রসিদ এখনও প্রিন্ট হয়নি", "The original has not been printed yet", { field: "reason" });

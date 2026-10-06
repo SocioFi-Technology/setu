@@ -230,11 +230,20 @@ export async function doneStep(tx: Tx, s: SessionData, id: string, key: string, 
   if (x.status !== "in-progress") throw err(409, "step_waiting", "এই ধাপের আগের ধাপগুলো শেষ হয়নি", "The steps before this one are not done");
   if (k === "pharmacy" && pharmacyClearanceBlockers({ ownMedicines: body.ownMedicines ?? null }).length)
     throw err(400, "own_medicines", "রোগীর নিজের ওষুধ ফেরত দেওয়া হয়েছে কি না বাছুন", "Say whether the patient's own medicines were handed back", { field: "ownMedicines" });
+  // payment by hand (until B10): never while a deposit link is still waiting; the bill as it stood is kept on the step (review L3)
+  let detail: Record<string, unknown> | undefined = k === "pharmacy" ? { ownMedicines: body.ownMedicines } : undefined;
+  if (k === "payment" || k === "final-bill") {
+    const a = (await tx.admission.findFirst({ where: { id: d.admissionId } }))!;
+    const inv = a.invoiceId ? await tx.invoice.findFirst({ where: { id: a.invoiceId } }) : null;
+    if (k === "payment" && inv && await tx.payment.findFirst({ where: { invoiceId: inv.id, status: { in: ["initiated", "link_sent", "waiting_customer"] } }, select: { id: true } }))
+      throw err(409, "payment_pending", "একটি পেমেন্ট লিংক এখনো অপেক্ষায় — আগে নিশ্চিত বা বাতিল করুন", "A payment link is still waiting — confirm or cancel it first");
+    if (inv) detail = { totalPaisa: inv.totalPaisa, depositsPaisa: inv.paidPaisa, balancePaisa: inv.paidPaisa - inv.totalPaisa };
+  }
   await checkPin(tx, s, body.pin);
   const next = finishStep(statesOf(d.steps), k);
   const n = await tx.dischargeStep.updateMany({ where: { id: x.id, status: "in-progress" }, data: {
     status: "done", doneById: s.userId, doneAt: now, byHand: stepDef(k).byHand, note: body.note?.trim() || null,
-    detail: k === "pharmacy" ? { ownMedicines: body.ownMedicines } : undefined,
+    detail: detail as object | undefined,
   } });
   if (n.count !== 1) throw stale();
   for (const y of d.steps.filter((y) => y.status === "waiting" && next[y.key as DischargeStepKey] === "in-progress"))

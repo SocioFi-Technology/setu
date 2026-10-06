@@ -11,7 +11,7 @@
 import { randomInt } from "node:crypto";
 import type { AuditPage, AuditQuery, FacilityUpdate, FacilityView, PriceCreate, PriceHistory, PriceList, SettingsUpdate, UserCreate, UserCredentialResponse, UserList, UserView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
-import {
+import { BED_CLASSES_SAMPLE,
   FLAGGED_ACTIONS, ONE_TIME_PASSWORD_HOURS, REG_BODY, createUserBlockers, deactivateBlockers, goLiveBlockers, goLiveChecklist, isFlagged, labelPageOk, limitProblems,
   priceChangeProblems, roleChangeBlockers, type GoLiveFacts, type Role, type UserAdminBlocker,
   smsSafeName,
@@ -99,6 +99,11 @@ export async function addWard(tx: Tx, s: SessionData, req: { name: string; nameB
   if (!branch) throw err(409, "branch_first", "আগে একটি শাখা যোগ করুন", "Add a branch first");
   const ward = await tx.location.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, parentId: branch.id, kind: "ward", name: req.name, nameBn: req.nameBn || null } });
   await tx.location.createMany({ data: Array.from({ length: req.beds }, (_, i) => ({ tenantId: s.tenantId, organizationId: s.organizationId, parentId: ward.id, kind: "bed" as const, name: `${req.name}-${i + 1}`, bedClass: req.bedClass, bedState: "vacant" as const })) });
+  // ADR 0017 (review): a ward's class has a daily rate from the start — the sample rate until the owner sets it (a class
+  // without one leaves its bed days unpriced, never ৳0)
+  const sample = BED_CLASSES_SAMPLE.find((c) => c.key === req.bedClass);
+  if (sample && !(await tx.bedClassRate.findFirst({ where: { organizationId: s.organizationId, bedClass: req.bedClass }, select: { id: true } })))
+    await tx.bedClassRate.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, bedClass: sample.key, nameEn: sample.nameEn, nameBn: sample.nameBn, perDayPaisa: sample.perDayPaisa, sample: true } });
   return ward;
 }
 export async function updateSettings(tx: Tx, s: SessionData, req: SettingsUpdate): Promise<AuditEntry[]> {

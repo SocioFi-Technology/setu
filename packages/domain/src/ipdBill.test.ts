@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  keepPostedPrices,
   bedDaysDue, classPreview, dayClass, depositState, desiredLines, ipdLineAmounts, ipdTotals, reconcileLines, suggestedTopUp,
   type ClassLeg, type DesiredLine, type PackageSnapshot, type PostedLine, type StayFacts,
 } from "./ipdBill.js";
@@ -124,6 +125,36 @@ describe("reconcile — supersede the changed, credit the gone, never edit (rule
     expect(r.credit).toEqual(["o1"]);
     expect(r.add.map((l) => l.key)).toEqual(["bed:2"]);
     expect(r.supersede).toEqual([]);
+  });
+});
+
+describe("review: prices kept, limits counted whole, a missing rate is unpriced", () => {
+  it("a price-list change never re-prices a posted order or bed day; a new class's day takes today's rate", () => {
+    const orders = [{ id: "o1", code: "test:cbc", nameEn: "CBC", nameBn: "সিবিসি", unitPaisa: 50_000, vatRateBp: 0, at: ADMIT }];
+    const desired = desiredLines(stay({ pkg: null, orders }), D("2026-09-30T10:00:00"));
+    const posted = [
+      { key: "order:o1", code: "test:cbc", tag: "excluded" as const, unitPaisa: 40_000, position: 3, creditOfId: null },
+      { key: "bed:1", code: "bed:General", tag: "excluded" as const, unitPaisa: 100_000, position: 1, creditOfId: null },
+    ];
+    const kept = byKey(keepPostedPrices(desired, posted));
+    expect(kept.get("order:o1")!.unitPaisa).toBe(40_000);
+    expect(kept.get("bed:1")!.unitPaisa).toBe(100_000);
+    expect(kept.get("bed:2")!.unitPaisa).toBe(120_000); // not posted yet: today's rate
+    // a deactivated definition (no price now) keeps the posted price too
+    const gone = desiredLines(stay({ pkg: null, orders: [{ ...orders[0]!, unitPaisa: null }] }), D("2026-09-30T10:00:00"));
+    expect(byKey(keepPostedPrices(gone, posted)).get("order:o1")!.unitPaisa).toBe(40_000);
+  });
+  it("a manual charge of 3 on a limit of 2 is Excluded and uses none of the limit", () => {
+    const manual = [{ id: "m1", code: "test:cbc", nameEn: "CBC", nameBn: "সিবিসি", unitPaisa: 40_000, vatRateBp: 0, qty: 3, at: D("2026-09-30T08:00:00") }];
+    const orders = [{ id: "o1", code: "test:cbc", nameEn: "CBC", nameBn: "সিবিসি", unitPaisa: 40_000, vatRateBp: 0, at: D("2026-09-30T09:00:00") }];
+    const ls = byKey(desiredLines(stay({ manual, orders }), D("2026-09-30T10:00:00")));
+    expect(ls.get("manual:m1")!.tag).toBe("excluded");
+    expect(ls.get("order:o1")!.tag).toBe("included");
+  });
+  it("a class with no rate set leaves the bed day unpriced, never ৳0; a credited unpriced line does not count", () => {
+    const legs: ClassLeg[] = [{ bedClass: "Suite", from: ADMIT, to: null }];
+    expect(byKey(desiredLines(stay({ pkg: null, legs }), ADMIT)).get("bed:1")!.unitPaisa).toBeNull();
+    expect(ipdTotals([{ tag: "excluded", unitPaisa: null, qty: 1, vatRateBp: 0, superseded: false, credit: true }]).unpriced).toBe(0);
   });
 });
 

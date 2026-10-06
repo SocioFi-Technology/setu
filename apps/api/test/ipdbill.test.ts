@@ -199,8 +199,8 @@ describe.runIf(db)("deposits (Kamrul, decision 2)", () => {
     const ipdf = await c.get(ip2.json().items[1].pdfUrl, "cashier");
     expect(ipdf.statusCode).toBe(200); expect(ipdf.headers["content-disposition"]).toContain("DUPLICATE-1");
     // an OPD-style payment on the IPD bill is refused (deposits only); a payment on an OPD draft still is too (database)
-    expect((await c.post(`/v1/invoices/${inv!.id}/payments`, { method: "cash", amountPaisa: 100, tenderedPaisa: 100 }, "cashier")).json().code).toBe("ipd_deposit");
-  });
+    expect((await c.post(`/v1/invoices/${inv!.id}/payments`, { method: "cash", amountPaisa: 100, tenderedPaisa: 100 }, "cashier")).statusCode).toBe(404); // the OPD payment route never reaches it
+  }, 60_000);
   it("low = under two days of the class's rate; a guardian with no mobile cannot get a link", async () => {
     const w = await h.ownWard(1);
     const a = await admit(w, { deposit: { method: "bank", amountPaisa: 350_000, reference: "EFT 2210" } });
@@ -275,6 +275,47 @@ describe.runIf(db)("the discharge checklist (B9)", () => {
     expect((await c.post(`/v1/ipd/admissions/${a.admissionId}/discharge`, { advice: "Fever settled now, home today", pin: "1234" }, "surgeon")).statusCode).toBe(201);
     await expect(tenant((tx) => tx.admission.update({ where: { id: a.admissionId }, data: { status: "discharged", dischargedAt: new Date(), dischargedById: "u_e2l_nurse" } }), "u_e2l_nurse")).rejects.toThrow(/through the checklist/);
     await expect(tenant((tx) => tx.dischargeStep.updateMany({ where: { discharge: { admissionId: a.admissionId, status: "ordered" }, key: "final-bill" }, data: { status: "in-progress", startedAt: new Date() } }), "u_e2l_cashier")).rejects.toThrow(/waits for its earlier steps/);
+  });
+});
+
+describe.runIf(db)("the review (session 2)", () => {
+  it("the OPD bill routes never reach the IPD running bill; the database keeps it a draft until B10", async () => {
+    const w = await h.ownWard(1);
+    const a = await admit(w);
+    const inv = a.admission.invoice.id as string;
+    expect((await c.post(`/v1/invoices/${inv}/void`, { reason: "Opened by mistake, void it" }, "owner")).statusCode).toBe(404);
+    expect((await c.post(`/v1/invoices/${inv}/issue`, { rev: 1 }, "cashier")).statusCode).toBe(404);
+    await expect(tenant((tx) => tx.invoice.update({ where: { id: inv }, data: { status: "entered_in_error", voidReason: "test: void the IPD bill", voidedById: "u_e2l_owner", voidedAt: new Date() } }), "u_e2l_owner")).rejects.toThrow(/stays a draft until the final bill/);
+  });
+  it("a price-list change never re-prices an order already on the bill", async () => {
+    const w = await h.ownWard(1);
+    const a = await admit(w);
+    const open = (await c.post(`/v1/ipd/encounters/${a.encounterId}/round/open`, {}, "surgeon")).json().draft;
+    const saved = await c.put(`/v1/ipd/round-notes/${open.id}`, { rev: open.rev, sections: { s: "", o: "", a: "Check", p: "Bloods" }, lines: [], orders: [{ testCode: "rbs", priority: "routine" }] });
+    expect((await c.post(`/v1/ipd/round-notes/${open.id}/sign`, { rev: saved.json().draft.rev, pin: "1234" }, "surgeon")).statusCode).toBe(200);
+    const before = live(await bill(a.admissionId)).find((l) => l.source === "order")!;
+    const def = await tenant((tx) => tx.chargeItemDefinition.findFirst({ where: { organizationId: "o_e2e_lite", code: "test:rbs" } }));
+    const change = (unitPaisa: number) => c.post(`/v1/admin/prices/${def!.id}`, { unitPaisa, vatRateBp: def!.vatRateBp, reason: "test: the price list changes" }, "admin");
+    expect((await change(def!.unitPaisa! + 10_000)).statusCode).toBe(200);
+    try {
+      const after = live(await bill(a.admissionId)).find((l) => l.source === "order")!;
+      expect(after.unitPaisa).toBe(before.unitPaisa);
+    } finally { await change(def!.unitPaisa!); }
+  });
+  it("payment by hand is refused while a deposit link waits; done, it keeps the bill as it stood", async () => {
+    const w = await h.ownWard(1);
+    const a = await admit(w);
+    const o = (await c.post(`/v1/ipd/admissions/${a.admissionId}/discharge`, { advice: "Settled, home today with advice", pin: "1234" }, "surgeon")).json();
+    const id = o.discharge.id;
+    expect((await c.post(`/v1/ipd/discharges/${id}/steps/pharmacy/done`, { pin: "1234", ownMedicines: "none" }, "pharm")).statusCode).toBe(200);
+    expect((await c.post(`/v1/ipd/discharges/${id}/steps/final-bill/done`, { pin: "1234" }, "cashier")).statusCode).toBe(200);
+    expect((await c.post(`/v1/ipd/bills/${a.admissionId}/deposits`, { method: "bkash", amountPaisa: 100_000 }, "cashier")).statusCode).toBe(201);
+    expect((await c.post(`/v1/ipd/discharges/${id}/steps/payment/done`, { pin: "1234" }, "cashier")).json().code).toBe("payment_pending");
+    const p = (await bill(a.admissionId)).deposits.items.find((d) => d.method === "bkash")!;
+    expect((await c.post(`/v1/payments/${p.id}/cancel`, {}, "cashier")).statusCode).toBe(200);
+    expect((await c.post(`/v1/ipd/discharges/${id}/steps/payment/done`, { pin: "1234" }, "cashier")).statusCode).toBe(200);
+    const step = await tenant((tx) => tx.dischargeStep.findFirst({ where: { dischargeId: id, key: "payment" } }));
+    expect(step!.detail).toMatchObject({ totalPaisa: 120_000, depositsPaisa: 0, balancePaisa: -120_000 });
   });
 });
 

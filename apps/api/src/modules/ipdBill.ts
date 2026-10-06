@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import type { ClassPreviewView, DepositReceiptSnapshot, InterimPrintList, InterimPrintRequest, IpdBillList, DepositReceiptView, DepositRequest, IpdBillView, IpdChargeRequest, IpdLine, PackageList, PackageView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
-  MAX_DEPOSIT_PAISA, authorize, holdsShift, type Plan, type Role, bedDaysDue, classPreview, depositState, desiredLines, dhakaDay, ipdLineAmounts, ipdTotals, isWallet, reconcileLines, suggestedTopUp,
+  MAX_DEPOSIT_PAISA, authorize, keepPostedPrices, holdsShift, type Plan, type Role, bedDaysDue, classPreview, depositState, desiredLines, dhakaDay, ipdLineAmounts, ipdTotals, isWallet, reconcileLines, suggestedTopUp,
   type ClassLeg, type ClassRate, type DesiredLine, type ManualFact, type OrderFact, type PackageSnapshot, type PaymentMethod, type PostedLine, type StayFacts, type StockFact,
 } from "@setu/domain";
 import { providerFor } from "../adapters/payments/index.js";
@@ -105,15 +105,18 @@ function lineData(d: DesiredLine, tenantId: string, invoiceId: string, position:
 }
 export interface SyncResult { added: string[]; superseded: { key: string; from: number | null; to: number | null }[]; credited: string[] }
 /** Bring the bill to what its sources say now. `by` = the person whose action triggered it (null: the census, a view). */
-export async function syncBill(tx: Tx, adm: Adm, by: string | null, now: Date, reason: string): Promise<SyncResult> {
+export async function syncBill(tx: Tx, adm0: Adm, by: string | null, now: Date, reason: string): Promise<SyncResult> {
   const out: SyncResult = { added: [], superseded: [], credited: [] };
-  if (!adm.invoiceId || !adm.encounterId || !adm.admittedAt) return out;
-  await tx.$queryRaw`SELECT 1 FROM "Invoice" WHERE "id" = ${adm.invoiceId} FOR UPDATE`;
-  const inv = await tx.invoice.findFirst({ where: { id: adm.invoiceId } });
+  if (!adm0.invoiceId || !adm0.encounterId || !adm0.admittedAt) return out;
+  await tx.$queryRaw`SELECT 1 FROM "Invoice" WHERE "id" = ${adm0.invoiceId} FOR UPDATE`;
+  // the admission as it is now, under the bill's lock (review: a release or a package committed meanwhile)
+  const adm = (await tx.admission.findFirst({ where: { id: adm0.id } }))!;
+  const inv = await tx.invoice.findFirst({ where: { id: adm0.invoiceId } });
   if (!inv || inv.status !== "draft") return out; // B10 issues the bill: nothing posts after that
   const lines = await tx.chargeItem.findMany({ where: { invoiceId: inv.id }, orderBy: { position: "asc" } });
   const facts = await stayFacts(tx, adm, lines);
-  const r = reconcileLines(lines.map(posted), desiredLines(facts, now));
+  // a price is the one its line was first posted at (review): a later price-list or rate change never re-prices the bill
+  const r = reconcileLines(lines.map(posted), keepPostedPrices(desiredLines(facts, now), lines.map((l) => ({ key: l.key, code: l.code, tag: l.tag as PostedLine["tag"], unitPaisa: l.unitPaisa, position: l.position, creditOfId: l.creditOfId }))));
   if (!r.add.length && !r.supersede.length && !r.credit.length) return out;
   let pos = lines.reduce((m, l) => Math.max(m, l.position), 0);
   for (const x of r.supersede) {
@@ -209,7 +212,7 @@ export async function ipdBillView(tx: Tx, s: SessionData, admissionId: string, n
   ]);
   const ward = bed?.parentId ? await tx.location.findFirst({ where: { id: bed.parentId }, select: { name: true } }) : null;
   const who = await peopleOf(tx, [...lines.map((l) => l.addedById), ...pays.map((p) => p.createdById), a.packageAppliedById]);
-  const t = ipdTotals(lines.map((l) => ({ tag: l.tag as IpdLine["tag"], unitPaisa: l.unitPaisa, qty: l.qty, vatRateBp: l.vatRateBp, superseded: Boolean(l.supersededById) })));
+  const t = ipdTotals(lines.map((l) => ({ tag: l.tag as IpdLine["tag"], unitPaisa: l.unitPaisa, qty: l.qty, vatRateBp: l.vatRateBp, superseded: Boolean(l.supersededById), credit: Boolean(l.creditedById || l.creditOfId) })));
   const confirmed = pays.filter((p) => p.status === "confirmed").reduce((x, p) => x + p.amountPaisa, 0);
   const pending = pays.filter((p) => ["initiated", "link_sent", "waiting_customer"].includes(p.status)).reduce((x, p) => x + p.amountPaisa, 0);
   const balance = confirmed - t.totalPaisa;
@@ -256,7 +259,7 @@ export async function ipdBillView(tx: Tx, s: SessionData, admissionId: string, n
 export async function openBill(tx: Tx, s: SessionData, admissionId: string, now: Date): Promise<{ view: IpdBillView; audit: AuditEntry[] }> {
   requireIpdBill(s);
   const a = await admissionHere(tx, s, admissionId);
-  const audit = await syncAdmission(tx, a, null, now, "census");
+  const audit = await syncAdmission(tx, a, null, now, "view");
   const view = await ipdBillView(tx, s, admissionId, now);
   return { view, audit: [...audit, { action: "view", entity: "Invoice", entityId: a.invoiceId!, patientId: a.patientId, detail: { purpose: "ipd-bill" } }] };
 }
@@ -399,7 +402,8 @@ export async function depositReceipt(tx: Tx, s: SessionData, paymentId: string, 
   const [org, patient, me, bed, before] = await Promise.all([
     tx.organization.findFirst({ where: { id: s.organizationId }, select: { name: true, nameBn: true, address: true } }),
     tx.patient.findFirst({ where: { id: a.patientId }, select: { nameBn: true, nameEn: true, facilityNo: true } }),
-    tx.user.findFirst({ where: { id: s.userId }, select: { nameBn: true, nameEn: true } }),
+    // the cashier on a money receipt is who took the money, not who prints it (review M2)
+    tx.user.findFirst({ where: { id: p.createdById }, select: { nameBn: true, nameEn: true } }),
     tx.location.findFirst({ where: { id: a.bedId }, select: { name: true } }),
     tx.payment.aggregate({ where: { invoiceId: p.invoiceId, status: "confirmed", confirmedAt: { lte: p.confirmedAt! } }, _sum: { amountPaisa: true } }),
   ]);
@@ -408,7 +412,7 @@ export async function depositReceipt(tx: Tx, s: SessionData, paymentId: string, 
     admission: { number: a.number ?? "", bed: bed?.name ?? null }, amountPaisa: p.amountPaisa, method: p.method, trxId: p.trxId, reference: p.reference, paidAt: p.confirmedAt!.toISOString(),
     depositsToDatePaisa: before._sum.amountPaisa ?? p.amountPaisa, cashier: { nameBn: me?.nameBn ?? "—", nameEn: me?.nameEn ?? "—" },
   };
-  const yy = dhakaDay(now).slice(2, 4);
+  const yy = dhakaDay(p.confirmedAt!).slice(2, 4); // the year the money came in (review)
   const name = `deposit-receipt:${s.organizationId}:${yy}`;
   const seq = await tx.sequence.upsert({ where: { tenantId_name: { tenantId: s.tenantId, name } }, create: { tenantId: s.tenantId, name, value: 1 }, update: { value: { increment: 1 } } });
   const r = await tx.receipt.create({ data: {
@@ -464,14 +468,14 @@ export async function interimPrints(tx: Tx, s: SessionData, admissionId: string)
   const who = await peopleOf(tx, rows.map((r) => r.printedById));
   return { items: rows.map((r) => ({ id: r.id, copy: r.copy, reason: r.reason, lang: r.lang, printedBy: who(r.printedById), printedAt: r.printedAt.toISOString(), pdfUrl: interimUrl(a.id, r.id), totalPaisa: r.totalPaisa })) };
 }
-export async function printInterim(tx: Tx, s: SessionData, admissionId: string, req: InterimPrintRequest, now: Date): Promise<{ list: InterimPrintList; copy: number; patientId: string; invoiceId: string }> {
+export async function printInterim(tx: Tx, s: SessionData, admissionId: string, req: InterimPrintRequest, now: Date): Promise<{ list: InterimPrintList; copy: number; patientId: string; invoiceId: string; synced: AuditEntry[] }> {
   requireIpdBill(s);
   const a = await admissionHere(tx, s, admissionId);
   await tx.$queryRaw`SELECT 1 FROM "Invoice" WHERE "id" = ${a.invoiceId} FOR UPDATE`;
   const copy = await tx.interimBillPrint.count({ where: { invoiceId: a.invoiceId! } });
   if (copy > 0 && !req.reason) throw err(409, "reprint_needs_reason", "আবার প্রিন্টের কারণ বেছে নিন", "Choose a reason to reprint", { field: "reason" });
   if (copy === 0 && req.reason) throw err(409, "not_printed_yet", "মূল বিল এখনও প্রিন্ট হয়নি", "The original has not been printed yet", { field: "reason" });
-  await syncAdmission(tx, a, null, now, "census");
+  const synced = await syncAdmission(tx, a, s.userId, now, "interim-print");
   const v = await ipdBillView(tx, s, admissionId, now);
   const [org, me] = await Promise.all([
     tx.organization.findFirst({ where: { id: s.organizationId }, select: { name: true, nameBn: true, address: true } }),
@@ -493,7 +497,7 @@ export async function printInterim(tx: Tx, s: SessionData, admissionId: string, 
   const storageKey = `tenants/${s.tenantId}/interim-bills/${a.invoiceId}/${copy}-${req.lang}-${randomUUID().slice(0, 8)}.pdf`;
   await tx.interimBillPrint.create({ data: { tenantId: s.tenantId, invoiceId: a.invoiceId!, copy, reason: req.reason ?? null, lang: req.lang, totalPaisa: v.totals.totalPaisa, storageKey, printedById: s.userId, printedAt: now } });
   await storage.put(storageKey, pdf, "application/pdf");
-  return { list: await interimPrints(tx, s, admissionId), copy, patientId: a.patientId, invoiceId: a.invoiceId! };
+  return { list: await interimPrints(tx, s, admissionId), copy, patientId: a.patientId, invoiceId: a.invoiceId!, synced };
 }
 export async function interimPdf(tx: Tx, s: SessionData, admissionId: string, printId: string) {
   requireIpdBill(s);

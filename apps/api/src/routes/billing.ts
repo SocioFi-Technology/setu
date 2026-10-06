@@ -366,7 +366,7 @@ export async function billingRoutes(app: FastifyInstance) {
     return query(req, async (tx, s) => {
       const r = await tx.receipt.findFirst({ where: { id, organizationId: s.organizationId } });
       if (!r) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
-      await invoiceHere(tx, s, r.invoiceId);
+      await invoiceHere(tx, s, r.invoiceId, false, { ipd: r.kind === "deposit" });
       return { body: await receiptView(tx, r), audit: [{ action: "view", entity: "Receipt", entityId: id, patientId: r.patientId }] };
     });
   });
@@ -472,7 +472,7 @@ export async function billingRoutes(app: FastifyInstance) {
       const s0 = requireSession(req);
       const ref = await query(req, async (tx, s) => {
         const p = await tx.payment.findFirst({ where: { id, organizationId: s.organizationId }, select: { providerRef: true, invoiceId: true, provider: true } });
-        if (p) await invoiceHere(tx, s, p.invoiceId); // this facility and branch only
+        if (p) await invoiceHere(tx, s, p.invoiceId, false, { ipd: true }); // this facility and branch only (a deposit too)
         return { body: p?.provider === fakeProvider()!.name ? p.providerRef ?? null : null, audit: [] }; // the fake's own payments only
       });
       if (!ref) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");

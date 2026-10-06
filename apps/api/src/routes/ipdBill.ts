@@ -31,13 +31,13 @@ export async function ipdBillRoutes(app: FastifyInstance) {
   });
   app.get("/v1/ipd/bills/:id/interim-prints", async (req): Promise<InterimPrintList> => {
     requireIpdBill(requireSession(req)); const { id } = pid.parse(req.params);
-    return query(req, async (tx, s) => ({ body: await interimPrints(tx, s, id), audit: [] }));
+    return query(req, async (tx, s) => ({ body: await interimPrints(tx, s, id), audit: [{ action: "view", entity: "InterimBillPrint", detail: { admissionId: id } }] }));
   });
   app.post("/v1/ipd/bills/:id/interim-prints", own, async (req, reply): Promise<InterimPrintList> => {
     requireIpdBill(requireSession(req)); const { id } = pid.parse(req.params); const body = InterimPrintRequest.parse(req.body ?? {});
     return command(req, reply, async (tx, s) => {
       const r = await printInterim(tx, s, id, body, new Date());
-      return { status: 201, body: r.list, audit: [{ action: r.copy === 0 ? "print" : "reprint", entity: "Invoice", entityId: r.invoiceId, patientId: r.patientId, detail: { kind: "interim-bill", copy: r.copy, reason: body.reason ?? null, lang: body.lang } }] };
+      return { status: 201, body: r.list, audit: [...r.synced, { action: r.copy === 0 ? "print" : "reprint", entity: "Invoice", entityId: r.invoiceId, patientId: r.patientId, detail: { kind: "interim-bill", copy: r.copy, reason: body.reason ?? null, lang: body.lang } }] };
     }, { txTimeoutMs: 30_000 });
   });
   app.get("/v1/ipd/bills/:id/interim-prints/:printId/pdf", async (req, reply) => {
@@ -80,7 +80,7 @@ export async function ipdBillRoutes(app: FastifyInstance) {
     requireIpdBill(requireSession(req)); const { id } = pid.parse(req.params);
     return command(req, reply, async (tx, s) => {
       const r = await depositReceipt(tx, s, id, new Date());
-      return { status: r.created ? 201 : 200, body: r.view, audit: r.created ? [{ action: "create", entity: "Receipt", entityId: r.view.id, patientId: r.patientId, detail: { kind: "deposit", number: r.view.number, paymentId: id } }] : [] };
+      return { status: r.created ? 201 : 200, body: r.view, audit: [{ action: r.created ? "create" : "view", entity: "Receipt", entityId: r.view.id, patientId: r.patientId, detail: { kind: "deposit", number: r.view.number, paymentId: id } }] };
     });
   });
 
