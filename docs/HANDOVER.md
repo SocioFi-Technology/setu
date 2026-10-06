@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); next: see Next)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 session 1 done (06/10/2026); next: see Next)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -1028,6 +1028,40 @@ open escalations and due doses, and cannot be accepted over an unacknowledged es
   `apps/api/test/config.test.ts` starts the config in a child process (5 cases).
 - **Tests:** domain 408; api b5b6 + mar + ward + indent 44/44, config 5/5; journeys b3-b4 and b5-b6 green; typecheck 13/13.
 
+## Done (slice B7–B9, session 1 of 2, 06/10/2026) — the IPD running bill, deposits, the discharge checklist (backend) ✅
+ADR 0017. Kamrul's plan decisions (06/10/2026): 1, 4–12 as recommended; **2** deposits are payments on the draft IPD
+bill — an IPD-only exception, deposit receipts are money receipts (not tax invoices), the excess returns through refunds
+as source "deposit-excess"; **3** midnight census, day 1 at admit, a move up re-prices the current bed day (the posted
+line superseded by a new one, audited with the move), a move down applies from the next bed day. B7 (the round) was
+already built.
+- **Rules (`@setu/domain` ipdBill.ts, discharge.ts; 26 tests):** `desiredLines` (package / bed days / orders / ward stock /
+  charges by hand → lines tagged Package / Included / Excluded), `reconcileLines` (supersede the changed, credit the gone,
+  never edit), a bed day at the dearest class occupied that Dhaka day, the package at the dearest class so far, totals,
+  low = under two days of the class's rate, the class preview, the six-step graph and who blocks. Machines: ADMISSION
+  discharge, BED cancelDischarge, DISCHARGE + DISCHARGE_STEP replace the unused linear machine. Sample packages.
+- **Database (migrations `20261006120000_ipd_bill_discharge`, `…120100_guards`, `…120200_fixes`):** keyed IPD lines
+  (never removed or edited — superseded once or credited by a mirror line; one live line per key; the running totals
+  the sums of the live lines, at commit), a payment on a draft only for an IPD bill, deposit receipts DR/yy/nnnn for one
+  confirmed payment, the admission's package snapshot set once and `discharged` only through a completed discharge,
+  the discharge and its steps (a step starts only when its steps are done), `BedClassRate` (backfilled), packages,
+  `bed_day_sweep_targets`. Seed: rates and four sample packages; reset-e2e cancels open discharges.
+- **API:** `GET /v1/ipd/bills/:admissionId` (opening it posts what is due), `…/preview?to=`, `POST …/charges`,
+  `…/lines/:id/withdraw`, `…/package`, `…/deposits` (cash / card / bank; a bKash link to the guardian's phone),
+  `POST /v1/ipd/deposits/:id/receipt`, `GET /v1/ipd/packages`; `GET /v1/ipd/discharges`,
+  `GET|POST /v1/ipd/admissions/:id/discharge`, `POST /v1/ipd/discharges/:id/{cancel, steps/:key/take|done|remind}`.
+  The bill syncs after admit, a bed arrival, a signed round's orders, a revoked order, a dose, a dose in error, a vial,
+  a charge, a package and the release; the minute sweep runs the 00:01 census. Admit takes a package and a deposit (card
+  or bank at the desk — cash only at the counter, decision 291). No bed move while a discharge is ordered. Remind reaches
+  the doctor's inbox (`discharge-remind`).
+- **Tests:** domain 434, api ipdbill 12 (+ the touched suites 189/191 together, the two green alone — the known
+  cross-file flakes), typecheck 13/13. `SETU_TEST_ERRORS=1` prints the cause of a 500 or a unique violation in tests.
+- **Session 2 (next):** strings in `billingApp` / `ipdApp`; screens `bill/ipd` (by date, tags, superseded struck through,
+  credits, totals panel, deposits with receipts and the guardian link, low / due callout, class preview, post charge,
+  apply package), `ipd/discharge` (six steps, header "Blocked by …", take / done with PIN / remind, the department lists),
+  `bill/pkg` read-only, the Admit form's package and deposit, the doctor's discharge order on the round screen, the
+  deposit receipt print; `journeys/b7-b9.spec.ts`; reviews; hands-on as cashier → doctor → pharmacist → nurse.
+  Open questions 287–297.
+
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
 2. ~~MinIO image cannot be pulled~~ — dev and tests store receipts with `LocalFolderStorage` (A6–A7). Before staging: an S3-compatible adapter behind the same `Storage` interface.
@@ -1089,7 +1123,7 @@ open escalations and due doses, and cannot be accepted over an unacknowledged es
 5. ~~`/slice A12-A13`~~ — done 03/10/2026 (two sessions); **Journey A complete**. Kamrul to confirm open questions
    135–149.
 6. **Phase 2 pilot clinic, split in four slices (Kamrul, 03/10/2026):** ~~`/slice C1-C4`~~ owner dashboard + shift close
-   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → ~~SMS + bKash~~ (done 04/10/2026, two sessions; questions 205–219). **The four Phase 2 pilot-clinic slices are done.** ~~**Refunds**~~ done 05/10/2026 (two sessions + the 233–235 follow-up; ADR 0013; questions 220–239, 233–235 decided). **Phase 3 Journey B started:** ~~`/slice B1-B2`~~ done 05/10/2026 (two sessions; ADR 0014; questions 240–253). ~~`/slice B3-B4`~~ done 06/10/2026 (two sessions; ADR 0015 + amendment; questions 254–269). ~~`/slice B5-B6`~~ done 06/10/2026 (two sessions; ADR 0016; questions 270–285). Next: `/slice B7-B9` (walkthrough B8 the IPD bill, B9 the discharge checklist; B7 the round is done). Or Kamrul's call — the pre-pilot hardening (known gaps 3, 4, 10, 12: argon2id, PIN tries in Redis, composite keys, clinical sign-offs), real credentials (bKash sandbox, BulkSMSBD), then the pilot; or Phase 3 per `docs/BUILD-PLAN.md`. See open questions "Phase 2 plan".
+   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → ~~SMS + bKash~~ (done 04/10/2026, two sessions; questions 205–219). **The four Phase 2 pilot-clinic slices are done.** ~~**Refunds**~~ done 05/10/2026 (two sessions + the 233–235 follow-up; ADR 0013; questions 220–239, 233–235 decided). **Phase 3 Journey B started:** ~~`/slice B1-B2`~~ done 05/10/2026 (two sessions; ADR 0014; questions 240–253). ~~`/slice B3-B4`~~ done 06/10/2026 (two sessions; ADR 0015 + amendment; questions 254–269). ~~`/slice B5-B6`~~ done 06/10/2026 (two sessions; ADR 0016; questions 270–285). `/slice B7-B9` session 1 done 06/10/2026 (ADR 0017; questions 287–297). Next: **B7–B9 session 2** (the screens, journey, reviews, hands-on), then `/slice B10-B12`. Or Kamrul's call — the pre-pilot hardening (known gaps 3, 4, 10, 12: argon2id, PIN tries in Redis, composite keys, clinical sign-offs), real credentials (bKash sandbox, BulkSMSBD), then the pilot; or Phase 3 per `docs/BUILD-PLAN.md`. See open questions "Phase 2 plan".
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

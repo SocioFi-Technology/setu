@@ -32,10 +32,16 @@ async function admit(ward: string, extra: Record<string, unknown> = {}, bedClass
 const DAY = 864e5;
 
 describe.runIf(db)("the walkthrough (B8): the running bill", () => {
-  it("admitted on the laparoscopy package with ৳20,000 cash at the desk: the package line, day 1 Included, the deposit — and the balance is due", async () => {
+  it("admitted on the laparoscopy package with ৳20,000 by card at the desk: the package line, day 1 Included, the deposit — and the balance is due", async () => {
     const w = await h.ownWard(1);
-    const a = await admit(w, { packageId: await pkgId("PKG-LAP-01"), deposit: { method: "cash", amountPaisa: 2_000_000, tenderedPaisa: 2_000_000 } });
+    const a = await admit(w, { packageId: await pkgId("PKG-LAP-01"), deposit: { method: "card", amountPaisa: 2_000_000, reference: "APPR 4471" } });
     expect(a.admission.checklist.find((x: { key: string }) => x.key === "deposit")).toMatchObject({ ok: true, blocks: false });
+    // cash is the cash counter's (it is counted in a drawer shift); the desk takes card or bank
+    const w2 = await h.ownWard(1);
+    const beds = (await c.get("/v1/ipd/beds", "nurse")).json().wards.find((x: { name: string }) => x.name === w2).beds;
+    const deskCash = await c.post("/v1/ipd/admissions", { patientId: await h.newPatient(), admittingDoctorId: "u_e2l_surgeon", department: "surgery", diagnosis: "Ovarian cyst for laparoscopy", bedClass: "General", bedId: beds[0].id,
+      guardian: { name: "রাশেদ চৌধুরী", relationship: "husband", phone: "01711908812" }, consents: ["general", "financial", "guardian-id"], deposit: { method: "cash", amountPaisa: 100_000, tenderedPaisa: 100_000 } }, "desk");
+    expect(deskCash.statusCode).toBe(422); expect(deskCash.json().code).toBe("cash_at_counter");
     const b = await bill(a.admissionId);
     expect(byKey(b, "pkg")).toMatchObject({ tag: "package", unitPaisa: 4_800_000, bedClass: "General" });
     expect(byKey(b, "bed:1")).toMatchObject({ tag: "included", unitPaisa: 0, dayNo: 1 });
@@ -179,7 +185,7 @@ describe.runIf(db)("deposits (Kamrul, decision 2)", () => {
   });
   it("low = under two days of the class's rate; a guardian with no mobile cannot get a link", async () => {
     const w = await h.ownWard(1);
-    const a = await admit(w, { deposit: { method: "cash", amountPaisa: 350_000, tenderedPaisa: 350_000 } });
+    const a = await admit(w, { deposit: { method: "bank", amountPaisa: 350_000, reference: "EFT 2210" } });
     const b = await bill(a.admissionId); // day 1 ৳1,200 → balance ৳2,300 < ৳2,400
     expect(b.balancePaisa).toBe(230_000); expect(b.depositState).toBe("low");
     await tenant((tx) => tx.admission.update({ where: { id: a.admissionId }, data: { guardianPhone: null } }), "u_e2l_desk");

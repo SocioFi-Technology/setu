@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import type { ClassPreviewView, DepositReceiptSnapshot, DepositReceiptView, DepositRequest, IpdBillView, IpdChargeRequest, IpdLine, PackageList, PackageView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
-  MAX_DEPOSIT_PAISA, authorize, bedDaysDue, classPreview, depositState, desiredLines, dhakaDay, ipdLineAmounts, ipdTotals, isWallet, reconcileLines, suggestedTopUp,
+  MAX_DEPOSIT_PAISA, authorize, holdsShift, type Plan, type Role, bedDaysDue, classPreview, depositState, desiredLines, dhakaDay, ipdLineAmounts, ipdTotals, isWallet, reconcileLines, suggestedTopUp,
   type ClassLeg, type ClassRate, type DesiredLine, type ManualFact, type OrderFact, type PackageSnapshot, type PaymentMethod, type PostedLine, type StayFacts, type StockFact,
 } from "@setu/domain";
 import { providerFor } from "../adapters/payments/index.js";
@@ -355,6 +355,8 @@ export async function takeDeposit(tx: Tx, s: SessionData, a: Adm, body: DepositR
   const methods = (await tx.organization.findFirst({ where: { id: s.organizationId }, select: { paymentMethods: true } }))?.paymentMethods ?? [];
   if (!methods.includes(body.method)) throw err(422, "method_off", "এই প্রতিষ্ঠানে এই পেমেন্ট মাধ্যম চালু নেই", "This facility does not take this payment method", { field: "method" });
   if (body.amountPaisa < 1 || body.amountPaisa > MAX_DEPOSIT_PAISA) throw err(400, "amount_range", "জমার পরিমাণ ঠিক নয়", "The deposit amount is out of range", { field: "amountPaisa" });
+  // cash is counted in the shift of whoever took it (shift close): only someone who holds a drawer shift takes cash
+  if (body.method === "cash" && !holdsShift(s.role as Role, s.plan as Plan)) throw err(422, "cash_at_counter", "নগদ জমা ক্যাশ কাউন্টারে নিন (কার্ড বা ব্যাংক এখানে চলবে)", "Take a cash deposit at the cash counter (card or bank works here)", { field: "method" });
   if (body.method === "cash" && (body.tenderedPaisa ?? 0) < body.amountPaisa) throw err(400, "tendered_short", "দেওয়া টাকা পরিমাণের চেয়ে কম", "Tendered is less than the amount", { field: "tenderedPaisa" });
   if ((body.method === "card" || body.method === "bank") && !body.reference?.trim()) throw err(400, "reference_required", "রেফারেন্স লিখুন", "Enter the reference", { field: "reference" });
   const wallet = isWallet(body.method);

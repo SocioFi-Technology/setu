@@ -1179,5 +1179,36 @@ Commit after each step, push at the end of each session.
 286. **Every open escalation — acknowledged or not, however recent — is listed on the handover sheet and must be named
      in the acceptance note** (bed or patient number, as a whole word); acceptance is refused otherwise. A clinician may
      relax this later, not tighten it. Built (replaces the "unacknowledged only" rule of 279 and the pre-pilot item).
-280–285: Kamrul to answer after reading them on origin.
+280–285: accepted as built (Kamrul, 06/10/2026). The two pre-pilot items on scanners (wedge codes, auto-focus) are
+built (digit-only codes, ADR 0016 amendment 2).
 
+
+## Slice B7–B9, session 1 (rules, database, contracts, routes, tests) — 06/10/2026
+Built on the cautious reading; Kamrul to confirm or change.
+287. **The package follows the dearest class occupied during the stay** (snapshot prices): a move up supersedes the
+     package line with the higher class's price; a move down leaves it. A class the package has no price for (HDU, ICU)
+     keeps the package price, and bed days in that class beyond the package's days are Excluded at its rate.
+288. **The midnight census charges a full day 1 however late the admission** (23:50 counts as day 1, and day 2 starts at
+     00:01). Some hospitals do not count an admission of under N hours — say if you want a rule.
+289. **What the bill posts on its own:** bed days, the package, round lab orders (priced at the order, as on an OPD
+     bill; a revoked one is credited), ward stock drawn at the bedside at the batch's MRP (a vial when it is opened;
+     a dose marked "stock not drawn" is credited; the patient's own supply never). ER charges of an admitted patient
+     stay out (known gap 13); corporate payers and the payer split too (self-pay only).
+290. **A charge posted by hand can be withdrawn by the cashier with a reason** (a credit line, audited) — no approval.
+     Every other line follows its source and cannot be withdrawn by hand.
+291. **Cash deposits only at the cash counter** (someone who holds a drawer shift: cashier, owner, admin): shift close
+     counts cash by who took it, and the desk holds no drawer. At admission the desk takes card or bank; a deposit is
+     never required (the B1–B2 decision stands).
+292. **A deposit link goes to the guardian's phone by default** (the patient's is the other choice); the SMS names the
+     admission number (an IPD bill has no number until B10). No link without a valid mobile on file.
+293. **The money receipt of a deposit is made on request** (the cashier's "receipt" on a confirmed deposit, DR/yy/nnnn,
+     the same one again on a repeat) — not automatically at confirmation (a wallet deposit confirms without a cashier).
+294. **The discharge target time defaults to three hours after the order** (the prototype's "target 3 h"); overdue is
+     only shown, it blocks nothing.
+295. **Who may take and do each step:** the order and the summary — any doctor of the facility (not only the admitting
+     doctor); pharmacy — a pharmacist; final bill and payment — cashier or owner; bed release — a nurse; admin any.
+     "I'll take it" names a person in the header; it does not stop a colleague of the same role from doing the step.
+296. **Remind** reaches the doctor's inbox for the doctor's steps (the step's taker, else the admitting doctor); for
+     pharmacy, billing and the ward it marks the step reminded on their discharge list (no SMS).
+297. **B10 must decide how an excess deposit leaves before the final bill is issued**: an issued bill cannot hold more
+     paid than its total (database). The ADR says it is refunded through the refunds slice as "deposit-excess".
