@@ -2,11 +2,12 @@
 /* ipd/admit — walkthrough B2 → B3. Ported from docs/prototype/Setu IPD.dc.html (screen "admit"): the ER's admission
    requests on the left (or a direct admission by patient search), the form on the right — source, doctor, department,
    diagnosis, class (sample prices), the bed picker (cleaning / blocked never pickable), guardian, consents (three
-   required), the deposit line (at the counter, never blocking), the checklist, and Admit: one server transaction
+   required), the package and a deposit by card or bank (ADR 0017; cash at the counter; never blocking), the checklist,
+   and Admit: one server transaction
    (IPD encounter, bed occupied, ADM/yy/nnnn, the IPD bill draft). */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AdmissionItem, AdmissionList, AdmissionView, BedBoard, PatientSummary } from "@setu/contracts";
-import { admissionChecklist, bedPickable, format } from "@setu/domain";
+import { admissionChecklist, bedPickable, format, parseTaka } from "@setu/domain";
 import { Button, Callout, Card, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast } from "@setu/ui";
 import { ApiFailure, fd, ipd } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -107,6 +108,9 @@ function AdmitForm({ list, board, req, patient, onAdmitted, onCancelled }: { lis
   const [bedId, setBedId] = useState<string | null>(req?.bed.id ?? null);
   const [g, setG] = useState({ name: "", relationship: "husband", phone: "" });
   const [consents, setConsents] = useState<string[]>([]);
+  // ADR 0017: the package (optional) and a deposit at the desk (card or bank; cash at the counter; never blocking)
+  const [packageId, setPackageId] = useState(""); const [depMethod, setDepMethod] = useState<"none" | "card" | "bank">("none");
+  const [depAmount, setDepAmount] = useState(""); const [depRef, setDepRef] = useState("");
   const [busy, setBusy] = useState(false); const [msg, setMsg] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState(""); const [cancelOpen, setCancelOpen] = useState(false);
   const key = useRef(crypto.randomUUID()); const cancelKey = useRef(crypto.randomUUID());
@@ -114,16 +118,20 @@ function AdmitForm({ list, board, req, patient, onAdmitted, onCancelled }: { lis
     const pick = bedPickable({ state: b.state, bedClass: b.bedClass, reservedForPatientId: b.assignment?.status === "reserved" ? b.patient?.id ?? null : null }, subjectId);
     return { id: b.id, name: b.name, ward: w.name, wardBn: w.nameBn, bedClass: b.bedClass, state: b.state, pickable: pick.ok, reason: pick.ok ? null : pick.reason };
   })), [board, subjectId]);
-  const form = { bedId, diagnosis, guardianName: g.name, guardianPhone: g.phone, consents };
+  const depPaisa = depMethod === "none" ? null : parseTaka(depAmount);
+  const form = { bedId, diagnosis, guardianName: g.name, guardianPhone: g.phone, consents, depositPaisa: depPaisa ?? 0 };
   const checklist = admissionChecklist(form);
-  const ready = checklist.every((c) => c.ok || !c.blocks);
+  // a deposit started must be complete (amount and reference) — leaving it out never blocks
+  const depOk = depMethod === "none" || (!!depPaisa && depRef.trim().length > 0);
+  const ready = checklist.every((c) => c.ok || !c.blocks) && depOk;
   const chosen = beds.find((b) => b.id === bedId);
   const clsInfo = list.options.classes.find((c) => c.key === cls);
   const submit = async () => {
     if (!ready || busy || !chosen) return;
     setBusy(true); setMsg(null);
     try {
-      const v = await ipd.admit({ ...(req ? { admissionId: req.id } : { patientId: subjectId, source }), admittingDoctorId: doctor, department, diagnosis: diagnosis.trim(), bedClass: chosen.bedClass, bedId: chosen.id, guardian: { name: g.name.trim(), relationship: g.relationship, phone: g.phone.trim() }, consents }, key.current);
+      const v = await ipd.admit({ ...(req ? { admissionId: req.id } : { patientId: subjectId, source }), admittingDoctorId: doctor, department, diagnosis: diagnosis.trim(), bedClass: chosen.bedClass, bedId: chosen.id, guardian: { name: g.name.trim(), relationship: g.relationship, phone: g.phone.trim() }, consents,
+        ...(packageId ? { packageId } : {}), ...(depMethod !== "none" && depPaisa ? { deposit: { method: depMethod, amountPaisa: depPaisa, reference: depRef.trim() } } : {}) }, key.current);
       await onAdmitted(v);
     } catch (e) {
       key.current = crypto.randomUUID();
@@ -181,7 +189,24 @@ function AdmitForm({ list, board, req, patient, onAdmitted, onCancelled }: { lis
           );
         })}
       </div>
-      <Callout tone="info" icon="wallet" data-testid="deposit-note">{I("deposit")}: {I("deposit_note")}</Callout>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }} data-testid="admit-package">
+        <SelectField label={I("ad_package")} value={packageId} onChange={(e) => setPackageId(e.target.value)} data-testid="admit-package-pick">
+          <option value="">{I("ad_no_package")}</option>
+          {list.options.packages.map((p) => { const price = p.prices[chosen?.bedClass ?? cls]; return <option key={p.id} value={p.id} disabled={price === undefined}>{s.lang === "bn" ? p.nameBn : p.nameEn} · {price === undefined ? I("ad_package_no_class") : I("ad_package_price", { amount: format.takaFromPaisa(price, { bn: s.numerals === "bn" }), n: p.days })}</option>; })}
+        </SelectField>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }} data-testid="admit-deposit">
+        <b className="t-small">{I("ad_deposit")}</b>
+        <span className="t-small t-muted">{I("ad_deposit_hint")}</span>
+        <Segmented value={depMethod} onChange={(x) => setDepMethod(x as typeof depMethod)} label={I("ad_deposit")}
+          options={[{ value: "none", label: "—" }, ...(["card", "bank"] as const).filter((m) => list.options.paymentMethods.includes(m)).map((m) => ({ value: m, label: s.t("billingApp", `m_${m}`) }))]} />
+        {depMethod !== "none" && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <TextField label={I("ad_dep_amount")} value={depAmount} onChange={(e) => setDepAmount(e.target.value)} inputMode="decimal" data-testid="admit-deposit-amount" />
+            <TextField label={I("ad_dep_reference")} value={depRef} onChange={(e) => setDepRef(e.target.value)} data-testid="admit-deposit-reference" />
+          </div>
+        )}
+      </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }} data-testid="checklist">
         <b className="t-small">{I("checklist")}</b>
         {checklist.map((c) => (

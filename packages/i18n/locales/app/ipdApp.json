@@ -362,5 +362,313 @@
   "leg_ended": [
     "শেষ",
     "ended"
+  ],
+  "ds_title": [
+    "ছাড়পত্র প্রক্রিয়া",
+    "Discharge workflow"
+  ],
+  "ds_list_hint": [
+    "চলমান ছুটি — কোন ধাপ কার অপেক্ষায়",
+    "Discharges in progress — which step waits on whom"
+  ],
+  "ds_list_none": [
+    "কোনো ছুটি চলছে না",
+    "No discharges in progress"
+  ],
+  "ds_order_title": [
+    "ছুটির আদেশ দিন",
+    "Order a discharge"
+  ],
+  "ds_order_pick": [
+    "ভর্তি রোগী বাছুন",
+    "Pick an inpatient"
+  ],
+  "ds_order_none": [
+    "সব ভর্তি রোগীর ছুটির আদেশ হয়েছে",
+    "Every inpatient already has a discharge ordered"
+  ],
+  "ds_advice": [
+    "ছুটির পরামর্শ (অন্তত ১০ অক্ষর)",
+    "Discharge advice (at least 10 characters)"
+  ],
+  "ds_target": [
+    "লক্ষ্য সময়",
+    "Target time"
+  ],
+  "ds_target_hint": [
+    "আগামী ২৪ ঘণ্টার মধ্যে; ডিফল্ট ৩ ঘণ্টা পরে",
+    "Within the next 24 hours; 3 hours from now by default"
+  ],
+  "ds_order": [
+    "ছুটির আদেশ",
+    "Order discharge"
+  ],
+  "ds_ordered": [
+    "ছুটির আদেশ হয়েছে — শয্যা ছুটির অপেক্ষায়",
+    "Discharge ordered — the bed is discharge-pending"
+  ],
+  "ds_back": [
+    "সব ছুটি",
+    "All discharges"
+  ],
+  "ds_progress": [
+    "চলছে · {n}/৬ সম্পন্ন",
+    "In progress · {n} of 6 done"
+  ],
+  "ds_blocked": [
+    "আটকে আছে · {who}",
+    "Blocked by {who}"
+  ],
+  "ds_sub": [
+    "{n}/৬ সম্পন্ন · শুরু {at} · লক্ষ্য {target}",
+    "{n} of 6 done · started {at} · target {target}"
+  ],
+  "ds_overdue": [
+    "লক্ষ্য সময় পেরিয়েছে",
+    "Past the target time"
+  ],
+  "ds_complete": [
+    "ছাড়পত্র সম্পন্ন · {at}",
+    "Discharged {at}"
+  ],
+  "ds_total_time": [
+    "মোট সময় {d}",
+    "Total time {d}"
+  ],
+  "ds_cancelled": [
+    "ছুটি বাতিল — {reason}",
+    "Discharge cancelled — {reason}"
+  ],
+  "ds_cancel": [
+    "ছুটি বাতিল",
+    "Cancel discharge"
+  ],
+  "ds_cancel_reason": [
+    "বাতিলের কারণ (অন্তত ১০ অক্ষর)",
+    "Why it is cancelled (at least 10 characters)"
+  ],
+  "ds_cancelled_msg": [
+    "ছুটি বাতিল — শয্যা আবার রোগীর",
+    "Discharge cancelled — the bed is the patient's again"
+  ],
+  "ds_advice_label": [
+    "পরামর্শ",
+    "Advice"
+  ],
+  "ds_ordered_by": [
+    "আদেশ: {name} · {at}",
+    "Ordered by {name} · {at}"
+  ],
+  "ds_dept_doctor": [
+    "ডাক্তার",
+    "Doctor"
+  ],
+  "ds_dept_pharmacy": [
+    "ফার্মেসি",
+    "Pharmacy"
+  ],
+  "ds_dept_billing": [
+    "বিলিং",
+    "Billing"
+  ],
+  "ds_dept_ward": [
+    "ওয়ার্ড",
+    "Ward"
+  ],
+  "ds_step_order": [
+    "ডাক্তারের ছাড়পত্র আদেশ",
+    "Doctor discharge order"
+  ],
+  "ds_step_summary": [
+    "ছাড়পত্র সারাংশ",
+    "Discharge summary"
+  ],
+  "ds_step_pharmacy": [
+    "ফার্মেসি ছাড়পত্র",
+    "Pharmacy clearance"
+  ],
+  "ds_step_final-bill": [
+    "চূড়ান্ত বিল",
+    "Final bill"
+  ],
+  "ds_step_payment": [
+    "পরিশোধ ও ছাড়পত্র",
+    "Payment & clearance"
+  ],
+  "ds_step_bed-release": [
+    "শয্যা খালি → পরিষ্কার",
+    "Bed release to cleaning"
+  ],
+  "ds_st_done": [
+    "সম্পন্ন",
+    "Done"
+  ],
+  "ds_st_in-progress": [
+    "চলছে",
+    "In progress"
+  ],
+  "ds_st_blocking": [
+    "আটকে আছে",
+    "Blocking"
+  ],
+  "ds_st_waiting": [
+    "অপেক্ষা",
+    "Waiting"
+  ],
+  "ds_done_by": [
+    "সম্পন্ন করেছেন",
+    "Done by"
+  ],
+  "ds_blocked_by": [
+    "আটকে রেখেছেন",
+    "Blocked by"
+  ],
+  "ds_owner": [
+    "দায়িত্বে",
+    "Owner"
+  ],
+  "ds_waiting_for": [
+    "আগের ধাপের অপেক্ষা",
+    "Waiting for the steps before"
+  ],
+  "ds_waited": [
+    "{d} ধরে অপেক্ষা",
+    "Waiting {d}"
+  ],
+  "ds_by_hand": [
+    "হাতে লেখা (B10/B11 না আসা পর্যন্ত)",
+    "Recorded by hand (until B10 / B11)"
+  ],
+  "ds_reminded": [
+    "মনে করানো: {name} · {at} ({n})",
+    "Reminded by {name} · {at} ({n})"
+  ],
+  "ds_take": [
+    "আমি নিচ্ছি",
+    "I'll take it"
+  ],
+  "ds_mark_done": [
+    "সম্পন্ন করুন",
+    "Mark done"
+  ],
+  "ds_remind": [
+    "মনে করান",
+    "Remind"
+  ],
+  "ds_reminded_msg": [
+    "মনে করানো হয়েছে",
+    "Reminder sent"
+  ],
+  "ds_taken_msg": [
+    "ধাপটি আপনার নামে",
+    "The step is yours"
+  ],
+  "ds_done_msg": [
+    "ধাপ সম্পন্ন",
+    "Step done"
+  ],
+  "ds_note": [
+    "নোট (ঐচ্ছিক)",
+    "Note (optional)"
+  ],
+  "ds_own_meds": [
+    "রোগীর নিজের ওষুধ",
+    "The patient's own medicines"
+  ],
+  "ds_own_handed-back": [
+    "ফেরত দেওয়া হয়েছে",
+    "Handed back"
+  ],
+  "ds_own_none": [
+    "ছিল না",
+    "There were none"
+  ],
+  "ds_released": [
+    "রোগী ছুটি পেয়েছেন — শয্যা পরিষ্কারের তালিকায়",
+    "The patient is discharged — the bed goes to cleaning"
+  ],
+  "ds_mine": [
+    "আপনার ধাপ",
+    "Your step"
+  ],
+  "ds_open": [
+    "খুলুন",
+    "Open"
+  ],
+  "ds_step_hint_summary": [
+    "সারাংশ স্বাক্ষরের পাতা আসবে B11-এ; এখন কাগজে স্বাক্ষর করে এখানে চিহ্ন দিন",
+    "The summary page comes with B11; sign it on paper for now and mark it here"
+  ],
+  "ds_step_hint_final-bill": [
+    "চূড়ান্ত বিল আসবে B10-এ; এখন কাগজের বিল দিয়ে এখানে চিহ্ন দিন",
+    "The final bill comes with B10; mark it here after the paper bill"
+  ],
+  "ds_step_hint_payment": [
+    "জমা থেকে মেটানো আসবে B10-এ; এখন হাতে মিলিয়ে চিহ্ন দিন",
+    "Settling against the deposit comes with B10; settle by hand and mark it here"
+  ],
+  "ds_order_from_round": [
+    "ছুটির আদেশ",
+    "Order discharge"
+  ],
+  "ds_pharmacy_list": [
+    "ছুটির ফার্মেসি ছাড়পত্র",
+    "Pharmacy clearance for discharges"
+  ],
+  "ds_pharmacy_none": [
+    "কোনো ছুটি আপনার ছাড়পত্রের অপেক্ষায় নেই",
+    "No discharge waits on the pharmacy"
+  ],
+  "ad_package": [
+    "প্যাকেজ (ঐচ্ছিক)",
+    "Package (optional)"
+  ],
+  "ad_no_package": [
+    "প্যাকেজ নেই",
+    "No package"
+  ],
+  "ad_package_price": [
+    "{amount} · {n} দিন",
+    "{amount} · {n} day(s)"
+  ],
+  "ad_package_no_class": [
+    "এই শ্রেণিতে নেই",
+    "Not for this class"
+  ],
+  "ad_deposit": [
+    "অগ্রিম জমা (ঐচ্ছিক)",
+    "Deposit (optional)"
+  ],
+  "ad_deposit_hint": [
+    "ভর্তি আটকায় না। ডেস্কে কার্ড বা ব্যাংক; নগদ ক্যাশ কাউন্টারে",
+    "Never blocks the admission. Card or bank at the desk; cash at the cash counter"
+  ],
+  "ad_dep_amount": [
+    "জমার পরিমাণ",
+    "Deposit amount"
+  ],
+  "ad_dep_reference": [
+    "রেফারেন্স",
+    "Reference"
+  ],
+  "ad_bill": [
+    "বিল দেখুন",
+    "Open the bill"
+  ],
+  "d_hm": [
+    "{h} ঘণ্টা {m} মিনিট",
+    "{h} h {m} min"
+  ],
+  "d_m": [
+    "{m} মিনিট",
+    "{m} min"
+  ],
+  "ds_day": [
+    "দিন {n}",
+    "Day {n}"
+  ],
+  "cancel": [
+    "বাতিল",
+    "Cancel"
   ]
 }

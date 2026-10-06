@@ -142,6 +142,10 @@ export const DESK_ITEMS_SAMPLE: PriceEntry[] = ([
   ["cert", "Medical certificate", "মেডিকেল সনদ", 30_000, 1500],
   ["dress", "Wound dressing", "ক্ষত ড্রেসিং", 30_000, 0],
   ["neb", "Nebulisation", "নেবুলাইজেশন", 25_000, 0],
+  // ADR 0017: services an inpatient's bill takes by hand (sample prices)
+  ["transfusion", "Blood transfusion (per unit)", "রক্ত সঞ্চালন (প্রতি ইউনিট)", 250_000, 0],
+  ["oxygen", "Oxygen (per day)", "অক্সিজেন (প্রতি দিন)", 80_000, 0],
+  ["ipdconsult", "Specialist consult (inpatient)", "বিশেষজ্ঞ পরামর্শ (ভর্তি রোগী)", 80_000, 0],
 ] as [string, string, string, number, number][]).map(([key, nameEn, nameBn, unitPaisa, vatRateBp]) => ({ code: `desk:${key}`, kind: "service", refCode: null, nameEn, nameBn, unitPaisa, vatRateBp }));
 export const consultCode = (doctorUserId: string): string => `consult:${doctorUserId}`;
 export const testCode = (testKey: string): string => `test:${testKey}`;

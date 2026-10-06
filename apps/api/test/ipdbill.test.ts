@@ -104,11 +104,13 @@ describe.runIf(db)("the walkthrough (B8): the running bill", () => {
   it("a charge from the price list, withdrawn with a reason by a credit line; nothing on an IPD bill is edited or deleted (database)", async () => {
     const w = await h.ownWard(1);
     const a = await admit(w);
-    const p = await c.post(`/v1/ipd/bills/${a.admissionId}/charges`, { code: "test:usgwa", qty: 1 }, "cashier");
+    const p = await c.post(`/v1/ipd/bills/${a.admissionId}/charges`, { code: "desk:transfusion", qty: 1 }, "cashier");
     expect(p.statusCode, p.body).toBe(201);
     const ln = live(p.json()).find((l: { key: string }) => l.key.startsWith("manual:"))!;
-    expect(ln).toMatchObject({ tag: "excluded", unitPaisa: 180_000 });
-    expect((await c.post(`/v1/ipd/bills/${a.admissionId}/charges`, { code: "test:cbc", qty: 1 }, "nurse")).statusCode).toBe(403);
+    expect(ln).toMatchObject({ tag: "excluded", unitPaisa: 250_000 });
+    expect((await c.post(`/v1/ipd/bills/${a.admissionId}/charges`, { code: "desk:dress", qty: 1 }, "nurse")).statusCode).toBe(403);
+    // a test or a medicine never by hand (they come through the order / the stock drawn)
+    expect((await c.post(`/v1/ipd/bills/${a.admissionId}/charges`, { code: "test:cbc", qty: 1 }, "cashier")).json().code).toBe("code_unknown");
     const lineId = (ln as { id: string }).id;
     const wd = await c.post(`/v1/ipd/bills/${a.admissionId}/lines/${lineId}/withdraw`, { reason: "Posted to the wrong patient" }, "cashier");
     expect(wd.statusCode, wd.body).toBe(200);

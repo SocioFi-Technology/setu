@@ -627,5 +627,7 @@
   "dr_words": ["কথায়", "In words"],
   "ib_p_title": ["অন্তর্বর্তী বিল — চূড়ান্ত বিল নয়", "INTERIM BILL — not a final bill"],
   "ib_p_as_of": ["{at} পর্যন্ত", "As of {at}"],
-  "ib_p_note": ["এটি চলমান হিসাব; চূড়ান্ত বিল ছুটির সময় দেওয়া হবে", "A running statement; the final bill is issued at discharge"]
+  "ib_p_note": ["এটি চলমান হিসাব; চূড়ান্ত বিল ছুটির সময় দেওয়া হবে", "A running statement; the final bill is issued at discharge"],
+  "cancel": ["বাতিল", "Cancel"],
+  "ib_discharged_pill": ["ছুটি হয়েছে", "Discharged"]
 }

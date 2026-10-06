@@ -73,7 +73,12 @@ function RoundFor({ enc }: { enc: string }) {
   };
   return (
     <div data-screen="ipd/rounds" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{N("rounds_title")} · {N("day_n", { n: v.day })}</h1>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <h1 className="t-h2" style={{ margin: 0 }}>{N("rounds_title")} · {N("day_n", { n: v.day })}</h1>
+        <span style={{ flex: 1 }} />
+        {/* ADR 0017: the doctor orders the discharge from the round (the checklist screen) */}
+        <a className="btn btn-sm" href={`/m/ipd/discharge?adm=${encodeURIComponent(v.admissionId)}`} data-testid="round-discharge">{s.t("ipdApp", "ds_order_from_round")}</a>
+      </div>
       <span className="t-small">{v.diagnosis}</span>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.3fr)", gap: 14, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

@@ -4,10 +4,11 @@
    controlled drug needs the pharmacist's PIN (its register line is written with the issue). Issue up to what was asked
    and what the store holds; the balance can be issued later or cancelled by the ward. */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { IndentList, IndentView } from "@setu/contracts";
+import type { DischargeList, DischargeView, IndentList, IndentView } from "@setu/contracts";
 import { format } from "@setu/domain";
 import { Button, Callout, Card, Pill, Segmented, TextField, useToast } from "@setu/ui";
-import { ApiFailure, ward } from "../../lib/api";
+import { ApiFailure, discharge, ward } from "../../lib/api";
+import { DischargeHeader, DischargeSteps } from "../ipd/Discharge";
 import { useSession } from "../../lib/session";
 import { PinSheet, hhmm, printLabels, useErr, useN } from "../nur/common";
 
@@ -28,6 +29,7 @@ export function PhIndent() {
   return (
     <div data-screen="ph/indent" style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 900 }}>
       <h1 className="t-h2" style={{ margin: 0 }}>{N("ph_indent_title")}</h1>
+      <PharmacyClearance />
       <Segmented value={filter} options={(["open", "issued", "cancelled"] as Filter[]).map((f) => ({ value: f, label: N(`filter_${f}`) }))} onChange={(f) => setFilter(f as Filter)} label={N("ph_indent_title")} />
       {failed && <Callout tone="warn" icon="triangle-alert">{failed}</Callout>}
       {!list ? <div aria-busy="true" className="t-muted">{N("loading")}</div> : list.items.length === 0 ? <span className="t-small t-muted">{N("indent_none")}</span>
@@ -78,6 +80,36 @@ function IndentCard({ x, onIssued }: { x: IndentView; onIssued: (v: IndentView) 
       {msg && <Callout tone="warn" icon="triangle-alert" data-testid="issue-error">{msg}</Callout>}
       {open && <div><Button variant="primary" icon="package-check" disabled={!valid || busy || !s.online} onClick={() => (controlled ? setPin(true) : void issue())} data-testid="issue">{N("issue")}</Button></div>}
       {pin && <PinSheet title={N("controlled_pin")} action={N("issue")} icon="package-check" onClose={() => setPin(false)} submit={(p) => issue(p)} />}
+    </Card>
+  );
+}
+
+/** ADR 0017: the discharges waiting on the pharmacy (step 3) — the pharmacist marks the clearance done here. */
+function PharmacyClearance() {
+  const s = useSession(); const I = (k: string) => s.t("ipdApp", k);
+  const [list, setList] = useState<DischargeList | null>(null); const [open, setOpen] = useState<DischargeView | null>(null);
+  const load = useCallback(async () => { try { setList(await discharge.list()); } catch { setList(null); } }, []);
+  useEffect(() => { void load(); }, [load]);
+  const mine = list?.items.filter((x) => x.mine.includes("pharmacy")) ?? [];
+  if (!list) return null;
+  return (
+    <Card style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8 }} data-testid="pharmacy-clearance">
+      <b>{I("ds_pharmacy_list")}</b>
+      {mine.length === 0 && <span className="t-small t-muted">{I("ds_pharmacy_none")}</span>}
+      {mine.map((x) => (
+        <div key={x.id} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }} data-clearance={x.number}>
+          <b>{s.lang === "bn" ? x.patient.nameBn : x.patient.nameEn || x.patient.nameBn}</b>
+          <span className="t-small t-muted num">{[x.ward, x.bed].filter(Boolean).join(" · ")} · {x.number}</span>
+          <span style={{ flex: 1 }} />
+          <Button size="sm" icon="clipboard-check" onClick={() => void discharge.view(x.admissionId).then(setOpen)} data-testid="clearance-open">{I("ds_open")}</Button>
+        </div>
+      ))}
+      {open && (
+        <div style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+          <DischargeHeader v={open} />
+          <DischargeSteps v={open} only={["pharmacy"]} onChange={(v) => { setOpen(v); void load(); }} />
+        </div>
+      )}
     </Card>
   );
 }

@@ -1,4 +1,5 @@
 import type {
+  ClassPreviewView, DepositReceiptView, DepositRequest, DischargeList, DischargeStepDoneRequest, DischargeView, InterimPrintList, InterimPrintRequest, IpdBillList, IpdBillView, PackageList, PrintRequest as RcPrintRequest, PrintResponse as RcPrintResponse,
   WardList, WardBoard, WardPatientView, WardVitalsRequest, WardVitalsResponse, Escalation, NursingNoteView, MarView, DoseRequest, WitnessList, RoundWorklist, RoundView, SaveRoundRequest, IndentCreate, IndentView, IndentList, IndentIssueRequest, WardStock, BedMoveRequest, WristbandView, BatchLabels, IoView, IoEntryRequest, IoEntryView, CareTaskCreate, CareTaskList, WardHandover, HandoverView, HandoverPatientUpdate,
   AdmissionList, AdmissionView, AdmitRequest, BedActionRequest, BedBoard, BedView, ErArrivalRequest, ErArrivalResponse, ErAssignRequest, ErBoard, ErBoardItem, ErDispositionRequest, ErTriageRequest, ErVisitView,
   RefundableView, RefundRequest, RefundView, RefundDecisionRequest, RefundPayRequest, RefundReleaseRequest, RefundPayResponse, RefundList, RefundVoucherView, RefundVoucherPrintResponse, ReconcileRefundRequest, ResaleRequest,
@@ -323,6 +324,31 @@ export const ipd = {
   admit: (body: AdmitRequest, key: string) => call<AdmissionView>("POST", "/v1/ipd/admissions", body, key),
   admission: (id: string) => call<AdmissionView>("GET", `/v1/ipd/admissions/${enc(id)}`),
   cancel: (id: string, reason: string, key: string) => call<AdmissionView>("POST", `/v1/ipd/admissions/${enc(id)}/cancel`, { reason }, key),
+};
+
+/* The IPD running bill and the discharge checklist (ADR 0017, slice B7–B9) — money and sign-offs need the server. */
+export const ipdBill = {
+  list: () => call<IpdBillList>("GET", "/v1/ipd/bills"),
+  view: (admissionId: string) => call<IpdBillView>("GET", `/v1/ipd/bills/${enc(admissionId)}`),
+  preview: (admissionId: string, to: string) => call<ClassPreviewView>("GET", `/v1/ipd/bills/${enc(admissionId)}/preview?to=${enc(to)}`),
+  charge: (admissionId: string, code: string, qty: number, key: string) => call<IpdBillView>("POST", `/v1/ipd/bills/${enc(admissionId)}/charges`, { code, qty }, key),
+  withdraw: (admissionId: string, lineId: string, reason: string) => call<IpdBillView>("POST", `/v1/ipd/bills/${enc(admissionId)}/lines/${enc(lineId)}/withdraw`, { reason }, k()),
+  applyPackage: (admissionId: string, packageId: string, key: string) => call<IpdBillView>("POST", `/v1/ipd/bills/${enc(admissionId)}/package`, { packageId }, key),
+  deposit: (admissionId: string, body: DepositRequest, key: string) => call<IpdBillView>("POST", `/v1/ipd/bills/${enc(admissionId)}/deposits`, body, key),
+  receipt: (paymentId: string) => call<DepositReceiptView>("POST", `/v1/ipd/deposits/${enc(paymentId)}/receipt`, {}, k()),
+  printReceipt: (receiptId: string, body: RcPrintRequest, key: string) => call<RcPrintResponse>("POST", `/v1/receipts/${enc(receiptId)}/print`, body, key),
+  interimPrints: (admissionId: string) => call<InterimPrintList>("GET", `/v1/ipd/bills/${enc(admissionId)}/interim-prints`),
+  printInterim: (admissionId: string, body: InterimPrintRequest, key: string) => call<InterimPrintList>("POST", `/v1/ipd/bills/${enc(admissionId)}/interim-prints`, body, key),
+  packages: () => call<PackageList>("GET", "/v1/ipd/packages"),
+};
+export const discharge = {
+  list: () => call<DischargeList>("GET", "/v1/ipd/discharges"),
+  view: (admissionId: string) => call<DischargeView>("GET", `/v1/ipd/admissions/${enc(admissionId)}/discharge`),
+  order: (admissionId: string, body: { advice: string; targetAt?: string; pin: string }, key: string) => call<DischargeView>("POST", `/v1/ipd/admissions/${enc(admissionId)}/discharge`, body, key),
+  cancel: (id: string, reason: string, pin: string) => call<DischargeView>("POST", `/v1/ipd/discharges/${enc(id)}/cancel`, { reason, pin }, k()),
+  take: (id: string, step: string) => call<DischargeView>("POST", `/v1/ipd/discharges/${enc(id)}/steps/${enc(step)}/take`, {}, k()),
+  done: (id: string, step: string, body: DischargeStepDoneRequest, key: string) => call<DischargeView>("POST", `/v1/ipd/discharges/${enc(id)}/steps/${enc(step)}/done`, body, key),
+  remind: (id: string, step: string) => call<DischargeView>("POST", `/v1/ipd/discharges/${enc(id)}/steps/${enc(step)}/remind`, {}, k()),
 };
 
 /* The ward (ADR 0015, slice B3–B4). Vitals and nursing notes may wait in the outbox with their device time (`write`);

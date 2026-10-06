@@ -283,7 +283,9 @@ async function draftBill(tx: Tx, s: SessionData, admissionId: string) {
 /** A charge from the price list (procedures, transfusion, consults): tagged by the package like any other line. */
 export async function postCharge(tx: Tx, s: SessionData, admissionId: string, body: IpdChargeRequest, now: Date): Promise<{ view: IpdBillView; audit: AuditEntry[] }> {
   const { a, inv } = await draftBill(tx, s, admissionId);
-  const d = await tx.chargeItemDefinition.findFirst({ where: { organizationId: s.organizationId, code: body.code, active: true } });
+  // services only, as at the OPD desk (review A6–A7): a test reaches the bill through the doctor's order, a medicine
+  // through the ward stock drawn — never typed in by hand
+  const d = await tx.chargeItemDefinition.findFirst({ where: { organizationId: s.organizationId, code: body.code, active: true, kind: "service" } });
   if (!d) throw err(422, "code_unknown", "মূল্যতালিকায় এই সেবা নেই", "Not on the price list", { field: "code" });
   if (d.unitPaisa === null) throw err(422, "unpriced", "এই সেবার দাম ঠিক করা নেই", "This service has no price", { field: "code" });
   const id = randomUUID();

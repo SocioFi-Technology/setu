@@ -50,6 +50,9 @@ import { NurVitals } from "./nur/Vitals";
 import { NurWard } from "./nur/Ward";
 import { NurHandover } from "./nur/Handover";
 import { PhIndent } from "./ph/Indent";
+import { BillIpd } from "./bill/Ipd";
+import { BillPkg } from "./bill/Pkg";
+import { IpdDischarge } from "./ipd/Discharge";
 
 const SCREENS: Record<string, ComponentType> = {
   // slice A1–A3
@@ -117,6 +120,10 @@ const SCREENS: Record<string, ComponentType> = {
   "ipd/map": IpdMap,
   "ipd/transfer": IpdTransfer,
   "ipd/rounds": IpdRounds,
+  // slice B7–B9 (ADR 0017)
+  "bill/ipd": BillIpd,
+  "bill/pkg": BillPkg,
+  "ipd/discharge": IpdDischarge,
   "ph/indent": PhIndent,
 };
 const SLICE: Record<string, string> = { fd: "A1–A3", cons: "A4–A5", bill: "A6–A7", lab: "A8–A11", doc: "A12–A13", ph: "phase 2", own: "C1–C4", adm: "phase 2", er: "B1–B2", ipd: "B3–B4", nur: "B5–B6", net: "E1–E4" };
