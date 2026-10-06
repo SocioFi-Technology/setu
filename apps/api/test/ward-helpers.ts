@@ -2,6 +2,8 @@
    fresh synthetic patient directly to it, and have the surgeon sign a round note with the given orders. */
 import { randomInt, randomUUID } from "node:crypto";
 import { expect } from "vitest";
+/** ward names unique within a run (random suffixes collided: CI 06/10/2026, "bay taken") */
+let wardSeq = 0;
 import type { buildApp } from "../src/app.js";
 
 export const T = "t_e2e_lite";
@@ -37,7 +39,7 @@ export const TICKS = { patient: true, drug: true, dose: true, route: true, time:
 export async function setup(c: ReturnType<typeof client>) {
   /** a ward of its own (General), so runs never share beds or ward stock */
   async function ownWard(n = 2, bedClass = "General") {
-    const name = `WW${RUN}${randomInt(1e4)}`;
+    const name = `WW${RUN}${++wardSeq}`;
     const r = await c.post("/v1/admin/wards", { name, beds: n, bedClass }, "admin");
     expect(r.statusCode, r.body).toBe(201);
     return name;

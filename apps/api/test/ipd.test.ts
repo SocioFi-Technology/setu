@@ -3,6 +3,8 @@
    per patient, one open inpatient encounter, the IPD bill from the admission only) are exercised through the API. */
 import { randomInt, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+/** ward names unique within a run (random suffixes collided: CI 06/10/2026, "bay taken") */
+let wardSeq = 0;
 import { buildApp } from "../src/app.js";
 import { config } from "../src/config.js";
 
@@ -32,7 +34,7 @@ async function newPatient() {
   return r.json().patient.id as string;
 }
 async function ownWard(n = 2, bedClass = "General"): Promise<string[]> {
-  const name = `${bedClass === "ER" ? "ERT" : "W"}${RUN}${randomInt(1e3)}`;
+  const name = `${bedClass === "ER" ? "ERT" : "W"}${RUN}${++wardSeq}`;
   const r = await post("/v1/admin/wards", { name, beds: n, bedClass }, "admin");
   expect(r.statusCode, r.body).toBe(201);
   return (await tenant((tx) => tx.location.findMany({ where: { kind: "bed", parent: { name } }, orderBy: { name: "asc" } }))).map((b) => b.id);

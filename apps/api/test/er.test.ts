@@ -4,6 +4,8 @@
    its own ER ward of bays through the admin masters so runs never collide. */
 import { randomInt, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+/** ward names unique within a run (random suffixes collided: CI 06/10/2026, "bay taken") */
+let wardSeq = 0;
 import { buildApp } from "../src/app.js";
 import { config } from "../src/config.js";
 
@@ -39,14 +41,14 @@ async function newPatient(ageDob = "02/02/1986") {
 }
 /** An ER ward of this test's own bays (through the admin masters), so runs never share a bay. */
 async function ownBays(n = 2): Promise<string[]> {
-  const name = `ERT${RUN}${randomInt(1e3)}`;
+  const name = `ERT${RUN}${++wardSeq}`;
   const r = await post("/v1/admin/wards", { name, beds: n, bedClass: "ER" }, "admin");
   expect(r.statusCode, r.body).toBe(201);
   const beds = await tenant((tx) => tx.location.findMany({ where: { kind: "bed", parent: { name } }, orderBy: { name: "asc" } }));
   return beds.map((b) => b.id);
 }
 async function ownWardBeds(n = 2, bedClass = "General"): Promise<string[]> {
-  const name = `W${RUN}${randomInt(1e3)}`;
+  const name = `W${RUN}${++wardSeq}`;
   const r = await post("/v1/admin/wards", { name, beds: n, bedClass }, "admin");
   expect(r.statusCode, r.body).toBe(201);
   return (await tenant((tx) => tx.location.findMany({ where: { kind: "bed", parent: { name } }, orderBy: { name: "asc" } }))).map((b) => b.id);
