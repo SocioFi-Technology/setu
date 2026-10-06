@@ -5,7 +5,7 @@
    or deleted: a changed line is superseded by a new one, a line no longer wanted gets a credit line (the database
    checks both). Deposits are payments on the draft (IPD only); each confirmed one gets a money receipt DR/yy/nnnn. */
 import { randomUUID } from "node:crypto";
-import type { ClassPreviewView, DepositReceiptSnapshot, DepositReceiptView, DepositRequest, IpdBillView, IpdChargeRequest, IpdLine, PackageList, PackageView } from "@setu/contracts";
+import type { ClassPreviewView, DepositReceiptSnapshot, InterimPrintList, InterimPrintRequest, IpdBillList, DepositReceiptView, DepositRequest, IpdBillView, IpdChargeRequest, IpdLine, PackageList, PackageView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
   MAX_DEPOSIT_PAISA, authorize, holdsShift, type Plan, type Role, bedDaysDue, classPreview, depositState, desiredLines, dhakaDay, ipdLineAmounts, ipdTotals, isWallet, reconcileLines, suggestedTopUp,
@@ -17,7 +17,10 @@ import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
 import { BILLED_ORDER_STATES, confirmIpdDeposit, wireSource } from "./billing.js";
 import { getPatient, notFound, toSummary } from "./frontdesk.js";
-import { dash, iso, peopleOf, stale, type Adm } from "./inpatient.js";
+import { dash, erPatientOf, iso, peopleOf, stale, type Adm } from "./inpatient.js";
+import { storage } from "../adapters/storage.js";
+import { htmlToPdf } from "../receipts/pdf.js";
+import { interimBillHtml } from "../receipts/ipd.js";
 import { newVerifyCode } from "./receipts.js";
 
 type Inv = NonNullable<Awaited<ReturnType<Tx["invoice"]["findFirst"]>>>;
@@ -419,4 +422,82 @@ export async function packageList(tx: Tx, s: SessionData): Promise<PackageList> 
   const rows = await tx.package.findMany({ where: { organizationId: s.organizationId, active: true }, include: { prices: true, items: { orderBy: { position: "asc" } } }, orderBy: { code: "asc" } });
   return { items: rows.map((p) => ({ id: p.id, code: p.code, nameEn: p.nameEn, nameBn: p.nameBn, days: p.days, sample: p.sample, prices: Object.fromEntries(p.prices.map((x) => [x.bedClass, x.pricePaisa])),
     items: p.items.map((i) => ({ kind: i.kind as "service", code: i.code, limit: i.limitQty, nameEn: i.nameEn, nameBn: i.nameBn })) })) };
+}
+
+/* ───── the list of running bills ───── */
+export async function billList(tx: Tx, s: SessionData, now: Date): Promise<{ list: IpdBillList; patientIds: string[] }> {
+  requireIpdBill(s);
+  const adms = await tx.admission.findMany({ where: { organizationId: s.organizationId, status: { in: ["admitted", "discharged"] }, invoiceId: { not: null } }, orderBy: { admittedAt: "desc" }, take: 300 });
+  const invs = new Map((await tx.invoice.findMany({ where: { id: { in: adms.map((a) => a.invoiceId!) }, status: "draft" } })).map((i) => [i.id, i]));
+  const open = adms.filter((a) => invs.has(a.invoiceId!));
+  const [pats, beds, rates, dis] = await Promise.all([
+    tx.patient.findMany({ where: { id: { in: open.map((a) => a.patientId) } } }),
+    tx.location.findMany({ where: { organizationId: s.organizationId, kind: { in: ["bed", "ward"] } }, select: { id: true, name: true, parentId: true } }),
+    classRates(tx, s.organizationId),
+    tx.discharge.findMany({ where: { admissionId: { in: open.map((a) => a.id) }, status: { in: ["ordered", "completed"] } }, include: { steps: { select: { status: true } } } }),
+  ]);
+  const P = new Map(pats.map((p) => [p.id, p])), B = new Map(beds.map((b) => [b.id, b])), D = new Map(dis.map((d) => [d.admissionId, d]));
+  const items = open.flatMap((a) => {
+    const p = P.get(a.patientId); const inv = invs.get(a.invoiceId!)!;
+    if (!p) return [];
+    const bed = B.get(a.bedId); const d = D.get(a.id);
+    const pkg = (a.packageSnapshot as unknown as PackageSnapshot | null) ?? null;
+    const balance = inv.paidPaisa - inv.totalPaisa;
+    return [{
+      admissionId: a.id, number: a.number ?? "", patient: erPatientOf(p as Parameters<typeof erPatientOf>[0]), bed: bed?.name ?? null, ward: bed?.parentId ? B.get(bed.parentId)?.name ?? null : null,
+      bedClass: a.bedClass, dayNo: bedDaysDue(a.admittedAt!, a.dischargedAt, now), status: a.status as IpdBillList["items"][number]["status"], packageName: pkg ? { nameEn: pkg.nameEn, nameBn: pkg.nameBn } : null,
+      totalPaisa: inv.totalPaisa, depositsPaisa: inv.paidPaisa, balancePaisa: balance, depositState: depositState(balance, rates.rates[a.bedClass]?.perDayPaisa ?? 0),
+      discharge: d ? { status: d.status as "ordered" | "completed", done: d.steps.filter((x) => x.status === "done").length } : null,
+    }];
+  });
+  return { list: { items }, patientIds: items.map((x) => x.patient.id) };
+}
+
+/* ───── the interim bill (decision 10): A4, not a final bill, no QR; a reprint needs a reason ───── */
+const interimUrl = (admissionId: string, printId: string) => `/v1/ipd/bills/${admissionId}/interim-prints/${printId}/pdf`;
+export async function interimPrints(tx: Tx, s: SessionData, admissionId: string): Promise<InterimPrintList> {
+  requireIpdBill(s);
+  const a = await admissionHere(tx, s, admissionId);
+  const rows = await tx.interimBillPrint.findMany({ where: { invoiceId: a.invoiceId! }, orderBy: { copy: "asc" } });
+  const who = await peopleOf(tx, rows.map((r) => r.printedById));
+  return { items: rows.map((r) => ({ id: r.id, copy: r.copy, reason: r.reason, lang: r.lang, printedBy: who(r.printedById), printedAt: r.printedAt.toISOString(), pdfUrl: interimUrl(a.id, r.id), totalPaisa: r.totalPaisa })) };
+}
+export async function printInterim(tx: Tx, s: SessionData, admissionId: string, req: InterimPrintRequest, now: Date): Promise<{ list: InterimPrintList; copy: number; patientId: string; invoiceId: string }> {
+  requireIpdBill(s);
+  const a = await admissionHere(tx, s, admissionId);
+  await tx.$queryRaw`SELECT 1 FROM "Invoice" WHERE "id" = ${a.invoiceId} FOR UPDATE`;
+  const copy = await tx.interimBillPrint.count({ where: { invoiceId: a.invoiceId! } });
+  if (copy > 0 && !req.reason) throw err(409, "reprint_needs_reason", "আবার প্রিন্টের কারণ বেছে নিন", "Choose a reason to reprint", { field: "reason" });
+  if (copy === 0 && req.reason) throw err(409, "not_printed_yet", "মূল বিল এখনও প্রিন্ট হয়নি", "The original has not been printed yet", { field: "reason" });
+  await syncAdmission(tx, a, null, now, "census");
+  const v = await ipdBillView(tx, s, admissionId, now);
+  const [org, me] = await Promise.all([
+    tx.organization.findFirst({ where: { id: s.organizationId }, select: { name: true, nameBn: true, address: true } }),
+    tx.user.findFirst({ where: { id: s.userId }, select: { nameBn: true, nameEn: true } }),
+  ]);
+  const live = v.lines.filter((l) => !l.superseded);
+  const html = interimBillHtml({
+    seller: { nameEn: org!.name, nameBn: org!.nameBn, address: org!.address },
+    patient: { nameBn: v.patient.nameBn ?? v.patient.nameEn ?? "", nameEn: v.patient.nameEn ?? v.patient.nameBn ?? "", facilityNo: v.patient.facilityNo },
+    admission: { number: v.admission.number, admittedAt: new Date(v.admission.admittedAt), bed: v.admission.bed ? `${v.admission.bed.ward} · ${v.admission.bed.name}` : null, bedClass: v.admission.bedClass, dayNo: v.admission.dayNo, doctor: v.admission.doctor },
+    packageName: v.package ? { nameEn: v.package.nameEn, nameBn: v.package.nameBn } : null,
+    lines: live.map((l) => ({ serviceDay: l.serviceDay ?? dhakaDay(new Date(l.postedAt)), nameEn: l.nameEn, nameBn: l.nameBn, tag: l.tag, qty: l.qty, unitPaisa: l.unitPaisa, totalPaisa: l.totalPaisa, credit: Boolean(l.creditOf) })),
+    totals: v.totals, deposits: v.deposits.items.filter((d) => d.status === "confirmed").map((d) => ({ method: d.method, amountPaisa: d.amountPaisa, at: new Date(d.confirmedAt ?? d.createdAt), trxId: d.trxId })),
+    depositsPaisa: v.deposits.confirmedPaisa, balancePaisa: v.balancePaisa, asOf: now, lang: req.lang,
+    print: { copy, reason: req.reason ?? null, printedAt: now, printedBy: { nameBn: me?.nameBn ?? "—", nameEn: me?.nameEn ?? "—" } },
+  });
+  const pdf = await htmlToPdf(html, "a4");
+  const storageKey = `tenants/${s.tenantId}/interim-bills/${a.invoiceId}/${copy}-${req.lang}-${randomUUID().slice(0, 8)}.pdf`;
+  await tx.interimBillPrint.create({ data: { tenantId: s.tenantId, invoiceId: a.invoiceId!, copy, reason: req.reason ?? null, lang: req.lang, totalPaisa: v.totals.totalPaisa, storageKey, printedById: s.userId, printedAt: now } });
+  await storage.put(storageKey, pdf, "application/pdf");
+  return { list: await interimPrints(tx, s, admissionId), copy, patientId: a.patientId, invoiceId: a.invoiceId! };
+}
+export async function interimPdf(tx: Tx, s: SessionData, admissionId: string, printId: string) {
+  requireIpdBill(s);
+  const a = await admissionHere(tx, s, admissionId);
+  const p = await tx.interimBillPrint.findFirst({ where: { id: printId, invoiceId: a.invoiceId! } });
+  if (!p) throw notFound();
+  const bytes = await storage.get(p.storageKey);
+  if (!bytes) throw err(410, "file_missing", "ফাইলটি পাওয়া যায়নি", "The stored file is missing");
+  return { bytes, copy: p.copy, number: a.number ?? "ADM", patientId: a.patientId };
 }

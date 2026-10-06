@@ -5,13 +5,14 @@
    each print is a ReceiptPrint row + its PDF in Storage, and an AuditEvent (print / reprint). The verify code is 20
    random characters (never sequential); the public verify read shows only facility, number, date and amount. */
 import { randomBytes } from "node:crypto";
-import type { PrintRequest, ReceiptList, ReceiptPrintView, ReceiptSnapshot, ReceiptView } from "@setu/contracts";
+import type { DepositReceiptSnapshot, PrintRequest, ReceiptList, ReceiptPrintView, ReceiptSnapshot, ReceiptView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import { dhakaDay } from "@setu/domain";
 import { storage } from "../adapters/storage.js";
 import { config } from "../config.js";
 import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
+import { depositReceiptHtml } from "../receipts/ipd.js";
 import { htmlToPdf } from "../receipts/pdf.js";
 import { receiptHtml } from "../receipts/template.js";
 import { invoiceHere, invoiceView, requireWriter } from "./billing.js";
@@ -116,7 +117,9 @@ export async function printReceipt(tx: Tx, s: SessionData, receiptId: string, re
   if (copy === 0 && req.reason) throw err(409, "not_printed_yet", "মূল রসিদ এখনও প্রিন্ট হয়নি", "The original has not been printed yet", { field: "reason" });
   const me = await tx.user.findFirst({ where: { id: s.userId }, select: { nameBn: true, nameEn: true } });
   const bill = await tx.invoice.findFirst({ where: { id: r0.invoiceId }, select: { status: true } });
-  const html = receiptHtml({ voided: bill?.status === "entered_in_error",
+  // ADR 0017: a deposit's money receipt has its own page (no lines, no VAT)
+  const html = r0.kind === "deposit" ? depositReceiptHtml({ snapshot: r0.snapshot as unknown as DepositReceiptSnapshot, number: r0.number, createdAt: r0.createdAt, verifyUrl: verifyUrl(r0.verifyCode), format: req.format, lang: req.lang,
+    print: { copy, reason: req.reason ?? null, printedAt: now, printedBy: { nameBn: me?.nameBn ?? "—", nameEn: me?.nameEn ?? "—" } } }) : receiptHtml({ voided: bill?.status === "entered_in_error",
     snapshot: r0.snapshot as unknown as ReceiptSnapshot, number: r0.number, createdAt: r0.createdAt, verifyUrl: verifyUrl(r0.verifyCode), format: req.format, lang: req.lang,
     print: { copy, reason: req.reason ?? null, printedAt: now, printedBy: { nameBn: me?.nameBn ?? "—", nameEn: me?.nameEn ?? "—" } },
   });

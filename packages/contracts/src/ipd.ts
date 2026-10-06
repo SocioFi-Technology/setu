@@ -136,6 +136,21 @@ export const IpdBillView = z.object({
   sample: z.object({ rates: z.boolean(), package: z.boolean() }),
 });
 export type IpdBillView = z.infer<typeof IpdBillView>;
+/* GET /v1/ipd/bills — the running bills of this facility (admitted, or discharged with the bill still a draft) */
+export const IpdBillList = z.object({ items: z.array(z.object({
+  admissionId: z.string(), number: z.string(), patient: ErPatient, bed: z.string().nullable(), ward: z.string().nullable(), bedClass: z.string(), dayNo: z.number().int(),
+  status: AdmissionStatus, packageName: z.object({ nameEn: z.string(), nameBn: z.string() }).nullable(),
+  totalPaisa: z.number().int(), depositsPaisa: z.number().int(), balancePaisa: z.number().int(), depositState: DepositStateWire,
+  discharge: z.object({ status: z.enum(["ordered", "completed"]), done: z.number().int() }).nullable(),
+})) });
+export type IpdBillList = z.infer<typeof IpdBillList>;
+/* POST /v1/ipd/bills/:admissionId/interim-prints — the interim bill (A4, "not a final bill", no QR); a reprint needs a reason */
+export const InterimPrintRequest = z.object({ lang: z.enum(["both", "bn", "en"]).default("both"), reason: z.enum(["lost", "jam", "ins", "corp"]).optional() });
+export type InterimPrintRequest = z.infer<typeof InterimPrintRequest>;
+export const InterimPrintView = z.object({ id: z.string(), copy: z.number().int(), reason: z.string().nullable(), lang: z.string(), printedBy: Person, printedAt: z.string(), pdfUrl: z.string(), totalPaisa: z.number().int() });
+export type InterimPrintView = z.infer<typeof InterimPrintView>;
+export const InterimPrintList = z.object({ items: z.array(InterimPrintView) });
+export type InterimPrintList = z.infer<typeof InterimPrintList>;
 /* GET /v1/ipd/bills/:admissionId/preview?to=<class> — read-only arithmetic (classes change only through the bed move) */
 export const ClassPreviewView = z.object({
   from: z.string(), to: z.string(), direction: z.enum(["up", "down", "same"]), appliesFrom: z.enum(["today", "tomorrow"]),
@@ -199,7 +214,10 @@ export const DischargeList = z.object({ items: z.array(z.object({
   status: z.enum(["ordered", "completed", "cancelled"]), done: z.number().int(), targetAt: z.string(), overdue: z.boolean(),
   blockedBy: z.array(z.object({ key: DischargeStepKey, department: z.enum(["doctor", "pharmacy", "billing", "ward"]), person: Person.nullable() })),
   /** the steps this user can act on now */ mine: z.array(DischargeStepKey), orderedAt: z.string(), completedAt: z.string().nullable(),
-})) });
+})),
+  /** a doctor's list: admitted patients with no discharge ordered (to order one) */
+  candidates: z.array(z.object({ admissionId: z.string(), number: z.string(), patient: ErPatient, bed: z.string().nullable(), ward: z.string().nullable(), dayNo: z.number().int(), doctor: Person })),
+});
 export type DischargeList = z.infer<typeof DischargeList>;
 /* POST /v1/ipd/admissions/:id/discharge — the doctor's order (PIN) */
 export const DischargeOrderRequest = z.object({ advice: z.string().trim().min(10).max(1000), targetAt: z.string().datetime({ offset: true }).optional(), pin: z.string().regex(/^\d{4}$/) });

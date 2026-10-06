@@ -3,12 +3,12 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
-  DepositRequest, DischargeCancelRequest, DischargeOrderRequest, DischargeStepDoneRequest, IpdChargeRequest, IpdPackageRequest,
+  DepositRequest, DischargeCancelRequest, InterimPrintRequest, type InterimPrintList, type IpdBillList, DischargeOrderRequest, DischargeStepDoneRequest, IpdChargeRequest, IpdPackageRequest,
   type ClassPreviewView, type DepositReceiptView, type DischargeList, type DischargeView, type IpdBillView, type PackageList,
 } from "@setu/contracts";
 import { attachLink } from "../modules/billing.js";
 import { cancelDischarge, dischargeList, dischargeView, doneStep, orderDischarge, remindStep, takeStep } from "../modules/discharge.js";
-import { addDeposit, applyPackage, depositReceipt, ipdBillView, openBill, packageList, postCharge, previewClass, requireIpdBill, withdrawCharge } from "../modules/ipdBill.js";
+import { addDeposit, applyPackage, billList, depositReceipt, interimPdf, interimPrints, printInterim, ipdBillView, openBill, packageList, postCharge, previewClass, requireIpdBill, withdrawCharge } from "../modules/ipdBill.js";
 import { command, query } from "../command.js";
 import { requireSession } from "../plugins/session.js";
 import { sendLinkSms } from "./billing.js";
@@ -24,6 +24,27 @@ export async function ipdBillRoutes(app: FastifyInstance) {
   app.get("/v1/ipd/bills/:id", async (req): Promise<IpdBillView> => {
     requireIpdBill(requireSession(req)); const { id } = pid.parse(req.params);
     return query(req, async (tx, s) => { const r = await openBill(tx, s, id, new Date()); return { body: r.view, audit: r.audit }; });
+  });
+  app.get("/v1/ipd/bills", async (req): Promise<IpdBillList> => {
+    requireIpdBill(requireSession(req));
+    return query(req, async (tx, s) => { const r = await billList(tx, s, new Date()); return { body: r.list, audit: [{ action: "view", entity: "Invoice", detail: { purpose: "ipd-bills", patientIds: r.patientIds } }] }; });
+  });
+  app.get("/v1/ipd/bills/:id/interim-prints", async (req): Promise<InterimPrintList> => {
+    requireIpdBill(requireSession(req)); const { id } = pid.parse(req.params);
+    return query(req, async (tx, s) => ({ body: await interimPrints(tx, s, id), audit: [] }));
+  });
+  app.post("/v1/ipd/bills/:id/interim-prints", own, async (req, reply): Promise<InterimPrintList> => {
+    requireIpdBill(requireSession(req)); const { id } = pid.parse(req.params); const body = InterimPrintRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => {
+      const r = await printInterim(tx, s, id, body, new Date());
+      return { status: 201, body: r.list, audit: [{ action: r.copy === 0 ? "print" : "reprint", entity: "Invoice", entityId: r.invoiceId, patientId: r.patientId, detail: { kind: "interim-bill", copy: r.copy, reason: body.reason ?? null, lang: body.lang } }] };
+    }, { txTimeoutMs: 30_000 });
+  });
+  app.get("/v1/ipd/bills/:id/interim-prints/:printId/pdf", async (req, reply) => {
+    requireIpdBill(requireSession(req)); const { id, printId } = z.object({ id: z.string().max(64), printId: z.string().max(64) }).parse(req.params);
+    const r = await query(req, async (tx, s) => { const x = await interimPdf(tx, s, id, printId); return { body: x, audit: [{ action: "view", entity: "InterimBillPrint", entityId: printId, patientId: x.patientId, detail: { copy: x.copy } }] }; });
+    const fileName = `${r.number.replace(/\//g, "-")}-interim${r.copy ? `-DUPLICATE-${r.copy}` : ""}.pdf`;
+    return reply.header("content-type", "application/pdf").header("content-disposition", `inline; filename="${fileName}"`).header("cache-control", "no-store").send(Buffer.from(r.bytes));
   });
   app.get("/v1/ipd/bills/:id/preview", async (req): Promise<ClassPreviewView> => {
     requireIpdBill(requireSession(req)); const { id } = pid.parse(req.params); const { to } = z.object({ to: z.string().min(1).max(40) }).parse(req.query ?? {});

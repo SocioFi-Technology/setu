@@ -33228,6 +33228,942 @@
         }
       }
     },
+    "/v1/ipd/bills": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "the running IPD bills of this facility",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "admissionId": {
+                            "type": "string"
+                          },
+                          "number": {
+                            "type": "string"
+                          },
+                          "patient": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "facilityNo": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "sex": {
+                                "type": "string",
+                                "enum": [
+                                  "female",
+                                  "male",
+                                  "other"
+                                ]
+                              },
+                              "birthDate": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "approxAgeYears": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "approxAgeMonths": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "approxAgeAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "identityConfidence": {
+                                "type": "string",
+                                "enum": [
+                                  "verified",
+                                  "unverified",
+                                  "possible-duplicate",
+                                  "provisional"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "facilityNo",
+                              "nameBn",
+                              "nameEn",
+                              "sex",
+                              "birthDate",
+                              "approxAgeYears",
+                              "approxAgeMonths",
+                              "approxAgeAt",
+                              "identityConfidence"
+                            ]
+                          },
+                          "bed": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ward": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "bedClass": {
+                            "type": "string"
+                          },
+                          "dayNo": {
+                            "type": "integer"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "requested",
+                              "admitted",
+                              "cancelled",
+                              "discharged"
+                            ]
+                          },
+                          "packageName": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "nameEn": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "nameEn",
+                              "nameBn"
+                            ]
+                          },
+                          "totalPaisa": {
+                            "type": "integer"
+                          },
+                          "depositsPaisa": {
+                            "type": "integer"
+                          },
+                          "balancePaisa": {
+                            "type": "integer"
+                          },
+                          "depositState": {
+                            "type": "string",
+                            "enum": [
+                              "ok",
+                              "low",
+                              "due"
+                            ]
+                          },
+                          "discharge": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "ordered",
+                                  "completed"
+                                ]
+                              },
+                              "done": {
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "status",
+                              "done"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "admissionId",
+                          "number",
+                          "patient",
+                          "bed",
+                          "ward",
+                          "bedClass",
+                          "dayNo",
+                          "status",
+                          "packageName",
+                          "totalPaisa",
+                          "depositsPaisa",
+                          "balancePaisa",
+                          "depositState",
+                          "discharge"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
+                    },
+                    "shortfall": {
+                      "type": "integer"
+                    },
+                    "remaining": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ipd/bills/{id}/interim-prints": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "the interim bill's prints",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "copy": {
+                            "type": "integer"
+                          },
+                          "reason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "lang": {
+                            "type": "string"
+                          },
+                          "printedBy": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "printedAt": {
+                            "type": "string"
+                          },
+                          "pdfUrl": {
+                            "type": "string"
+                          },
+                          "totalPaisa": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "copy",
+                          "reason",
+                          "lang",
+                          "printedBy",
+                          "printedAt",
+                          "pdfUrl",
+                          "totalPaisa"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
+                    },
+                    "shortfall": {
+                      "type": "integer"
+                    },
+                    "remaining": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "lang": {
+                    "type": "string",
+                    "enum": [
+                      "both",
+                      "bn",
+                      "en"
+                    ],
+                    "default": "both"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "lost",
+                      "jam",
+                      "ins",
+                      "corp"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "the interim bill printed (A4, not a final bill, no QR); a reprint needs a reason",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "copy": {
+                            "type": "integer"
+                          },
+                          "reason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "lang": {
+                            "type": "string"
+                          },
+                          "printedBy": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "printedAt": {
+                            "type": "string"
+                          },
+                          "pdfUrl": {
+                            "type": "string"
+                          },
+                          "totalPaisa": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "copy",
+                          "reason",
+                          "lang",
+                          "printedBy",
+                          "printedAt",
+                          "pdfUrl",
+                          "totalPaisa"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
+                    },
+                    "shortfall": {
+                      "type": "integer"
+                    },
+                    "remaining": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
+                    },
+                    "shortfall": {
+                      "type": "integer"
+                    },
+                    "remaining": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ipd/bills/{id}/interim-prints/{printId}/pdf": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "printId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "the stored PDF",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
+                    },
+                    "shortfall": {
+                      "type": "integer"
+                    },
+                    "remaining": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message_bn": {
+                      "type": "string"
+                    },
+                    "message_en": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "canRequest": {
+                      "type": "boolean"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "code"
+                        ]
+                      }
+                    },
+                    "existing": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "triesLeft": {
+                      "type": "integer"
+                    },
+                    "lockedUntil": {
+                      "type": "string"
+                    },
+                    "amountPaisa": {
+                      "type": "integer"
+                    },
+                    "shortfall": {
+                      "type": "integer"
+                    },
+                    "remaining": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message_bn",
+                    "message_en"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/ipd/bills/{id}/preview": {
       "get": {
         "parameters": [
@@ -38803,10 +39739,141 @@
                           "completedAt"
                         ]
                       }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "admissionId": {
+                            "type": "string"
+                          },
+                          "number": {
+                            "type": "string"
+                          },
+                          "patient": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "facilityNo": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "sex": {
+                                "type": "string",
+                                "enum": [
+                                  "female",
+                                  "male",
+                                  "other"
+                                ]
+                              },
+                              "birthDate": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "approxAgeYears": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "approxAgeMonths": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "approxAgeAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "identityConfidence": {
+                                "type": "string",
+                                "enum": [
+                                  "verified",
+                                  "unverified",
+                                  "possible-duplicate",
+                                  "provisional"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "facilityNo",
+                              "nameBn",
+                              "nameEn",
+                              "sex",
+                              "birthDate",
+                              "approxAgeYears",
+                              "approxAgeMonths",
+                              "approxAgeAt",
+                              "identityConfidence"
+                            ]
+                          },
+                          "bed": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ward": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "dayNo": {
+                            "type": "integer"
+                          },
+                          "doctor": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "admissionId",
+                          "number",
+                          "patient",
+                          "bed",
+                          "ward",
+                          "dayNo",
+                          "doctor"
+                        ]
+                      }
                     }
                   },
                   "required": [
-                    "items"
+                    "items",
+                    "candidates"
                   ]
                 }
               }

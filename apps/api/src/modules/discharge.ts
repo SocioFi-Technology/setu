@@ -105,9 +105,19 @@ export async function dischargeList(tx: Tx, s: SessionData, now: Date): Promise<
   const pats = new Map((await tx.patient.findMany({ where: { id: { in: rows.map((r) => r.patientId) } } })).map((p) => [p.id, p]));
   const beds = new Map((await tx.location.findMany({ where: { organizationId: s.organizationId, kind: { in: ["bed", "ward"] } }, select: { id: true, name: true, parentId: true } })).map((b) => [b.id, b]));
   const who = await peopleOf(tx, [...rows.flatMap((r) => r.steps.map((x) => x.takenById)), ...[...adms.values()].map((a) => a.admittingDoctorId)]);
+  // a doctor's list: admitted patients with no discharge ordered yet
+  const candidates = s.role === "doctor" || s.role === "admin" ? await (async () => {
+    const live = new Set((await tx.discharge.findMany({ where: { organizationId: s.organizationId, status: { in: ["ordered", "completed"] } }, select: { admissionId: true } })).map((x) => x.admissionId));
+    const open = (await tx.admission.findMany({ where: { organizationId: s.organizationId, status: "admitted" }, orderBy: { admittedAt: "asc" } })).filter((a) => !live.has(a.id) && a.encounterId);
+    const ps = new Map((await tx.patient.findMany({ where: { id: { in: open.map((a) => a.patientId) } } })).map((p) => [p.id, p]));
+    const docs = await peopleOf(tx, open.map((a) => a.admittingDoctorId));
+    return open.flatMap((a) => { const p = ps.get(a.patientId); const bed = beds.get(a.bedId); return p ? [{
+      admissionId: a.id, number: a.number ?? "", patient: erPatientOf(p as Parameters<typeof erPatientOf>[0]), bed: bed?.name ?? null, ward: bed?.parentId ? beds.get(bed.parentId)?.name ?? null : null,
+      dayNo: bedDaysDue(a.admittedAt!, null, now), doctor: docs(a.admittingDoctorId) }] : []; });
+  })() : [];
   return {
-    patientIds: rows.map((r) => r.patientId),
-    list: { items: rows.flatMap((d) => {
+    patientIds: [...rows.map((r) => r.patientId), ...candidates.map((c) => c.patient.id)],
+    list: { candidates, items: rows.flatMap((d) => {
       const a = adms.get(d.admissionId), p = pats.get(d.patientId);
       if (!a || !p) return [];
       const states = statesOf(d.steps);

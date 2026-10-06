@@ -180,6 +180,22 @@ describe.runIf(db)("deposits (Kamrul, decision 2)", () => {
     expect(r1.json().snapshot).toMatchObject({ amountPaisa: 500_000, method: "cash", admission: { number: a.admission.number } });
     const r2 = await c.post(`/v1/ipd/deposits/${cashId}/receipt`, {}, "cashier");
     expect(r2.statusCode).toBe(200); expect(r2.json().id).toBe(r1.json().id);
+    // the money receipt prints through the receipt pipeline with its own page; a reprint needs a reason
+    const pr = await c.post(`/v1/receipts/${r1.json().id}/print`, { format: "thermal", lang: "both" }, "cashier");
+    expect(pr.statusCode, pr.body).toBe(201);
+    const pdf = await c.get(pr.json().print.pdfUrl, "cashier");
+    expect(pdf.statusCode).toBe(200); expect(pdf.headers["content-type"]).toBe("application/pdf");
+    expect((await c.post(`/v1/receipts/${r1.json().id}/print`, { format: "a5", lang: "en" }, "cashier")).json().code).toBe("reprint_needs_reason");
+    // the running bills list; the interim bill (A4) and its reprint with a reason
+    const list = (await c.get("/v1/ipd/bills", "cashier")).json().items;
+    expect(list.find((x: { admissionId: string }) => x.admissionId === a.admissionId)).toMatchObject({ depositsPaisa: 800_000, depositState: "ok" });
+    const ip = await c.post(`/v1/ipd/bills/${a.admissionId}/interim-prints`, { lang: "both" }, "cashier");
+    expect(ip.statusCode, ip.body).toBe(201);
+    expect((await c.post(`/v1/ipd/bills/${a.admissionId}/interim-prints`, { lang: "both" }, "cashier")).json().code).toBe("reprint_needs_reason");
+    const ip2 = await c.post(`/v1/ipd/bills/${a.admissionId}/interim-prints`, { lang: "en", reason: "lost" }, "cashier");
+    expect(ip2.json().items.map((x: { copy: number }) => x.copy)).toEqual([0, 1]);
+    const ipdf = await c.get(ip2.json().items[1].pdfUrl, "cashier");
+    expect(ipdf.statusCode).toBe(200); expect(ipdf.headers["content-disposition"]).toContain("DUPLICATE-1");
     // an OPD-style payment on the IPD bill is refused (deposits only); a payment on an OPD draft still is too (database)
     expect((await c.post(`/v1/invoices/${inv!.id}/payments`, { method: "cash", amountPaisa: 100, tenderedPaisa: 100 }, "cashier")).json().code).toBe("ipd_deposit");
   });

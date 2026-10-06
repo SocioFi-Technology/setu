@@ -2610,3 +2610,20 @@ model DischargeStep {
 
   @@unique([dischargeId, key])
 }
+
+/// ADR 0017: each print of the interim bill (A4, "not a final bill", no QR): copy 0 the original, n ≥ 1 a duplicate with a reason. Append-only.
+model InterimBillPrint {
+  id          String   @id @default(cuid())
+  tenantId    String
+  invoiceId   String
+  copy        Int
+  reason      String?
+  lang        String
+  /// the running total printed
+  totalPaisa  Int
+  storageKey  String
+  printedById String
+  printedAt   DateTime @default(now())
+
+  @@unique([invoiceId, copy])
+}
