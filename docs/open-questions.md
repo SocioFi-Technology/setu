@@ -1212,3 +1212,14 @@ Built on the cautious reading; Kamrul to confirm or change.
      pharmacy, billing and the ward it marks the step reminded on their discharge list (no SMS).
 297. **B10 must decide how an excess deposit leaves before the final bill is issued**: an issued bill cannot hold more
      paid than its total (database). The ADR says it is refunded through the refunds slice as "deposit-excess".
+
+### Decided by Kamrul (06/10/2026) — B7–B9 session 1
+287–297 accepted as built, with these words:
+- **287** a package follows the dearest class occupied; it is never lowered.
+- **288** accepted for now; "a day counted from admission even after 23:00" goes on the owner / accountant list as a
+  facility-setting candidate (HANDOVER known gap 13).
+- **291** accepted (cash deposits at the cash counter only).
+- **297** decided for B10: at discharge, if the deposit held exceeds the final total, the excess becomes a refund request
+  (source `deposit-excess`, owner approval, paid at the counter) **in the same transaction that issues the bill**, so
+  the issued bill holds exactly its total and the patient leaves with a voucher for the rest; the bill is never issued
+  while the excess is unassigned.

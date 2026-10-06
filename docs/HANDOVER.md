@@ -1106,6 +1106,8 @@ already built.
 13. **ER fee and ER billing rules** (Kamrul, 05/10/2026, decision 244): an ER visit discharged home is billed like an OPD
     visit until the owner and the accountant decide the ER fee, what the ER bill carries (bay, drugs, procedures) and
     how an admitted patient's ER charges move to the IPD bill. Pre-pilot, with gap 12.
+    Also on the owner / accountant list (Kamrul, decision 288): **whether an admission after 23:00 counts as a bed day**
+    (today the midnight census counts the admission day as day 1 at any hour) — a facility-setting candidate.
 14. **Ward clinical content (ADR 0015, pre-pilot, a clinician):** the NEWS2 threshold, red-score rule and observation
     intervals; the ±60-minute dose window; the high-alert list; discard-after-opening periods for insulin, heparin and
     other multi-dose vials (until then the MAR shows opened-at only); SpO₂ scale 2 for hypercapnic patients; the

@@ -135,3 +135,11 @@ plan: the lock page (Hospital Lite and up).
   the package snapshot set once.
 - The bed-day census runs in the minute sweep (`bed_day_sweep_targets`), idempotent per admission and day.
 - ER charges of an admitted patient (known gap 13), corporate payers and the payer split stay out (self-pay only).
+
+## Addendum — Kamrul, 06/10/2026 (questions 287–297)
+- The package follows the dearest class occupied during the stay and is never lowered (287).
+- Cash deposits only from someone who holds a drawer shift (291): shift close counts cash by who took it.
+- **For B10 (297):** when the final bill is issued at discharge and the deposits held exceed its total, the excess
+  becomes a refund request (source `deposit-excess`, owner approval, paid at the counter) in the same transaction that
+  issues the bill: the issued bill holds exactly its total, the patient leaves with a voucher for the rest, and the bill
+  is never issued while an excess is unassigned.
