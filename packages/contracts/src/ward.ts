@@ -270,8 +270,9 @@ export const HandoverView = z.object({
   status: HandoverStatusWire, rev: z.number().int(), outgoing: Person, signedAt: z.string().nullable(), incoming: Person.nullable(), acceptedAt: z.string().nullable(),
   acceptNote: z.string().nullable(), query: z.object({ note: z.string(), by: Person, at: z.string() }).nullable(),
   patients: z.array(HandoverPatientView),
-  /** open escalations no doctor acknowledged in the app: the acceptance note must name each (bed or patient number) */
-  unacknowledged: z.array(z.object({ bed: z.string(), facilityNo: z.string(), name: z.string() })),
+  /** every open escalation on the ward (acknowledged or not, however recent): the acceptance note names each (bed or
+      patient number) — Kamrul, 06/10/2026 */
+  openEscalations: z.array(z.object({ bed: z.string(), facilityNo: z.string(), name: z.string(), peakScore: z.number().int(), unacknowledged: z.boolean() })),
   signBlockers: z.array(z.enum(["not_all_reviewed"])), sample: SampleNote,
 });
 export type HandoverView = z.infer<typeof HandoverView>;

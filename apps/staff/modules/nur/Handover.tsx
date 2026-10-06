@@ -2,7 +2,7 @@
 /* nur/handover — ADR 0016 (walkthrough B5–B6). The shift handover of the remembered ward: every patient on the ward with
    the latest NEWS2, the open escalation (unacknowledged ones stand out), doses due / overdue, the 24-hour balance and
    open tasks, and the outgoing nurse's SBAR. The outgoing nurse marks each patient reviewed and signs with the PIN; a
-   different nurse accepts with hers — and names any unacknowledged escalation in the acceptance note — or queries it
+   different nurse accepts with hers — and names every open escalation in the acceptance note — or queries it
    back to draft. Accepted is final; the board then shows who holds the ward. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HandoverPatientView, HandoverView, WardHandover, WardList } from "@setu/contracts";
@@ -65,7 +65,7 @@ function Sheet({ h, onChanged, onReload }: { h: HandoverView; onChanged: (v: Han
     try { onChanged(await ward.handoverPatient(h.id, encounterId, { rev: h.rev, ...body })); }
     catch (e) { toast(err(e), "triangle-alert"); if (e instanceof ApiFailure && e.body.code === "stale") await onReload(); }
   };
-  const unackNames = h.unacknowledged.map((u) => `${u.bed} (${u.name})`).join(", ");
+  const escNames = h.openEscalations.map((u) => `${u.bed} (${u.name} · NEWS2 ${s.n(u.peakScore)}${u.unacknowledged ? ` · ${N("unacknowledged_short")}` : ""})`).join(", ");
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }} data-testid="ho-sheet" data-ho-status={h.status}>
       <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -75,7 +75,7 @@ function Sheet({ h, onChanged, onReload }: { h: HandoverView; onChanged: (v: Han
         <span className="t-small t-muted">{s.L(h.sample.bn, h.sample.en)}</span>
       </span>
       {h.query && draft && <Callout tone="warn" icon="message-circle-question" data-testid="ho-query">{N("ho_query_from", { name: bn ? h.query.by.nameBn : h.query.by.nameEn, note: h.query.note })}</Callout>}
-      {h.unacknowledged.length > 0 && h.status !== "accepted" && <Callout tone="bad" icon="bell-ring" data-testid="ho-unack">{N("ho_unack", { list: unackNames })}</Callout>}
+      {h.openEscalations.length > 0 && h.status !== "accepted" && <Callout tone="bad" icon="bell-ring" data-testid="ho-escalations">{N("ho_open_esc", { list: escNames })}</Callout>}
       {h.acceptNote && <Callout tone="info" icon="notebook-pen">{N("ho_accept_note")}: {h.acceptNote}</Callout>}
       {h.patients.map((p) => <PatientCard key={p.encounterId} p={p} editable={draft && mine && s.online} onSave={(b) => save(p.encounterId, b)} />)}
       {((draft && mine) || (h.status === "outgoing-signed" && !mine && s.me?.role === "nurse")) && <Card style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }}>
@@ -111,7 +111,7 @@ function PatientCard({ p, editable, onSave }: { p: HandoverPatientView; editable
   const dirty = sbar.s !== p.sbar.s || sbar.b !== p.sbar.b || sbar.a !== p.sbar.a || sbar.r !== p.sbar.r;
   const bn = s.lang === "bn"; const bnNum = s.numerals === "bn";
   return (
-    <Card style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14, borderColor: p.escalation?.unacknowledged ? "var(--danger-border)" : undefined, opacity: p.onWard ? 1 : 0.6 }} data-ho-patient={p.patient.facilityNo} data-ho-reviewed={p.reviewed ? "1" : "0"}>
+    <Card style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14, borderColor: p.escalation ? "var(--danger-border)" : undefined, opacity: p.onWard ? 1 : 0.6 }} data-ho-patient={p.patient.facilityNo} data-ho-reviewed={p.reviewed ? "1" : "0"}>
       <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <b className="num">{p.bed}</b><b>{bn ? p.patient.nameBn : p.patient.nameEn || p.patient.nameBn}</b>
         <span className="t-small t-muted num">{p.patient.facilityNo} · {L.age(p.patient)} {L.sex(p.patient.sex)}</span>

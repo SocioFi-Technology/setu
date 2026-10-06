@@ -91,14 +91,14 @@ describe("the shift handover", () => {
     expect(handoverSignBlockers({ patients: [{ reviewed: true }, { reviewed: false }] })).toEqual(["not_all_reviewed"]);
     expect(handoverSignBlockers({ patients: [{ reviewed: true }] })).toEqual([]);
   });
-  it("accepted by another nurse; an unacknowledged escalation must be named in the note (bed or patient number)", () => {
+  it("accepted by another nurse; every open escalation must be named in the note (bed or patient number)", () => {
     const esc = [{ bed: "3B-05", facilityNo: "E2L-240201" }];
-    expect(handoverAcceptBlockers({ outgoingId: "n1", incomingId: "n1", note: "", unacknowledged: [] })).toEqual(["same_nurse"]);
-    expect(handoverAcceptBlockers({ outgoingId: "n1", incomingId: "n2", note: "All fine", unacknowledged: esc })).toEqual(["escalation_not_named"]);
-    expect(handoverAcceptBlockers({ outgoingId: "n1", incomingId: "n2", note: "3b-05 NEWS2 9 — duty doctor called again", unacknowledged: esc })).toEqual([]);
-    expect(handoverAcceptBlockers({ outgoingId: "n1", incomingId: "n2", note: "E2L-240201 watched hourly", unacknowledged: esc })).toEqual([]);
+    expect(handoverAcceptBlockers({ outgoingId: "n1", incomingId: "n1", note: "", open: [] })).toEqual(["same_nurse"]);
+    expect(handoverAcceptBlockers({ outgoingId: "n1", incomingId: "n2", note: "All fine", open: esc })).toEqual(["escalation_not_named"]);
+    expect(handoverAcceptBlockers({ outgoingId: "n1", incomingId: "n2", note: "3b-05 NEWS2 9 — duty doctor called again", open: esc })).toEqual([]);
+    expect(handoverAcceptBlockers({ outgoingId: "n1", incomingId: "n2", note: "E2L-240201 watched hourly", open: esc })).toEqual([]);
     // whole words only (review): 2A-12 does not name 2A-1
-    expect(handoverAcceptBlockers({ outgoingId: "n1", incomingId: "n2", note: "2A-12 stable", unacknowledged: [{ bed: "2A-1", facilityNo: "E2L-1" }] })).toEqual(["escalation_not_named"]);
-    expect(handoverAcceptBlockers({ outgoingId: "n1", incomingId: "n2", note: "2A-1: doctor called again", unacknowledged: [{ bed: "2A-1", facilityNo: "E2L-1" }] })).toEqual([]);
+    expect(handoverAcceptBlockers({ outgoingId: "n1", incomingId: "n2", note: "2A-12 stable", open: [{ bed: "2A-1", facilityNo: "E2L-1" }] })).toEqual(["escalation_not_named"]);
+    expect(handoverAcceptBlockers({ outgoingId: "n1", incomingId: "n2", note: "2A-1: doctor called again", open: [{ bed: "2A-1", facilityNo: "E2L-1" }] })).toEqual([]);
   });
 });

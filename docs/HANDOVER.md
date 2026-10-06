@@ -1011,7 +1011,9 @@ open escalations and due doses, and cannot be accepted over an unacknowledged es
   production wristband secret, keys kept on network errors, print windows opened on the click, i18n of the band and
   labels, entry times that froze, shift times in the numeral setting, the labels path in OpenAPI, one board build per
   handover request; the scan-mismatch audit records what was scanned. Open questions 280–285 and the pre-pilot list.
-- **Tests:** domain 408, api b5b6 9, mar 18, ward 15; journeys b5-b6 4/4, b3-b4 5/5.
+- **Tests:** domain 408, api b5b6 10, mar 18, ward 15; journeys b5-b6 4/4, b3-b4 5/5.
+- **Decision 286 (Kamrul, 06/10/2026):** every open escalation, acknowledged or not and however recent, is listed on the
+  handover sheet and must be named in the acceptance note; acceptance is refused otherwise (ADR 0016 amendment).
 
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).

@@ -1175,3 +1175,9 @@ Commit after each step, push at the end of each session.
 - Wedge scanners on a Bangla keyboard layout will not type codes; no auto-focus from band to medicine.
 - Recurring tasks run from when they were done, not a fixed schedule; a wrong tick cannot be marked entered-in-error.
 
+### Decided by Kamrul (06/10/2026) — the handover gap
+286. **Every open escalation — acknowledged or not, however recent — is listed on the handover sheet and must be named
+     in the acceptance note** (bed or patient number, as a whole word); acceptance is refused otherwise. A clinician may
+     relax this later, not tighten it. Built (replaces the "unacknowledged only" rule of 279 and the pre-pilot item).
+280–285: Kamrul to answer after reading them on origin.
+

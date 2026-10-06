@@ -103,12 +103,14 @@ export function currentShift(now: Date, startHours = SHIFT_START_HOURS_SAMPLE): 
 }
 export const shiftHoursOk = (hours: number[]) => hours.length >= 1 && hours.length <= 4 && hours.every((h) => Number.isInteger(h) && h >= 0 && h <= 23) && new Set(hours).size === hours.length;
 export const handoverSignBlockers = (x: { patients: { reviewed: boolean }[] }): "not_all_reviewed"[] => (x.patients.some((p) => !p.reviewed) ? ["not_all_reviewed"] : []);
-export function handoverAcceptBlockers(x: { outgoingId: string; incomingId: string; note: string; unacknowledged: { bed: string; facilityNo: string }[] }): ("same_nurse" | "escalation_not_named")[] {
+/** Kamrul, 06/10/2026: every open escalation on the ward — acknowledged or not, however recent — is named in the
+    acceptance note (bed or patient number, as a whole word); a clinician may relax this later, not tighten it. */
+export function handoverAcceptBlockers(x: { outgoingId: string; incomingId: string; note: string; open: { bed: string; facilityNo: string }[] }): ("same_nurse" | "escalation_not_named")[] {
   const out: ("same_nurse" | "escalation_not_named")[] = [];
   if (x.outgoingId === x.incomingId) out.push("same_nurse");
   // whole words only: "2A-12" never names 2A-1 (review)
   const words = new Set(x.note.toLowerCase().split(/[^a-z0-9\u0980-\u09ff-]+/).filter(Boolean));
-  if (x.unacknowledged.some((e) => !words.has(e.bed.toLowerCase()) && !words.has(e.facilityNo.toLowerCase()))) out.push("escalation_not_named");
+  if (x.open.some((e) => !words.has(e.bed.toLowerCase()) && !words.has(e.facilityNo.toLowerCase()))) out.push("escalation_not_named");
   return out;
 }
 export const QUERY_NOTE_MIN = 5;

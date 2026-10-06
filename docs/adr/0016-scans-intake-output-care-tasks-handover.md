@@ -53,3 +53,10 @@ dual PIN; Handover: draft → outgoing-signed → accepted).
   scanOverrideReason; Organization gains shiftStartHours and ioDayStartHour; machines CARE_TASK and HANDOVER.
 - The owner dashboard's leakage list gains `scanOverride`.
 - Pre-pilot for a clinician: shift times, the I/O day start, the overdue grace for tasks.
+
+## Amendment — Kamrul, 06/10/2026
+The acceptance rule covers **every open escalation on the ward** (raised, doctor-informed or acknowledged; however recent),
+not only unacknowledged ones: the sheet lists them (`openEscalations`, each marked unacknowledged or not) and the
+acceptance note names each by bed or patient number as a whole word, or acceptance is refused (`escalation_not_named`).
+A clinician may relax this later, never tighten it.
+

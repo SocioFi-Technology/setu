@@ -2,7 +2,7 @@
    14:00, 20:00 Dhaka). The sheet lists every patient on the ward with their latest NEWS2, open escalation, due doses,
    the 24-hour fluid balance and open tasks (live while a draft, frozen in the snapshot when signed) and the outgoing
    nurse's SBAR. HANDOVER: draft → outgoing-signed (every patient reviewed, the outgoing nurse's PIN) → accepted (another
-   nurse's PIN; an unacknowledged escalation must be named in the note); query → draft with a note. */
+   nurse's PIN; every open escalation on the ward must be named in the note); query → draft with a note. */
 import { randomUUID } from "node:crypto";
 import type { HandoverPatientUpdate, HandoverPatientView, HandoverView, WardHandover } from "@setu/contracts";
 import type { Tx } from "@setu/db";
@@ -78,13 +78,14 @@ async function view(tx: Tx, s: SessionData, h: H, now: Date, liveIn?: Live[]): P
   if (status === "draft") for (const l of live.filter((x) => !rows.some((r) => r.encounterId === x.encounterId)))
     patients.push({ encounterId: l.encounterId, patient: l.patient, bed: l.bed, onWard: true, news2: l.news2, escalation: l.escalation, doses: l.doses, ioBalance24hMl: l.ioBalance24hMl, openTasks: l.openTasks, sbar: { s: "", b: "", a: "", r: "" }, reviewed: false });
   // the acceptance rule looks at the ward now, whatever the sheet says
-  const unacknowledged = live.filter((p) => p.escalation?.unacknowledged).map((p) => ({ bed: p.bed, facilityNo: p.patient.facilityNo, name: p.patient.nameEn || p.patient.nameBn }));
+  // every open escalation on the ward now (acknowledged or not, however recent — Kamrul, 06/10/2026)
+  const openEscalations = live.filter((p) => p.escalation && p.escalation.status !== "resolved").map((p) => ({ bed: p.bed, facilityNo: p.patient.facilityNo, name: p.patient.nameEn || p.patient.nameBn, peakScore: p.escalation!.peakScore, unacknowledged: p.escalation!.unacknowledged }));
   const start = currentShift(new Date(Date.parse(`${h.shiftDay}T00:00:00Z`) - 6 * 3600_000 + h.shiftStartHour * 3600_000 + 60_000), [h.shiftStartHour, ...((await tx.organization.findFirst({ where: { id: h.organizationId }, select: { shiftStartHours: true } }))?.shiftStartHours ?? [])]);
   return {
     id: h.id, ward, shift: shiftWire(start), status, rev: h.rev, outgoing: who(h.outgoingId), signedAt: h.signedAt?.toISOString() ?? null,
     incoming: h.incomingId ? who(h.incomingId) : null, acceptedAt: h.acceptedAt?.toISOString() ?? null, acceptNote: h.acceptNote,
     query: h.queriedAt ? { note: h.queryNote ?? "", by: who(h.queriedById), at: h.queriedAt.toISOString() } : null,
-    patients, unacknowledged, signBlockers: status === "draft" ? handoverSignBlockers({ patients }) : [], sample: SAMPLE,
+    patients, openEscalations, signBlockers: status === "draft" ? handoverSignBlockers({ patients }) : [], sample: SAMPLE,
   };
 }
 async function wardOf(tx: Tx, s: SessionData, wardId: string) {
@@ -183,13 +184,13 @@ export async function acceptHandover(tx: Tx, s: SessionData, id: string, body: {
   const onSheet = new Set((await tx.handoverPatient.findMany({ where: { handoverId: h.id }, select: { encounterId: true } })).map((r) => r.encounterId));
   const missing = live.filter((p) => !onSheet.has(p.encounterId));
   if (missing.length) throw err(409, "sheet_outdated", `হস্তান্তরের পর নতুন রোগী: ${missing.map((p) => p.bed).join(", ")} — প্রশ্ন করে খসড়ায় ফেরত দিন`, `New patient(s) since it was signed: ${missing.map((p) => p.bed).join(", ")} — query it back to the outgoing nurse`, { blockers: missing.map((p) => ({ code: "not_on_sheet", bed: p.bed })) as unknown as Record<string, unknown>[] });
-  const unack = live.filter((p) => p.escalation?.unacknowledged).map((p) => ({ bed: p.bed, facilityNo: p.patient.facilityNo }));
-  const b = handoverAcceptBlockers({ outgoingId: h.outgoingId, incomingId: s.userId, note: body.note, unacknowledged: unack });
+  const unack = live.filter((p) => p.escalation && p.escalation.status !== "resolved").map((p) => ({ bed: p.bed, facilityNo: p.patient.facilityNo }));
+  const b = handoverAcceptBlockers({ outgoingId: h.outgoingId, incomingId: s.userId, note: body.note, open: unack });
   if (b.includes("same_nurse")) throw err(403, "same_nurse", "নিজের হ্যান্ডওভার নিজে গ্রহণ করা যায় না", "You cannot accept your own handover", { reason: "role", canRequest: false });
-  if (b.includes("escalation_not_named")) throw err(422, "escalation_not_named", `স্বীকৃতিহীন এস্কেলেশন: ${unack.map((u) => u.bed).join(", ")} — গ্রহণের নোটে উল্লেখ করুন`, `Unacknowledged escalation: ${unack.map((u) => u.bed).join(", ")} — name it in the acceptance note`, { field: "note", blockers: unack.map((u) => ({ code: "escalation_not_named", bed: u.bed, facilityNo: u.facilityNo })) as unknown as Record<string, unknown>[] });
+  if (b.includes("escalation_not_named")) throw err(422, "escalation_not_named", `চলমান এস্কেলেশন: ${unack.map((u) => u.bed).join(", ")} — গ্রহণের নোটে প্রতিটির নাম লিখুন`, `Open escalation(s): ${unack.map((u) => u.bed).join(", ")} — name each in the acceptance note`, { field: "note", blockers: unack.map((u) => ({ code: "escalation_not_named", bed: u.bed, facilityNo: u.facilityNo })) as unknown as Record<string, unknown>[] });
   await pinOk(tx, s, body.pin);
   h = await bump(tx, h, { status: toDb(to), incomingId: s.userId, acceptedAt: now, acceptNote: body.note.trim() || null });
-  return { view: await view(tx, s, h, now, live), audit: [{ action: "update", entity: "Handover", entityId: h.id, detail: { event: "accept", unacknowledgedNamed: unack.map((u) => u.bed) } }] };
+  return { view: await view(tx, s, h, now, live), audit: [{ action: "update", entity: "Handover", entityId: h.id, detail: { event: "accept", escalationsNamed: unack.map((u) => u.bed) } }] };
 }
 export async function queryHandover(tx: Tx, s: SessionData, id: string, body: { rev: number; note: string }, now: Date): Promise<{ view: HandoverView; audit: AuditEntry[] }> {
   requireNurse(s);

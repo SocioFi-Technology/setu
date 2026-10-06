@@ -48450,7 +48450,7 @@
                             ]
                           }
                         },
-                        "unacknowledged": {
+                        "openEscalations": {
                           "type": "array",
                           "items": {
                             "type": "object",
@@ -48463,12 +48463,20 @@
                               },
                               "name": {
                                 "type": "string"
+                              },
+                              "peakScore": {
+                                "type": "integer"
+                              },
+                              "unacknowledged": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
                               "bed",
                               "facilityNo",
-                              "name"
+                              "name",
+                              "peakScore",
+                              "unacknowledged"
                             ]
                           }
                         },
@@ -48510,7 +48518,7 @@
                         "acceptNote",
                         "query",
                         "patients",
-                        "unacknowledged",
+                        "openEscalations",
                         "signBlockers",
                         "sample"
                       ]
@@ -49249,7 +49257,7 @@
                         ]
                       }
                     },
-                    "unacknowledged": {
+                    "openEscalations": {
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -49262,12 +49270,20 @@
                           },
                           "name": {
                             "type": "string"
+                          },
+                          "peakScore": {
+                            "type": "integer"
+                          },
+                          "unacknowledged": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
                           "bed",
                           "facilityNo",
-                          "name"
+                          "name",
+                          "peakScore",
+                          "unacknowledged"
                         ]
                       }
                     },
@@ -49309,7 +49325,7 @@
                     "acceptNote",
                     "query",
                     "patients",
-                    "unacknowledged",
+                    "openEscalations",
                     "signBlockers",
                     "sample"
                   ]
@@ -50041,7 +50057,7 @@
                         ]
                       }
                     },
-                    "unacknowledged": {
+                    "openEscalations": {
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -50054,12 +50070,20 @@
                           },
                           "name": {
                             "type": "string"
+                          },
+                          "peakScore": {
+                            "type": "integer"
+                          },
+                          "unacknowledged": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
                           "bed",
                           "facilityNo",
-                          "name"
+                          "name",
+                          "peakScore",
+                          "unacknowledged"
                         ]
                       }
                     },
@@ -50101,7 +50125,7 @@
                     "acceptNote",
                     "query",
                     "patients",
-                    "unacknowledged",
+                    "openEscalations",
                     "signBlockers",
                     "sample"
                   ]
@@ -50879,7 +50903,7 @@
                         ]
                       }
                     },
-                    "unacknowledged": {
+                    "openEscalations": {
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -50892,12 +50916,20 @@
                           },
                           "name": {
                             "type": "string"
+                          },
+                          "peakScore": {
+                            "type": "integer"
+                          },
+                          "unacknowledged": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
                           "bed",
                           "facilityNo",
-                          "name"
+                          "name",
+                          "peakScore",
+                          "unacknowledged"
                         ]
                       }
                     },
@@ -50939,7 +50971,7 @@
                     "acceptNote",
                     "query",
                     "patients",
-                    "unacknowledged",
+                    "openEscalations",
                     "signBlockers",
                     "sample"
                   ]
@@ -51722,7 +51754,7 @@
                         ]
                       }
                     },
-                    "unacknowledged": {
+                    "openEscalations": {
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -51735,12 +51767,20 @@
                           },
                           "name": {
                             "type": "string"
+                          },
+                          "peakScore": {
+                            "type": "integer"
+                          },
+                          "unacknowledged": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
                           "bed",
                           "facilityNo",
-                          "name"
+                          "name",
+                          "peakScore",
+                          "unacknowledged"
                         ]
                       }
                     },
@@ -51782,7 +51822,7 @@
                     "acceptNote",
                     "query",
                     "patients",
-                    "unacknowledged",
+                    "openEscalations",
                     "signBlockers",
                     "sample"
                   ]
@@ -52639,7 +52679,7 @@
                         ]
                       }
                     },
-                    "unacknowledged": {
+                    "openEscalations": {
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -52652,12 +52692,20 @@
                           },
                           "name": {
                             "type": "string"
+                          },
+                          "peakScore": {
+                            "type": "integer"
+                          },
+                          "unacknowledged": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
                           "bed",
                           "facilityNo",
-                          "name"
+                          "name",
+                          "peakScore",
+                          "unacknowledged"
                         ]
                       }
                     },
@@ -52699,7 +52747,7 @@
                     "acceptNote",
                     "query",
                     "patients",
-                    "unacknowledged",
+                    "openEscalations",
                     "signBlockers",
                     "sample"
                   ]

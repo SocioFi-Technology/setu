@@ -2,7 +2,7 @@
    two scans, Given; Held needs reason": Record locked until the wristband and the medicine label are scanned; a wrong
    band or label is refused and audited; "scanner not working" with a reason, never for a high-alert or controlled
    drug (counted per nurse on the owner's exceptions). Then intake / output, care plan tasks and the shift handover
-   (signed when every patient is reviewed; accepted by another nurse; an unacknowledged escalation named in the note). */
+   (signed when every patient is reviewed; accepted by another nurse; every open escalation on the ward named in the note). */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
 import { config } from "../src/config.js";
@@ -147,7 +147,7 @@ describe.runIf(db)("intake / output and care plan tasks", () => {
 });
 
 describe.runIf(db)("the shift handover", () => {
-  it("every patient reviewed before signing; another nurse accepts with her PIN; an unacknowledged escalation must be named", async () => {
+  it("every patient reviewed before signing; another nurse accepts with her PIN; every open escalation must be named", async () => {
     const { sweepEscalations } = await import("../src/modules/ward.js");
     const w = await h.ownWard(2); const a = await h.admit(w, 0); const b = await h.admit(w, 1);
     // an escalation on a, past its acknowledgement time (raised to the doctors on duty)
@@ -159,7 +159,7 @@ describe.runIf(db)("the shift handover", () => {
     expect(v.patients).toHaveLength(2);
     const pa = v.patients.find((p: { encounterId: string }) => p.encounterId === a.encounterId);
     expect(pa.news2.total).toBe(6); expect(pa.escalation.unacknowledged).toBe(true);
-    expect(v.unacknowledged).toEqual([expect.objectContaining({ bed: pa.bed })]);
+    expect(v.openEscalations).toEqual([expect.objectContaining({ bed: pa.bed, unacknowledged: true })]);
     v = (await c.put(`/v1/nursing/handovers/${v.id}/patients/${a.encounterId}`, { rev: v.rev, sbar: { s: "NEWS2 6, febrile", b: "Post-op day 2", a: "Possible sepsis", r: "Hourly obs, chase cultures" }, reviewed: true }, "nurse")).json();
     const early = await c.post(`/v1/nursing/handovers/${v.id}/sign`, { rev: v.rev, pin: "1234" });
     expect(early.statusCode).toBe(422); expect(early.json().code).toBe("not_all_reviewed");
@@ -210,5 +210,23 @@ describe.runIf(db)("the shift handover", () => {
     // the signed sheet stays in hand for the ward (whatever the clock shift) and opening returns it, never a second sheet
     expect((await c.get(`/v1/nursing/wards/${a.wardId}/handover`)).json().handover.id).toBe(v.id);
     expect((await c.post(`/v1/nursing/wards/${a.wardId}/handover`, {}, "nurse2")).json().id).toBe(v.id);
+  });
+  it("an open escalation just raised (not yet unacknowledged) or already acknowledged must still be named (Kamrul, 06/10/2026)", async () => {
+    const w = await h.ownWard(1); const a = await h.admit(w);
+    const esc = (await c.post(`/v1/nursing/encounters/${a.encounterId}/vitals`, { values: { bpSys: 118, bpDia: 76, pulse: 124, temp: 102, spo2: 96, rr: 26, consciousness: "A", onOxygen: false }, effectiveAt: now() })).json().escalation;
+    expect(esc.unacknowledged).toBe(false); // seconds old
+    let v = (await c.post(`/v1/nursing/wards/${a.wardId}/handover`, {})).json();
+    const bed = v.patients[0].bed;
+    expect(v.openEscalations).toEqual([expect.objectContaining({ bed, unacknowledged: false })]);
+    v = (await c.put(`/v1/nursing/handovers/${v.id}/patients/${a.encounterId}`, { rev: v.rev, reviewed: true }, "nurse")).json();
+    v = (await c.post(`/v1/nursing/handovers/${v.id}/sign`, { rev: v.rev, pin: "1234" })).json();
+    // the doctor acknowledges it in the app — it is still open, still named
+    const inbox = (await c.get("/v1/doctor/inbox", "surgeon")).json();
+    const item = inbox.items.find((i: { kind: string; patient: { id: string } }) => i.kind === "news2-escalation" && i.patient.id === a.patientId);
+    expect((await c.post(`/v1/doctor/inbox/${item.id}/ack`, { notifyPatient: false }, "surgeon")).statusCode).toBe(200);
+    const unnamed = await c.post(`/v1/nursing/handovers/${v.id}/accept`, { rev: v.rev, pin: "1234", note: "All taken over" }, "nurse2");
+    expect(unnamed.statusCode).toBe(422); expect(unnamed.json().code).toBe("escalation_not_named");
+    const ok = await c.post(`/v1/nursing/handovers/${v.id}/accept`, { rev: v.rev, pin: "1234", note: `${bed} NEWS2 6 — doctor acknowledged, obs every 15 min` }, "nurse2");
+    expect(ok.statusCode, ok.body).toBe(200);
   });
 });

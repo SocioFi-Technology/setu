@@ -1459,10 +1459,6 @@
     "গ্রহণের নোট",
     "Acceptance note"
   ],
-  "ho_unack": [
-    "স্বীকৃতিহীন এস্কেলেশন: {list} — গ্রহণের নোটে উল্লেখ করুন",
-    "Unacknowledged escalation: {list} — name it in the acceptance note"
-  ],
   "ho_query": [
     "প্রশ্ন করুন (খসড়ায় ফেরত)",
     "Query (back to draft)"
@@ -1526,5 +1522,9 @@
   "task_done_anyway": [
     "হ্যাঁ, সম্পন্ন",
     "Yes, done"
+  ],
+  "ho_open_esc": [
+    "চলমান এস্কেলেশন: {list} — গ্রহণের নোটে প্রতিটির নাম (শয্যা বা রোগীর নম্বর) লিখুন",
+    "Open escalation(s): {list} — name each (bed or patient number) in the acceptance note"
   ]
 }
