@@ -308,6 +308,9 @@ describe.runIf(db)("A5 allergies (ADR 0004)", () => {
 
 describe.runIf(db)("A5 PIN lock (shared with /v1/auth/pin/verify)", () => {
   it("five wrong PINs while signing lock signing for 15 minutes (423); the note stays a draft", async () => {
+    // the tries live in Redis for 15 minutes (review A3): start from none — an earlier run of this test locked it
+    const { counters } = await import("../src/adapters/counters.js");
+    await counters().del("pin:lock:u_e2e_doctor2", "pin:tries:u_e2e_doctor2");
     const { enc } = await newVisit();
     const v = await open(enc, "doctor2");
     const c = await save(v.draft.id, 1, note(), "doctor2");
@@ -316,5 +319,6 @@ describe.runIf(db)("A5 PIN lock (shared with /v1/auth/pin/verify)", () => {
     expect(locked.statusCode).toBe(423);
     expect((await sign(c.id, c.rev, {}, "doctor2")).statusCode).toBe(423); // even the right PIN, while locked
     expect(await inTenant((tx) => tx.composition.findFirst({ where: { id: c.id } }))).toMatchObject({ status: "draft" });
+    await counters().del("pin:lock:u_e2e_doctor2", "pin:tries:u_e2e_doctor2"); // other files sign as doctor2
   });
 });

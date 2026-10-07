@@ -50,7 +50,11 @@ describe("auth", () => {
     const r = await app.inject({ method: "GET", url: "/v1/me" }); expect(r.statusCode).toBe(401);
   });
   it("PIN: wrong tries count down, then lock; right PIN resets", async () => {
-    const { cookie } = await login("01711000001");
+    const { r: me, cookie } = await login("01711000001");
+    // since review A3 the tries live in Redis for 15 minutes: start from none (an earlier run may have locked it)
+    const { counters } = await import("../src/adapters/counters.js");
+    const uid = me.json().userId as string;
+    await counters().del(`pin:lock:${uid}`, `pin:tries:${uid}`);
     for (let i = 1; i < PIN_MAX; i++) {
       const r = await app.inject({ method: "POST", url: "/v1/auth/pin/verify", headers: { cookie }, payload: { pin: "9999" } });
       expect(r.json()).toEqual({ ok: false, triesLeft: PIN_MAX - i });
@@ -61,11 +65,16 @@ describe("auth", () => {
     const ok = await app.inject({ method: "POST", url: "/v1/auth/pin/verify", headers: { cookie: c2 }, payload: { pin: "1234" } });
     expect(ok.json()).toEqual({ ok: true });
   });
-  it("replays an Idempotency-Key with the stored response", async () => {
-    const { cookie } = await login("01711000002");
+  it("a PIN check is never replayed from its Idempotency-Key — each one is counted (review B5)", async () => {
+    const { r: me, cookie } = await login("01711000002");
+    const { counters } = await import("../src/adapters/counters.js");
+    const uid = me.json().userId as string;
+    await counters().del(`pin:lock:${uid}`, `pin:tries:${uid}`);
     const h = { cookie, "idempotency-key": "k-1" };
     const a = await app.inject({ method: "POST", url: "/v1/auth/pin/verify", headers: h, payload: { pin: "0000" } });
     const b = await app.inject({ method: "POST", url: "/v1/auth/pin/verify", headers: h, payload: { pin: "0000" } });
-    expect(b.headers["idempotent-replay"]).toBe("true"); expect(b.json()).toEqual(a.json());
+    expect(b.headers["idempotent-replay"]).toBeUndefined();
+    expect([a.json().triesLeft, b.json().triesLeft]).toEqual([PIN_MAX - 1, PIN_MAX - 2]);
+    await counters().del(`pin:lock:${uid}`, `pin:tries:${uid}`);
   });
 });
