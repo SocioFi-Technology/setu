@@ -16,7 +16,7 @@ services:
     # on the host: SETU_HTTP_BIND=80, SETU_HTTPS_BIND=443, SETU_SITE_ADDRESS=<the staging domain> (Caddy gets its certificate)
     ports: ["${SETU_HTTP_BIND:-127.0.0.1:8088}:80", "${SETU_HTTPS_BIND:-127.0.0.1:8443}:443"]
     environment: { SETU_SITE_ADDRESS: "${SETU_SITE_ADDRESS:-:80}" }
-    volumes: ["./Caddyfile:/etc/caddy/Caddyfile:ro", "caddy-data:/data"]
+    volumes: ["./caddy:/etc/caddy:ro", "caddy-data:/data"]
     depends_on: { staff: { condition: service_healthy } }
     logging: *logging
 
@@ -30,7 +30,7 @@ services:
     image: ${SETU_REGISTRY:-ghcr.io/sociofi-technology}/setu-api:${SETU_TAG:?set SETU_TAG to the commit SHA to deploy}
     restart: unless-stopped
     env_file: ["${SETU_ENV_FILE:-staging.env}"]
-    environment: { API_PORT: "4000", TRUST_PROXY: "2" }
+    environment: { API_PORT: "4000", TRUST_PROXY: "1" }
     deploy: { replicas: 2 }
     stop_grace_period: 20s
     logging: *logging

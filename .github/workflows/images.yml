@@ -1,0 +1,35 @@
+# Staging images (week 2, ADR 0019): built only after CI passed on main, pushed to GHCR (private) tagged with the commit
+# SHA — never "latest". infra/deploy.sh deploys a SHA whose images exist here.
+name: images
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+  packages: write
+jobs:
+  build:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      matrix:
+        target: [api, staff, tools]
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.workflow_run.head_sha }}" }
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}" }
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/Dockerfile
+          target: ${{ matrix.target }}
+          push: true
+          tags: ghcr.io/sociofi-technology/setu-${{ matrix.target }}:${{ github.event.workflow_run.head_sha }}
+          labels: org.opencontainers.image.revision=${{ github.event.workflow_run.head_sha }}
+          cache-from: type=gha,scope=setu-${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=setu-${{ matrix.target }}

@@ -28,10 +28,10 @@ pid=$(node -e 'const p=JSON.parse(process.argv[1]); console.log(p.print.id)' "$p
 code=$(curl -s -b "$jar" -o /tmp/setu-smoke.pdf -w '%{http_code}' "$BASE/api/v1/documents/prints/$pid/pdf")
 [[ "$code" == 200 && "$(head -c 4 /tmp/setu-smoke.pdf)" == "%PDF" ]] && echo "printed into object storage and served back by the API ($(wc -c < /tmp/setu-smoke.pdf) bytes)" || { echo "pdf: HTTP $code"; exit 1; }
 key=$("${DC[@]}" exec -T postgres psql -U setu -d setu -tAc "select \"storageKey\" from \"DocumentPrint\" where id='$pid'")
-anon=$("${DC[@]}" exec -T --index 1 api curl -s -o /dev/null -w '%{http_code}' "http://minio:9000/setu-staging/$key")
+anon=$(docker exec "$("${DC[@]}" ps -q api | sed -n 1p)" curl -s -o /dev/null -w '%{http_code}' "http://minio:9000/setu-staging/$key")
 [[ "$anon" == 403 ]] && echo "anonymous read of the stored file: HTTP 403 (private bucket)" || { echo "anonymous read: HTTP $anon"; exit 1; }
 logs=$("${DC[@]}" logs api --no-log-prefix 2>/dev/null || true)
-first=$(grep '^{' <<<"$logs" | head -n 1)
+first=$(grep -m1 '^{' <<<"$logs")
 node -e 'JSON.parse(process.argv[1]); console.log("api logs are JSON lines")' "$first"
 ! grep -qiE 'setu_session=|deviceKeys"\s*:\s*\{' <<<"$logs" && echo "no cookies or device keys in the logs"
 jobs=$(curl -fsS "$BASE/api/health/jobs"); echo "jobs: ${jobs:0:160}"

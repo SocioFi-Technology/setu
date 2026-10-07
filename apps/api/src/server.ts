@@ -11,6 +11,7 @@ if (config.dbEnabled) scheduleNightlyRollup(app.log);
 // ADR 0011 / 0012: the sweeps, every minute — payments (links never made, executes never answered) and SMS (queued too
 // long → sent; sending too long → failed "it may have been sent", for a person to retry); ADR 0013: gateway refunds
 // claimed and never answered are asked about (Refund Status) — never refunded again by the sweep
+let sweeps: NodeJS.Timeout | undefined;
 if (config.dbEnabled) {
   const { sweepPayments } = await import("./modules/billing.js");
   const { sweepSms } = await import("./modules/lab.js");
@@ -21,7 +22,7 @@ if (config.dbEnabled) {
   const { singleRun } = await import("./modules/jobs.js");
   const job = <T extends object>(name: string, run: () => Promise<T>, worth: (r: T) => unknown) =>
     singleRun(name, run, { summary: (r) => r }).then((x) => { if (x.ran && worth(x.result)) app.log.info({ job: name, result: x.result as object }, `${name} sweep`); }).catch((e) => app.log.error({ err: e, job: name }, `${name} sweep failed`));
-  const t = setInterval(() => {
+  sweeps = setInterval(() => {
     void job("payments", () => sweepPayments(new Date()), (r) => r.failed || r.settled);
     void job("sms", () => sweepSms(new Date()), (r) => r.sent || r.interrupted);
     void job("refunds", () => sweepRefunds(new Date()), (r) => r.checked);
@@ -29,6 +30,13 @@ if (config.dbEnabled) {
     void job("bed-days", () => sweepBedDays(new Date()), (r) => r.posted);
     void job("escalations", () => sweepEscalations(new Date()), (r) => r.widened);
   }, 60_000);
-  t.unref?.();
+  sweeps.unref?.();
 }
+// staging (week 2): a rolling restart stops the old container with SIGTERM — no new sweeps, in-flight requests finish
+// (app.close), then exit; the orchestrator's stop timeout (20 s in deploy.sh) is the backstop
+for (const sig of ["SIGTERM", "SIGINT"] as const) process.once(sig, () => {
+  app.log.info({ signal: sig }, "shutting down");
+  clearInterval(sweeps);
+  app.close().then(() => process.exit(0), (e) => { app.log.error({ err: e }, "close failed"); process.exit(1); });
+});
 app.log.info(`Setu API on :${config.port} · db ${config.dbEnabled ? "enabled" : "disabled (set DATABASE_URL)"} · adapters ${JSON.stringify(config.adapters)}`);

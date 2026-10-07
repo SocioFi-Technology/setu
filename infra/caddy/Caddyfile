@@ -1,0 +1,54 @@
+# Staging / production edge (ADR 0019): TLS (automatic for a real domain), gzip, JSON access logs to stdout, and the
+# app behind it. /api/* and /p/* go straight to the API replicas (one hop, so the API runs with TRUST_PROXY=1; Caddy
+# replaces any X-Forwarded-For a client sends): the replicas are looked up every second, a replica that refuses a
+# connection — starting, or stopping in a rolling restart — is retried on another, and one that fails is skipped for
+# 10 s. Everything else goes to the staff app.
+{
+	# inside the container only (not published): infra/deploy.sh reloads a changed Caddyfile without a restart
+	admin localhost:2019
+	log {
+		output stdout
+		format json
+	}
+}
+{$SETU_SITE_ADDRESS::80} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+	log {
+		output stdout
+		format json
+	}
+	handle_path /api/* {
+		reverse_proxy {
+			dynamic a api 4000 {
+				refresh 1s
+			}
+			lb_policy round_robin
+			lb_retries 3
+			lb_try_duration 5s
+			fail_duration 10s
+		}
+	}
+	handle /p/* {
+		rewrite /p/* /v1/pay/{path.1}
+		reverse_proxy {
+			dynamic a api 4000 {
+				refresh 1s
+			}
+			lb_retries 3
+			lb_try_duration 5s
+			fail_duration 10s
+		}
+	}
+	handle {
+		reverse_proxy staff:3000 {
+			health_uri /login
+			health_interval 15s
+		}
+	}
+}
