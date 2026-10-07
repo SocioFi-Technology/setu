@@ -1300,3 +1300,6 @@ Built on the cautious reading from the reviews; Kamrul to confirm or change.
      details on the checklist are not shown to the pharmacy or the counter.
 317. **A step finished by its event is recorded "done by" whoever's action or view caught it up** (the database wants a
      signed-in person); the event itself is audited by its own actor. A system actor is a later change.
+
+### Decided by Kamrul (07/10/2026) — B10–B12 session 2
+309–317 accepted as recorded.
