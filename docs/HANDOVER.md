@@ -1203,6 +1203,35 @@ plan's wording). One commit per item:
 - **Tests:** typecheck 13/13; domain 449; api 393/393 in one full run (dev API stopped); e2e c1-c4 5/5 and p1-p6 5/5
   on the real stack; walk-owner runs through. The full Playwright suite was not run this session.
 
+## Done (pilot-readiness sprint, week 1–2, 07/10/2026) — A6 follow-up, review section B, gap 10 (2 of 3 + 1), decision 317 ✅
+The review is now in the repo (`docs/reviews/2026-10-04-external-review.md`). One commit per item:
+- **A6 follow-up** (the review's wording): the approval request names the earlier orders; a VAT flag per supplier
+  (included / on top / exempt) copied onto each receipt; a cancelled order's request is *withdrawn* (APPROVAL
+  `withdraw`), not rejected. Open question 321.
+- **A5 fix** (CI caught it): the owner's shift-variance drill reads the hand-over's reason.
+- **B1** a stored lab-report copy is refused (409 `content_changed`) once a value on it was withdrawn or corrected
+  after it was printed; stored downloads are audited as reprints. **B2** a critical vital with no doctor on the visit
+  goes to the duty list, else every active doctor — and then the owner's exceptions say "no duty list set". **B3**
+  withdrawn ≠ under correction in the doctor's inbox; a withdrawn prescription's QR page lists no medicines. **B4** the
+  ORGANIZATION machine (ADR 0010 addendum). **B5** first sign-in through `command()`; the generic idempotency hook never
+  replays `/v1/auth/*` and keys on the user. **B6** gateway tokens AES-GCM encrypted (`GATEWAY_TOKEN_KEY`), the token
+  lock bounded. **B7** one nightly rollup across instances; ADR 0008 amended to 35 days; the lab TAT a true median.
+  **B8** the receipt / voucher checks and the payment QR audited. **B9** per-batch move numbers for count snapshots
+  (commit order); a refused last-unit take is 409 `stock_short`. **B10** drill-down paging (cursor), "Show more".
+  **B11** the shift gate: a payment is in the count or after its window.
+- **Gap 10:** the setu_app password sent as a SCRAM-SHA-256 verifier (`pnpm db:set-app-password`, CI too); composite
+  tenant foreign keys + tenant-match triggers for Task / Provenance targets. **Not built yet: encrypted device drafts
+  and outbox** (waiting on Kamrul — see Next).
+- **Decision 317:** the tenant's system actor (`sys_<tenant>`, no password / role, inactive) is "done by" for the
+  discharge steps an event finishes; the audit keeps who caught it up; a sweep catches up too.
+- **Tests:** typecheck 13/13; domain 451; api 404/408 then the four fixed (the known lab load timeout, three PIN /
+  replay tests that a 15-minute Redis lock and B5 changed). **Full Playwright (2 workers, fresh servers): 93 passed,
+  11 failed, 5 did not run** — one Chromium "session closed" crash and its knock-on (a patient left linked → 4 search
+  results instead of 5), 30 s budgets under load. Every failing file rerun (2 workers): all green except b1-b2
+  "decisions 240 and 243" twice — five argon2 sign-ins past the default 30 s; given 90 s, green — and r1-r4 R1 / R2,
+  intermittent (R1 failed twice, passed twice and alone 5/5; R2 once, a checkbox click that did not take). Not a clean
+  full run yet: rerun the full suite before the next push.
+
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
 2. ~~MinIO image cannot be pulled~~ — dev and tests store receipts with `LocalFolderStorage` (A6–A7). Before staging: an S3-compatible adapter behind the same `Storage` interface.
@@ -1215,8 +1244,8 @@ plan's wording). One commit per item:
 8. Front desk follow-ups (not blocking A4): queue reorder with reason (+ audit), Lab/Billing queue columns, register "Save draft" and the register-screen Compare for an unsaved form (today: "Visit on this record" per candidate), payer/photo/referral fields (need Coverage/Media), records-officer role for review Tasks, branch choice for multi-branch organisations.
 9. Some screen strings still come from the shell's inline `L(bn, en)`; new screens use `packages/i18n` namespaces (`locales/app/*.json`).
 10. **Pre-pilot security pass** (decided 02/10/2026, open questions 20 and 24):
-    - composite `(tenantId, id)` foreign keys for Patient.linkedToId, Task.focusId/candidateId, Provenance.targetId and Encounter.patientId (defence in depth beside RLS);
-    - `pnpm db:migrate` must stop sending the `setu_app` password in plain text (SCRAM hash, or statement logging off);
+    - ~~composite `(tenantId, id)` foreign keys for Patient.linkedToId, Task.focusId/candidateId, Provenance.targetId and Encounter.patientId~~ — done 07/10/2026 (keys + tenant-match triggers);
+    - ~~`pnpm db:migrate` must stop sending the `setu_app` password in plain text~~ — done 07/10/2026 (SCRAM verifier);
     - together with gap 3 (argon2id) and gap 4 (PIN tries in Redis);
     - device drafts and queued outbox writes encrypted (or signed) with a key bound to the server session, so a copy
       left in a browser is unreadable and a planted copy is never sent (security review A5, open question 79).
@@ -1271,9 +1300,10 @@ plan's wording). One commit per item:
    deposits, the discharge checklist (ADR 0017) · ~~B10–B12~~ the final bill, the discharge summary, LAMA / death, the bed
    after discharge (ADR 0018). One patient runs ER arrival → discharge in `e2e/journeys/journey-b.spec.ts`. Kamrul to
    confirm open questions 309–317.
-8. **The pilot-readiness sprint** (`docs/plans/2026-10-07-pilot-readiness-sprint.md`): ~~track 1 week 1, A1–A6~~ — done
-   07/10/2026. **Next:** week 1–2, review section B (B1–B11) and the staging prerequisites, then gap 10 (composite keys,
-   encrypted device drafts, `pnpm db:migrate` without the role password in clear). Kamrul to confirm open questions 318–320.
+8. **The pilot-readiness sprint** (`docs/plans/2026-10-07-pilot-readiness-sprint.md`): ~~track 1 week 1, A1–A6~~,
+   ~~week 1–2: the A6 follow-up, review section B (B1–B11), gap 10 (SCRAM, tenant keys), decision 317~~ — done
+   07/10/2026. **Next:** the encrypted device drafts / outbox (gap 10's last part — Kamrul's answer on queued writes
+   first), then review section C and the staging prerequisites. Kamrul to confirm open question 321.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

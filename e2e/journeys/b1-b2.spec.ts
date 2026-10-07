@@ -237,6 +237,7 @@ test.describe("Journey B — B1 arrival and triage, B2 orders and disposition, t
   });
 
   test("decisions 240 and 243: a nurse's protocol order waits for the doctor and is countersigned by the sign; the nurse marks a bay ready", async ({ page, request }) => {
+    test.setTimeout(90_000); // five sign-ins (argon2 since review A2) and the lab and ER screens: past the default 30 s under load
     const p = await newPatient(request, "Protocol");
     await login(page, NURSE);
     await page.goto("/m/er/triage");
