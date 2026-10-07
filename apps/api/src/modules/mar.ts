@@ -17,8 +17,7 @@ import { getPatient, notFound, toSummary } from "./frontdesk.js";
 import { closedVisit, erPatientOf, inpatientHere, iso, peopleOf, stale, type Inpatient } from "./inpatient.js";
 import { config } from "../config.js";
 import { qrSvg } from "../receipts/template.js";
-import { requirePin } from "./pin.js";
-import { devHash } from "./users.js";
+import { requirePin, requireUserPin } from "./pin.js";
 
 type Med = NonNullable<Awaited<ReturnType<Tx["medicine"]["findFirst"]>>>;
 type Order = NonNullable<Awaited<ReturnType<Tx["medicationRequest"]["findFirst"]>>>;
@@ -154,8 +153,7 @@ async function witnessRole(tx: Tx, s: SessionData, userId: string): Promise<"nur
   return roles.some((r) => r.role === "nurse") ? "nurse" : roles.some((r) => r.role === "doctor") ? "doctor" : null;
 }
 export async function verifyWitnessPin(tx: Tx, userId: string, pin: string) {
-  const u = await tx.user.findFirst({ where: { id: userId }, select: { pinHash: true } });
-  try { await requirePin(userId, () => Boolean(u?.pinHash) && u!.pinHash === devHash(pin)); }
+  try { await requireUserPin(tx, userId, pin); }
   catch (e) {
     if (e instanceof HttpError && e.body.code === "pin_wrong") throw err(401, "witness_pin_wrong", "সাক্ষীর পিন ভুল", "The witness's PIN is wrong", { field: "witness.pin", triesLeft: e.body.triesLeft });
     if (e instanceof HttpError && e.body.code === "pin_locked") throw err(423, "witness_pin_locked", "সাক্ষীর পিন ১৫ মিনিটের জন্য বন্ধ", "The witness's PIN is locked for 15 minutes", { lockedUntil: e.body.lockedUntil });

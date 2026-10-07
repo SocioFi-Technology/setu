@@ -31,8 +31,7 @@ import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
 import { refreshDraftOrders } from "./billing.js";
 import { branchOf, notFound } from "./frontdesk.js";
-import { requirePin } from "./pin.js";
-import { devHash } from "./users.js";
+import { requirePin, requireUserPin } from "./pin.js";
 
 const dash = <T extends string>(s: string) => s.replace(/_/g, "-") as T;
 const undash = <T extends string>(s: string) => s.replace(/-/g, "_") as T;
@@ -745,8 +744,7 @@ export async function withdrawTest(tx: Tx, s: SessionData, orderId: string, reas
 
 /* ───── A10: verify, call-back, validate ───── */
 async function checkPin(tx: Tx, s: SessionData, pin: string) {
-  const u = await tx.user.findFirst({ where: { id: s.userId }, select: { pinHash: true } });
-  await requirePin(s.userId, () => Boolean(u?.pinHash) && u!.pinHash === devHash(pin));
+  await requireUserPin(tx, s.userId, pin);
 }
 const sameSet = (a: string[], b: string[]) => a.length === b.length && new Set(a).size === a.length && a.every((x) => b.includes(x));
 /** The rows to act on: exactly the ids given, all current lab results of this visit, and whole tests (every result of

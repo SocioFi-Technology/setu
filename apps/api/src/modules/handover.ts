@@ -13,8 +13,7 @@ import type { SessionData } from "../plugins/session.js";
 import { io24h } from "./care.js";
 import { notFound } from "./frontdesk.js";
 import { peopleOf, stale } from "./inpatient.js";
-import { requirePin } from "./pin.js";
-import { devHash } from "./users.js";
+import { requirePin, requireUserPin } from "./pin.js";
 import { wardBoard } from "./ward.js";
 
 const SAMPLE = { bn: "শিফটের সময় নমুনা — ক্লিনিশিয়ানের অনুমোদন বাকি", en: "Shift times are a sample — pending clinician sign-off" };
@@ -154,8 +153,7 @@ export async function updateHandoverPatient(tx: Tx, s: SessionData, id: string, 
   return { view: await view(tx, s, h, now, live), audit: [{ action: "update", entity: "Handover", entityId: h.id, patientId: r.patientId, detail: { encounterId, sbar: Boolean(req.sbar), reviewed: req.reviewed ?? null } }] };
 }
 async function pinOk(tx: Tx, s: SessionData, pin: string) {
-  const u = await tx.user.findFirst({ where: { id: s.userId }, select: { pinHash: true } });
-  await requirePin(s.userId, () => Boolean(u?.pinHash) && u!.pinHash === devHash(pin));
+  await requireUserPin(tx, s.userId, pin);
 }
 export async function signHandover(tx: Tx, s: SessionData, id: string, body: { rev: number; pin: string }, now: Date): Promise<{ view: HandoverView; audit: AuditEntry[] }> {
   requireNurse(s);

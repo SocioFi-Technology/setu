@@ -4,7 +4,8 @@ import { capabilities, passwordProblems, pinProblems } from "@setu/domain";
 import { aiEnabled } from "../adapters/ai.js";
 import { config } from "../config.js";
 import { err, unauthorized } from "../errors.js";
-import { checkPassword, checkPin, devHash, findLoginCandidates, findUserById } from "../modules/users.js";
+import { checkPassword, checkPin, findLoginCandidates, findUserById } from "../modules/users.js";
+import { decoyVerify, hashSecret } from "../modules/secrets.js";
 import { checkPinAttempt } from "../modules/pin.js";
 import { COOKIE, encodeSession, requireSession, type SessionData } from "../plugins/session.js";
 
@@ -15,8 +16,12 @@ export async function authRoutes(app: FastifyInstance) {
   app.post("/v1/auth/login", { config: { audit: { action: "login", entity: "User" } } }, async (req, reply) => {
     const body = LoginRequest.parse(req.body);
     /* The same phone may exist in two tenants; exactly one account must match the password, never a guess. */
-    const matches = (await findLoginCandidates(body.identifier)).filter((c) => checkPassword(c, body.password));
-    const u = matches.length === 1 ? matches[0]! : null;
+    const candidates = await findLoginCandidates(body.identifier);
+    if (!candidates.length) await decoyVerify(body.password); // no account: the same cost as a wrong password (review A2)
+    const checked = await Promise.all(candidates.map(async (c) => ({ c, v: await checkPassword(c, body.password) })));
+    const matches = checked.filter((x) => x.v.ok);
+    const u = matches.length === 1 ? matches[0]!.c : null;
+    const rehash = matches.length === 1 && matches[0]!.v.rehash;
     if (!u || !u.roles[0]) throw err(401, "bad_credentials", "ফোন/ইমেইল বা পাসওয়ার্ড ভুল", "Wrong phone/email or password");
     // ADR 0010: a one-time password works once, for 24 hours, and only to set the user's own password and PIN
     if (u.mustChangePassword && (!u.tempPasswordExpiresAt || Date.parse(u.tempPasswordExpiresAt) < Date.now()))
@@ -36,6 +41,8 @@ export async function authRoutes(app: FastifyInstance) {
         if (n.count !== 1) throw err(401, "otp_used", "এই এককালীন পাসওয়ার্ড আগেই ব্যবহার হয়েছে — অ্যাডমিনকে নতুনটি দিতে বলুন", "This one-time password was already used — ask the admin for a new one");
         generation += 1;
       } else await forTenant(u.tenantId, (tx) => tx.user.update({ where: { id: u.id }, data: { lastLoginAt: now } }), { userId: u.id });
+      // review A2: an old-style password hash becomes argon2id on this successful login
+      if (rehash) { const h = await hashSecret(body.password); await forTenant(u.tenantId, (tx) => tx.user.update({ where: { id: u.id }, data: { passwordHash: h } }), { userId: u.id }); }
     }
     const session: SessionData = { userId: u.id, tenantId: u.tenantId, organizationId: r.organizationId, organizationName: r.organizationName, role: r.role, plan, nameBn: u.nameBn, nameEn: u.nameEn,
       generation, ...(u.mustChangePassword ? { setup: true } : {}) };
@@ -71,8 +78,9 @@ export async function authRoutes(app: FastifyInstance) {
       pw.length ? "Password: at least 8 characters, a letter and a digit, not your phone number" : "PIN: 4 digits, not too simple (not 1111 / 1234)", { field: pw.length ? "password" : "pin" });
     // atomic: a reset or role change that lands meanwhile wins (the generation no longer matches → refused)
     const generation = u.sessionGeneration + 1;
+    const [passwordHash, pinHash] = await Promise.all([hashSecret(body.password), hashSecret(body.pin)]);
     const n = await forTenant(s.tenantId, (tx) => tx.user.updateMany({ where: { id: u.id, active: true, mustChangePassword: true, sessionGeneration: u.sessionGeneration },
-      data: { passwordHash: devHash(body.password), pinHash: devHash(body.pin), mustChangePassword: false, tempPasswordExpiresAt: null, tempPasswordUsedAt: null, sessionGeneration: { increment: 1 } } }), { userId: s.userId });
+      data: { passwordHash, pinHash, mustChangePassword: false, tempPasswordExpiresAt: null, tempPasswordUsedAt: null, sessionGeneration: { increment: 1 } } }), { userId: s.userId });
     if (n.count !== 1) throw err(401, "session_ended", "আপনার সেশন শেষ — আবার লগইন করুন", "Your session has ended — sign in again");
     const session: SessionData = { ...s, generation, setup: undefined };
     delete session.setup;
@@ -91,6 +99,13 @@ export async function authRoutes(app: FastifyInstance) {
     const u = await findUserById(s.tenantId, s.userId);
     // an ended session is no PIN oracle (security review)
     if (!u || (config.dbEnabled && (u.sessionGeneration ?? 0) !== (s.generation ?? 0))) throw unauthorized();
-    return checkPinAttempt(s.userId, () => checkPin(u, pin));
+    let rehash = false;
+    const r = await checkPinAttempt(s.userId, async () => { const v = await checkPin(u, pin); rehash = v.rehash; return v.ok; });
+    if (rehash && config.dbEnabled) {
+      const h = await hashSecret(pin);
+      const { forTenant } = await import("@setu/db");
+      await forTenant(s.tenantId, (tx) => tx.user.update({ where: { id: s.userId }, data: { pinHash: h } }), { userId: s.userId });
+    }
+    return r;
   });
 }

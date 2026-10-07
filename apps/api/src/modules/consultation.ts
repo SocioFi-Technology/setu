@@ -16,8 +16,7 @@ import { aiDrafter, type AiContext } from "../adapters/ai.js";
 import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
 import { branchOf, criticalVisits, notFound } from "./frontdesk.js";
-import { devHash } from "./users.js";
-import { requirePin } from "./pin.js";
+import { requirePin, requireUserPin } from "./pin.js";
 import { encounterHere, toVitalsEncounter } from "./vitals.js";
 
 const KIND = "consultation-note";
@@ -285,8 +284,7 @@ export async function signComposition(tx: Tx, s: SessionData, id: string, body: 
   const { c, e } = await compositionHere(tx, s, id);
   requireAuthorOfDraft(c, s);
   // The PIN is checked first, inside this transaction: a wrong PIN refuses everything (and counts as a try).
-  const u = await tx.user.findFirst({ where: { id: s.userId }, select: { pinHash: true } });
-  await requirePin(s.userId, () => Boolean(u?.pinHash) && u!.pinHash === devHash(body.pin));
+  await requireUserPin(tx, s.userId, body.pin);
   if (body.rev !== c.rev) throw stale(); // sign exactly the version the doctor saw
 
   const [conditions, meds, allergies] = await Promise.all([

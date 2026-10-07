@@ -22,8 +22,7 @@ import { iso, peopleOf, stale } from "./inpatient.js";
 import { deliverInApp } from "./lab.js";
 import { isActive, ordersOf } from "./mar.js";
 import { progressAll } from "./pharmacy.js";
-import { requirePin } from "./pin.js";
-import { devHash } from "./users.js";
+import { requirePin, requireUserPin } from "./pin.js";
 
 const CURRENT = ["final", "amended"];
 type Comp = NonNullable<Awaited<ReturnType<Tx["composition"]["findFirst"]>>>;
@@ -228,8 +227,7 @@ export async function saveSummary(tx: Tx, s: SessionData, id: string, body: Save
 
 export async function signSummary(tx: Tx, s: SessionData, id: string, body: SignSummaryRequest, now: Date): Promise<{ view: SummaryView; audit: AuditEntry[] }> {
   const { c, a } = await draftHere(tx, s, id);
-  const u = await tx.user.findFirst({ where: { id: s.userId }, select: { pinHash: true } });
-  await requirePin(s.userId, () => Boolean(u?.pinHash) && u!.pinHash === devHash(body.pin));
+  await requireUserPin(tx, s.userId, body.pin);
   if (body.rev !== c.rev) throw stale();
   const d = await liveDischarge(tx, a.id);
   if (!d || d.kind === "death") throw err(409, "no_discharge", "ছুটির আদেশ (বা LAMA রেকর্ড) নেই", "No discharge (or LAMA) is recorded");

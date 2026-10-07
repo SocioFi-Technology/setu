@@ -20,15 +20,16 @@
     "reset-e2e": "dotenv -e ../../.env -- tsx src/reset-e2e.ts"
   },
   "dependencies": {
+    "@node-rs/argon2": "2.0.2",
     "@prisma/client": "^6.1.0",
     "@setu/domain": "workspace:*",
     "dotenv": "^16.4.0"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
+    "dotenv-cli": "^8.0.0",
     "prisma": "^6.1.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.6.0",
-    "@types/node": "^22.0.0",
-    "dotenv-cli": "^8.0.0"
+    "typescript": "^5.6.0"
   }
 }

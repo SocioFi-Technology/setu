@@ -1,7 +1,9 @@
 /* `pnpm db:reset-e2e`: puts the E2E Test Clinic's walkthrough family back to its seeded state (no links, seeded
    identity confidence, no open reviews) before a journey run. Touches only tenant t_e2e; never the demo clinic.
    Patients and visits the tests create stay in t_e2e, out of the demo clinic's queue. */
-import { createHash } from "node:crypto";
+import { hash as argon2 } from "@node-rs/argon2";
+/** argon2id as the API stores it (external review A2) */
+const ARGON = { memoryCost: 19_456, timeCost: 2, parallelism: 1 };
 import { ALLERGY, APPROVAL, ENCOUNTER, transition, type EncounterState, SHIFT } from "@setu/domain";
 import { owner as db } from "./owner.ts";
 import { SEED_BED_STATES } from "./wards.ts";
@@ -192,7 +194,7 @@ await db.chargeItemDefinition.deleteMany({ where: { organizationId: NEW } });
 const testUsers = (await db.practitionerRole.findMany({ where: { organizationId: NEW, userId: { not: NEW_ADMIN } }, select: { userId: true } })).map((r) => r.userId);
 await db.practitionerRole.deleteMany({ where: { organizationId: NEW, userId: { not: NEW_ADMIN } } });
 await db.user.updateMany({ where: { id: { in: testUsers }, roles: { none: {} } }, data: { active: false, deactivatedAt: now, deactivatedReason: "e2e reset: test run", sessionGeneration: { increment: 1 } } });
-await db.user.update({ where: { id: NEW_ADMIN }, data: { active: true, mustChangePassword: false, tempPasswordExpiresAt: null, passwordHash: createHash("sha256").update("dev-only:setu1234").digest("hex"), pinHash: createHash("sha256").update("dev-only:2580").digest("hex") } });
+await db.user.update({ where: { id: NEW_ADMIN }, data: { active: true, mustChangePassword: false, tempPasswordExpiresAt: null, passwordHash: await argon2("setu1234", ARGON), pinHash: await argon2("2580", ARGON) } });
 // the patient-number counter of each E2E tenant past every number in use: after thousands of synthetic patients the
 // clinic's counter reached the seeded walkthrough numbers (E2E-250044) and every registration collided
 let countersMoved = 0;

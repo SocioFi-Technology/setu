@@ -22,8 +22,7 @@ import { syncAdmission } from "./ipdBill.js";
 import { deliverInApp } from "./lab.js";
 import { verifyWitnessPin } from "./mar.js";
 import { escWire } from "./ward.js";
-import { requirePin } from "./pin.js";
-import { devHash } from "./users.js";
+import { requirePin, requireUserPin } from "./pin.js";
 
 type Dis = NonNullable<Awaited<ReturnType<Tx["discharge"]["findFirst"]>>>;
 type Step = NonNullable<Awaited<ReturnType<Tx["dischargeStep"]["findFirst"]>>>;
@@ -47,8 +46,7 @@ export function requireDischarge(s: SessionData) {
   throw err(403, "forbidden", "এই পাতা আপনার জন্য নয়", "This page is not for you", { reason: plan ? "plan" : "role", canRequest: false });
 }
 const checkPin = async (tx: Tx, s: SessionData, pin: string) => {
-  const u = await tx.user.findFirst({ where: { id: s.userId }, select: { pinHash: true } });
-  await requirePin(s.userId, () => Boolean(u?.pinHash) && u!.pinHash === devHash(pin));
+  await requireUserPin(tx, s.userId, pin);
 };
 const statesOf = (steps: Step[]): StepStates => Object.fromEntries(steps.map((x) => [x.key, x.status]));
 const kindOf = (d: Dis) => d.kind as DischargeKind;

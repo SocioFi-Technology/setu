@@ -12,9 +12,8 @@ import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
 import { notFound } from "./frontdesk.js";
 import { peopleOf, stale } from "./inpatient.js";
-import { requirePin } from "./pin.js";
+import { requirePin, requireUserPin } from "./pin.js";
 import { batchFor } from "./purchasing.js";
-import { devHash } from "./users.js";
 
 type Ind = NonNullable<Awaited<ReturnType<Tx["wardIndent"]["findFirst"]>>> & { lines: NonNullable<Awaited<ReturnType<Tx["wardIndentLine"]["findFirst"]>>>[] };
 const wire = (st: string) => st.replace(/_/g, "-") as IndentView["status"];
@@ -77,8 +76,7 @@ export async function issueIndent(tx: Tx, s: SessionData, id: string, body: Inde
   }
   if (body.lines.some((x) => meds.get(i.lines.find((l) => l.id === x.lineId)!.medicineKey)?.controlled)) {
     if (!body.pin) throw err(422, "pin_required", "নিয়ন্ত্রিত ওষুধ — আপনার পিন দিন", "A controlled drug — enter your PIN", { field: "pin" });
-    const u = await tx.user.findFirst({ where: { id: s.userId }, select: { pinHash: true } });
-    await requirePin(s.userId, () => Boolean(u?.pinHash) && u!.pinHash === devHash(body.pin!));
+    await requireUserPin(tx, s.userId, body.pin!);
   }
   const today = dhakaDay(now), wardLoc = wardStockLocation(i.wardId), audit: AuditEntry[] = [];
   for (const x of body.lines) {

@@ -15,8 +15,7 @@ import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
 import { toAllergyView } from "./consultation.js";
 import { branchOf, getPatient, notFound, toSummary } from "./frontdesk.js";
-import { requirePin } from "./pin.js";
-import { devHash } from "./users.js";
+import { requirePin, requireUserPin } from "./pin.js";
 
 export const ER_NOTE = "er-note";
 /* Shared with ipd.ts (review: one copy of each helper). */
@@ -407,8 +406,7 @@ export async function signDisposition(tx: Tx, s: SessionData, id: string, body: 
   const d = body.disposition;
   const blockers = dispositionBlockers(d);
   if (blockers.length) throw err(422, "sign_blocked", `${blockers.length}টি ঘর ঠিক করুন — স্বাক্ষর হয়নি`, `Resolve ${blockers.length} item(s) — not signed`, { blockers: blockers as unknown as Record<string, unknown>[] });
-  const u = await tx.user.findFirst({ where: { id: s.userId }, select: { pinHash: true } });
-  await requirePin(s.userId, () => Boolean(u?.pinHash) && u!.pinHash === devHash(body.pin));
+  await requireUserPin(tx, s.userId, body.pin);
   const audit: AuditEntry[] = [];
   if (redispose) {
     // ADR 0003: the new disposition is version n+1, amending the signed one, which is superseded in the same transaction

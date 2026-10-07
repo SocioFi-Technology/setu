@@ -23,7 +23,7 @@ import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
 import { notFound } from "./frontdesk.js";
-import { devHash } from "./users.js";
+import { hashSecret } from "./secrets.js";
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 const APPROVERS: Role[] = ["owner", "admin"];
@@ -227,7 +227,7 @@ export async function createUser(tx: Tx, s: SessionData, req: UserCreate, now: D
   const body = REG_BODY[req.role];
   if (body && !req.regNo?.trim()) throw err(400, "reg_required", `${body} নিবন্ধন নম্বর লিখুন`, `Enter the ${body} registration number`, { field: "regNo" });
   const otp = oneTimePassword(), expiresAt = new Date(now.getTime() + ONE_TIME_PASSWORD_HOURS * 3600_000);
-  const u = await tx.user.create({ data: { tenantId: s.tenantId, nameBn: req.nameBn, nameEn: req.nameEn, phone, passwordHash: devHash(otp), mustChangePassword: true, tempPasswordExpiresAt: expiresAt } });
+  const u = await tx.user.create({ data: { tenantId: s.tenantId, nameBn: req.nameBn, nameEn: req.nameEn, phone, passwordHash: await hashSecret(otp), mustChangePassword: true, tempPasswordExpiresAt: expiresAt } });
   await tx.practitionerRole.create({ data: { tenantId: s.tenantId, userId: u.id, organizationId: s.organizationId, role: req.role } });
   if (body) await tx.practitioner.create({ data: { tenantId: s.tenantId, userId: u.id, regBody: body, regNo: req.regNo!.trim().toUpperCase(), regVerified: false } });
   const row = (await usersHere(tx, s, [u.id]))[0]!;
@@ -273,7 +273,7 @@ export async function resetPassword(tx: Tx, s: SessionData, id: string, now: Dat
   await guardAccount(tx, s, u);
   if (!u.active) throw err(409, "inactive", "বন্ধ ব্যবহারকারী — আগে চালু করুন", "This user is switched off — reactivate first");
   const otp = oneTimePassword(), expiresAt = new Date(now.getTime() + ONE_TIME_PASSWORD_HOURS * 3600_000);
-  await tx.user.update({ where: { id: u.id }, data: { passwordHash: devHash(otp), pinHash: null, mustChangePassword: true, tempPasswordExpiresAt: expiresAt, tempPasswordUsedAt: null, sessionGeneration: { increment: 1 } } });
+  await tx.user.update({ where: { id: u.id }, data: { passwordHash: await hashSecret(otp), pinHash: null, mustChangePassword: true, tempPasswordExpiresAt: expiresAt, tempPasswordUsedAt: null, sessionGeneration: { increment: 1 } } });
   return { res: credential((await usersHere(tx, s, [u.id]))[0]!, otp, expiresAt), audit: [{ action: "reset-password", entity: "User", entityId: u.id }] };
 }
 export async function verifyRegistration(tx: Tx, s: SessionData, id: string, regNo: string | undefined): Promise<{ user: UserView; audit: AuditEntry[] }> {

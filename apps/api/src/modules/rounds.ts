@@ -18,9 +18,8 @@ import { activeAllergyFacts, toAllergyView } from "./consultation.js";
 import { getPatient, notFound, toSummary } from "./frontdesk.js";
 import { closedVisit, dayOfStay, erPatientOf, inpatientHere, iso, latestNews2, news2OfBatch, peopleOf, stale, type Enc } from "./inpatient.js";
 import { isActive, medWire, ordersOf } from "./mar.js";
-import { requirePin } from "./pin.js";
+import { requirePin, requireUserPin } from "./pin.js";
 import { syncForEncounter } from "./ipdBill.js";
-import { devHash } from "./users.js";
 import { escWire, noteWire } from "./ward.js";
 
 const KIND = "progress-note";
@@ -199,8 +198,7 @@ export async function signRound(tx: Tx, s: SessionData, id: string, body: { rev:
   const blockers = [...roundNoteBlockers(c.sections as unknown as RoundNoteSections).map((code) => ({ code })), ...warnings.map((w) => ({ code: "rx", warning: w })),
     ...restarts.map((l) => ({ code: "line_stopped", line: l.id, drug: l.brand }))];
   if (blockers.length) throw err(422, "sign_blocked", `${blockers.length}টি সতর্কতা ঠিক করুন — স্বাক্ষর হয়নি`, `Resolve ${blockers.length} warning(s) — not signed`, { blockers: blockers as unknown as Record<string, unknown>[] });
-  const u = await tx.user.findFirst({ where: { id: s.userId }, select: { pinHash: true } });
-  await requirePin(s.userId, () => Boolean(u?.pinHash) && u!.pinHash === devHash(body.pin));
+  await requireUserPin(tx, s.userId, body.pin);
   const audit: AuditEntry[] = [];
   // regimens: a line continues a v1 line of the same thread only when drug, dose, route and frequency are unchanged
   const v1Lines = c.amendsId ? await tx.medicationRequest.findMany({ where: { compositionId: c.amendsId, kind: "inpatient", orderStatus: "active" } }) : [];
@@ -262,8 +260,7 @@ export async function stopOrder(tx: Tx, s: SessionData, id: string, body: { reas
   if (bl.includes("doctor_only")) throw err(403, "forbidden", "অর্ডার বন্ধ করেন ডাক্তার", "A doctor stops an order", { reason: "role", canRequest: false });
   if (bl.includes("reason")) throw err(400, "reason_required", "বন্ধের কারণ লিখুন (অন্তত ৫ অক্ষর)", "Give the reason (at least 5 characters)", { field: "reason" });
   if (bl.includes("not_active")) throw err(409, "not_active", "অর্ডারটি সক্রিয় নয়", "The order is not active");
-  const u = await tx.user.findFirst({ where: { id: s.userId }, select: { pinHash: true } });
-  await requirePin(s.userId, () => Boolean(u?.pinHash) && u!.pinHash === devHash(body.pin));
+  await requireUserPin(tx, s.userId, body.pin);
   transition("medication-order", MEDICATION_ORDER, "active", "stop");
   const n = await tx.medicationRequest.updateMany({ where: { id: o.id, orderStatus: "active" }, data: { orderStatus: "stopped", stoppedAt: now, stoppedById: s.userId, stopReason: body.reason.trim() } });
   if (n.count !== 1) throw stale();
