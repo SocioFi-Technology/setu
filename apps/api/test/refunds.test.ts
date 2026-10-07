@@ -181,6 +181,9 @@ describe.runIf(db)("a cancelled test refunded in cash (bill/refund)", () => {
     const pub = await app.inject({ method: "GET", url: `/v1/verify/rf/${code}` });
     expect(pub.statusCode, pub.body).toBe(200);
     expect(pub.json()).toEqual({ facilityEn: expect.any(String), facilityBn: expect.anything(), number: paid.view.refund.voucher.number, date: expect.any(String), amountPaisa: 15_000 });
+    const va = await inTenant((tx) => tx.auditEvent.findFirst({ where: { entity: "RefundVoucher", basis: "public-verify", detail: { path: ["code"], equals: code.slice(0, 4) } }, orderBy: { at: "desc" } }));
+    expect(va).toMatchObject({ userId: null, action: "view", organizationId: "o_e2e" }); // external review B8
+    expect(va!.patientId).toBeTruthy();
     expect((await app.inject({ method: "GET", url: "/v1/verify/rf/ZZZZZZZZZZZZZZZZZZZZ" })).statusCode).toBe(404);
     expect(await inTenant((tx) => tx.refundVoucher.count({ where: { refundId: r.refund.id } }))).toBe(1);
     // printed like a receipt: the original, then only with a reason as DUPLICATE #1; each print stored and audited

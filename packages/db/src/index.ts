@@ -50,13 +50,16 @@ export async function paymentRefLookup(provider: string, providerRef: string): P
 
 /** The public receipt verify page (slice A6–A7): facility, receipt number, date and amount for a verify code — never
     the patient. SECURITY DEFINER; the only pre-tenant read the verify route makes. */
-export async function receiptVerifyLookup(code: string): Promise<{ facilityEn: string; facilityBn: string | null; number: string; createdAt: string; paidPaisa: number } | null> {
-  const rows = await prisma.$queryRaw<{ hit: { facilityEn: string; facilityBn: string | null; number: string; createdAt: string; paidPaisa: number } | null }[]>`SELECT receipt_verify_lookup(${code}::text) AS hit`;
+/** external review B8: `target` (tenant, facility, patient, the document) is for the audit row only — never answered. */
+export interface VerifyAuditTarget { tenantId: string; organizationId: string; patientId: string | null; documentId: string }
+export async function receiptVerifyLookup(code: string): Promise<{ facilityEn: string; facilityBn: string | null; number: string; createdAt: string; paidPaisa: number; target: VerifyAuditTarget } | null> {
+  const rows = await prisma.$queryRaw<{ hit: ({ facilityEn: string; facilityBn: string | null; number: string; createdAt: string; paidPaisa: number } & VerifyAuditTarget) | null }[]>`SELECT receipt_verify_lookup(${code}::text) AS hit`;
   const hit = rows[0]?.hit ?? null;
   // A timestamp inside jsonb comes back without a time zone; the column holds UTC (hands-on test 03/10/2026: the
   // verify page showed the UTC clock as Dhaka time).
-  return hit ? { ...hit, createdAt: /[zZ]|[+-]\d\d:?\d\d$/.test(hit.createdAt) ? hit.createdAt : `${hit.createdAt}Z` } : null;
+  return hit ? { ...hit, createdAt: /[zZ]|[+-]\d\d:?\d\d$/.test(hit.createdAt) ? hit.createdAt : `${hit.createdAt}Z`, target: targetOf(hit) } : null;
 }
+const targetOf = (h: VerifyAuditTarget): VerifyAuditTarget => ({ tenantId: h.tenantId, organizationId: h.organizationId, patientId: h.patientId ?? null, documentId: h.documentId });
 
 /* ── ADR 0011: wallet gateways ── */
 export interface GatewayTokenRow { idToken: string; idExpiresAt: Date; refreshToken: string; refreshExpiresAt: Date }
@@ -146,10 +149,10 @@ export async function escalationSweepTargets(now: Date): Promise<{ tenantId: str
 }
 
 /** The public refund-voucher check (ADR 0013): facility, voucher number, date, amount only. */
-export async function refundVerifyLookup(code: string): Promise<{ facilityEn: string; facilityBn: string | null; number: string; createdAt: string; amountPaisa: number } | null> {
-  const rows = await prisma.$queryRaw<{ hit: { facilityEn: string; facilityBn: string | null; number: string; createdAt: string; amountPaisa: number } | null }[]>`SELECT refund_verify_lookup(${code}::text) AS hit`;
+export async function refundVerifyLookup(code: string): Promise<{ facilityEn: string; facilityBn: string | null; number: string; createdAt: string; amountPaisa: number; target: VerifyAuditTarget } | null> {
+  const rows = await prisma.$queryRaw<{ hit: ({ facilityEn: string; facilityBn: string | null; number: string; createdAt: string; amountPaisa: number } & VerifyAuditTarget) | null }[]>`SELECT refund_verify_lookup(${code}::text) AS hit`;
   const hit = rows[0]?.hit ?? null;
-  return hit ? { ...hit, createdAt: /[zZ]|[+-]\d\d:?\d\d$/.test(hit.createdAt) ? hit.createdAt : `${hit.createdAt}Z` } : null;
+  return hit ? { ...hit, createdAt: /[zZ]|[+-]\d\d:?\d\d$/.test(hit.createdAt) ? hit.createdAt : `${hit.createdAt}Z`, target: targetOf(hit) } : null;
 }
 
 /** SMS the sweep must look at (ADR 0012): queued too long (send it) or sending too long (interrupted). */

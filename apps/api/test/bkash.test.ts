@@ -103,6 +103,9 @@ describe.runIf(db)("ADR 0011 bKash tokenized checkout", () => {
     const qr = await get(`/v1/payments/${payment.id}/qr.svg`);
     expect(qr.statusCode).toBe(200);
     expect(qr.headers["content-type"]).toContain("image/svg+xml");
+    // external review B8: reading the QR is a read of the patient's payment — audited
+    const qa = await inTenant((tx) => tx.auditEvent.findFirst({ where: { entity: "Payment", entityId: payment.id, action: "view" }, orderBy: { at: "desc" } }));
+    expect(qa).toMatchObject({ patientId: p.patientId, detail: expect.objectContaining({ purpose: "payment-qr" }) });
     expect((await get(`/v1/pay/ABCDEFGH23`, null)).headers.location).toContain("o=unknown");
   });
 

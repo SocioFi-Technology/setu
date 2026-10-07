@@ -12,6 +12,7 @@ import {
 import { authorize } from "@setu/domain";
 import { z } from "zod";
 import { fakeProvider, InvalidSignature, providerByName, type PaymentProvider, type ProviderWebhook } from "../adapters/payments/index.js";
+import { auditPublicLookup } from "../modules/documents.js";
 import { command, query } from "../command.js";
 import { config } from "../config.js";
 import { err, forbidden } from "../errors.js";
@@ -402,6 +403,7 @@ export async function billingRoutes(app: FastifyInstance) {
     reply.header("cache-control", "no-store");
     const hit = code.success ? await (await import("@setu/db")).receiptVerifyLookup(code.data) : null;
     if (!hit) throw err(404, "not_found", "এই কোডের কোনো রসিদ পাওয়া যায়নি", "No receipt found for this code");
+    await auditPublicLookup(hit.target, "Receipt", code.data!, req.ip); // external review B8
     return { facilityEn: hit.facilityEn, facilityBn: hit.facilityBn, number: hit.number, date: new Date(hit.createdAt).toISOString(), amountPaisa: hit.paidPaisa };
   });
 
@@ -457,7 +459,8 @@ export async function billingRoutes(app: FastifyInstance) {
       if (!p) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
       const inv = await invoiceHere(tx, s, p.invoiceId);
       const v = (await invoiceView(tx, s, inv)).payments.find((x) => x.id === id);
-      return { body: v?.payUrl ?? null, audit: [] };
+      // external review B8: the QR reveals a patient's payment link — audited like any read of the bill
+      return { body: v?.payUrl ?? null, audit: [{ action: "view", entity: "Payment", entityId: id, patientId: inv.patientId, detail: { purpose: "payment-qr", invoiceId: inv.id } }] };
     });
     if (!url) throw err(404, "no_link", "এই পেমেন্টের কোনো চালু লিংক নেই", "This payment has no open link");
     const { qrSvg } = await import("../receipts/template.js");

@@ -124,6 +124,10 @@ describe.runIf(db)("A7 receipts", () => {
     expect(r.json()).toMatchObject({ facilityEn: "E2E Test Clinic", number: rc.number, amountPaisa: 230_000 });
     expect(r.body).not.toContain("Receipt Patient");
     expect(r.body).not.toContain("E2E-");
+    // external review B8: audited against the patient, without a user (as the prescription / report checks)
+    const a = await inTenant((tx) => tx.auditEvent.findFirst({ where: { entity: "Receipt", entityId: rc.id, basis: "public-verify" }, orderBy: { at: "desc" } }));
+    expect(a).toMatchObject({ userId: null, action: "view", organizationId: "o_e2e", detail: expect.objectContaining({ kind: "rc", code: code.slice(0, 4) }) });
+    expect(a!.patientId).toBeTruthy();
     expect((await get(`/v1/verify/rc/${"0".repeat(20)}`, null)).statusCode).toBe(404);
     expect((await get("/v1/verify/rc/not-a-code", null)).statusCode).toBe(404);
     let limited = false;

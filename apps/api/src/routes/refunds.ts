@@ -8,6 +8,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { PrintRequest, ReconcileRefundRequest, RefundReleaseRequest, type RefundVoucherPrintResponse, RefundDecisionRequest, RefundListQuery, RefundPayRequest, RefundRequest, ResaleRequest, VerifyCode, type RefundableView, type RefundList, type RefundPayResponse, type RefundVoucherView, type RefundView, type VerifyResponse } from "@setu/contracts";
 import { authorize } from "@setu/domain";
+import { auditPublicLookup } from "../modules/documents.js";
 import { command, query } from "../command.js";
 import { config } from "../config.js";
 import { err, forbidden } from "../errors.js";
@@ -190,6 +191,7 @@ export async function refundRoutes(app: FastifyInstance) {
     reply.header("cache-control", "no-store");
     const hit = code.success ? await (await import("@setu/db")).refundVerifyLookup(code.data) : null;
     if (!hit) throw err(404, "not_found", "এই কোডের কোনো রিফান্ড ভাউচার পাওয়া যায়নি", "No refund voucher found for this code");
+    await auditPublicLookup(hit.target, "RefundVoucher", code.data!, req.ip); // external review B8
     return { facilityEn: hit.facilityEn, facilityBn: hit.facilityBn, number: hit.number, date: new Date(hit.createdAt).toISOString(), amountPaisa: hit.amountPaisa };
   });
 }

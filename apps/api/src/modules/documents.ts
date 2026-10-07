@@ -251,6 +251,14 @@ export async function auditPublicView(kind: DocKind, code: string, t: VerifyTarg
     basis: "public-verify", detail: { purpose: "public-verify", kind, code: code.slice(0, 4) } as object,
   } }));
 }
+/** External review B8: the same for the public receipt and refund-voucher checks (entity Receipt / RefundVoucher). */
+export async function auditPublicLookup(t: { tenantId: string; organizationId: string; patientId: string | null; documentId: string }, entity: "Receipt" | "RefundVoucher", code: string, ip: string) {
+  const { forTenant } = await import("@setu/db");
+  await forTenant(t.tenantId, (tx) => tx.auditEvent.create({ data: {
+    tenantId: t.tenantId, organizationId: t.organizationId, userId: null, role: null, action: "view", entity, entityId: t.documentId, patientId: t.patientId, ip,
+    basis: "public-verify", detail: { purpose: "public-verify", kind: entity === "Receipt" ? "rc" : "rf", code: code.slice(0, 4) } as object,
+  } }));
+}
 /** Who to audit a public view against (security review S3): kept on the server, never in the answer. */
 export interface VerifyTarget { tenantId: string; patientId: string; documentId: string }
 export async function rxVerify(code: string): Promise<{ body: RxVerifyResponse; target: VerifyTarget } | null> {
