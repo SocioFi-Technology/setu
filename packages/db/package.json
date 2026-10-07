@@ -14,6 +14,7 @@
     "typecheck": "prisma generate && tsc -p tsconfig.json --noEmit",
     "migrate": "dotenv -e ../../.env -- tsx src/migrate.ts",
     "migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
+    "set-app-password": "dotenv -e ../../.env -- tsx src/set-app-password.ts",
     "seed": "dotenv -e ../../.env -- tsx src/seed.ts",
     "studio": "dotenv -e ../../.env -- prisma studio",
     "test": "echo 'db: no unit tests (contract tests live in apps/api)'",

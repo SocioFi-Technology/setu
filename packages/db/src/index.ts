@@ -160,3 +160,6 @@ export async function smsSweepTargets(queuedBefore: Date, sendingBefore: Date): 
   const rows = await prisma.$queryRaw<{ tenant_id: string; communication_id: string; status: string }[]>`SELECT * FROM sms_sweep_targets(${queuedBefore}::timestamptz, ${sendingBefore}::timestamptz)`;
   return rows.map((r) => ({ tenantId: r.tenant_id, communicationId: r.communication_id, status: r.status }));
 }
+
+/** gap 10: the SCRAM-SHA-256 verifier of a role password (set-app-password.ts sends it instead of the password) */
+export { scramVerifier } from "./scram.js";

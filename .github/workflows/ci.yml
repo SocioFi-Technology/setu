@@ -92,7 +92,8 @@ jobs:
         run: |
           set -euo pipefail
           pnpm --filter @setu/db migrate:deploy
-          PGPASSWORD=setu psql -h localhost -U setu -d setu -v ON_ERROR_STOP=1 -c "ALTER ROLE setu_app PASSWORD '${{ secrets.SETU_APP_PASSWORD }}'"
+          # gap 10: the password goes to Postgres as a SCRAM-SHA-256 verifier, never in clear
+          pnpm db:set-app-password
           pnpm db:seed
       - name: Typecheck
         run: pnpm typecheck
@@ -173,7 +174,8 @@ jobs:
         run: |
           set -euo pipefail
           pnpm --filter @setu/db migrate:deploy
-          PGPASSWORD=setu psql -h localhost -U setu -d setu -v ON_ERROR_STOP=1 -c "ALTER ROLE setu_app PASSWORD '${{ secrets.SETU_APP_PASSWORD }}'"
+          # gap 10: the password goes to Postgres as a SCRAM-SHA-256 verifier, never in clear
+          pnpm db:set-app-password
           pnpm db:seed
       - name: Start the API (4100) and the staff app (3300), the handover's commands
         run: |
