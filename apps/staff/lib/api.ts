@@ -227,7 +227,7 @@ export const api = {
   capabilities: () => call<Capabilities>("GET", "/v1/me/capabilities"),
   pinVerify: (pin: string) => call<{ ok: boolean; triesLeft?: number; lockedUntil?: string }>("POST", "/v1/auth/pin/verify", { pin }),
   /** ADR 0010: the first sign-in with a one-time password sets the user's own password and PIN */
-  firstSignIn: (password: string, pin: string) => call<Me>("POST", "/v1/auth/first-sign-in", { password, pin }),
+  firstSignIn: (password: string, pin: string) => call<Me>("POST", "/v1/auth/first-sign-in", { password, pin }, k()),
 };
 
 /* Pharmacy (phase 2 slice 2, ADR 0009). Dispensing, sales, purchasing and counts move stock and money, so they need the

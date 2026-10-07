@@ -119,8 +119,19 @@ describe.runIf(db)("G2 users: one-time password, first sign-in, sessions end", (
     expect([blocked.statusCode, blocked.json().code]).toEqual([403, "setup_required"]);
     const weak = await post("/v1/auth/first-sign-in", { password: "short", pin: "1111" }, first.cookie);
     expect([weak.statusCode, weak.json().code]).toEqual([400, "too_short"]);
-    const set = await post("/v1/auth/first-sign-in", { password: "greenlife7", pin: "2580" }, first.cookie);
+    // external review B5: through command() — a key is required; a replay after success finds the one-time session
+    // ended (it never re-issues a session); one audit event; the stored request hash leaves the password and PIN out
+    const noKey = await app.inject({ method: "POST", url: "/v1/auth/first-sign-in", payload: { password: "greenlife7", pin: "2580" }, headers: { cookie: first.cookie } });
+    expect([noKey.statusCode, noKey.json().code]).toEqual([400, "idempotency_key_required"]);
+    const fsKey = randomUUID();
+    const set = await post("/v1/auth/first-sign-in", { password: "greenlife7", pin: "2580" }, first.cookie, fsKey);
     expect(set.statusCode, set.body).toBe(200);
+    const again = await post("/v1/auth/first-sign-in", { password: "greenlife7", pin: "2580" }, first.cookie, fsKey);
+    expect([again.statusCode, again.json().code]).toEqual([401, "session_ended"]);
+    expect(again.headers["set-cookie"]).toBeUndefined();
+    const stored = await db!.forTenant(T, (tx) => tx.idempotencyKey.findFirst({ where: { key: fsKey } }));
+    expect(JSON.stringify(stored!.response)).not.toMatch(/greenlife7|2580/);
+    expect(await db!.forTenant(T, (tx) => tx.auditEvent.count({ where: { action: "first-sign-in", entityId: c.user.id } }))).toBe(1);
     const sc = set.headers["set-cookie"]; const cookie = Array.isArray(sc) ? sc[0]! : (sc as string);
     expect((await get("/v1/billing/worklist", cookie)).statusCode).toBe(200);
     expect((await get("/v1/billing/worklist", first.cookie)).json().code).toBe("setup_required");

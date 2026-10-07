@@ -58,6 +58,23 @@ describe("sign-in limits (external review A3)", () => {
   });
 });
 
+describe.runIf(db)("external review B5: answers about credentials are never replayed", () => {
+  it("one user's PIN check is not another's: the same Idempotency-Key from a second user is answered for that user", async () => {
+    const cookieOf = async (phone: string, ip: string) => [(await login(phone, "setu1234", ip)).headers["set-cookie"]].flat()[0] as string;
+    const a = await cookieOf("01798000007", "10.5.0.1"), b = await cookieOf("01798000008", "10.5.0.2");
+    const key = `pin-${randomInt(0, 1e9)}`;
+    const pin = (cookie: string, p: string) => app.inject({ method: "POST", url: "/v1/auth/pin/verify", payload: { pin: p }, headers: { cookie, "idempotency-key": key } });
+    const c = counters();
+    try {
+      expect((await pin(a, "1234")).json()).toMatchObject({ ok: true });
+      const other = await pin(b, "9999");
+      expect(other.json()).toMatchObject({ ok: false });
+      expect(other.headers["idempotent-replay"]).toBeUndefined();
+      expect(await db!.forTenant(T, (tx) => tx.idempotencyKey.count({ where: { key } }))).toBe(0); // nothing stored for auth
+    } finally { await c.del("pin:lock:u_e2l_cashier", "pin:tries:u_e2l_cashier"); }
+  });
+});
+
 describe.runIf(db)("signing-PIN tries in Redis (gap 4)", () => {
   it("five wrong PINs lock the PIN for 15 minutes, counted where every API instance sees them", async () => {
     const id = "u_e2l_nurse2";

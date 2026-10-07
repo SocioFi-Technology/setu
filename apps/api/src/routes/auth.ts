@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { Capabilities, FirstSignInRequest, LoginRequest, Me, PinVerifyRequest } from "@setu/contracts";
 import { capabilities, passwordProblems, pinProblems } from "@setu/domain";
 import { aiEnabled } from "../adapters/ai.js";
+import { command } from "../command.js";
 import { config } from "../config.js";
 import { err, unauthorized } from "../errors.js";
 import { checkPassword, checkPin, findLoginCandidates, findUserById } from "../modules/users.js";
@@ -109,27 +110,36 @@ export async function authRoutes(app: FastifyInstance) {
 
   /* ADR 0010: the first sign-in with a one-time password — the user sets their own password and PIN; the session is
      replaced by a normal one (a new generation, so the one-time session ends everywhere). */
-  app.post("/v1/auth/first-sign-in", { config: { audit: { action: "first-sign-in", entity: "User" } } }, async (req, reply) => {
+  app.post("/v1/auth/first-sign-in", { config: { ownTx: true } }, async (req, reply) => {
     const s = requireSession(req);
     if (!s.setup) throw err(409, "not_needed", "পাসওয়ার্ড আগেই ঠিক করা আছে", "Your password is already set");
     const body = FirstSignInRequest.parse(req.body ?? {});
-    const { forTenant } = await import("@setu/db");
-    const u = await forTenant(s.tenantId, (tx) => tx.user.findFirst({ where: { id: s.userId, active: true } }), { userId: s.userId });
-    if (!u || !u.mustChangePassword || u.sessionGeneration !== (s.generation ?? 0)) throw err(401, "session_ended", "আপনার সেশন শেষ — আবার লগইন করুন", "Your session has ended — sign in again");
-    if (!u.tempPasswordExpiresAt || u.tempPasswordExpiresAt.getTime() < Date.now()) throw err(401, "otp_expired", "এককালীন পাসওয়ার্ডের মেয়াদ শেষ — অ্যাডমিনকে নতুনটি দিতে বলুন", "The one-time password has expired — ask the admin for a new one");
-    const pw = passwordProblems(body.password, u.phone), pin = pinProblems(body.pin);
-    if (pw.length || pin.length) throw err(400, pw[0] ?? pin[0]!, pw.length ? "পাসওয়ার্ড অন্তত ৮ অক্ষর, অক্ষর ও সংখ্যা দুটোই, ফোন নম্বর নয়" : "পিন ৪ সংখ্যার, খুব সহজ নয় (১১১১ / ১২৩৪ নয়)",
-      pw.length ? "Password: at least 8 characters, a letter and a digit, not your phone number" : "PIN: 4 digits, not too simple (not 1111 / 1234)", { field: pw.length ? "password" : "pin" });
-    // atomic: a reset or role change that lands meanwhile wins (the generation no longer matches → refused)
-    const generation = u.sessionGeneration + 1;
+    // argon2 before the transaction (it is slow); the password's own checks need the user, inside
     const [passwordHash, pinHash] = await Promise.all([hashSecret(body.password), hashSecret(body.pin)]);
-    const n = await forTenant(s.tenantId, (tx) => tx.user.updateMany({ where: { id: u.id, active: true, mustChangePassword: true, sessionGeneration: u.sessionGeneration },
-      data: { passwordHash, pinHash, mustChangePassword: false, tempPasswordExpiresAt: null, tempPasswordUsedAt: null, sessionGeneration: { increment: 1 } } }), { userId: s.userId });
-    if (n.count !== 1) throw err(401, "session_ended", "আপনার সেশন শেষ — আবার লগইন করুন", "Your session has ended — sign in again");
-    const session: SessionData = { ...s, generation, setup: undefined };
+    // external review B5: one transaction with its audit and idempotency key (command); the key's request hash leaves
+    // the password and PIN out — no unsalted hash of them is stored
+    const me = await command(req, reply, async (tx) => {
+      const u = await tx.user.findFirst({ where: { id: s.userId, active: true } });
+      if (!u || !u.mustChangePassword || u.sessionGeneration !== (s.generation ?? 0)) throw err(401, "session_ended", "আপনার সেশন শেষ — আবার লগইন করুন", "Your session has ended — sign in again");
+      if (!u.tempPasswordExpiresAt || u.tempPasswordExpiresAt.getTime() < Date.now()) throw err(401, "otp_expired", "এককালীন পাসওয়ার্ডের মেয়াদ শেষ — অ্যাডমিনকে নতুনটি দিতে বলুন", "The one-time password has expired — ask the admin for a new one");
+      const pw = passwordProblems(body.password, u.phone);
+      if (pw.length) throw err(400, pw[0]!, "পাসওয়ার্ড অন্তত ৮ অক্ষর, অক্ষর ও সংখ্যা দুটোই, ফোন নম্বর নয়", "Password: at least 8 characters, a letter and a digit, not your phone number", { field: "password" });
+      const pin = pinProblems(body.pin);
+      if (pin.length) throw err(400, pin[0]!, "পিন ৪ সংখ্যার, খুব সহজ নয় (১১১১ / ১২৩৪ নয়)", "PIN: 4 digits, not too simple (not 1111 / 1234)", { field: "pin" });
+      // atomic: a reset or role change that lands meanwhile wins (the generation no longer matches → refused)
+      const n = await tx.user.updateMany({ where: { id: u.id, active: true, mustChangePassword: true, sessionGeneration: u.sessionGeneration },
+        data: { passwordHash, pinHash, mustChangePassword: false, tempPasswordExpiresAt: null, tempPasswordUsedAt: null, sessionGeneration: { increment: 1 } } });
+      if (n.count !== 1) throw err(401, "session_ended", "আপনার সেশন শেষ — আবার লগইন করুন", "Your session has ended — sign in again");
+      const session: SessionData = { ...s, generation: u.sessionGeneration + 1, setup: undefined };
+      delete session.setup;
+      return { body: Me.parse({ ...session, roles: [{ organizationId: s.organizationId, role: s.role }], mustSetCredentials: false, ai: aiEnabled() }),
+        audit: [{ action: "first-sign-in", entity: "User", entityId: u.id, detail: { event: "credentials-set" } }] };
+    }, { hashOmit: ["password", "pin"] });
+    // a fresh request replaces the one-time session (a replay cannot reach here: the old session has ended)
+    const session: SessionData = { ...s, generation: (s.generation ?? 0) + 1, setup: undefined };
     delete session.setup;
     reply.setCookie(COOKIE, encodeSession(session), COOKIE_OPTIONS);
-    return Me.parse({ ...session, roles: [{ organizationId: s.organizationId, role: s.role }], mustSetCredentials: false, ai: aiEnabled() });
+    return me;
   });
 
   app.get("/v1/me/capabilities", async (req) => {
