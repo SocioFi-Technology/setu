@@ -25,6 +25,9 @@ async function getJ<T = Record<string, any>>(request: APIRequestContext, url: st
 async function inpatient(request: APIRequestContext) {
   await as(request, NURSE);
   const { wards } = await getJ<{ wards: { id: string; name: string }[] }>(request, "/v1/nursing/wards");
+  // the seed admits him to Ward 3B: look there first — the API tests add a ward of their own every run, so walking every
+  // board in order took past the 3-minute budget once there were thousands
+  wards.sort((a, b) => Number(b.name === "Ward 3B") - Number(a.name === "Ward 3B"));
   for (const w of wards) {
     const b = await getJ<{ beds: { bed: { name: string }; patient: { facilityNo: string } | null; encounterId: string | null }[] }>(request, `/v1/nursing/wards/${w.id}/board`);
     const hit = b.beds.find((x) => x.patient?.facilityNo === SHAHIDUL);
