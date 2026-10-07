@@ -44,3 +44,33 @@ describe.runIf(db)("row-level security as setu_app", () => {
     expect(rows[0]).not.toHaveProperty("pinHash");
   });
 });
+
+describe.runIf(db)("gap 10: a reference never crosses tenants — the database's own check, beside row-level security", () => {
+  // on the owner's connection (no RLS): what refuses these is the key or the trigger, not the policy
+  const ownerDb = () => new db!.PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+  it("a visit or a patient link pointing at another tenant's patient is refused (composite foreign keys)", async () => {
+    const o = ownerDb();
+    try {
+      const mine = (await o.patient.findFirst({ where: { tenantId: "t_e2e" } }))!;
+      const theirs = (await o.patient.findFirst({ where: { tenantId: "t_e2e_lite" } }))!;
+      const enc = (await o.encounter.findFirst({ where: { tenantId: "t_e2e" } }))!;
+      await expect(o.$executeRawUnsafe(`UPDATE "Encounter" SET "patientId" = $1 WHERE "id" = $2`, theirs.id, enc.id)).rejects.toThrow(/Encounter_tenant_patient_fkey|never|foreign key/i);
+      await expect(o.$executeRawUnsafe(`UPDATE "Patient" SET "linkedToId" = $1 WHERE "id" = $2`, theirs.id, mine.id)).rejects.toThrow(/Patient_tenant_linkedTo_fkey/);
+    } finally { await o.$disconnect(); }
+  });
+  it("a task's focus or candidate, and a provenance target, of another tenant are refused (by kind / type)", async () => {
+    const o = ownerDb();
+    try {
+      const theirs = (await o.patient.findFirst({ where: { tenantId: "t_e2e_lite" } }))!;
+      const mine = (await o.patient.findFirst({ where: { tenantId: "t_e2e" } }))!;
+      const theirInvoice = (await o.invoice.findFirst({ where: { tenantId: "t_e2e_lite" } }))!;
+      const base = { tenantId: "t_e2e", status: "requested" as const, requestedById: "u_e2e_desk", requestedAt: new Date(), reason: "cross-tenant check" };
+      await expect(o.task.create({ data: { ...base, kind: "patient-link-review", focusId: theirs.id } })).rejects.toThrow(/not a Patient of this tenant/);
+      await expect(o.task.create({ data: { ...base, kind: "patient-link-review", focusId: mine.id, candidateId: theirs.id } })).rejects.toThrow(/candidate .* not a Patient of this tenant/);
+      await expect(o.task.create({ data: { ...base, kind: "discount-approval", focusId: theirInvoice.id } })).rejects.toThrow(/not a Invoice of this tenant/);
+      const pv = { tenantId: "t_e2e", activity: "cross-tenant check", agentId: "u_e2e_desk", onBehalfOf: "o_e2e", source: "provider_verified" as const };
+      await expect(o.provenance.create({ data: { ...pv, targetType: "Patient", targetId: theirs.id } })).rejects.toThrow(/not of this tenant/);
+      await expect(o.provenance.create({ data: { ...pv, targetType: "Nothing", targetId: mine.id } })).rejects.toThrow(/unknown target type/);
+    } finally { await o.$disconnect(); }
+  });
+});

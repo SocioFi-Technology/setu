@@ -276,6 +276,8 @@ model Patient {
   compositions       Composition[]
 
   @@unique([tenantId, facilityNo])
+  /// gap 10: the target of composite (tenantId, id) foreign keys (Encounter.patientId, Patient.linkedToId — raw SQL)
+  @@unique([tenantId, id])
   @@index([tenantId, phone])
   @@index([tenantId, nameBn])
   @@index([tenantId, nameEn])
