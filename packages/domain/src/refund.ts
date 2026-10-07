@@ -174,6 +174,21 @@ export function refundApprovalBlockers(a: { approverId: string; approverRole: st
   if ((a.controlled || a.cardBankCash) && a.approverRole !== "owner") return ["owner_only"];
   return [];
 }
+/* ADR 0018 (decision 297, Kamrul 3): the deposit-excess refund — the deposits held beyond the issued IPD bill. The owner
+   approves it (the one self-approval rule: alone, with a note), with no approver cap; it is never rejected or withdrawn —
+   the excess must always have somewhere to go — only its payout way changes. */
+export const DEPOSIT_EXCESS = "deposit-excess";
+export type ExcessApprovalBlocker = "owner_only" | "self_approval" | "note_required";
+export function excessApprovalBlockers(a: { approverId: string; approverRole: string; requestedById: string; onlyApprover?: boolean; note?: string }): ExcessApprovalBlocker[] {
+  if (a.approverRole !== "owner") return ["owner_only"];
+  if (a.approverId === a.requestedById) {
+    if (!a.onlyApprover) return ["self_approval"];
+    if ((a.note ?? "").trim().length < REFUND_REASON_MIN) return ["note_required"];
+  }
+  return [];
+}
+/** The excess is never rejected or withdrawn (it would be unassigned money on an issued bill). */
+export const excessCloseBlockers = (): "deposit_excess"[] => ["deposit_excess"];
 export type WithdrawBlocker = "not_an_approver" | "note_too_short" | "part_paid";
 export function refundWithdrawBlockers(a: { role: string; note: string; anyPaid: boolean }): WithdrawBlocker[] {
   if (!(APPROVER_ROLES as readonly string[]).includes(a.role)) return ["not_an_approver"];

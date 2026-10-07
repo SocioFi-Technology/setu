@@ -16,6 +16,10 @@ export type RefundStatus = z.infer<typeof RefundStatus>;
 export const RefundCategory = z.enum(["cancelled-test", "wrong-dispense", "overpayment", "patient-request", "other"]);
 export const PayoutWay = z.enum(["cash", "gateway", "manual"]);
 export const CashReason = z.enum(["no-wallet-access", "gateway-failed"]);
+/** ADR 0018: what a refund shows — the requests' categories and reasons, plus the excess deposit of an IPD final bill
+    (made by the bill's issue, never requested) */
+export const RefundCategoryView = z.enum([...RefundCategory.options, "deposit-excess"]);
+export const CashReasonView = z.enum([...CashReason.options, "deposit-excess"]);
 export const RecipientRelation = z.enum(["self", "spouse", "parent", "child", "sibling", "other-relative", "other"]);
 export const LineLock = z.enum(["performed", "not-billed", "nothing-left"]);
 export const AllocationStatus = z.enum(["open", "paying", "paid"]);
@@ -86,10 +90,10 @@ export type RefundRequest = z.infer<typeof RefundRequest>;
 export const RefundTimelineEvent = z.enum(["requested", "approved", "rejected", "withdrawn", "payout-started", "gateway-failed", "allocation-paid", "paid"]);
 export const RefundView = z.object({
   refund: z.object({
-    id: z.string(), status: RefundStatus, kind: RefundKind, source: z.enum(["bill", "reconciliation"]), caseTaskId: z.string().nullable(),
+    id: z.string(), status: RefundStatus, kind: RefundKind, source: z.enum(["bill", "reconciliation", "deposit-excess"]), caseTaskId: z.string().nullable(),
     /** decision 223: decided by the requester as the facility's only approver (with a note) */
     selfApproved: z.boolean(),
-    category: RefundCategory, reason: z.string(), amountPaisa: Paisa, netPaisa: Paisa, vatPaisa: Paisa, rev: z.number().int(),
+    category: RefundCategoryView, reason: z.string(), amountPaisa: Paisa, netPaisa: Paisa, vatPaisa: Paisa, rev: z.number().int(),
     /** decision 233: of a return's value, what lowers the due and what is refunded (a refund: 0 and all) */
     creditPaisa: Paisa, refundPaisa: Paisa,
     /** a controlled drug, or card / bank money paid back in cash: the owner approves */
@@ -109,7 +113,7 @@ export const RefundView = z.object({
     units: z.number().int().nullable(), netPaisa: Paisa, vatPaisa: Paisa, totalPaisa: Paisa,
   })),
   allocations: z.array(z.object({
-    id: z.string(), paymentId: z.string(), method: PaymentMethod, amountPaisa: Paisa, way: PayoutWay, cashReason: CashReason.nullable(),
+    id: z.string(), paymentId: z.string(), method: PaymentMethod, amountPaisa: Paisa, way: PayoutWay, cashReason: CashReasonView.nullable(),
     status: AllocationStatus,
     /** the gateway refused or failed this allocation's refund (cash is then allowed, reason gateway-failed) */
     gatewayFailed: z.boolean(), failReason: z.string().nullable(),
@@ -161,7 +165,7 @@ export const RefundListQuery = z.object({
   days: z.coerce.number().int().min(1).max(90).default(30),
 });
 export const RefundListItem = z.object({
-  id: z.string(), status: RefundStatus, kind: RefundKind, selfApproved: z.boolean(), category: RefundCategory, reason: z.string(), amountPaisa: Paisa, requestedAt: z.string(), paidAt: z.string().nullable(),
+  id: z.string(), status: RefundStatus, kind: RefundKind, selfApproved: z.boolean(), category: RefundCategoryView, reason: z.string(), amountPaisa: Paisa, requestedAt: z.string(), paidAt: z.string().nullable(),
   requestedBy: Person, decidedBy: Person.nullable(),
   invoice: z.object({ id: z.string(), number: z.string().nullable(), kind: InvoiceKind }),
   patient: z.object({ id: z.string(), nameBn: z.string(), nameEn: z.string().nullable(), facilityNo: z.string() }).nullable(),
@@ -181,7 +185,7 @@ export const RefundVoucherSnapshot = z.object({
   invoice: z.object({ id: z.string(), number: z.string().nullable(), issuedAt: z.string().nullable(), totalPaisa: Paisa }),
   patient: z.object({ nameBn: z.string(), nameEn: z.string().nullable(), facilityNo: z.string() }).nullable(),
   buyer: Buyer,
-  category: RefundCategory, reason: z.string(),
+  category: RefundCategoryView, reason: z.string(),
   /** credit-note lines (none for a reconciliation refund) */
   lines: z.array(z.object({ nameBn: z.string(), nameEn: z.string(), units: z.number().int().nullable(), vatRateBp: z.number().int(), netPaisa: Paisa, vatPaisa: Paisa, totalPaisa: Paisa })),
   netPaisa: Paisa, vatPaisa: Paisa, amountPaisa: Paisa,

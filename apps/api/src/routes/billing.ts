@@ -366,7 +366,7 @@ export async function billingRoutes(app: FastifyInstance) {
     return query(req, async (tx, s) => {
       const r = await tx.receipt.findFirst({ where: { id, organizationId: s.organizationId } });
       if (!r) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
-      await invoiceHere(tx, s, r.invoiceId, false, { ipd: r.kind === "deposit" });
+      await invoiceHere(tx, s, r.invoiceId, false, { ipd: true });
       return { body: await receiptView(tx, r), audit: [{ action: "view", entity: "Receipt", entityId: id, patientId: r.patientId }] };
     });
   });

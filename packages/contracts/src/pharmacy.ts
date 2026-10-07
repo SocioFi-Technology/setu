@@ -33,6 +33,8 @@ export const DispenseQueueItem = z.object({
   /** to-dispense: nothing given yet; partial: some lines (or part of a line) still open; done: every line dispensed or declined */
   status: z.enum(["to-dispense", "partial", "done"]),
   bill: PharmacyBillSummary.nullable(),
+  /** ADR 0018: an inpatient's medicines on discharge (the discharge summary), not an OPD prescription */
+  takeHome: z.boolean(),
 });
 export const DispenseQueue = z.object({ items: z.array(DispenseQueueItem) });
 export type DispenseQueue = z.infer<typeof DispenseQueue>;
@@ -62,7 +64,7 @@ export const DispenseLine = z.object({
 export type DispenseLine = z.infer<typeof DispenseLine>;
 export const DispenseView = z.object({
   encounter: VitalsEncounter.extend({ practitioner: Person.nullable() }),
-  composition: z.object({ id: z.string(), version: z.number().int(), status: z.enum(["final", "amended"]), signedAt: z.string() }),
+  composition: z.object({ id: z.string(), version: z.number().int(), status: z.enum(["final", "amended"]), signedAt: z.string(), /** ADR 0018 */ takeHome: z.boolean() }),
   allergies: z.array(z.object({ labelBn: z.string(), labelEn: z.string(), severity: z.string() })),
   lines: z.array(DispenseLine),
   bill: PharmacyBillSummary.nullable(),

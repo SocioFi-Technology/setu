@@ -384,6 +384,8 @@ model Encounter {
   erVisit        ErVisit?
   admission      Admission?
   bedAssignments BedAssignment[]
+  /// ADR 0018: the inpatient visit's outcome when not a normal discharge — lama | deceased
+  outcome        String?
 
   /// ADR 0014: tokens are numbered per class (OPD A-nnn, ER E-nnn) per branch per day
   @@unique([tenantId, branchId, tokenDay, class, tokenNo])
@@ -1061,6 +1063,9 @@ model Invoice {
   totalPaisa          Int           @default(0)
   /// sum of confirmed payments
   paidPaisa           Int           @default(0)
+  /// ADR 0018: the IPD final bill — deposits held beyond the total at issue (a deposit-excess refund); set once at issue.
+  /// The bill counts net paid = paid − excess.
+  excessPaisa         Int           @default(0)
   discountCategory    String?
   discountReason      String?
   discountAppliedById String?
@@ -1526,6 +1531,8 @@ model Communication {
   dispenseId        String?
   /// payment-link (ADR 0012): the payment whose short link it carries
   paymentId         String?
+  /// summary-app (ADR 0018): the discharge summary version made available to the patient
+  compositionId     String?
   /// completed and confirmed by the gateway as delivered; false = the gateway only accepted it ("Sent", ADR 0012)
   deliveryConfirmed Boolean              @default(false)
   status            CommunicationStatus  @default(preparation)
@@ -2568,8 +2575,12 @@ model Discharge {
   admissionId    String
   encounterId    String
   patientId      String
-  /// ordered | completed | cancelled (DISCHARGE machine)
+  /// ordered | completed | cancelled (DISCHARGE machine); completed when the patient left (or the body moved)
   status         String
+  /// ADR 0018: normal | lama | death — each with its step graph
+  kind           String          @default("normal")
+  /// the LAMA record (reason, risks explained, form signed, witness) or the death record (time, cause, checks)
+  detail         Json?
   advice         String
   targetAt       DateTime
   orderedById    String

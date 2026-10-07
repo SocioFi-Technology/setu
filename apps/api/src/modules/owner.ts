@@ -10,8 +10,8 @@ import { pendingPharmacyApprovals } from "./purchasing.js";
 import type { SessionData } from "../plugins/session.js";
 
 /** 2: the cash variance is stored as short and over separately (money-controls review H3); 3: refunds (ADR 0013) —
-    older rows are recomputed. */
-export const ROLLUP_VERSION = 6;
+    older rows are recomputed; 7: dues count an IPD bill's excess deposit as going back (ADR 0018). */
+export const ROLLUP_VERSION = 7;
 export interface DayMetrics {
   revenuePaisa: number; revenueByHour: number[]; collectionsPaisa: number; collectionsByHour: number[]; byMethod: Record<string, number>;
   discountsPaisa: number; duesPaisa: number; opdVisits: number; noShows: number; labTests: number; labTatMinutesSum: number;
@@ -52,8 +52,9 @@ export async function computeDay(tx: Tx, organizationId: string, day: string, un
     SELECT coalesce(sum("discountPaisa"), 0) AS all, count(*) FILTER (WHERE "discountTaskId" IS NOT NULL AND "discountPaisa" > 0) AS above,
            coalesce(sum("discountPaisa") FILTER (WHERE "discountTaskId" IS NOT NULL), 0) AS "abovePaisa"
     FROM "Invoice" WHERE "organizationId" = ${org} AND "issuedAt" >= ${from} AND "issuedAt" < ${to} AND "status" <> 'entered-in-error'`;
+  // ADR 0018: an IPD final bill's excess deposit is not money kept — the bill's net paid is paid − excess
   const [dues] = await tx.$queryRaw<{ paisa: bigint }[]>`
-    SELECT coalesce(sum(i."totalPaisa"), 0) - coalesce((SELECT sum(p."amountPaisa") FROM "Payment" p JOIN "Invoice" j ON j."id" = p."invoiceId"
+    SELECT coalesce(sum(i."totalPaisa"), 0) + coalesce(sum(i."excessPaisa"), 0) - coalesce((SELECT sum(p."amountPaisa") FROM "Payment" p JOIN "Invoice" j ON j."id" = p."invoiceId"
         WHERE j."organizationId" = ${org} AND j."issuedAt" < ${to} AND j."status" <> 'entered-in-error' AND p."status" = 'confirmed' AND p."confirmedAt" < ${to}), 0)
       -- decision 221: medicine returned without a refund lowers the due from the moment it was recorded
       - coalesce((SELECT sum(r."amountPaisa") FROM "Refund" r JOIN "Invoice" j ON j."id" = r."invoiceId"
@@ -246,6 +247,8 @@ export async function dashboard(tx: Tx, s: SessionData, period: Period, now: Dat
     { kind: "scanOverride" as const, ...leak((x) => x.scanOverride ?? { count: 0, paisa: 0 }), severity: "review" as const },
     { kind: "ownSupply" as const, ...leak((x) => x.ownSupply ?? { count: 0, paisa: 0 }), severity: "review" as const },
     { kind: "manualRefundUnchecked" as const, ...(await uncheckedRefunds(tx, s.organizationId)), severity: "high" as const },
+    // ADR 0018: live, whatever the period (each stays until it is settled)
+    ...await Promise.all(IPD_EXCEPTIONS.map(async (kind) => { const x = await ipdException(tx, s.organizationId, kind, now); return { kind, count: x.count, paisa: x.paisa, severity: kind === "afterFinalBill" ? "review" as const : "high" as const }; })),
   ];
   // approval tasks point at a bill, reconciliation tasks at a payment: counted for this facility only (review #5)
   const [[appr], shiftsClosed, [rec], staleShifts] = await Promise.all([
@@ -263,6 +266,42 @@ export async function dashboard(tx: Tx, s: SessionData, period: Period, now: Dat
     leakage, pending: { approvals, shifts: shiftsClosed, reconcile, staleShifts }, missingDays: missing,
     cash: { shortPaisa: short, overPaisa: over, shiftsWithVariance: variance.count },
   };
+}
+
+/* ───── ADR 0018: the inpatient exceptions (live) ───── */
+const IPD_EXCEPTIONS = ["excessUnpaid", "ipdOutcomeDues", "lamaSummaryOverdue", "afterFinalBill"] as const;
+type IpdException = (typeof IPD_EXCEPTIONS)[number];
+interface IpdRow { id: string; at: Date; number: string | null; patientId: string | null; amountPaisa: number | null; byId: string | null; detail: string; link: Row["link"]; status: string | null }
+async function ipdException(tx: Tx, org: string, kind: IpdException, now: Date): Promise<{ count: number; paisa: number; rows: IpdRow[] }> {
+  if (kind === "excessUnpaid") {
+    // decision 3: an excess the counter could not pay stays approved here until paid — it never expires
+    const list = await tx.refund.findMany({ where: { organizationId: org, source: "deposit-excess", status: { not: "paid" } }, include: { allocations: { select: { amountPaisa: true, status: true } }, invoice: { select: { number: true } } }, orderBy: { requestedAt: "asc" } });
+    const rows = list.map((r) => { const owed = r.amountPaisa - r.allocations.filter((a) => a.status === "paid").reduce((t, a) => t + a.amountPaisa, 0);
+      return { id: r.id, at: r.requestedAt, number: r.invoice.number, patientId: r.patientId, amountPaisa: owed, byId: r.decidedById, detail: `deposit-excess · ${r.status}`, link: { kind: "refund" as const, id: r.id }, status: r.status }; });
+    return { count: rows.length, paisa: rows.reduce((t, r) => t + (r.amountPaisa ?? 0), 0), rows };
+  }
+  if (kind === "ipdOutcomeDues") {
+    const list = await tx.$queryRaw<{ id: string; number: string; patientId: string; issuedAt: Date; due: bigint; outcome: string }[]>`
+      SELECT i."id", i."number", i."patientId", i."issuedAt", (i."totalPaisa" - i."creditedPaisa" - (i."paidPaisa" - i."excessPaisa")) AS due, e."outcome"
+      FROM "Invoice" i JOIN "Admission" a ON a."invoiceId" = i."id" JOIN "Encounter" e ON e."id" = a."encounterId"
+      WHERE i."organizationId" = ${org} AND i."kind" = 'ipd' AND i."status" IN ('issued', 'partially-paid') AND e."outcome" IN ('lama', 'deceased') ORDER BY i."issuedAt"`;
+    const rows = list.map((r) => ({ id: r.id, at: r.issuedAt, number: r.number, patientId: r.patientId, amountPaisa: Number(r.due), byId: null, detail: r.outcome, link: { kind: "invoice" as const, id: r.id }, status: null }));
+    return { count: rows.length, paisa: rows.reduce((t, r) => t + (r.amountPaisa ?? 0), 0), rows };
+  }
+  if (kind === "lamaSummaryOverdue") {
+    const list = await tx.discharge.findMany({ where: { organizationId: org, kind: "lama", status: { in: ["ordered", "completed"] }, orderedAt: { lt: new Date(now.getTime() - 24 * 3600_000) }, steps: { some: { key: "summary", status: { not: "done" } } } }, orderBy: { orderedAt: "asc" } });
+    const adm = new Map((await tx.admission.findMany({ where: { id: { in: list.map((d) => d.admissionId) } }, select: { id: true, number: true } })).map((a) => [a.id, a.number]));
+    const rows = list.map((d) => ({ id: d.id, at: d.orderedAt, number: adm.get(d.admissionId) ?? null, patientId: d.patientId, amountPaisa: null, byId: d.orderedById, detail: "LAMA · summary not signed", link: { kind: "visit" as const, id: d.encounterId }, status: d.status }));
+    return { count: rows.length, paisa: 0, rows };
+  }
+  // a dose marked in error after its IPD bill was issued: the bill is never edited — the cashier settles it by refund
+  const list = await tx.$queryRaw<{ id: string; patientId: string; errorAt: Date; errorById: string | null; medicineKey: string; number: string; invoiceId: string }[]>`
+    SELECT m."id", m."patientId", m."errorAt", m."errorById", m."medicineKey", i."number", i."id" AS "invoiceId"
+    FROM "MedicationAdministration" m JOIN "Admission" a ON a."encounterId" = m."encounterId" JOIN "Invoice" i ON i."id" = a."invoiceId"
+    WHERE a."organizationId" = ${org} AND m."status" = 'entered-in-error' AND i."status" <> 'draft' AND i."issuedAt" IS NOT NULL AND m."errorAt" > i."issuedAt"
+      AND m."errorAt" > ${new Date(now.getTime() - 30 * 864e5)} ORDER BY m."errorAt" DESC`;
+  const rows = list.map((r) => ({ id: r.id, at: r.errorAt, number: r.number, patientId: r.patientId, amountPaisa: null, byId: r.errorById, detail: `${r.medicineKey} · dose in error after the final bill`, link: { kind: "invoice" as const, id: r.invoiceId }, status: null }));
+  return { count: rows.length, paisa: 0, rows };
 }
 
 /** ADR 0013: refunds paid by hand (or card / bank paid back in cash) the owner has not checked against a statement yet. */
@@ -413,6 +452,13 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
     const W = await people(shown.flatMap((r) => [r.requestedById, r.decidedById]));
     rows = shown.map((r) => ({ id: r.id, at: (r.paidAt ?? r.requestedAt).toISOString(), number: r.voucher?.number ?? r.invoice.number, patient: P(r.patientId), amountPaisa: amount(r), by: W(r.requestedById), approvedBy: W(r.decidedById),
       detail: `${r.category} — ${r.reason}`, link: { kind: "refund" as const, id: r.id }, status: r.status }));
+  } else if ((IPD_EXCEPTIONS as readonly string[]).includes(what)) {
+    const x = await ipdException(tx, org, what as IpdException, now);
+    count = x.count; totalPaisa = what === "lamaSummaryOverdue" || what === "afterFinalBill" ? null : x.paisa;
+    const shown = x.rows.slice(0, DRILL_ROWS);
+    const P = await patients(shown.map((r) => r.patientId));
+    const W = await people(shown.map((r) => r.byId));
+    rows = shown.map((r) => ({ id: r.id, at: r.at.toISOString(), number: r.number, patient: P(r.patientId), amountPaisa: r.amountPaisa, by: W(r.byId), approvedBy: null, detail: r.detail, link: r.link, status: r.status }));
   } else if (what === "manualRefundUnchecked") {
     const tasks = await tx.task.findMany({ where: { kind: "refund-reconciliation", status: "requested" }, orderBy: { requestedAt: "desc" } });
     const allocs = await tx.refundAllocation.findMany({ where: { id: { in: tasks.flatMap((t) => (t.focusId ? [t.focusId] : [])) }, refund: { organizationId: org } }, include: { refund: { include: { voucher: { select: { number: true } } } } } });

@@ -1,6 +1,6 @@
 /* Slice B7–B9 (ADR 0017): the IPD running bill and the discharge checklist on the real database (as setu_app), E2E Lite
    Hospital. The walkthrough cases first (B8: the package, bed days in and beyond it, a ward-stock medicine off the list,
-   the low deposit with a link to the guardian; B9: six steps, the blocker named, mark done), then the class-change rule
+   the low deposit with a link to the guardian; B9–B12: six steps, the blocker named, the events that finish them), then the class-change rule
    (Kamrul, decision 3), the database's refusals, and the discharge's effects. Each test admits its own patient. */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
@@ -30,6 +30,19 @@ async function admit(ward: string, extra: Record<string, unknown> = {}, bedClass
   return { patientId, admissionId: r.json().id as string, encounterId: r.json().encounter.id as string, wardId: beds[0].ward.id as string, admission: r.json() };
 }
 const DAY = 864e5;
+const tomorrow = () => new Date(Date.now() + 6 * 3600_000 + DAY).toISOString().slice(0, 10);
+/** B11: the surgeon opens, writes and signs the discharge summary (PIN 1234) */
+async function signSummary(admissionId: string) {
+  const open = await c.post(`/v1/ipd/admissions/${admissionId}/summary/open`, {}, "surgeon");
+  expect(open.statusCode, open.body).toBe(200);
+  const d = open.json().draft;
+  const saved = await c.put(`/v1/ipd/summaries/${d.id}`, { rev: d.rev, sections: { course: "Laparoscopic cystectomy on day 1, uneventful recovery", procedures: [], followUp: { date: tomorrow(), place: "Surgery OPD" }, redFlags: ["Fever above 100.4°F (38°C)"] },
+    diagnoses: [{ code: "GC00", verificationStatus: "confirmed" }], medicines: [{ medicineKey: "napa", dose: "1+1+1", meal: "after", days: 5 }] });
+  expect(saved.statusCode, saved.body).toBe(200);
+  const signed = await c.post(`/v1/ipd/summaries/${d.id}/sign`, { rev: saved.json().draft.rev, pin: "1234" }, "surgeon");
+  expect(signed.statusCode, signed.body).toBe(200);
+  return signed.json();
+}
 
 describe.runIf(db)("the walkthrough (B8): the running bill", () => {
   it("admitted on the laparoscopy package with ৳20,000 by card at the desk: the package line, day 1 Included, the deposit — and the balance is due", async () => {
@@ -213,7 +226,7 @@ describe.runIf(db)("deposits (Kamrul, decision 2)", () => {
 });
 
 describe.runIf(db)("the discharge checklist (B9)", () => {
-  it("six steps: the doctor's order (PIN) puts the bed to discharge-pending; the pharmacy blocks the final bill and is named; bed release discharges", async () => {
+  it("six steps: the order (PIN) puts the bed to discharge-pending; the final bill starts at once; the summary, the bill and the payment finish by their events; the pharmacy and the patient leaving by PIN", async () => {
     const w = await h.ownWard(1);
     const a = await admit(w, { packageId: await pkgId("PKG-LAP-01") });
     expect((await c.post(`/v1/ipd/admissions/${a.admissionId}/discharge`, { advice: "Pain settled, eating normally", pin: "1234" }, "nurse")).statusCode).toBe(403);
@@ -221,44 +234,58 @@ describe.runIf(db)("the discharge checklist (B9)", () => {
     const o = await c.post(`/v1/ipd/admissions/${a.admissionId}/discharge`, { advice: "Pain settled, eating normally", pin: "1234" }, "surgeon");
     expect(o.statusCode, o.body).toBe(201);
     let v = o.json();
-    expect(v.steps.map((x: { key: string; status: string }) => `${x.key}:${x.status}`)).toEqual(["order:done", "summary:in-progress", "pharmacy:in-progress", "final-bill:waiting", "payment:waiting", "bed-release:waiting"]);
-    expect(v.header).toMatchObject({ done: 1, total: 6, blockedBy: [{ key: "pharmacy", department: "pharmacy", person: null }] });
+    // Kamrul, 2: the bill does not wait for the pharmacy — leaving does
+    expect(v.steps.map((x: { key: string; status: string }) => `${x.key}:${x.status}`)).toEqual(["order:done", "summary:in-progress", "pharmacy:in-progress", "final-bill:in-progress", "payment:waiting", "bed-release:waiting"]);
+    expect(v.header).toMatchObject({ done: 1, total: 6, blockedBy: [{ key: "final-bill", department: "billing" }] });
+    expect(v.discharge.kind).toBe("normal");
     const bed = await tenant((tx) => tx.location.findFirst({ where: { id: a.admission.bed.id } }));
     expect(bed!.bedState).toBe("discharge_pending");
-    // no bed move while the discharge is ordered
     expect((await c.post(`/v1/ipd/admissions/${a.admissionId}/transfer`, { bedId: a.admission.bed.id, reason: "test move", mode: "now" }, "nurse")).json().code).toBe("discharge_ordered");
     const id = v.discharge.id;
-    // "I'll take it": the header names the pharmacist
     v = (await c.post(`/v1/ipd/discharges/${id}/steps/pharmacy/take`, {}, "pharm")).json();
-    expect(v.header.blockedBy[0].person.id).toBe("u_e2l_pharm");
-    // the final bill waits; the wrong role is refused; the pharmacist must say about the patient's own medicines
-    expect((await c.post(`/v1/ipd/discharges/${id}/steps/final-bill/done`, { pin: "1234" }, "cashier")).json().code).toBe("step_waiting");
+    expect(v.steps.find((x: { key: string }) => x.key === "pharmacy").takenBy.id).toBe("u_e2l_pharm");
+    // the event steps are never marked by hand (the B9 by-hand steps are gone)
+    for (const [k, who] of [["final-bill", "cashier"], ["payment", "cashier"], ["summary", "surgeon"]] as const)
+      expect((await c.post(`/v1/ipd/discharges/${id}/steps/${k}/done`, { pin: "1234" }, who)).json().code).toMatch(/step_by_event|step_waiting/);
     expect((await c.post(`/v1/ipd/discharges/${id}/steps/pharmacy/done`, { pin: "1234", ownMedicines: "none" }, "nurse")).statusCode).toBe(403);
     expect((await c.post(`/v1/ipd/discharges/${id}/steps/pharmacy/done`, { pin: "1234" }, "pharm")).json().code).toBe("own_medicines");
     v = (await c.post(`/v1/ipd/discharges/${id}/steps/pharmacy/done`, { pin: "1234", ownMedicines: "handed-back" }, "pharm")).json();
-    expect(v.steps.find((x: { key: string }) => x.key === "final-bill").status).toBe("in-progress");
+    expect(v.steps.find((x: { key: string }) => x.key === "bed-release").status).toBe("waiting"); // the summary and the payment first
     // remind: the summary is the doctor's — it reaches the doctor's inbox; at most once in 10 minutes
     expect((await c.post(`/v1/ipd/discharges/${id}/steps/summary/remind`, {}, "nurse")).statusCode).toBe(200);
     expect((await c.post(`/v1/ipd/discharges/${id}/steps/summary/remind`, {}, "nurse")).json().code).toBe("reminded_recently");
     const inbox = await tenant((tx) => tx.communication.findFirst({ where: { kind: "discharge-remind", encounterId: a.encounterId } }));
     expect(inbox!.recipientUserId).toBe("u_e2l_surgeon");
-    // the by-hand steps (until B10 / B11)
-    v = (await c.post(`/v1/ipd/discharges/${id}/steps/final-bill/done`, { pin: "1234", note: "Final bill on paper" }, "cashier")).json();
-    v = (await c.post(`/v1/ipd/discharges/${id}/steps/payment/done`, { pin: "1234" }, "cashier")).json();
-    expect(v.steps.find((x: { key: string }) => x.key === "payment")).toMatchObject({ status: "done", byHand: true });
+    // B10: the cashier issues the final bill — the step finishes by the event; the payment step starts
+    const issued = await c.post(`/v1/ipd/bills/${a.admissionId}/issue`, {}, "cashier");
+    expect(issued.statusCode, issued.body).toBe(200);
+    expect(issued.json().final).toMatchObject({ status: "issued", duePaisa: 4_800_000, excessPaisa: 0 });
+    v = (await c.get(`/v1/ipd/admissions/${a.admissionId}/discharge`, "nurse")).json();
+    expect(v.steps.find((x: { key: string }) => x.key === "final-bill")).toMatchObject({ status: "done", byHand: false, doneBy: expect.objectContaining({ id: "u_e2l_cashier" }) });
+    expect(v.steps.find((x: { key: string }) => x.key === "payment").status).toBe("in-progress");
+    // the shortfall at the counter (card): balanced → the payment step done by the event
+    const paid = await c.post(`/v1/ipd/bills/${a.admissionId}/payments`, { method: "card", amountPaisa: 4_800_000, reference: "APPR 5520" }, "cashier");
+    expect(paid.statusCode, paid.body).toBe(201);
+    expect(paid.json().final.status).toBe("balanced");
+    v = (await c.get(`/v1/ipd/admissions/${a.admissionId}/discharge`, "nurse")).json();
+    expect(v.steps.find((x: { key: string }) => x.key === "payment").status).toBe("done");
     expect(v.header.blockedBy).toEqual([expect.objectContaining({ key: "summary", department: "doctor", person: expect.objectContaining({ id: "u_e2l_surgeon" }) })]);
-    v = (await c.post(`/v1/ipd/discharges/${id}/steps/summary/done`, { pin: "1234" }, "surgeon")).json();
+    // B11: the summary signed → its step done; the patient may leave
+    await signSummary(a.admissionId);
+    v = (await c.get(`/v1/ipd/admissions/${a.admissionId}/discharge`, "nurse")).json();
     expect(v.steps.find((x: { key: string }) => x.key === "bed-release").status).toBe("in-progress");
+    expect((await c.post(`/v1/ipd/discharges/${id}/steps/bed-release/done`, { pin: "0000" }, "nurse")).statusCode).toBe(401);
     v = (await c.post(`/v1/ipd/discharges/${id}/steps/bed-release/done`, { pin: "1234" }, "nurse")).json();
-    expect(v.discharge.status).toBe("completed"); expect(v.header).toMatchObject({ done: 6, complete: true });
+    expect(v.discharge.status).toBe("completed"); expect(v.header).toMatchObject({ done: 6, complete: true }); expect(v.admission.visitFinished).toBe(true);
     const after = await tenant(async (tx) => ({
       adm: await tx.admission.findFirst({ where: { id: a.admissionId } }), enc: await tx.encounter.findFirst({ where: { id: a.encounterId } }),
       bed: await tx.location.findFirst({ where: { id: a.admission.bed.id } }), asg: await tx.bedAssignment.findFirst({ where: { encounterId: a.encounterId }, orderBy: { createdAt: "desc" } }),
       inv: await tx.invoice.findFirst({ where: { encounterId: a.encounterId, kind: "ipd" } }),
     }));
     expect(after.adm).toMatchObject({ status: "discharged" }); expect(after.enc!.status).toBe("finished");
-    expect(after.bed!.bedState).toBe("cleaning"); expect(after.asg).toMatchObject({ status: "ended", endReason: "discharged" });
-    expect(after.inv!.status).toBe("draft"); // B10 issues it
+    // B12: the bed to cleaning with a note the ward board shows
+    expect(after.bed!.bedState).toBe("cleaning"); expect(after.bed!.bedNote).toMatch(/^Discharged \d\d:\d\d · /); expect(after.asg).toMatchObject({ status: "ended", endReason: "discharged" });
+    expect(after.inv!.status).toBe("balanced");
     // the census never posts after the release
     expect(await censusOf(T, a.admissionId, new Date(Date.now() + 3 * DAY))).toBe(0);
     expect(await tenant((tx) => tx.chargeItem.count({ where: { invoice: { encounterId: a.encounterId }, source: "bed_day", creditOfId: null } }))).toBe(1);
@@ -274,18 +301,18 @@ describe.runIf(db)("the discharge checklist (B9)", () => {
     // ordered again later: a new discharge
     expect((await c.post(`/v1/ipd/admissions/${a.admissionId}/discharge`, { advice: "Fever settled now, home today", pin: "1234" }, "surgeon")).statusCode).toBe(201);
     await expect(tenant((tx) => tx.admission.update({ where: { id: a.admissionId }, data: { status: "discharged", dischargedAt: new Date(), dischargedById: "u_e2l_nurse" } }), "u_e2l_nurse")).rejects.toThrow(/through the checklist/);
-    await expect(tenant((tx) => tx.dischargeStep.updateMany({ where: { discharge: { admissionId: a.admissionId, status: "ordered" }, key: "final-bill" }, data: { status: "in-progress", startedAt: new Date() } }), "u_e2l_cashier")).rejects.toThrow(/waits for its earlier steps/);
+    await expect(tenant((tx) => tx.dischargeStep.updateMany({ where: { discharge: { admissionId: a.admissionId, status: "ordered" }, key: "payment" }, data: { status: "in-progress", startedAt: new Date() } }), "u_e2l_cashier")).rejects.toThrow(/waits for its earlier steps/);
   });
 });
 
 describe.runIf(db)("the review (session 2)", () => {
-  it("the OPD bill routes never reach the IPD running bill; the database keeps it a draft until B10", async () => {
+  it("the OPD bill routes never reach the IPD running bill; the database never voids it", async () => {
     const w = await h.ownWard(1);
     const a = await admit(w);
     const inv = a.admission.invoice.id as string;
     expect((await c.post(`/v1/invoices/${inv}/void`, { reason: "Opened by mistake, void it" }, "owner")).statusCode).toBe(404);
     expect((await c.post(`/v1/invoices/${inv}/issue`, { rev: 1 }, "cashier")).statusCode).toBe(404);
-    await expect(tenant((tx) => tx.invoice.update({ where: { id: inv }, data: { status: "entered_in_error", voidReason: "test: void the IPD bill", voidedById: "u_e2l_owner", voidedAt: new Date() } }), "u_e2l_owner")).rejects.toThrow(/stays a draft until the final bill/);
+    await expect(tenant((tx) => tx.invoice.update({ where: { id: inv }, data: { status: "entered_in_error", voidReason: "test: void the IPD bill", voidedById: "u_e2l_owner", voidedAt: new Date() } }), "u_e2l_owner")).rejects.toThrow(/never voided/);
   });
   it("a price-list change never re-prices an order already on the bill", async () => {
     const w = await h.ownWard(1);
@@ -302,20 +329,18 @@ describe.runIf(db)("the review (session 2)", () => {
       expect(after.unitPaisa).toBe(before.unitPaisa);
     } finally { await change(def!.unitPaisa!); }
   });
-  it("payment by hand is refused while a deposit link waits; done, it keeps the bill as it stood", async () => {
+  it("the final bill is refused while a deposit link waits (decision 2: never while the pharmacy works)", async () => {
     const w = await h.ownWard(1);
     const a = await admit(w);
-    const o = (await c.post(`/v1/ipd/admissions/${a.admissionId}/discharge`, { advice: "Settled, home today with advice", pin: "1234" }, "surgeon")).json();
-    const id = o.discharge.id;
-    expect((await c.post(`/v1/ipd/discharges/${id}/steps/pharmacy/done`, { pin: "1234", ownMedicines: "none" }, "pharm")).statusCode).toBe(200);
-    expect((await c.post(`/v1/ipd/discharges/${id}/steps/final-bill/done`, { pin: "1234" }, "cashier")).statusCode).toBe(200);
+    expect((await c.post(`/v1/ipd/bills/${a.admissionId}/issue`, {}, "cashier")).json().code).toBe("final_not_ordered");
+    expect((await c.post(`/v1/ipd/admissions/${a.admissionId}/discharge`, { advice: "Settled, home today with advice", pin: "1234" }, "surgeon")).statusCode).toBe(201);
     expect((await c.post(`/v1/ipd/bills/${a.admissionId}/deposits`, { method: "bkash", amountPaisa: 100_000 }, "cashier")).statusCode).toBe(201);
-    expect((await c.post(`/v1/ipd/discharges/${id}/steps/payment/done`, { pin: "1234" }, "cashier")).json().code).toBe("payment_pending");
+    expect((await c.post(`/v1/ipd/bills/${a.admissionId}/issue`, {}, "cashier")).json().code).toBe("final_link_pending");
     const p = (await bill(a.admissionId)).deposits.items.find((d) => d.method === "bkash")!;
     expect((await c.post(`/v1/payments/${p.id}/cancel`, {}, "cashier")).statusCode).toBe(200);
-    expect((await c.post(`/v1/ipd/discharges/${id}/steps/payment/done`, { pin: "1234" }, "cashier")).statusCode).toBe(200);
-    const step = await tenant((tx) => tx.dischargeStep.findFirst({ where: { dischargeId: id, key: "payment" } }));
-    expect(step!.detail).toMatchObject({ totalPaisa: 120_000, depositsPaisa: 0, balancePaisa: -120_000 });
+    const r = await c.post(`/v1/ipd/bills/${a.admissionId}/issue`, {}, "cashier");
+    expect(r.statusCode, r.body).toBe(200);
+    expect(r.json().final).toMatchObject({ status: "issued", depositsPaisa: 0, duePaisa: 120_000 });
   });
 });
 

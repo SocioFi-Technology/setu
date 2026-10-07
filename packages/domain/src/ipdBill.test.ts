@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  finalBillOutcome, finalCategories, finalIssueBlockers,
   keepPostedPrices,
   bedDaysDue, classPreview, dayClass, depositState, desiredLines, ipdLineAmounts, ipdTotals, reconcileLines, suggestedTopUp,
   type ClassLeg, type DesiredLine, type PackageSnapshot, type PostedLine, type StayFacts,
@@ -191,5 +192,37 @@ describe("the class-change preview", () => {
     expect(classPreview({ from: "Cabin", to: "General", rates: RATES, dayNo: 1, pkg: null, packageNowPaisa: null })).toMatchObject({ direction: "down", appliesFrom: "tomorrow", extraPaisa: -660_000 });
     // moving down never lowers the package
     expect(classPreview({ from: "Cabin", to: "General", rates: RATES, dayNo: 2, pkg: LAP, packageNowPaisa: 6_200_000 })).toMatchObject({ packageToPaisa: 6_200_000, extraPaisa: -330_000 });
+  });
+});
+
+describe("the final bill (ADR 0018, B10)", () => {
+  it("walkthrough B10: deposits ৳60,000 on a ৳56,090 bill — balanced, an excess of ৳3,910 refunded", () => {
+    expect(finalBillOutcome(5_609_000, 6_000_000)).toEqual({ excessPaisa: 391_000, netPaidPaisa: 5_609_000, duePaisa: 0, status: "balanced" });
+  });
+  it("a shortfall leaves the bill partly paid; no deposit, issued; exactly covered, balanced", () => {
+    expect(finalBillOutcome(5_225_000, 2_000_000)).toEqual({ excessPaisa: 0, netPaidPaisa: 2_000_000, duePaisa: 3_225_000, status: "partially-paid" });
+    expect(finalBillOutcome(120_000, 0)).toMatchObject({ status: "issued", duePaisa: 120_000 });
+    expect(finalBillOutcome(120_000, 120_000)).toMatchObject({ status: "balanced", excessPaisa: 0 });
+    expect(finalBillOutcome(0, 0)).toMatchObject({ status: "balanced" });
+  });
+  it("Kamrul, 2: issued once the discharge is ordered — never waiting for the pharmacy; not with a price missing or a link waiting", () => {
+    expect(finalIssueBlockers({ dischargeOrdered: true, unpricedLive: 0, pendingLinks: 0, draft: true })).toEqual([]);
+    expect(finalIssueBlockers({ dischargeOrdered: false, unpricedLive: 1, pendingLinks: 1, draft: false })).toEqual(["already_issued", "not_ordered", "unpriced", "link_pending"]);
+  });
+  it("the receipt's categories: credit lines count against theirs, superseded lines never", () => {
+    const c = finalCategories([
+      { source: "package", unitPaisa: 4_800_000, qty: 1, vatRateBp: 0, superseded: false },
+      { source: "bed-day", unitPaisa: 120_000, qty: 1, vatRateBp: 0, superseded: true },
+      { source: "bed-day", unitPaisa: 450_000, qty: 1, vatRateBp: 0, superseded: false },
+      { source: "stock", unitPaisa: 37_000, qty: 4, vatRateBp: 0, superseded: false },
+      { source: "stock", unitPaisa: 37_000, qty: -2, vatRateBp: 0, superseded: false },
+      { source: "desk", unitPaisa: 10_000, qty: 1, vatRateBp: 1500, superseded: false },
+    ]);
+    expect(c).toEqual([
+      { category: "package", lines: 1, netPaisa: 4_800_000, vatPaisa: 0, totalPaisa: 4_800_000 },
+      { category: "bed", lines: 1, netPaisa: 450_000, vatPaisa: 0, totalPaisa: 450_000 },
+      { category: "medicines", lines: 1, netPaisa: 74_000, vatPaisa: 0, totalPaisa: 74_000 },
+      { category: "services", lines: 1, netPaisa: 10_000, vatPaisa: 1_500, totalPaisa: 11_500 },
+    ]);
   });
 });

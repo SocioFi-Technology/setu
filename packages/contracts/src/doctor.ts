@@ -71,7 +71,8 @@ export const AckResponse = z.object({ item: InboxItem });
 export type AckResponse = z.infer<typeof AckResponse>;
 
 /* ───── printed clinical documents ───── */
-export const DocKind = z.enum(["rx", "lr"]);
+/** rx prescription · lr lab report · ds discharge summary (ADR 0018) */
+export const DocKind = z.enum(["rx", "lr", "ds"]);
 export const DocFormat = z.enum(["a5", "a4"]);
 export const DocReprintReason = z.enum(["lost", "jam", "copy"]);
 export const PrintBlocker = z.enum(["draft_not_printable", "superseded_not_printable", "withdrawn_not_printable"]);
@@ -119,3 +120,7 @@ export const LrVerifyResponse = z.object({
   results: z.array(InboxResult.extend({ test: z.string(), withdrawn: z.boolean() })),
 });
 export type LrVerifyResponse = z.infer<typeof LrVerifyResponse>;
+/** ADR 0018 (decision 10): the discharge summary's check names the facility, the doctor, the date, the version and
+    whether it is current — no clinical content */
+export const DsVerifyResponse = RxVerifyResponse.omit({ medicines: true });
+export type DsVerifyResponse = z.infer<typeof DsVerifyResponse>;

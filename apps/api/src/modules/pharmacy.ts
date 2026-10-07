@@ -62,10 +62,15 @@ async function people(tx: Tx, ids: (string | null | undefined)[]) {
 const pickable = (tx: Tx, s: SessionData, keys: string[]) =>
   tx.stockBatch.findMany({ where: { organizationId: s.organizationId, location: { in: PICK }, medicineKey: { in: keys } }, orderBy: [{ expiry: "asc" }, { id: "asc" }] });
 
+/** What the pharmacy dispenses from: the OPD consultation note, or the IPD discharge summary's medicines on discharge
+    (ADR 0018: the take-home medicines are a normal dispense, billed on the visit's pharmacy bill). */
+const RX_KINDS = ["consultation-note", "discharge-summary"];
+/** A discharge summary stays on the queue this many days after it is signed (the family may collect the next day). */
+const TAKE_HOME_DAYS = 3;
 /** The visit's signed, current note (final or amended) with its prescription lines, or null. */
 async function currentNote(tx: Tx, encounterId: string) {
   return tx.composition.findFirst({
-    where: { encounterId, kind: "consultation-note", status: { in: CURRENT } }, orderBy: { version: "desc" },
+    where: { encounterId, kind: { in: RX_KINDS }, status: { in: CURRENT } }, orderBy: { version: "desc" },
     include: { medications: { orderBy: { position: "asc" } } },
   });
 }
@@ -111,9 +116,13 @@ async function billSummary(tx: Tx, encounterId: string) {
 export async function dispenseQueue(tx: Tx, s: SessionData, now: Date): Promise<DispenseQueue> {
   const branch = await branchOf(tx, s);
   // a cancelled or voided visit is not dispensed against (its note stays on record)
-  const encs = await tx.encounter.findMany({ where: { organizationId: s.organizationId, branchId: branch.id, tokenDay: dhakaDay(now), class: { not: "ipd" }, status: { notIn: ["cancelled", "entered_in_error"] } }, include: { patient: true }, orderBy: { tokenNo: "asc" } });
+  const opd = await tx.encounter.findMany({ where: { organizationId: s.organizationId, branchId: branch.id, tokenDay: dhakaDay(now), class: { not: "ipd" }, status: { notIn: ["cancelled", "entered_in_error"] } }, include: { patient: true }, orderBy: { tokenNo: "asc" } });
+  // ADR 0018: an inpatient's take-home medicines, from a discharge summary signed in the last few days
+  const summaries = await tx.composition.findMany({ where: { organizationId: s.organizationId, branchId: branch.id, kind: "discharge-summary", status: { in: CURRENT }, signedAt: { gte: new Date(now.getTime() - TAKE_HOME_DAYS * 864e5) } }, select: { encounterId: true } });
+  const ipd = summaries.length ? await tx.encounter.findMany({ where: { id: { in: summaries.map((x) => x.encounterId) }, status: { notIn: ["cancelled", "entered_in_error"] } }, include: { patient: true } }) : [];
+  const encs = [...opd, ...ipd];
   const notes = await tx.composition.findMany({
-    where: { encounterId: { in: encs.map((e) => e.id) }, kind: "consultation-note", status: { in: CURRENT } }, orderBy: { version: "desc" },
+    where: { encounterId: { in: encs.map((e) => e.id) }, kind: { in: RX_KINDS }, status: { in: CURRENT } }, orderBy: { version: "desc" },
     include: { medications: true },
   });
   const latest = new Map<string, (typeof notes)[number]>();
@@ -130,7 +139,7 @@ export async function dispenseQueue(tx: Tx, s: SessionData, now: Date): Promise<
     const status = st.every(isClosed) ? "done" : mine.length === 0 ? "to-dispense" : "partial";
     items.push({
       encounter: { ...toVitalsEncounter(e as Parameters<typeof toVitalsEncounter>[0]), practitioner: e.practitionerId ? who(e.practitionerId) : null },
-      signedAt: (n.signedAt ?? n.updatedAt).toISOString(), lineCount: n.medications.length, status, bill: await billSummary(tx, e.id),
+      signedAt: (n.signedAt ?? n.updatedAt).toISOString(), lineCount: n.medications.length, status, bill: await billSummary(tx, e.id), takeHome: n.kind === "discharge-summary",
     });
   }
   // what still needs the pharmacist first, then by token
@@ -189,7 +198,7 @@ export async function dispenseView(tx: Tx, s: SessionData, encounterId: string, 
     labelPage: { widthMm: org.labelWidthMm, heightMm: org.labelHeightMm },
     facility: { nameEn: org.name, nameBn: org.nameBn },
     encounter: { ...toVitalsEncounter(e), practitioner: e.practitionerId ? who(e.practitionerId) : null },
-    composition: { id: note.id, version: note.version, status: note.status as "final" | "amended", signedAt: (note.signedAt ?? note.updatedAt).toISOString() },
+    composition: { id: note.id, version: note.version, status: note.status as "final" | "amended", signedAt: (note.signedAt ?? note.updatedAt).toISOString(), takeHome: note.kind === "discharge-summary" },
     allergies: allergies.map((a) => ({ labelBn: a.labelBn, labelEn: a.labelEn, severity: a.severity ?? "unknown" })),
     lines,
     bill: await billSummary(tx, e.id),

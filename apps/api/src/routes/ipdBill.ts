@@ -3,15 +3,18 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
-  DepositRequest, DischargeCancelRequest, InterimPrintRequest, type InterimPrintList, type IpdBillList, DischargeOrderRequest, DischargeStepDoneRequest, IpdChargeRequest, IpdPackageRequest,
+  AmendSummaryRequest, DeathRecordRequest, DepositRequest, SaveSummaryRequest, SignSummaryRequest, type SummaryView, DischargeCancelRequest, LamaRequest, NewPaymentRequest, type ReceiptView, InterimPrintRequest, type InterimPrintList, type IpdBillList, DischargeOrderRequest, DischargeStepDoneRequest, IpdChargeRequest, IpdPackageRequest,
   type ClassPreviewView, type DepositReceiptView, type DischargeList, type DischargeView, type IpdBillView, type PackageList,
 } from "@setu/contracts";
-import { attachLink } from "../modules/billing.js";
-import { cancelDischarge, dischargeList, dischargeView, doneStep, orderDischarge, remindStep, takeStep } from "../modules/discharge.js";
-import { addDeposit, applyPackage, billList, depositReceipt, interimPdf, interimPrints, printInterim, ipdBillView, openBill, packageList, postCharge, previewClass, requireIpdBill, withdrawCharge } from "../modules/ipdBill.js";
+import { addPayment, attachLink } from "../modules/billing.js";
+import { cancelDischarge, dischargeList, dischargeView, doneStep, orderDischarge, recordDeath, recordLama, remindStep, takeStep } from "../modules/discharge.js";
+import { createReceipt, receiptView } from "../modules/receipts.js";
+import { amendSummary, openSummary, saveSummary, signSummary, summaryView } from "../modules/summary.js";
+import { addDeposit, applyPackage, billList, depositReceipt, interimPdf, interimPrints, issueFinal, printInterim, ipdBillView, openBill, packageList, postCharge, previewClass, requireIpdBill, withdrawCharge } from "../modules/ipdBill.js";
 import { command, query } from "../command.js";
 import { requireSession } from "../plugins/session.js";
 import { sendLinkSms } from "./billing.js";
+import { err } from "../errors.js";
 
 const pid = z.object({ id: z.string().min(1).max(64) });
 const pstep = z.object({ id: z.string().min(1).max(64), key: z.string().min(1).max(20) });
@@ -84,17 +87,60 @@ export async function ipdBillRoutes(app: FastifyInstance) {
     });
   });
 
+  /* ── the final bill (ADR 0018, B10) ── */
+  app.post("/v1/ipd/bills/:id/issue", own, async (req, reply): Promise<IpdBillView> => {
+    requireIpdBill(requireSession(req)); const { id } = pid.parse(req.params);
+    return command(req, reply, async (tx, s) => { const r = await issueFinal(tx, s, id, new Date()); return { body: r.view, audit: r.audit }; }, { txTimeoutMs: 30_000 });
+  });
+  // the shortfall, paid at the counter by the normal payment routes (cash / card / bank now; a wallet by link)
+  app.post("/v1/ipd/bills/:id/payments", own, async (req, reply): Promise<IpdBillView> => {
+    requireIpdBill(requireSession(req)); const { id } = pid.parse(req.params); const body = NewPaymentRequest.parse(req.body ?? {});
+    let wallet: string | null = null;
+    return command(req, reply, async (tx, s) => {
+      const a = await tx.admission.findFirst({ where: { id, organizationId: s.organizationId }, select: { invoiceId: true, patientId: true } });
+      if (!a?.invoiceId) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
+      const r = await addPayment(tx, s, a.invoiceId, body, new Date(), { ipd: true });
+      if (r.payment.status === "initiated") wallet = r.payment.id;
+      return { status: 201, body: await ipdBillView(tx, s, id, new Date()), audit: [{ action: "create", entity: "Payment", entityId: r.payment.id, patientId: a.patientId, detail: { event: "final-bill", method: body.method, amountPaisa: body.amountPaisa, invoiceId: a.invoiceId } }] };
+    }, {
+      after: async (view, s) => {
+        if (!wallet) return view;
+        try { await attachLink(s.tenantId, wallet, new Date(), s.userId); await sendLinkSms(s, wallet); } catch (e) { console.error(`final-bill payment ${wallet}: link not made`, e); return view; }
+        const { forTenant } = await import("@setu/db");
+        return forTenant(s.tenantId, (tx) => ipdBillView(tx, s, id, new Date()), { userId: s.userId });
+      },
+    });
+  });
+  // the receipt of the final bill (Mushak-6.3 once it is settled — the receipt template's rule)
+  app.post("/v1/ipd/bills/:id/receipt", own, async (req, reply): Promise<ReceiptView> => {
+    requireIpdBill(requireSession(req)); const { id } = pid.parse(req.params);
+    return command(req, reply, async (tx, s) => {
+      const a = await tx.admission.findFirst({ where: { id, organizationId: s.organizationId }, select: { invoiceId: true } });
+      if (!a?.invoiceId) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
+      const r = await createReceipt(tx, s, a.invoiceId, new Date(), { ipd: true });
+      return { status: r.created ? 201 : 200, body: await receiptView(tx, r.r), audit: [{ action: r.created ? "create" : "view", entity: "Receipt", entityId: r.r.id, patientId: r.r.patientId, detail: { invoiceId: a.invoiceId, number: r.r.number, paidPaisa: r.r.paidPaisa, kind: "ipd-final" } }] };
+    });
+  });
+
   /* ── the discharge checklist ── */
   app.get("/v1/ipd/discharges", async (req): Promise<DischargeList> =>
     query(req, async (tx, s) => { const r = await dischargeList(tx, s, new Date()); return { body: r.list, audit: [{ action: "view", entity: "Discharge", detail: { purpose: "discharge-list", patientIds: r.patientIds } }] }; }));
   app.get("/v1/ipd/admissions/:id/discharge", async (req): Promise<DischargeView> => {
     const { id } = pid.parse(req.params);
-    return query(req, async (tx, s) => { const v = await dischargeView(tx, s, id, new Date()); return { body: v, audit: [{ action: "view", entity: "Discharge", entityId: v.discharge.id, patientId: v.patient.id, detail: { purpose: "discharge" } }] }; });
+    return query(req, async (tx, s) => { const { view: v, audit } = await dischargeView(tx, s, id, new Date()); return { body: v, audit: [...audit, { action: "view", entity: "Discharge", entityId: v.discharge.id, patientId: v.patient.id, detail: { purpose: "discharge" } }] }; });
   });
   // the PIN is never stored, not even hashed into the idempotency record
   app.post("/v1/ipd/admissions/:id/discharge", own, async (req, reply): Promise<DischargeView> => {
     const { id } = pid.parse(req.params); const body = DischargeOrderRequest.parse(req.body ?? {});
     return command(req, reply, async (tx, s) => { const r = await orderDischarge(tx, s, id, body, new Date()); return { status: 201, body: r.view, audit: r.audit }; }, { hashOmit: ["pin"] });
+  });
+  app.post("/v1/ipd/admissions/:id/lama", own, async (req, reply): Promise<DischargeView> => {
+    const { id } = pid.parse(req.params); const body = LamaRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const r = await recordLama(tx, s, id, body, new Date()); return { status: 201, body: r.view, audit: r.audit }; }, { hashOmit: ["pin"] });
+  });
+  app.post("/v1/ipd/admissions/:id/death", own, async (req, reply): Promise<DischargeView> => {
+    const { id } = pid.parse(req.params); const body = DeathRecordRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const r = await recordDeath(tx, s, id, body, new Date()); return { status: 201, body: r.view, audit: r.audit }; }, { hashOmit: ["pin"] });
   });
   app.post("/v1/ipd/discharges/:id/cancel", own, async (req, reply): Promise<DischargeView> => {
     const { id } = pid.parse(req.params); const body = DischargeCancelRequest.parse(req.body ?? {});
@@ -111,5 +157,27 @@ export async function ipdBillRoutes(app: FastifyInstance) {
   app.post("/v1/ipd/discharges/:id/steps/:key/remind", own, async (req, reply): Promise<DischargeView> => {
     const { id, key } = pstep.parse(req.params);
     return command(req, reply, async (tx, s) => { const r = await remindStep(tx, s, id, key, new Date()); return { body: r.view, audit: r.audit }; });
+  });
+
+  /* ── the discharge summary (ADR 0018, B11) ── */
+  app.get("/v1/ipd/admissions/:id/summary", async (req): Promise<SummaryView> => {
+    const { id } = pid.parse(req.params);
+    return query(req, async (tx, s) => { const r = await summaryView(tx, s, id, new Date()); return { body: r.view, audit: [{ action: "view", entity: "Composition", patientId: r.patientId, detail: { purpose: "discharge-summary", admissionId: id } }] }; });
+  });
+  app.post("/v1/ipd/admissions/:id/summary/open", own, async (req, reply): Promise<SummaryView> => {
+    const { id } = pid.parse(req.params);
+    return command(req, reply, async (tx, s) => { const r = await openSummary(tx, s, id, new Date()); return { body: r.view, audit: r.audit }; });
+  });
+  app.put("/v1/ipd/summaries/:id", own, async (req, reply): Promise<SummaryView> => {
+    const { id } = pid.parse(req.params); const body = SaveSummaryRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const r = await saveSummary(tx, s, id, body, new Date()); return { body: r.view, audit: r.audit }; });
+  });
+  app.post("/v1/ipd/summaries/:id/sign", own, async (req, reply): Promise<SummaryView> => {
+    const { id } = pid.parse(req.params); const body = SignSummaryRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const r = await signSummary(tx, s, id, body, new Date()); return { body: r.view, audit: r.audit }; }, { hashOmit: ["pin"] });
+  });
+  app.post("/v1/ipd/summaries/:id/amend", own, async (req, reply): Promise<SummaryView> => {
+    const { id } = pid.parse(req.params); const body = AmendSummaryRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const r = await amendSummary(tx, s, id, body, new Date()); return { status: 201, body: r.view, audit: r.audit }; });
   });
 }

@@ -4,21 +4,21 @@
    the version's verify code (DocumentCode); each print is rendered once, stored through the Storage adapter and logged
    (DocumentPrint); the database re-checks all of it (migration doctor_inbox_printing). */
 import { randomBytes } from "node:crypto";
-import type { DocPrintRequest, DocPrintView, LrVerifyResponse, RxVerifyResponse } from "@setu/contracts";
+import type { DocPrintRequest, DocPrintView, DsVerifyResponse, LrVerifyResponse, RxVerifyResponse } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import { copyCheck, labReportPrintBlockers, patientAgeYears, rxPrintBlockers, rxVerifyStatus, type DocState, type PrintBlocker } from "@setu/domain";
 import { storage } from "../adapters/storage.js";
 import { config } from "../config.js";
 import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
-import { lrHtml, rxHtml, type Lang, type Mode, type Paper, type PrintLine } from "../print/clinical.js";
+import { dsHtml, lrHtml, rxHtml, type Lang, type Mode, type Paper, type PrintLine } from "../print/clinical.js";
 import { htmlToPdf } from "../receipts/pdf.js";
 import { notFound } from "./frontdesk.js";
 import { labReportView } from "./lab.js";
 import { compositionHere, noCareRelationship } from "./consultation.js";
 import { newVerifyCode } from "./receipts.js";
 
-export type DocKind = "rx" | "lr";
+export type DocKind = "rx" | "lr" | "ds";
 const dash = <T extends string>(s: string) => s.replace(/_/g, "-") as T;
 /** What a document's QR opens: the staff app's public pages /verify/rx/<code> and /verify/lr/<code>. */
 const verifyRoot = (process.env.VERIFY_DOC_ROOT_URL ?? config.verifyBaseUrl.replace(/\/rc$/, "")).replace(/\/+$/, "");
@@ -104,11 +104,51 @@ async function lrInput(tx: Tx, s: SessionData, id: string, mode: Mode, paper: Pa
   });
 }
 
+/* ADR 0018 (B11): the discharge summary — A4 only; a doctor, nurse or admin of this facility */
+async function dsHere(tx: Tx, s: SessionData, id: string) {
+  const c = await tx.composition.findFirst({ where: { id, organizationId: s.organizationId, kind: "discharge-summary" },
+    include: { conditions: { orderBy: { position: "asc" } }, medications: { orderBy: { position: "asc" } }, patient: true } });
+  if (!c) throw notFound();
+  return c;
+}
+async function dsInput(tx: Tx, s: SessionData, id: string, mode: Mode, lang: Lang, verify: { url: string; code: string } | null, print: PrintLine | null) {
+  const c = await dsHere(tx, s, id);
+  const a = await tx.admission.findFirst({ where: { encounterId: c.encounterId } });
+  const [allergies, reg, who, bed, d] = await Promise.all([
+    tx.allergyIntolerance.findMany({ where: { patientId: c.patientId, status: "active" }, orderBy: { recordedAt: "asc" } }),
+    c.signerRegVerified !== null ? Promise.resolve({ regBody: c.signerRegBody, regNo: c.signerRegNo, regVerified: c.signerRegVerified })
+      : c.signedById ? tx.practitioner.findFirst({ where: { userId: c.signedById }, select: { regBody: true, regNo: true, regVerified: true } }) : null,
+    people(tx, [c.signedById, c.authorId, a?.admittingDoctorId]),
+    a ? tx.location.findFirst({ where: { id: a.bedId }, include: { parent: { select: { name: true } } } }) : null,
+    a ? tx.discharge.findFirst({ where: { admissionId: a.id, status: { in: ["ordered", "completed"] } } }) : null,
+  ]);
+  const doc = who.get(c.signedById ?? c.authorId);
+  const con = a ? who.get(a.admittingDoctorId) : undefined;
+  const sec = c.sections as { course?: string; procedures?: { name: string; date: string; surgeon: string }[]; followUp?: { date: string | null; place: string }; redFlags?: string[] };
+  return dsHtml({
+    lang, mode, facility: await facility(tx, s),
+    doctor: doc ? { en: doc.nameEn, bn: doc.nameBn, regBody: reg?.regBody ?? null, regNo: reg?.regNo ?? null, regVerified: reg?.regVerified ?? false } : null,
+    patient: { nameEn: c.patient.nameEn, nameBn: c.patient.nameBn, facilityNo: c.patient.facilityNo, ageYears: ageOf(c.patient, c.signedAt ?? new Date()), sex: c.patient.sex },
+    admission: { number: a?.number ?? "", admittedAt: a?.admittedAt ?? c.createdAt, dischargedAt: a?.dischargedAt ?? null, ward: bed?.parent?.name ?? null, bed: bed?.name ?? null, consultant: con ? { en: con.nameEn, bn: con.nameBn } : null },
+    lama: d?.kind === "lama", signedAt: c.signedAt, version: c.version, amended: c.status === "amended", replaced: c.status === "superseded" || c.status === "entered_in_error",
+    allergies: allergies.map((x) => ({ labelEn: x.labelEn, labelBn: x.labelBn, reaction: x.reaction })),
+    diagnoses: c.conditions.map((x) => ({ code: x.code, labelEn: x.labelEn, labelBn: x.labelBn, provisional: x.verificationStatus === "provisional", sample: x.codeVerification !== "verified" })),
+    course: sec.course ?? "", procedures: sec.procedures ?? [],
+    medicines: c.medications.map((m) => ({ brand: m.brand, generic: m.generic, strength: m.strength, form: m.form, dose: m.dose, meal: m.meal, days: m.days, note: m.note, sample: m.sample })),
+    followUp: sec.followUp ?? { date: null, place: "" }, redFlags: sec.redFlags ?? [], advice: d?.kind === "normal" ? d.advice : "",
+    verify, print,
+  });
+}
+
 /* ───── print state, preview, print ───── */
 async function blockersOf(tx: Tx, s: SessionData, kind: DocKind, id: string): Promise<{ blockers: PrintBlocker[]; patientId: string; label: string }> {
   if (kind === "rx") {
     const c = await rxHere(tx, s, id);
     return { blockers: rxPrintBlockers(dash<DocState>(c.status)), patientId: c.patientId, label: `v${c.version}` };
+  }
+  if (kind === "ds") {
+    const c = await dsHere(tx, s, id);
+    return { blockers: rxPrintBlockers(dash<DocState>(c.status)), patientId: c.patientId, label: `ds v${c.version}` };
   }
   const r = await lrHere(tx, s, id);
   return { blockers: labReportPrintBlockers(r.supersededById ? "superseded" : r.status), patientId: r.patientId, label: `${r.number} v${r.version}` };
@@ -137,8 +177,8 @@ export async function printView(tx: Tx, s: SessionData, kind: DocKind, id: strin
 export async function previewPdf(tx: Tx, s: SessionData, kind: DocKind, id: string, paper: Paper, lang: Lang): Promise<{ bytes: Uint8Array; patientId: string }> {
   const b = await blockersOf(tx, s, kind, id);
   const mode: Mode = b.blockers.includes("draft_not_printable") ? "draft" : "preview";
-  const html = kind === "rx" ? await rxInput(tx, s, await rxHere(tx, s, id), mode, paper, lang, null, null) : await lrInput(tx, s, id, mode, paper, lang, null, null);
-  return { bytes: await htmlToPdf(html, paper), patientId: b.patientId };
+  const html = kind === "rx" ? await rxInput(tx, s, await rxHere(tx, s, id), mode, paper, lang, null, null) : kind === "ds" ? await dsInput(tx, s, id, mode, lang, null, null) : await lrInput(tx, s, id, mode, paper, lang, null, null);
+  return { bytes: await htmlToPdf(html, kind === "ds" ? "a4" : paper), patientId: b.patientId };
 }
 
 const BLOCKED: Record<PrintBlocker, [string, string]> = {
@@ -163,10 +203,11 @@ export async function printDocument(tx: Tx, s: SessionData, kind: DocKind, id: s
   const me = await tx.user.findFirst({ where: { id: s.userId }, select: { nameBn: true, nameEn: true } });
   const line: PrintLine = { copy: c.copy, reason: req.reason ?? null, printedAt: now, printedBy: { nameBn: me?.nameBn ?? "—", nameEn: me?.nameEn ?? "—" } };
   const verify = { url: docVerifyUrl(kind, code.verifyCode), code: code.verifyCode };
-  const html = kind === "rx" ? await rxInput(tx, s, await rxHere(tx, s, id), "print", req.format, req.lang, verify, line) : await lrInput(tx, s, id, "print", req.format, req.lang, verify, line);
-  const pdf = await htmlToPdf(html, req.format);
-  const storageKey = `tenants/${s.tenantId}/documents/${kind}/${id}/${c.copy}-${req.format}-${req.lang}-${randomBytes(4).toString("hex")}.pdf`;
-  const print = await tx.documentPrint.create({ data: { tenantId: s.tenantId, codeId: code.id, copy: c.copy, reason: req.reason ?? null, format: req.format, lang: req.lang, storageKey, printedById: s.userId, printedAt: now } });
+  const paper = kind === "ds" ? "a4" : req.format; // the discharge summary is A4 only
+  const html = kind === "rx" ? await rxInput(tx, s, await rxHere(tx, s, id), "print", paper, req.lang, verify, line) : kind === "ds" ? await dsInput(tx, s, id, "print", req.lang, verify, line) : await lrInput(tx, s, id, "print", paper, req.lang, verify, line);
+  const pdf = await htmlToPdf(html, paper);
+  const storageKey = `tenants/${s.tenantId}/documents/${kind}/${id}/${c.copy}-${paper}-${req.lang}-${randomBytes(4).toString("hex")}.pdf`;
+  const print = await tx.documentPrint.create({ data: { tenantId: s.tenantId, codeId: code.id, copy: c.copy, reason: req.reason ?? null, format: paper, lang: req.lang, storageKey, printedById: s.userId, printedAt: now } });
   await storage.put(storageKey, pdf, "application/pdf");
   return { print, patientId: b.patientId, label: b.label };
 }
@@ -192,7 +233,7 @@ const patientOf = (r: Raw, at: Date) => ({ initials: r.initials, sex: r.sex, age
 export async function auditPublicView(kind: DocKind, code: string, t: VerifyTarget, ip: string) {
   const { forTenant } = await import("@setu/db");
   await forTenant(t.tenantId, (tx) => tx.auditEvent.create({ data: {
-    tenantId: t.tenantId, userId: null, role: null, action: "view", entity: kind === "rx" ? "Composition" : "DiagnosticReport", entityId: t.documentId, patientId: t.patientId, ip,
+    tenantId: t.tenantId, userId: null, role: null, action: "view", entity: kind === "lr" ? "DiagnosticReport" : "Composition", entityId: t.documentId, patientId: t.patientId, ip,
     basis: "public-verify", detail: { purpose: "public-verify", kind, code: code.slice(0, 4) } as object,
   } }));
 }
@@ -229,5 +270,20 @@ export async function lrVerify(code: string): Promise<{ body: LrVerifyResponse; 
       releasedAt: releasedAt.toISOString(), testCount: h.testCount, pendingCount: h.pendingCount, patient: patientOf(h, releasedAt),
       results: h.results.map((x) => ({ ...x, decimals: x.decimals ?? 1, nameEn: x.nameEn ?? x.code, nameBn: x.nameBn ?? x.code, withdrawn: !!x.withdrawn })),
     },
+  };
+}
+
+export async function dsVerify(code: string): Promise<{ body: DsVerifyResponse; target: VerifyTarget } | null> {
+  const { prisma } = await import("@setu/db");
+  const rows = await prisma.$queryRaw<{ hit: (Raw & Record<string, unknown>) | null }[]>`SELECT ds_verify_lookup(${code}::text) AS hit`;
+  const h = rows[0]?.hit as (Raw & VerifyTarget & { facilityEn: string; facilityBn: string | null; doctorEn: string | null; doctorBn: string | null; regBody: string | null; regNo: string | null; regVerified: boolean; signedAt: string | null; version: number; status: string }) | null;
+  if (!h) return null;
+  const status = rxVerifyStatus(h.status as DocState);
+  if (!status) return null;
+  const signedAt = h.signedAt ? new Date(utc(h.signedAt)) : null;
+  return {
+    target: { tenantId: h.tenantId, patientId: h.patientId, documentId: h.documentId },
+    body: { facilityEn: h.facilityEn, facilityBn: h.facilityBn, doctorEn: h.doctorEn, doctorBn: h.doctorBn, regBody: h.regBody, regNo: h.regNo, regVerified: h.regVerified,
+      signedAt: signedAt?.toISOString() ?? null, version: h.version, status, patient: patientOf(h, signedAt ?? new Date()) },
   };
 }

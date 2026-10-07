@@ -238,6 +238,8 @@ export const ReceiptSnapshot = z.object({
   discount: z.object({ category: DiscountCategory, reason: z.string(), approvedBy: z.object({ nameBn: z.string(), nameEn: z.string() }).nullable() }).nullable(),
   paidBy: PaidByView,
   cashier: z.object({ nameBn: z.string(), nameEn: z.string() }),
+  /** ADR 0018: the IPD final bill — its admission, the deposits applied and the excess refunded on its RF voucher */
+  ipd: z.object({ admissionNumber: z.string(), depositsPaisa: Paisa, excessPaisa: Paisa }).optional(),
 });
 export type ReceiptSnapshot = z.infer<typeof ReceiptSnapshot>;
 export const ReceiptPrintView = z.object({

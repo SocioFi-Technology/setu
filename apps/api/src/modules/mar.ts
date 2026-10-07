@@ -166,6 +166,8 @@ async function verifyWitnessPin(tx: Tx, userId: string, pin: string) {
 export async function recordDose(tx: Tx, s: SessionData, encounterId: string, req: DoseRequest, now: Date): Promise<{ view: MarView; audit: AuditEntry[] }> {
   requireNurse(s);
   const ip = await inpatientHere(tx, s, encounterId);
+  // ADR 0018 (decision 15): a death recorded on the ward stops the chart — its orders were completed with the record
+  if (ip.e.outcome === "deceased") throw err(409, "deceased", "মৃত্যুর রেকর্ড হয়েছে — আর কোনো ডোজ দেওয়া হয় না", "A death is recorded — no dose is given");
   const o = await tx.medicationRequest.findFirst({ where: { id: req.requestId, kind: "inpatient" }, include: { composition: { select: { status: true, organizationId: true } } } });
   if (!o || o.composition.organizationId !== s.organizationId) throw notFound();
   const m = (await tx.medicine.findFirst({ where: { key: o.medicineKey } }))!;

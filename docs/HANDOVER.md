@@ -1097,6 +1097,56 @@ addendum).
   B1–B2's Admit asserted the old deposit note (the Admit form's deposit section replaced it; assertion updated, B1–B2 + B7–B9
   10/10 after `db:reset-e2e`) and R2 a load stall (journey R 6/6 alone). Servers stopped.
 
+## Done (slice B10–B12, session 1 of 2, 07/10/2026) — the final bill, the discharge summary, LAMA / death, the bed after discharge (backend) ✅
+ADR 0018. Kamrul's plan decisions (07/10/2026): 1, 4–11, 13, 14, 16, 17 as recommended and the CI e2e limit to 30
+minutes; **2** the bill is issued once the discharge is recorded and the final census has run — never waiting for the
+pharmacy (an errored dose after issue is settled by refund, never by editing the bill); **3** a deposit-excess refund
+the counter cannot pay stays approved on the owner's list until paid (no expiry); **12** the summary is not signed while
+a critical result of the visit waits for a doctor or an escalation is open; **15** a death sets the visit's outcome
+"deceased", its bill carries no discharge medicines or follow-up, the body moved needs the nurse's PIN. One INV series
+for OPD and IPD bills kept, on the accountant's list.
+- **Rules (`@setu/domain` discharge.ts rewritten, ipdBill.ts, refund.ts; 446 tests):** the step graph per kind (normal:
+  order → summary, pharmacy, final bill (waits only for the order) → payment → patient left after summary, pharmacy and
+  payment; LAMA: left after the pharmacy only; death: order, final bill, payment, body moved), which steps finish by
+  their event and which are marked with a PIN, `visitFinishes` (left and billed); the LAMA record (reason, risks, form,
+  a witness who is not the doctor), the death record (the ER's checks, the time within the stay); the summary's sign
+  blockers; `finalBillOutcome` (excess / net paid / due / status), `finalIssueBlockers`, `finalCategories`; the
+  deposit-excess refund's approval (owner, never self, never rejected or withdrawn).
+- **Database (migrations `20261007100000_final_bill_summary`, `…100100_guards`, `…100200_summary_thread`):**
+  `Invoice.excessPaisa` set once at issue (= deposits beyond the total, checked); paid-vs-status and amounts on net paid;
+  the IPD draft issued straight to issued / partly paid / balanced, only with a discharge recorded and no link waiting,
+  never voided; at commit an excess has its deposit-excess refund for exactly that amount; refunds of source / category
+  `deposit-excess` (IPD only, once, no lines, never rejected or withdrawn, cash reason `deposit-excess` for wallet money
+  in cash); `Discharge.kind` / `detail`, per-kind step keys and waits, no new by-hand steps, a death never cancelled, no
+  cancel after the patient left or the bill was issued; `Encounter.outcome` (lama / deceased); MedicationRequest kind
+  `discharge` (prescription-shaped); DocumentCode kind `ds` with `ds_verify_lookup` (no clinical content);
+  `Communication.compositionId` (a signed summary of this patient, frozen); the summary is a thread (one per visit).
+- **API:** `POST /v1/ipd/bills/:id/issue` (final census → frozen → INV number from the one series → deposits applied →
+  the excess refund in the same transaction → the checklist's events), `…/payments` (the shortfall, normal payment
+  rules; a wallet by link), `…/receipt` (lines by category and VAT rate, deposits and excess on the snapshot; Mushak-6.3
+  by the receipt's existing rule); the bill view's `issueBlockers`, `final` (categories, excess refund, receipts, changes
+  after issue) and `can.issue / pay / receipt`; the running-bills list keeps an issued bill while money is owed either way.
+  `POST /v1/ipd/admissions/:id/lama | death`; the summary `GET /v1/ipd/admissions/:id/summary`, `POST …/summary/open`,
+  `PUT /v1/ipd/summaries/:id`, `POST …/sign` (PIN; provenance; the patient app's `summary-available` record; the step),
+  `…/amend`; prints `/v1/documents/ds/:id/{print, preview}` (A4 only) and `GET /v1/verify/ds/:code`. Event steps finish by
+  `catchUp` from every event (issue, a payment balancing the bill, the excess refund paid, the summary signed) and every
+  view; "patient left" / "body moved" (PIN, time) completes the discharge, ends the bed assignment (discharged / lama /
+  deceased), puts the bed to cleaning with "Discharged HH:MM · name" (the board's note), completes the orders; the visit
+  finishes when the patient has left and the bill is issued. The pharmacy queue lists a signed summary's take-home
+  medicines for 3 days (a normal dispense on the visit's pharmacy bill). The MAR refuses a dose after a death. The owner's
+  leakage list adds four live rows with drills: excess unpaid, LAMA / death bills owing, a LAMA summary over 24 hours,
+  a dose in error after the final bill; dues count an IPD bill's net paid (rollup version 7).
+- **Tests:** domain 446; api ipdbill 15 (B9 rewritten for the events), discharge 8 (new: excess refund paid at the
+  counter, shortfall in two parts with receipts, the database's issue checks, the summary's blockers incl. a critical
+  result, amend + A4 print + QR check, take-home on the pharmacy queue, LAMA, death, cancel after issue); **full API run
+  370/370**; typecheck 13/13. `reset-e2e` leaves a death record or a discharge with its bill issued ordered on its voided
+  visit (never cancelled); the discharge list skips voided visits. Open questions 301–308.
+- **Session 2 (next):** screens (`bill/ipd` final bill — issue, the excess refund, the shortfall, the receipt; `ipd/summary`;
+  LAMA and death on the round / discharge screens; the discharge checklist without by-hand steps; the bed map and the
+  admissions desk polling bed state; the pharmacy's take-home badge; the owner's four rows; `/verify/ds`); strings;
+  `e2e/journeys/journey-b.spec.ts` (ER arrival to discharge); reviews (money, clinical safety, security); hands-on as
+  cashier, doctor, nurse; the CI e2e limit to 30 minutes; CI green twice; "Next" rewritten.
+
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
 2. ~~MinIO image cannot be pulled~~ — dev and tests store receipts with `LocalFolderStorage` (A6–A7). Before staging: an S3-compatible adapter behind the same `Storage` interface.

@@ -183,3 +183,54 @@ ${i.callbacks.length ? `<p class="small">${i.callbacks.map((c) => lab("legend_ca
 <div class="small" style="margin-top:2mm">${lab("sample_ranges_note")}</div>`;
   return frame(i.paper, body, wm);
 }
+
+/** ADR 0018 (B11): the discharge summary — A4 only, the prescription's frame, QR and signature. */
+export interface DsInput {
+  lang: Lang; mode: Mode; facility: Facility; patient: PatientLine;
+  doctor: { en: string; bn: string; regBody: string | null; regNo: string | null; regVerified: boolean } | null;
+  admission: { number: string; admittedAt: Date; dischargedAt: Date | null; ward: string | null; bed: string | null; consultant: { en: string; bn: string } | null };
+  lama: boolean; signedAt: Date | null; version: number; amended: boolean; replaced: boolean;
+  allergies: { labelEn: string; labelBn: string; reaction: string | null }[];
+  diagnoses: { code: string; labelEn: string; labelBn: string; provisional: boolean; sample: boolean }[];
+  course: string; procedures: { name: string; date: string; surgeon: string }[];
+  medicines: RxInput["medicines"];
+  followUp: { date: string | null; place: string }; redFlags: string[]; advice: string;
+  verify: { url: string; code: string } | null; print: PrintLine | null;
+}
+export function dsHtml(i: DsInput): string {
+  const k = kit(i.lang);
+  const { wm, dup } = marks(k, i.mode, i.print);
+  const reg = i.doctor?.regNo ? esc(k.L("consultApp", i.doctor.regVerified ? "reg_verified" : "reg_unverified", { body: i.doctor.regBody ?? "BMDC", no: i.doctor.regNo })) : "";
+  const day = (iso: string) => k.date(new Date(`${iso}T12:00:00+06:00`));
+  const meds = i.medicines.length ? i.medicines.map((m, n) => `<div class="med">${k.num(n + 1)}. <b>${esc(m.form)} ${esc(m.brand)} ${esc(m.strength)}</b> <i>(${esc(m.generic)})</i><br>`
+    + `&nbsp;&nbsp;&nbsp;${esc(k.num(m.dose))} · ${esc(k.L("consultApp", `meal_${m.meal}`))} · ${esc(k.L("printApp", "days_n", { n: k.num(m.days) }))}`
+    + `${m.note?.trim() ? `<br>&nbsp;&nbsp;&nbsp;<b>${esc(m.note.trim())}</b>` : ""}</div>`).join("") : `<div>${k.P("ds_meds_none")}</div>`;
+  const body = `
+<div class="head"><div><div class="title">${k.name(i.facility.bn, i.facility.en)}</div>${i.facility.address ? `<div class="small">${esc(i.facility.address)}</div>` : ""}</div>
+<div style="text-align:right"><b>${k.P("ds_title")}</b><br><span class="code">${esc(i.admission.number)}</span> · v${k.num(i.version)}</div></div>
+${dup}
+${i.replaced ? `<div class="banner">${k.P("ds_replaced")}</div>` : ""}
+${i.lama ? `<div class="banner">${k.P("ds_lama")}</div>` : ""}
+<div class="cols">
+<div><span class="lbl">${k.P("patient")}</span><br><b>${k.name(i.patient.nameBn, i.patient.nameEn)}</b></div>
+<div><span class="lbl">${k.P("age_sex")}</span><br>${k.age(i.patient.ageYears)} · ${k.sex(i.patient.sex)}</div>
+<div><span class="lbl">${k.P("patient_no")}</span><br>${esc(i.patient.facilityNo)}</div>
+<div><span class="lbl">${k.P("ds_admitted")}</span><br>${k.dateTime(i.admission.admittedAt)}</div>
+<div><span class="lbl">${k.P("ds_discharged")}</span><br>${i.admission.dischargedAt ? k.dateTime(i.admission.dischargedAt) : "—"}</div>
+<div><span class="lbl">${k.P("ds_ward")}</span><br>${esc([i.admission.ward, i.admission.bed].filter(Boolean).join(" · ") || "—")}</div>
+${i.admission.consultant ? `<div><span class="lbl">${k.P("ds_consultant")}</span><br>${k.name(i.admission.consultant.bn, i.admission.consultant.en)}</div>` : ""}
+</div>
+<div class="allergy">${k.P("allergy")}: ${i.allergies.length ? i.allergies.map((a) => `${k.name(a.labelBn, a.labelEn)}${a.reaction ? ` (${esc(a.reaction)})` : ""}`).join(", ") : k.P("allergy_unknown")}</div>
+${i.amended ? `<div class="small"><b>${k.P("amended_v", { n: k.num(i.version) })}</b></div>` : ""}
+<h3>${k.P("ds_dx_final")}</h3><ul>${i.diagnoses.map((d) => `<li>${esc(d.code)} ${k.name(d.labelBn, d.labelEn)}${d.provisional ? ` <span class="small">(${k.P("provisional")})</span>` : ""}</li>`).join("")}</ul>
+<h3>${k.P("ds_course")}</h3><div style="white-space:pre-wrap">${esc(i.course)}</div>
+${i.procedures.length ? `<h3>${k.P("ds_procedures")}</h3><table><thead><tr><th>${k.P("ds_proc_name")}</th><th>${k.P("date")}</th><th>${k.P("ds_proc_surgeon")}</th></tr></thead><tbody>${i.procedures.map((p) => `<tr><td>${esc(p.name)}</td><td>${day(p.date)}</td><td>${esc(p.surgeon || "—")}</td></tr>`).join("")}</tbody></table>` : ""}
+<h3>${k.P("ds_meds")}</h3>${meds}
+${i.advice.trim() ? `<h3>${k.P("ds_advice")}</h3><div style="white-space:pre-wrap">${esc(i.advice)}</div>` : ""}
+<h3>${k.P("ds_follow_up")}</h3><div>${i.followUp.date ? day(i.followUp.date) : "—"}${i.followUp.place.trim() ? ` · ${esc(i.followUp.place)}` : ""}</div>
+<div class="allergy"><div>${k.P("ds_red_flags")}:</div><ul>${i.redFlags.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></div>
+<div class="foot">${qrBlock(k, i.verify, i.mode)}
+<div class="sig">${i.mode === "draft" || !i.signedAt ? `<b>${k.P("not_signed")}</b>` : `<b>${k.P("digitally_signed")}</b><br>${i.doctor ? k.name(i.doctor.bn, i.doctor.en) : ""}<br><span class="small">${reg}</span><br><span class="small">${k.P("signed_on")} ${k.dateTime(i.signedAt)}</span>`}</div></div>
+<div class="small" style="margin-top:2mm">${i.medicines.some((m) => m.sample) ? k.P("rx_sample") : ""}${i.diagnoses.some((d) => d.sample) ? ` · ${k.P("dx_sample")}` : ""}</div>`;
+  return frame("a4", body, wm);
+}

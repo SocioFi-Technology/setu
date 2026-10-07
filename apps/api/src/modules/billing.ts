@@ -69,7 +69,9 @@ const linkCode = () => Array.from(randomBytes(LINK_CODE_LENGTH), (b) => LINK_COD
 const PENDING_DB = ["initiated", "link_sent", "waiting_customer"];
 
 /** What the bill asks to be paid: its total less returned medicine credited off it (decision 221). */
-export const dueBase = (inv: { totalPaisa: number; creditedPaisa: number }) => inv.totalPaisa - inv.creditedPaisa;
+/** What the bill's confirmed money is measured against: the total less credits — plus, on an issued IPD bill, the excess
+    deposit its deposit-excess refund carries (ADR 0018: net paid = paid − excess). */
+export const dueBase = (inv: { totalPaisa: number; creditedPaisa: number; excessPaisa?: number }) => inv.totalPaisa - inv.creditedPaisa + (inv.excessPaisa ?? 0);
 
 /** A line's source as the contracts spell it (the database enum's bed_day is "bed-day", ADR 0017). */
 export const wireSource = (x: string) => x.replace(/_/g, "-") as ChargeSourceWire;
@@ -578,6 +580,14 @@ export async function decideApproval(tx: Tx, s: SessionData, taskId: string, dec
 }
 
 /* ───── issue ───── */
+/** INV/yy/nnnn from the facility's one series — OPD, pharmacy and the IPD final bill alike (ADR 0018, decision 4; the
+    accountant's question on separate series is open). */
+export async function nextInvoiceNumber(tx: Tx, s: SessionData, now: Date): Promise<string> {
+  const yy = dhakaDay(now).slice(2, 4);
+  const name = `invoice:${s.organizationId}:${yy}`;
+  const seq = await tx.sequence.upsert({ where: { tenantId_name: { tenantId: s.tenantId, name } }, create: { tenantId: s.tenantId, name, value: 1 }, update: { value: { increment: 1 } } });
+  return `INV/${yy}/${String(seq.value).padStart(4, "0")}`;
+}
 /** `sale`: called by the OTC issue after the stock moves (an OTC bill is never issued from the billing route). */
 export async function issueInvoice(tx: Tx, s: SessionData, id: string, rev: number, now: Date, sale = false): Promise<Inv> {
   requireWriter(s);
@@ -591,10 +601,7 @@ export async function issueInvoice(tx: Tx, s: SessionData, id: string, rev: numb
   if (blockers.length) throw err(422, "issue_blocked", "বিল ইস্যু করা যাচ্ছে না", "The bill cannot be issued yet", { blockers: blockers.map((code) => ({ code })) });
   const fresh = await recompute(tx, inv, inv.discountPaisa);
   const status = undash<"issued">(transition("INVOICE", INVOICE, "draft", "issue"));
-  const yy = dhakaDay(now).slice(2, 4);
-  const name = `invoice:${s.organizationId}:${yy}`;
-  const seq = await tx.sequence.upsert({ where: { tenantId_name: { tenantId: s.tenantId, name } }, create: { tenantId: s.tenantId, name, value: 1 }, update: { value: { increment: 1 } } });
-  const number = `INV/${yy}/${String(seq.value).padStart(4, "0")}`;
+  const number = await nextInvoiceNumber(tx, s, now);
   const n = await tx.invoice.updateMany({ where: { id: inv.id, rev: fresh.rev, status: "draft" }, data: { status, number, issuedAt: now, issuedById: s.userId, statusAt: now } });
   if (n.count !== 1) throw stale();
   // ADR 0005: the voided bill this one replaces now shows "Replaced by INV/…".
@@ -732,6 +739,8 @@ async function confirmPayment(tx: Tx, p: Pay, inv: Inv, by: string | null, trxId
   const event = invoiceEventAfterConfirm(dueBase(inv), s.confirmedPaisa);
   const next = undash<"balanced">(transition("INVOICE", INVOICE, dash<InvoiceState>(inv.status), event));
   await tx.invoice.update({ where: { id: inv.id }, data: { paidPaisa: s.confirmedPaisa, status: next, statusAt: now } });
+  // ADR 0018: the IPD final bill balanced — the discharge's payment step may finish (an excess refund paid, too)
+  if (inv.kind === "ipd" && next === "balanced") await (await import("./discharge.js")).moneySettled(tx, { tenantId: inv.tenantId, organizationId: inv.organizationId }, inv.id, by, now);
 }
 
 /** ADR 0017: confirm a cash / card / bank deposit on the running IPD bill (the bill stays a draft). */
@@ -786,10 +795,11 @@ export async function attachLink(tenantId: string, paymentId: string, now: Date,
   return out;
 }
 
-export async function addPayment(tx: Tx, s: SessionData, invoiceId: string, req: NewPaymentRequest, now: Date): Promise<{ inv: Inv; payment: Pay }> {
+export async function addPayment(tx: Tx, s: SessionData, invoiceId: string, req: NewPaymentRequest, now: Date, opts: { ipd?: boolean } = {}): Promise<{ inv: Inv; payment: Pay }> {
   requireWriter(s);
-  const inv = await invoiceHere(tx, s, invoiceId, true);
-  if (inv.kind === "ipd") throw err(409, "ipd_deposit", "ভর্তি রোগীর টাকা আইপিডি বিলে জমা হিসেবে নিন", "Take an inpatient's money as a deposit on the IPD bill");
+  const inv = await invoiceHere(tx, s, invoiceId, true, opts);
+  // ADR 0018: an issued IPD final bill's shortfall is paid like any bill; its running draft takes deposits only
+  if (inv.kind === "ipd" && inv.status === "draft") throw err(409, "ipd_deposit", "ভর্তি রোগীর টাকা আইপিডি বিলে জমা হিসেবে নিন", "Take an inpatient's money as a deposit on the IPD bill");
   if (inv.status !== "issued" && inv.status !== "partially_paid")
     throw err(409, "not_payable", inv.status === "draft" ? "আগে বিল ইস্যু করুন" : "এই বিলে আর টাকা নেওয়া যায় না", inv.status === "draft" ? "Issue the bill first" : "This bill takes no more payments");
   await refuseWhileReturnOpen(tx, inv.id);

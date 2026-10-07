@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { BedStateWire, ErPatient } from "./er.js";
 import { PatientSummary } from "./frontdesk.js";
+import { AllergyView, DiagnosisView, DocStatus, Meal, MedicationView } from "./consultation.js";
 
 const Person = z.object({ id: z.string(), nameBn: z.string(), nameEn: z.string() });
 export const AdmissionSource = z.enum(["opd", "er", "direct"]);
@@ -114,6 +115,7 @@ export const DepositView = z.object({
   /** a link: who it went to and the last four digits */ to: z.enum(["patient", "guardian"]).nullable(), phoneLast4: z.string().nullable(), payUrl: z.string().nullable(),
   createdBy: Person, createdAt: z.string(), confirmedAt: z.string().nullable(), failReason: z.string().nullable(),
   receipt: z.object({ id: z.string(), number: z.string() }).nullable(),
+  /** ADR 0018: taken at the counter against the issued final bill (not a deposit) */ atCounter: z.boolean(),
 });
 export type DepositView = z.infer<typeof DepositView>;
 export const IpdBillView = z.object({
@@ -132,7 +134,20 @@ export const IpdBillView = z.object({
   classes: z.array(BedClassItem),
   paymentMethods: z.array(z.enum(["cash", "card", "bank", "bkash", "nagad"])),
   discharge: z.object({ id: z.string(), status: z.enum(["ordered", "completed", "cancelled"]), done: z.number().int(), total: z.number().int() }).nullable(),
-  can: z.object({ deposit: z.boolean(), postCharge: z.boolean(), applyPackage: z.boolean() }),
+  /** ADR 0018: what still stops the final bill (draft only): no discharge recorded, an unpriced line, a payment link pending */
+  issueBlockers: z.array(z.enum(["already_issued", "not_ordered", "unpriced", "link_pending"])),
+  /** the issued final bill: deposits applied, the excess refunded, the shortfall due, by category */
+  final: z.object({
+    number: z.string(), issuedAt: z.string(), issuedBy: Person, status: z.enum(["issued", "partially-paid", "balanced"]),
+    depositsPaisa: z.number().int(), excessPaisa: z.number().int(), netPaidPaisa: z.number().int(), duePaisa: z.number().int(),
+    categories: z.array(z.object({ category: z.enum(["package", "bed", "tests", "medicines", "services"]), lines: z.number().int(), netPaisa: z.number().int(), vatPaisa: z.number().int(), totalPaisa: z.number().int() })),
+    excessRefund: z.object({ id: z.string(), status: z.enum(["requested", "approved", "paid"]), amountPaisa: z.number().int(), paidPaisa: z.number().int() }).nullable(),
+    receipts: z.array(z.object({ id: z.string(), number: z.string(), createdAt: z.string(), paidPaisa: z.number().int(), duePaisa: z.number().int() })),
+    /** what the sources say changed after the bill was issued (a dose marked in error, a bed day past the bill): settled by
+        refund or by the owner, never by editing the bill (Kamrul, 2) */
+    afterIssue: z.array(z.object({ kind: z.enum(["credit", "add", "change"]), key: z.string(), nameEn: z.string(), nameBn: z.string(), amountPaisa: z.number().int() })),
+  }).nullable(),
+  can: z.object({ deposit: z.boolean(), postCharge: z.boolean(), applyPackage: z.boolean(), issue: z.boolean(), pay: z.boolean(), receipt: z.boolean() }),
   sample: z.object({ rates: z.boolean(), package: z.boolean() }),
 });
 export type IpdBillView = z.infer<typeof IpdBillView>;
@@ -142,6 +157,8 @@ export const IpdBillList = z.object({ items: z.array(z.object({
   status: AdmissionStatus, packageName: z.object({ nameEn: z.string(), nameBn: z.string() }).nullable(),
   totalPaisa: z.number().int(), depositsPaisa: z.number().int(), balancePaisa: z.number().int(), depositState: DepositStateWire,
   discharge: z.object({ status: z.enum(["ordered", "completed"]), done: z.number().int() }).nullable(),
+  /** ADR 0018: the final bill once issued (still listed while money is due or the excess deposit is unpaid) */
+  bill: z.enum(["draft", "issued", "partially-paid", "balanced"]), invoiceNumber: z.string().nullable(), duePaisa: z.number().int(), excessOpenPaisa: z.number().int(),
 })) });
 export type IpdBillList = z.infer<typeof IpdBillList>;
 /* POST /v1/ipd/bills/:admissionId/interim-prints — the interim bill (A4, "not a final bill", no QR); a reprint needs a reason */
@@ -185,11 +202,13 @@ export type DepositReceiptView = z.infer<typeof DepositReceiptView>;
 
 /* ───── ADR 0017: the discharge checklist (ipd/discharge) ───── */
 export const DischargeStepKey = z.enum(["order", "summary", "pharmacy", "final-bill", "payment", "bed-release"]);
+/** ADR 0018: normal (the doctor's order), LAMA (the doctor's record), death on the ward */
+export const DischargeKind = z.enum(["normal", "lama", "death"]);
 export const DischargeStepView = z.object({
   key: DischargeStepKey, status: z.enum(["waiting", "in-progress", "done"]), department: z.enum(["doctor", "pharmacy", "billing", "ward"]),
   nameEn: z.string(), nameBn: z.string(), waitsFor: z.array(DischargeStepKey),
   startedAt: z.string().nullable(), takenBy: Person.nullable(), doneBy: Person.nullable(), doneAt: z.string().nullable(),
-  /** done by hand with a PIN until B10 / B11 (decision 8) */ byHand: z.boolean(), byHandStep: z.boolean(), note: z.string().nullable(),
+  /** done by hand with a PIN before B10 (history only) */ byHand: z.boolean(), /** finishes by its event (summary signed, bill issued, bill settled) */ byEvent: z.boolean(), note: z.string().nullable(),
   reminded: z.object({ by: Person, at: z.string(), count: z.number().int() }).nullable(),
   blocking: z.boolean(),
   can: z.object({ take: z.boolean(), done: z.boolean(), remind: z.boolean() }),
@@ -197,11 +216,13 @@ export const DischargeStepView = z.object({
 export type DischargeStepView = z.infer<typeof DischargeStepView>;
 export const DischargeView = z.object({
   discharge: z.object({
-    id: z.string(), status: z.enum(["ordered", "completed", "cancelled"]), advice: z.string(), targetAt: z.string(), overdue: z.boolean(),
+    id: z.string(), kind: DischargeKind, status: z.enum(["ordered", "completed", "cancelled"]), advice: z.string(), targetAt: z.string(), overdue: z.boolean(),
     orderedBy: Person, orderedAt: z.string(), completedAt: z.string().nullable(),
     cancel: z.object({ by: Person, at: z.string(), reason: z.string() }).nullable(),
+    /** LAMA: risks explained, form signed, the witness; death: time, medico-legal, checks */ record: z.record(z.unknown()).nullable(),
   }),
-  admission: z.object({ id: z.string(), number: z.string(), bed: z.string().nullable(), ward: z.string().nullable(), dayNo: z.number().int(), doctor: Person, encounterId: z.string() }),
+  admission: z.object({ id: z.string(), number: z.string(), bed: z.string().nullable(), ward: z.string().nullable(), dayNo: z.number().int(), doctor: Person, encounterId: z.string(),
+    visitFinished: z.boolean(), outcome: z.enum(["lama", "deceased"]).nullable() }),
   patient: PatientSummary,
   steps: z.array(DischargeStepView),
   header: z.object({ done: z.number().int(), total: z.number().int(), blockedBy: z.array(z.object({ key: DischargeStepKey, department: z.enum(["doctor", "pharmacy", "billing", "ward"]), person: Person.nullable() })), complete: z.boolean() }),
@@ -210,8 +231,8 @@ export const DischargeView = z.object({
 export type DischargeView = z.infer<typeof DischargeView>;
 /* GET /v1/ipd/discharges — the live discharges of this facility (each department's list) */
 export const DischargeList = z.object({ items: z.array(z.object({
-  id: z.string(), admissionId: z.string(), number: z.string(), patient: ErPatient, bed: z.string().nullable(), ward: z.string().nullable(),
-  status: z.enum(["ordered", "completed", "cancelled"]), done: z.number().int(), targetAt: z.string(), overdue: z.boolean(),
+  id: z.string(), kind: DischargeKind, admissionId: z.string(), number: z.string(), patient: ErPatient, bed: z.string().nullable(), ward: z.string().nullable(),
+  status: z.enum(["ordered", "completed", "cancelled"]), done: z.number().int(), total: z.number().int(), targetAt: z.string(), overdue: z.boolean(),
   blockedBy: z.array(z.object({ key: DischargeStepKey, department: z.enum(["doctor", "pharmacy", "billing", "ward"]), person: Person.nullable() })),
   /** the steps this user can act on now */ mine: z.array(DischargeStepKey), orderedAt: z.string(), completedAt: z.string().nullable(),
 })),
@@ -225,6 +246,67 @@ export type DischargeOrderRequest = z.infer<typeof DischargeOrderRequest>;
 /* POST /v1/ipd/discharges/:id/cancel — the doctor, before the bed is released */
 export const DischargeCancelRequest = z.object({ reason: z.string().trim().min(10).max(300), pin: z.string().regex(/^\d{4}$/) });
 export type DischargeCancelRequest = z.infer<typeof DischargeCancelRequest>;
-/* POST /v1/ipd/discharges/:id/steps/:key/done — PIN; pharmacy: the patient's own medicines; a note for a step done by hand */
-export const DischargeStepDoneRequest = z.object({ pin: z.string().regex(/^\d{4}$/), note: z.string().trim().max(300).optional(), ownMedicines: z.enum(["handed-back", "none"]).optional() });
+/* POST /v1/ipd/discharges/:id/steps/:key/done — PIN; pharmacy: the patient's own medicines; patient left / body moved: the time */
+export const DischargeStepDoneRequest = z.object({ pin: z.string().regex(/^\d{4}$/), note: z.string().trim().max(300).optional(), ownMedicines: z.enum(["handed-back", "none"]).optional(),
+  at: z.string().datetime({ offset: true }).optional() });
 export type DischargeStepDoneRequest = z.infer<typeof DischargeStepDoneRequest>;
+/* POST /v1/ipd/admissions/:id/lama — the doctor's LAMA record (PIN; decision 14) */
+export const LamaRequest = z.object({ reason: z.string().trim().min(10).max(1000), risksExplained: z.boolean(), formSigned: z.boolean(), witnessId: z.string().nullable(), pin: z.string().regex(/^\d{4}$/) });
+export type LamaRequest = z.infer<typeof LamaRequest>;
+/* POST /v1/ipd/admissions/:id/death — a death on the ward (PIN; decision 15; the ER's checks) */
+export const DeathRecordRequest = z.object({ timeOfDeath: z.string().datetime({ offset: true }), cause: z.string().trim().min(3).max(500), medicoLegal: z.boolean(),
+  checks: z.array(z.string().max(40)).max(10), pin: z.string().regex(/^\d{4}$/) });
+export type DeathRecordRequest = z.infer<typeof DeathRecordRequest>;
+
+/* ───── ADR 0018 (B11): the discharge summary (Composition kind discharge-summary; amend, never overwrite) ───── */
+export const SummarySections = z.object({
+  course: z.string().max(4000),
+  procedures: z.array(z.object({ name: z.string().trim().min(2).max(200), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), surgeon: z.string().trim().max(120) })).max(10),
+  followUp: z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(), place: z.string().trim().max(200) }),
+  redFlags: z.array(z.string().trim().min(2).max(200)).max(12),
+});
+export type SummarySections = z.infer<typeof SummarySections>;
+export const SummaryDoc = z.object({
+  id: z.string(), threadId: z.string(), version: z.number().int(), status: DocStatus, rev: z.number().int(),
+  sections: SummarySections, diagnoses: z.array(DiagnosisView), medicines: z.array(MedicationView),
+  author: Person, signedAt: z.string().nullable(), signedBy: Person.nullable(), amendsId: z.string().nullable(), amendReason: z.string().nullable(), createdAt: z.string(),
+});
+export type SummaryDoc = z.infer<typeof SummaryDoc>;
+export const SummaryBlocker = z.enum(["diagnosis_final", "course", "follow_up", "red_flags", "critical_unacked", "escalation_open", "rx_warnings"]);
+/* GET /v1/ipd/admissions/:id/summary · POST …/summary/open */
+export const SummaryView = z.object({
+  admission: z.object({ id: z.string(), number: z.string(), encounterId: z.string(), admittedAt: z.string(), dischargedAt: z.string().nullable(), diagnosis: z.string().nullable(), doctor: Person,
+    bed: z.string().nullable(), ward: z.string().nullable(), dayNo: z.number().int() }),
+  patient: PatientSummary, allergies: z.array(AllergyView),
+  discharge: z.object({ id: z.string(), kind: DischargeKind, status: z.enum(["ordered", "completed", "cancelled"]), advice: z.string(), orderedAt: z.string() }).nullable(),
+  /** a death on the ward has no summary (decision 15) */
+  needed: z.boolean(),
+  draft: SummaryDoc.nullable(), current: SummaryDoc.nullable(),
+  history: z.array(z.object({ id: z.string(), version: z.number().int(), status: DocStatus, signedAt: z.string().nullable(), amendReason: z.string().nullable() })),
+  /** what stops signing the draft now (Kamrul, 12: a critical result unacknowledged, an escalation open) */
+  blockers: z.array(SummaryBlocker),
+  facts: z.object({ criticalUnacked: z.number().int(), openEscalations: z.number().int(),
+    /** the active inpatient orders, a starting point for the medicines on discharge */
+    activeOrders: z.array(z.object({ medicineKey: z.string(), brand: z.string(), generic: z.string(), strength: z.string(), form: z.string(), doseText: z.string(), route: z.string() })),
+    /** signed round notes' diagnoses and the admission's for the picker */
+    lastRoundAssessment: z.string().nullable() }),
+  redFlagsSample: z.array(z.object({ key: z.string(), bn: z.string(), en: z.string() })),
+  /** the take-home medicines dispensed from the pharmacy against the current version */
+  takeHome: z.object({ dispensed: z.boolean(), at: z.string().nullable() }),
+  can: z.object({ open: z.boolean(), amend: z.boolean(), print: z.boolean() }),
+});
+export type SummaryView = z.infer<typeof SummaryView>;
+/* PUT /v1/ipd/summaries/:id — the draft (rev check-and-set); the server copies labels and medicine data */
+export const SaveSummaryRequest = z.object({
+  rev: z.number().int().min(1), sections: SummarySections,
+  diagnoses: z.array(z.object({ code: z.string().max(20), verificationStatus: z.enum(["provisional", "confirmed"]) })).max(20),
+  medicines: z.array(z.object({
+    medicineKey: z.string().max(60), dose: z.string().max(20), meal: Meal, days: z.number().int().min(1).max(365),
+    note: z.string().trim().max(200).optional(), keepBoth: z.boolean().optional(), acks: z.array(z.string().max(60)).max(10).optional(),
+  })).max(30),
+});
+export type SaveSummaryRequest = z.infer<typeof SaveSummaryRequest>;
+export const SignSummaryRequest = z.object({ rev: z.number().int().min(1), pin: z.string().regex(/^\d{4}$/) });
+export type SignSummaryRequest = z.infer<typeof SignSummaryRequest>;
+export const AmendSummaryRequest = z.object({ reason: z.string().trim().min(5).max(300) });
+export type AmendSummaryRequest = z.infer<typeof AmendSummaryRequest>;

@@ -1253,3 +1253,24 @@ Built on the cautious reading; Kamrul to confirm or change.
 ### For the accountant (pre-pilot)
 - **One INV series for IPD and OPD bills** (decision 4) is a VAT-registration question: kept as one sequential series
   until the accountant decides.
+
+## Slice B10–B12, session 1 (backend) — 07/10/2026
+Built on the cautious reading; Kamrul to confirm or change.
+301. **A summary is opened only after the discharge (or LAMA) is recorded**, by any doctor of the facility; the doctor
+     cannot start it earlier in the stay. A death has none (decision 15).
+302. **The summary's diagnoses need at least one "confirmed"** (the ICD picker's provisional ones may sit beside it); a
+     ward-only medicine (inpatient-only: an injection, an infusion) cannot be a medicine on discharge.
+303. **"Critical unacknowledged" counts** a critical vital or a lab report with an HH / LL value of this visit sent to any
+     doctor's inbox and acknowledged by no doctor — one acknowledgement clears it, as in the inbox.
+304. **The take-home medicines stay on the pharmacy's queue for 3 days** after the summary is signed (the family may
+     collect them the next day); they are billed on the visit's pharmacy bill, paid at the counter like an OPD dispense —
+     not on the IPD final bill.
+305. **The excess deposit goes back the way it came where it can:** by a bKash refund when one bKash deposit within the
+     gateway's 60 days covers it, otherwise in cash against the deposits, newest first (a wallet deposit in cash carries
+     the reason "deposit-excess"). The owner approves it like any refund over the limit; the issuing cashier never does.
+306. **A LAMA witness is a nurse or a doctor of the facility** (not the recording doctor); the patient's or guardian's
+     signature on the paper LAMA form is ticked, not scanned.
+307. **After a death is recorded the MAR takes no dose** — a dose given before death and not yet charted cannot be
+     recorded afterwards (the orders are completed with the record). Rare; a nursing note records it.
+308. **The owner's four inpatient rows are live, not by period** (excess unpaid, LAMA / death bills owing, LAMA summary
+     over 24 hours, a dose in error after the final bill — the last for 30 days), as each stays until it is settled.

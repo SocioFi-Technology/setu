@@ -5,17 +5,17 @@
    return only what decision D2 allows. */
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { DocKind, DocPrintRequest, VerifyCode, type DocPrintResponse, type DocPrintView, type LrVerifyResponse, type RxVerifyResponse } from "@setu/contracts";
+import { DocKind, DocPrintRequest, VerifyCode, type DocPrintResponse, type DocPrintView, type DsVerifyResponse, type LrVerifyResponse, type RxVerifyResponse } from "@setu/contracts";
 import { authorize } from "@setu/domain";
 import { command, query } from "../command.js";
 import { config } from "../config.js";
 import { err, forbidden } from "../errors.js";
-import { auditPublicView, lrVerify, previewPdf, printDocument, printView, rxVerify, storedPdf, type DocKind as Kind } from "../modules/documents.js";
+import { auditPublicView, dsVerify, lrVerify, previewPdf, printDocument, printView, rxVerify, storedPdf, type DocKind as Kind } from "../modules/documents.js";
 import { requireSession } from "../plugins/session.js";
 import { clientKey } from "./billing.js";
 
 /** rx: the doctor's note screens; lr: the lab report screen or the doctor's inbox. */
-const SCREENS: Record<Kind, [string, string][]> = { rx: [["cons", "signed"], ["doc", "consult"]], lr: [["lab", "report"], ["doc", "inbox"]] };
+const SCREENS: Record<Kind, [string, string][]> = { rx: [["cons", "signed"], ["doc", "consult"]], lr: [["lab", "report"], ["doc", "inbox"]], ds: [["ipd", "summary"], ["ipd", "discharge"]] };
 function requireKind(req: FastifyRequest, kind: Kind) {
   const s = requireSession(req);
   const d = SCREENS[kind].map(([m, x]) => authorize(s.role, s.plan, m, x));
@@ -24,7 +24,7 @@ function requireKind(req: FastifyRequest, kind: Kind) {
 }
 const params = z.object({ kind: DocKind, id: z.string().min(1).max(64) });
 const pid = z.object({ id: z.string().min(1).max(64) });
-const entity = (k: Kind) => (k === "rx" ? "Composition" : "DiagnosticReport");
+const entity = (k: Kind) => (k === "lr" ? "DiagnosticReport" : "Composition");
 
 export async function documentRoutes(app: FastifyInstance) {
   app.get("/v1/documents/:kind/:id/print", async (req): Promise<DocPrintView> => {
@@ -91,6 +91,15 @@ export async function documentRoutes(app: FastifyInstance) {
     const hit = code.success ? await lrVerify(code.data) : null;
     if (!hit) throw err(404, "not_found", "এই কোডের কোনো ল্যাব রিপোর্ট পাওয়া যায়নি", "No lab report found for this code");
     await auditPublicView("lr", code.data!, hit.target, req.ip);
+    return hit.body;
+  });
+  app.get("/v1/verify/ds/:code", limited, async (req, reply): Promise<DsVerifyResponse> => {
+    if (!config.dbEnabled) throw err(503, "db_off", "ডাটাবেস চালু নেই", "The database is not running");
+    reply.header("cache-control", "no-store");
+    const code = VerifyCode.safeParse((req.params as { code: string }).code.toUpperCase());
+    const hit = code.success ? await dsVerify(code.data) : null;
+    if (!hit) throw err(404, "not_found", "এই কোডের কোনো ছাড়পত্র সারাংশ পাওয়া যায়নি", "No discharge summary found for this code");
+    await auditPublicView("ds", code.data!, hit.target, req.ip);
     return hit.body;
   });
 }

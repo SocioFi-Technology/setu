@@ -70,8 +70,9 @@ const open = await db.encounter.findMany({ where: { tenantId: { in: [T, LITE] },
 const liveBeds = await db.bedAssignment.findMany({ where: { tenantId: { in: [T, LITE] }, status: { in: ["reserved", "occupied"] } }, select: { id: true, tenantId: true, bedId: true, patientId: true } });
 const requestedAdmissions = await db.admission.findMany({ where: { tenantId: { in: [T, LITE] }, status: "requested" }, select: { id: true, tenantId: true, patientId: true } });
 const beds = await db.location.findMany({ where: { tenantId: { in: [T, LITE] }, kind: "bed" }, select: { id: true, name: true, bedState: true, bedNote: true } });
-// ADR 0017: discharges still ordered are cancelled (their beds are put back below)
-const openDischarges = await db.discharge.findMany({ where: { tenantId: { in: [T, LITE] }, status: "ordered" }, select: { id: true } });
+// ADR 0017: discharges still ordered are cancelled (their beds are put back below). ADR 0018: a death record, or a
+// discharge whose final bill is issued, is never cancelled — it stays ordered on its voided visit (the lists skip it).
+const openDischarges = await db.discharge.findMany({ where: { tenantId: { in: [T, LITE] }, status: "ordered", kind: { not: "death" }, steps: { none: { key: { in: ["final-bill", "bed-release"] }, status: "done" } } }, select: { id: true } });
 const provisionalReviews = await db.task.findMany({ where: { tenantId: { in: [T, LITE] }, kind: "patient-link-review", status: "requested", reason: { startsWith: "ER provisional" } }, select: { id: true } });
 let bedsReset = 0;
 await db.$transaction(async (tx) => {

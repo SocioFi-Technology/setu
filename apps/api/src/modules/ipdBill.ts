@@ -8,14 +8,15 @@ import { randomUUID } from "node:crypto";
 import type { ClassPreviewView, DepositReceiptSnapshot, InterimPrintList, InterimPrintRequest, IpdBillList, DepositReceiptView, DepositRequest, IpdBillView, IpdChargeRequest, IpdLine, PackageList, PackageView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
-  MAX_DEPOSIT_PAISA, authorize, keepPostedPrices, holdsShift, type Plan, type Role, bedDaysDue, classPreview, depositState, desiredLines, dhakaDay, ipdLineAmounts, ipdTotals, isWallet, reconcileLines, suggestedTopUp,
+  INVOICE, MAX_DEPOSIT_PAISA, authorize, finalBillOutcome, finalCategories, finalIssueBlockers, keepPostedPrices, transition, holdsShift, type Plan, type Role, bedDaysDue, classPreview, depositState, desiredLines, dhakaDay, ipdLineAmounts, ipdTotals, isWallet, reconcileLines, suggestedTopUp,
   type ClassLeg, type ClassRate, type DesiredLine, type ManualFact, type OrderFact, type PackageSnapshot, type PaymentMethod, type PostedLine, type StayFacts, type StockFact,
 } from "@setu/domain";
 import { providerFor } from "../adapters/payments/index.js";
 import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
-import { BILLED_ORDER_STATES, confirmIpdDeposit, wireSource } from "./billing.js";
+import { BILLED_ORDER_STATES, confirmIpdDeposit, nextInvoiceNumber, wireSource } from "./billing.js";
+import { requestExcessRefund } from "./refunds.js";
 import { getPatient, notFound, toSummary } from "./frontdesk.js";
 import { dash, erPatientOf, iso, peopleOf, stale, type Adm } from "./inpatient.js";
 import { storage } from "../adapters/storage.js";
@@ -147,6 +148,19 @@ async function recomputeTotals(tx: Tx, inv: Inv) {
   const sum = (k: "grossPaisa" | "netPaisa" | "vatPaisa" | "totalPaisa") => all.reduce((a, l) => a + l[k], 0);
   await tx.invoice.update({ where: { id: inv.id }, data: { subtotalPaisa: sum("grossPaisa"), discountPaisa: 0, netPaisa: sum("netPaisa"), vatPaisa: sum("vatPaisa"), totalPaisa: sum("totalPaisa"), rev: { increment: 1 } } });
 }
+/** ADR 0018: what the sources say changed since the bill was issued — listed, never posted (Kamrul, 2: an errored dose
+    after issue is settled by refund). */
+async function afterIssueOf(tx: Tx, adm: Adm, inv: Inv, lines: Line[], now: Date): Promise<NonNullable<IpdBillView["final"]>["afterIssue"]> {
+  if (inv.status === "draft" || !adm.admittedAt || !adm.encounterId) return [];
+  const facts = await stayFacts(tx, adm, lines);
+  const r = reconcileLines(lines.map(posted), keepPostedPrices(desiredLines(facts, now), lines.map((l) => ({ key: l.key, code: l.code, tag: l.tag as PostedLine["tag"], unitPaisa: l.unitPaisa, position: l.position, creditOfId: l.creditOfId }))));
+  const amt = (unit: number | null, qty: number, bp: number) => ipdLineAmounts(unit, qty, bp).totalPaisa;
+  return [
+    ...r.credit.map((id) => { const l = lines.find((x) => x.id === id)!; return { kind: "credit" as const, key: l.key ?? "", nameEn: l.nameEn, nameBn: l.nameBn, amountPaisa: -l.totalPaisa }; }),
+    ...r.add.map((d) => ({ kind: "add" as const, key: d.key, nameEn: d.nameEn, nameBn: d.nameBn, amountPaisa: amt(d.unitPaisa, d.qty, d.vatRateBp) })),
+    ...r.supersede.map((x) => { const l = lines.find((y) => y.id === x.oldId)!; return { kind: "change" as const, key: x.line.key, nameEn: x.line.nameEn, nameBn: x.line.nameBn, amountPaisa: amt(x.line.unitPaisa, x.line.qty, x.line.vatRateBp) - l.totalPaisa }; }),
+  ];
+}
 const syncAudit = (adm: Adm, r: SyncResult, reason: string): AuditEntry[] =>
   r.added.length || r.superseded.length || r.credited.length
     ? [{ action: "update", entity: "Invoice", entityId: adm.invoiceId!, patientId: adm.patientId, detail: { event: "ipd-sync", reason, added: r.added, superseded: r.superseded, credited: r.credited } }]
@@ -211,7 +225,8 @@ export async function ipdBillView(tx: Tx, s: SessionData, admissionId: string, n
     tx.user.findFirst({ where: { id: a.admittingDoctorId }, select: { id: true, nameBn: true, nameEn: true } }),
   ]);
   const ward = bed?.parentId ? await tx.location.findFirst({ where: { id: bed.parentId }, select: { name: true } }) : null;
-  const who = await peopleOf(tx, [...lines.map((l) => l.addedById), ...pays.map((p) => p.createdById), a.packageAppliedById]);
+  const who = await peopleOf(tx, [...lines.map((l) => l.addedById), ...pays.map((p) => p.createdById), a.packageAppliedById, inv.issuedById]);
+  const issued = inv.status !== "draft";
   const t = ipdTotals(lines.map((l) => ({ tag: l.tag as IpdLine["tag"], unitPaisa: l.unitPaisa, qty: l.qty, vatRateBp: l.vatRateBp, superseded: Boolean(l.supersededById), credit: Boolean(l.creditedById || l.creditOfId) })));
   const confirmed = pays.filter((p) => p.status === "confirmed").reduce((x, p) => x + p.amountPaisa, 0);
   const pending = pays.filter((p) => ["initiated", "link_sent", "waiting_customer"].includes(p.status)).reduce((x, p) => x + p.amountPaisa, 0);
@@ -244,6 +259,7 @@ export async function ipdBillView(tx: Tx, s: SessionData, admissionId: string, n
         id: p.id, method: p.method as PaymentMethod, status: dash(p.status), amountPaisa: p.amountPaisa, trxId: p.trxId, reference: p.reference,
         to: p.phone ? (guardianWallet && p.phone === guardianWallet ? "guardian" as const : "patient" as const) : null, phoneLast4: lastFour(p.phone), payUrl: p.linkCode && ["link_sent", "waiting_customer"].includes(p.status) ? `/p/${p.linkCode}` : null,
         createdBy: who(p.createdById), createdAt: p.createdAt.toISOString(), confirmedAt: iso(p.confirmedAt), failReason: p.failReason, receipt: rc.get(p.id) ? { id: rc.get(p.id)!.id, number: rc.get(p.id)!.number } : null,
+        atCounter: Boolean(inv.issuedAt && p.createdAt.getTime() >= inv.issuedAt.getTime()),
       })),
       confirmedPaisa: confirmed, pendingPaisa: pending,
     },
@@ -251,10 +267,38 @@ export async function ipdBillView(tx: Tx, s: SessionData, admissionId: string, n
     classes: rates.rows.filter((c) => c.key !== "ER"),
     paymentMethods: (org?.paymentMethods ?? []) as IpdBillView["paymentMethods"],
     discharge: discharge ? { id: discharge.id, status: discharge.status as "ordered", done: discharge.steps.filter((x) => x.status === "done").length, total: discharge.steps.length } : null,
-    can: { deposit: writer && inv.status === "draft", postCharge: writer && inv.status === "draft", applyPackage: writer && inv.status === "draft" && a.status === "admitted" && !pkg },
+    issueBlockers: issued ? [] : await issueBlockersOf(tx, a, inv, lines, pays),
+    final: issued ? await finalOf(tx, a, inv, lines, who, now) : null,
+    can: { deposit: writer && !issued, postCharge: writer && !issued, applyPackage: writer && !issued && a.status === "admitted" && !pkg,
+      issue: writer && !issued && Boolean(discharge),
+      pay: writer && (inv.status === "issued" || inv.status === "partially_paid"),
+      receipt: writer && issued && inv.paidPaisa - inv.excessPaisa > 0 && inv.status !== "issued" },
     sample: { rates: rates.rows.some((r) => r.key === a.bedClass && r.sample), package: pkgRow?.sample ?? false },
   };
 }
+const LINK_OPEN = ["initiated", "link_sent", "waiting_customer"];
+const unpricedLive = (lines: Line[]) => lines.filter((l) => !l.supersededById && l.unitPaisa === null && !l.creditOfId && !l.creditedById).length;
+async function issueBlockersOf(tx: Tx, a: Adm, inv: Inv, lines: Line[], pays: { status: string }[]) {
+  const d = await tx.discharge.findFirst({ where: { admissionId: a.id, status: { in: ["ordered", "completed"] } }, select: { id: true } });
+  return finalIssueBlockers({ draft: inv.status === "draft", dischargeOrdered: Boolean(d), unpricedLive: unpricedLive(lines), pendingLinks: pays.filter((p) => LINK_OPEN.includes(p.status)).length });
+}
+async function finalOf(tx: Tx, a: Adm, inv: Inv, lines: Line[], who: Awaited<ReturnType<typeof peopleOf>>, now: Date): Promise<IpdBillView["final"]> {
+  const [refund, receipts] = await Promise.all([
+    tx.refund.findFirst({ where: { invoiceId: inv.id, source: "deposit-excess" }, include: { allocations: { select: { amountPaisa: true, status: true } } } }),
+    tx.receipt.findMany({ where: { invoiceId: inv.id, kind: "bill" }, orderBy: { createdAt: "asc" } }),
+  ]);
+  const deposits = (await tx.payment.aggregate({ where: { invoiceId: inv.id, status: "confirmed", createdAt: { lt: inv.issuedAt! } }, _sum: { amountPaisa: true } }))._sum.amountPaisa ?? 0;
+  const net = inv.paidPaisa - inv.excessPaisa;
+  return {
+    number: inv.number!, issuedAt: inv.issuedAt!.toISOString(), issuedBy: who(inv.issuedById), status: dash(inv.status) as "issued",
+    depositsPaisa: deposits, excessPaisa: inv.excessPaisa, netPaidPaisa: net, duePaisa: inv.totalPaisa - inv.creditedPaisa - net,
+    categories: finalCategories(lines.map((l) => ({ source: wireSource(l.source) as IpdLine["source"], unitPaisa: l.unitPaisa, qty: l.qty, vatRateBp: l.vatRateBp, superseded: Boolean(l.supersededById) }))),
+    excessRefund: refund ? { id: refund.id, status: refund.status as "approved", amountPaisa: refund.amountPaisa, paidPaisa: refund.allocations.filter((x) => x.status === "paid").reduce((t, x) => t + x.amountPaisa, 0) } : null,
+    receipts: receipts.map((r) => ({ id: r.id, number: r.number, createdAt: r.createdAt.toISOString(), paidPaisa: r.paidPaisa, duePaisa: r.duePaisa })),
+    afterIssue: await afterIssueOf(tx, a, inv, lines, now),
+  };
+}
+
 /** Opening the bill posts what is due (a census the sweep has not reached yet) — attributed to nobody. */
 export async function openBill(tx: Tx, s: SessionData, admissionId: string, now: Date): Promise<{ view: IpdBillView; audit: AuditEntry[] }> {
   requireIpdBill(s);
@@ -323,6 +367,50 @@ export async function withdrawCharge(tx: Tx, s: SessionData, admissionId: string
 }
 
 /** The package as the admission keeps it (decision 5: a later catalogue change never re-prices a patient). */
+/** ADR 0018 (B10): the final bill. Once the discharge is recorded (Kamrul, 2: never waiting for the pharmacy); the final
+    census runs first; the charges freeze (the database refuses a line after issue); the deposits apply — a shortfall
+    is paid at the counter, an excess becomes the deposit-excess refund in this same transaction (decision 297). */
+export async function issueFinal(tx: Tx, s: SessionData, admissionId: string, now: Date): Promise<{ view: IpdBillView; audit: AuditEntry[] }> {
+  requireIpdBill(s);
+  if (!BILL_WRITERS.includes(s.role)) throw forbiddenRole();
+  const a0 = await admissionHere(tx, s, admissionId);
+  const audit: AuditEntry[] = [...await syncAdmission(tx, a0, s.userId, now, "final")];
+  await tx.$queryRaw`SELECT 1 FROM "Invoice" WHERE "id" = ${a0.invoiceId} FOR UPDATE`;
+  const a = (await tx.admission.findFirst({ where: { id: a0.id } }))!;
+  const inv = (await tx.invoice.findFirst({ where: { id: a.invoiceId! } }))!;
+  const lines = await tx.chargeItem.findMany({ where: { invoiceId: inv.id } });
+  const pays = await tx.payment.findMany({ where: { invoiceId: inv.id }, select: { status: true } });
+  const b = await issueBlockersOf(tx, a, inv, lines, pays);
+  if (b.length) {
+    const MSG: Record<string, [number, string, string]> = {
+      already_issued: [409, "চূড়ান্ত বিল আগেই হয়ে গেছে", "The final bill is already issued"],
+      not_ordered: [409, "ডাক্তারের ছুটির আদেশ (বা LAMA / মৃত্যুর রেকর্ড) হয়নি", "The doctor has not recorded the discharge (or LAMA / death) yet"],
+      unpriced: [422, "একটি লাইনের দাম নেই — আগে দাম ঠিক করুন", "A line has no price — price it first"],
+      link_pending: [409, "একটি জমার লিংক অপেক্ষায় — আগে নিশ্চিত বা বাতিল করুন", "A deposit link is pending — confirm or cancel it first"],
+    };
+    const [st, bn, en] = MSG[b[0]!]!;
+    throw err(st, b[0] === "already_issued" ? "bill_final" : `final_${b[0]}`, bn, en, { blockers: b.map((code) => ({ code })) });
+  }
+  const o = finalBillOutcome(inv.totalPaisa, inv.paidPaisa);
+  // INVOICE: draft → issued, then the deposits already on it (payPart / payAll)
+  let st = transition("INVOICE", INVOICE, "draft", "issue");
+  if (o.status !== "issued") st = transition("INVOICE", INVOICE, st, o.status === "balanced" ? "payAll" : "payPart");
+  const number = await nextInvoiceNumber(tx, s, now);
+  const n = await tx.invoice.updateMany({ where: { id: inv.id, status: "draft", rev: inv.rev }, data: {
+    status: st.replace(/-/g, "_") as "issued", number, issuedAt: now, issuedById: s.userId, statusAt: now, excessPaisa: o.excessPaisa, rev: { increment: 1 },
+  } });
+  if (n.count !== 1) throw stale();
+  audit.push({ action: "sign", entity: "Invoice", entityId: inv.id, patientId: a.patientId, detail: { event: "issue-final", number, totalPaisa: inv.totalPaisa, depositsPaisa: inv.paidPaisa, excessPaisa: o.excessPaisa, duePaisa: o.duePaisa, status: st } });
+  if (o.excessPaisa > 0) {
+    const r = await requestExcessRefund(tx, s, (await tx.invoice.findFirst({ where: { id: inv.id } }))!, a.number ?? "", now);
+    audit.push(...r.audit);
+  }
+  // the discharge's final-bill step (and the payment step, when the deposits covered the bill) finish by this event
+  const { afterEvent } = await import("./discharge.js");
+  audit.push(...await afterEvent(tx, s.userId, a.id, now));
+  return { view: await ipdBillView(tx, s, a.id, now), audit };
+}
+
 export async function packageSnapshot(tx: Tx, organizationId: string, packageId: string, today: string): Promise<{ snap: PackageSnapshot; row: { id: string } } | null> {
   const p = await tx.package.findFirst({ where: { id: packageId, organizationId, active: true }, include: { prices: true, items: { orderBy: { position: "asc" } } } });
   if (!p || p.validFrom > today || (p.validTo && p.validTo < today)) return null;
@@ -434,7 +522,11 @@ export async function packageList(tx: Tx, s: SessionData): Promise<PackageList> 
 export async function billList(tx: Tx, s: SessionData, now: Date): Promise<{ list: IpdBillList; patientIds: string[] }> {
   requireIpdBill(s);
   const adms = await tx.admission.findMany({ where: { organizationId: s.organizationId, status: { in: ["admitted", "discharged"] }, invoiceId: { not: null } }, orderBy: { admittedAt: "desc" }, take: 300 });
-  const invs = new Map((await tx.invoice.findMany({ where: { id: { in: adms.map((a) => a.invoiceId!) }, status: "draft" } })).map((i) => [i.id, i]));
+  // the running drafts, and the issued final bills still owing money either way (a shortfall, the excess deposit unpaid)
+  const all = await tx.invoice.findMany({ where: { id: { in: adms.map((a) => a.invoiceId!) }, status: { in: ["draft", "issued", "partially_paid", "balanced"] } } });
+  const excessOpen = new Map((await tx.refund.findMany({ where: { invoiceId: { in: all.filter((i) => i.excessPaisa > 0).map((i) => i.id) }, source: "deposit-excess", status: { not: "paid" } }, include: { allocations: { select: { amountPaisa: true, status: true } } } }))
+    .map((r) => [r.invoiceId, r.amountPaisa - r.allocations.filter((x) => x.status === "paid").reduce((t, x) => t + x.amountPaisa, 0)]));
+  const invs = new Map(all.filter((i) => i.status === "draft" || i.status !== "balanced" || excessOpen.has(i.id)).map((i) => [i.id, i]));
   const open = adms.filter((a) => invs.has(a.invoiceId!));
   const [pats, beds, rates, dis] = await Promise.all([
     tx.patient.findMany({ where: { id: { in: open.map((a) => a.patientId) } } }),
@@ -454,6 +546,7 @@ export async function billList(tx: Tx, s: SessionData, now: Date): Promise<{ lis
       bedClass: a.bedClass, dayNo: bedDaysDue(a.admittedAt!, a.dischargedAt, now), status: a.status as IpdBillList["items"][number]["status"], packageName: pkg ? { nameEn: pkg.nameEn, nameBn: pkg.nameBn } : null,
       totalPaisa: inv.totalPaisa, depositsPaisa: inv.paidPaisa, balancePaisa: balance, depositState: depositState(balance, rates.rates[a.bedClass]?.perDayPaisa ?? 0),
       discharge: d ? { status: d.status as "ordered" | "completed", done: d.steps.filter((x) => x.status === "done").length } : null,
+      bill: dash(inv.status) as "draft", invoiceNumber: inv.number, duePaisa: inv.status === "draft" ? 0 : inv.totalPaisa - inv.creditedPaisa - (inv.paidPaisa - inv.excessPaisa), excessOpenPaisa: excessOpen.get(inv.id) ?? 0,
     }];
   });
   return { list: { items }, patientIds: items.map((x) => x.patient.id) };

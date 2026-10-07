@@ -368,11 +368,11 @@ async function queueSms(tx: Tx, s: SessionData, v: Visit, kind: "recollect" | "r
   return c.id;
 }
 /** An in-app delivery (doctor's inbox, patient app): written and completed at once, through the COMMUNICATION steps. */
-export async function deliverInApp(tx: Tx, s: SessionData, to: { patientId: string; encounterId: string }, data: { kind: string; channel: "doctor_inbox" | "patient_app"; recipientUserId?: string | null; reportId?: string | null; serviceRequestId?: string | null; observationId?: string | null; dispenseId?: string | null }, now: Date) {
+export async function deliverInApp(tx: Tx, s: SessionData, to: { patientId: string; encounterId: string }, data: { kind: string; channel: "doctor_inbox" | "patient_app"; recipientUserId?: string | null; reportId?: string | null; serviceRequestId?: string | null; observationId?: string | null; dispenseId?: string | null; compositionId?: string | null }, now: Date) {
   const id = `com_${randomUUID()}`;
   await tx.communication.create({ data: {
     id, tenantId: s.tenantId, organizationId: s.organizationId, patientId: to.patientId, encounterId: to.encounterId, kind: data.kind, channel: data.channel,
-    recipientUserId: data.recipientUserId ?? null, reportId: data.reportId ?? null, serviceRequestId: data.serviceRequestId ?? null, observationId: data.observationId ?? null, dispenseId: data.dispenseId ?? null, createdById: s.userId,
+    recipientUserId: data.recipientUserId ?? null, reportId: data.reportId ?? null, serviceRequestId: data.serviceRequestId ?? null, observationId: data.observationId ?? null, dispenseId: data.dispenseId ?? null, compositionId: data.compositionId ?? null, createdById: s.userId,
   } });
   const sending = undash<"in_progress">(transition("COMMUNICATION", COMMUNICATION, "preparation", "send"));
   await tx.communication.update({ where: { id }, data: { status: sending, attempts: 1, sentAt: now, statusAt: now } });

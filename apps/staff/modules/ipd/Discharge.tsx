@@ -63,7 +63,6 @@ export function DischargeSteps({ v, onChange, only }: { v: DischargeView; onChan
               </span>
               {x.status === "in-progress" && <span className="t-small t-muted num" data-testid="step-waited">{I("ds_waited", { d: T.dur(x.startedAt) })}</span>}
               {x.status === "waiting" && <span className="t-small t-muted">{I("ds_waiting_for")}</span>}
-              {x.status === "in-progress" && x.byHandStep && mine && <span className="t-small t-muted">{I(`ds_step_hint_${x.key}`)}</span>}
               {x.note && <span className="t-small">{x.note}</span>}
               {x.reminded && <span className="t-small t-muted">{I("ds_reminded", { name: T.who(x.reminded.by), at: T.time(x.reminded.at), n: x.reminded.count })}</span>}
             </div>
@@ -92,7 +91,6 @@ function StepDone({ v, step, onClose, onDone }: { v: DischargeView; step: Discha
     <Dialog open onClose={onClose} label={I(`ds_step_${step.key}`)} width={460}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 20 }} data-testid="step-done">
         <b>{I(`ds_step_${step.key}`)}</b>
-        {step.byHandStep && <Callout tone="warn" icon="pen-line">{I(`ds_step_hint_${step.key}`)}</Callout>}
         {step.key === "pharmacy" && (
           <Segmented label={I("ds_own_meds")} value={own} onChange={(x) => setOwn(x as "handed-back" | "none")}
             options={[{ value: "handed-back", label: I("ds_own_handed-back") }, { value: "none", label: I("ds_own_none") }]} />

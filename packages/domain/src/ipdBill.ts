@@ -266,3 +266,42 @@ export const PACKAGES_SAMPLE: readonly PackageSample[] = [
   { code: "PKG-NVD-01", nameEn: "Normal delivery", nameBn: "স্বাভাবিক প্রসব", days: 2, prices: { General: 2_500_000, Cabin: 3_200_000 }, services: [{ ...CBC2, limit: 1 }], medicines: PKG_MEDS, excluded: EXCLUDED_SAMPLE },
   { code: "PKG-OBS-24", nameEn: "Observation 24 h", nameBn: "২৪ ঘণ্টা পর্যবেক্ষণ", days: 1, prices: { General: 600_000 }, services: [], medicines: PKG_MEDS.slice(0, 1), excluded: EXCLUDED_SAMPLE },
 ];
+
+/* ───── the final bill (ADR 0018, B10) ───── */
+export type FinalStatus = "issued" | "partially-paid" | "balanced";
+/** At issue: the deposits held beyond the total become the excess (a deposit-excess refund in the same transaction); the
+    bill counts net paid = deposits − excess, so the issued bill holds exactly its total. */
+export function finalBillOutcome(totalPaisa: Paisa, depositsPaisa: Paisa): { excessPaisa: Paisa; netPaidPaisa: Paisa; duePaisa: Paisa; status: FinalStatus } {
+  if (!Number.isSafeInteger(totalPaisa) || totalPaisa < 0 || !Number.isSafeInteger(depositsPaisa) || depositsPaisa < 0) throw new RangeError("finalBillOutcome: whole paisa");
+  const excessPaisa = Math.max(0, depositsPaisa - totalPaisa);
+  const netPaidPaisa = depositsPaisa - excessPaisa;
+  const status: FinalStatus = netPaidPaisa === totalPaisa ? "balanced" : netPaidPaisa === 0 ? "issued" : "partially-paid";
+  return { excessPaisa, netPaidPaisa, duePaisa: totalPaisa - netPaidPaisa, status };
+}
+export type FinalIssueBlocker = "not_ordered" | "unpriced" | "link_pending" | "already_issued";
+/** Kamrul, 2: once the discharge is ordered (the final census runs in the issue) — never waiting for the pharmacy. */
+export function finalIssueBlockers(x: { dischargeOrdered: boolean; unpricedLive: number; pendingLinks: number; draft: boolean }): FinalIssueBlocker[] {
+  const b: FinalIssueBlocker[] = [];
+  if (!x.draft) b.push("already_issued");
+  if (!x.dischargeOrdered) b.push("not_ordered");
+  if (x.unpricedLive > 0) b.push("unpriced");
+  if (x.pendingLinks > 0) b.push("link_pending");
+  return b;
+}
+export type FinalCategory = "package" | "bed" | "tests" | "medicines" | "services";
+const CATEGORY_OF: Record<IpdSource, FinalCategory> = { package: "package", "bed-day": "bed", order: "tests", stock: "medicines", desk: "services" };
+/** The final receipt's lines by category (credit lines count against theirs; superseded lines never), VAT per rate. */
+export function finalCategories(lines: { source: IpdSource; unitPaisa: Paisa | null; qty: number; vatRateBp: number; superseded: boolean }[]) {
+  const order: FinalCategory[] = ["package", "bed", "tests", "medicines", "services"];
+  const by = new Map<FinalCategory, { lines: number; netPaisa: number; vatPaisa: number; totalPaisa: number }>();
+  for (const l of lines) {
+    if (l.superseded) continue;
+    const a = ipdLineAmounts(l.unitPaisa, l.qty, l.vatRateBp);
+    const c = CATEGORY_OF[l.source];
+    const x = by.get(c) ?? { lines: 0, netPaisa: 0, vatPaisa: 0, totalPaisa: 0 };
+    if (l.qty > 0) x.lines++;
+    x.netPaisa += a.netPaisa; x.vatPaisa += a.vatPaisa; x.totalPaisa += a.totalPaisa;
+    by.set(c, x);
+  }
+  return order.filter((c) => by.has(c)).map((category) => ({ category, ...by.get(category)! }));
+}
