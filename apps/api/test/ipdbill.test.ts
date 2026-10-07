@@ -261,7 +261,10 @@ describe.runIf(db)("the discharge checklist (B9)", () => {
     expect(issued.statusCode, issued.body).toBe(200);
     expect(issued.json().final).toMatchObject({ status: "issued", duePaisa: 4_800_000, excessPaisa: 0 });
     v = (await c.get(`/v1/ipd/admissions/${a.admissionId}/discharge`, "nurse")).json();
-    expect(v.steps.find((x: { key: string }) => x.key === "final-bill")).toMatchObject({ status: "done", byHand: false, doneBy: expect.objectContaining({ id: "u_e2l_cashier" }) });
+    // decision 317: the event did it — done by the tenant's system actor; the cashier who issued it is in the audit
+    expect(v.steps.find((x: { key: string }) => x.key === "final-bill")).toMatchObject({ status: "done", byHand: false, doneBy: expect.objectContaining({ id: "sys_t_e2e_lite", nameEn: "Setu (system)" }) });
+    const stepAudit = (await tenant((tx) => tx.auditEvent.findMany({ where: { entity: "DischargeStep", detail: { path: ["step"], equals: "final-bill" }, patientId: a.patientId } })));
+    expect(stepAudit.map((e) => e.detail)).toEqual(expect.arrayContaining([expect.objectContaining({ event: "done-by-event", doneBy: "sys_t_e2e_lite", caughtUpBy: "u_e2l_cashier" })]));
     expect(v.steps.find((x: { key: string }) => x.key === "payment").status).toBe("in-progress");
     // the shortfall at the counter (card): balanced → the payment step done by the event
     const paid = await c.post(`/v1/ipd/bills/${a.admissionId}/payments`, { method: "card", amountPaisa: 4_800_000, reference: "APPR 5520" }, "cashier");

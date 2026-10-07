@@ -415,6 +415,9 @@ async function main() {
     }
   }
   if (upgraded) console.log(`upgraded ${upgraded} seeded hash(es) to argon2id`);
+  // decision 317: every tenant has its system actor (the migration made them for tenants that existed then)
+  await prisma.$executeRaw`INSERT INTO "User" ("id", "tenantId", "nameBn", "nameEn", "passwordHash", "active", "system", "createdAt")
+    SELECT 'sys_' || t."id", t."id", 'সেতু (সিস্টেম)', 'Setu (system)', '!', false, true, now() FROM "Tenant" t ON CONFLICT ("id") DO NOTHING`;
   console.log("seeded demo tenant: Green Life Clinic, Mirpur — 10 users (password setu1234, PIN 1234), 8 patients (5 share 01711-234567), Mirpur branch, ward 2A; plan demos: Clinic-plan nurse 01722000004, Lite-plan doctor 01733000002; E2E Test Clinic (tests only): 017990000xx; E2E Lite Hospital (tests only, Hospital Lite, wards and beds): 017980000xx; Rahima Khatun's previous visit 12/08/2026 with vitals");
 }
 

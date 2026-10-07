@@ -176,6 +176,9 @@ model User {
   lastLoginAt           DateTime?
   deactivatedAt         DateTime?
   deactivatedReason     String?
+  /// decision 317: the tenant's system actor (id sys_<tenant>, no password, no role, inactive) — "done by" for what an
+  /// event finished
+  system                Boolean            @default(false)
   roles                 PractitionerRole[]
   sessions              Session[]
   practitioner          Practitioner?

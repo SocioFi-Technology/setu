@@ -74,3 +74,30 @@ describe.runIf(db)("gap 10: a reference never crosses tenants — the database's
     } finally { await o.$disconnect(); }
   });
 });
+
+describe.runIf(db)("decision 317: each tenant's system actor", () => {
+  const ownerDb = () => new db!.PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+  it("exists for every tenant, inactive, with no password, PIN, phone or role — it can never sign in or be given a role", async () => {
+    const o = ownerDb();
+    try {
+      const tenants = await o.tenant.findMany({ select: { id: true } });
+      const sys = await o.user.findMany({ where: { system: true }, include: { roles: true } });
+      expect(sys.map((u) => u.tenantId).sort()).toEqual(tenants.map((t) => t.id).sort());
+      for (const u of sys) expect(u).toMatchObject({ id: `sys_${u.tenantId}`, active: false, passwordHash: "!", pinHash: null, phone: null, email: null, roles: [] });
+      await expect(o.practitionerRole.create({ data: { tenantId: "t_e2e", userId: "sys_t_e2e", organizationId: "o_e2e", role: "owner" } })).rejects.toThrow(/holds no role/);
+      await expect(o.user.update({ where: { id: "sys_t_e2e" }, data: { active: true } })).rejects.toThrow(/user_system_shape/);
+      await expect(o.user.update({ where: { id: "sys_t_e2e" }, data: { passwordHash: "x" } })).rejects.toThrow(/user_system_shape/);
+    } finally { await o.$disconnect(); }
+  });
+  it("a sign-in never reaches it (no identifier to sign in with)", async () => {
+    const { buildApp } = await import("../src/app.js");
+    const app = await buildApp();
+    try {
+      for (const identifier of ["sys_t_e2e", "Setu (system)"]) {
+        const r = await app.inject({ method: "POST", url: "/v1/auth/login", payload: { identifier, password: "!" }, remoteAddress: "10.3.3.3" });
+        expect([400, 401]).toContain(r.statusCode);
+      }
+    } finally { await app.close(); }
+  });
+});
+

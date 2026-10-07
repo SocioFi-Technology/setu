@@ -9,7 +9,7 @@ import type { DischargeList, DischargeStepDoneRequest, DischargeStepView, Discha
 import type { Tx } from "@setu/db";
 import {
   ADMISSION, BED, DISCHARGE, ENCOUNTER, MEDICATION_ORDER, SUMMARY_KIND, authorize, bedDaysDue, blockingSteps, canDoStep, canRemind, deathRecordBlockers, defaultTarget,
-  dischargeOrderBlockers, doneCount, finishStep, format, initialStepStates, isStepKey, lamaBlockers, markable, overdue, pharmacyClearanceBlockers, stepDef, stepsOf, transition, visitFinishes,
+  dischargeOrderBlockers, doneCount, finishStep, format, initialStepStates, isStepKey, lamaBlockers, markable, overdue, pharmacyClearanceBlockers, stepDef, stepsOf, systemUserId, transition, visitFinishes,
   type BedState, type DischargeKind, type DischargeStepKey, type DischargeStepState, type EncounterState, type Role, type StepStates,
 } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
@@ -67,10 +67,12 @@ async function eventsOf(tx: Tx, d: Dis): Promise<Partial<Record<DischargeStepKey
     payment: Boolean(inv && inv.status === "balanced" && !excessOpen),
   };
 }
-/** Finish every event step whose event has happened (in the graph's order), then the visit if it is due. `by` is the
-    person whose action or view caught it up (the database wants a signed-in "done by"); nobody: nothing changes. */
+/** Finish every event step whose event has happened (in the graph's order), then the visit if it is due. Decision 317:
+    the step is done by the tenant's system actor — the event did it, not whoever's action or view caught it up (`by`,
+    kept in the audit). A sweep (nobody signed in) catches up too. */
 export async function catchUp(tx: Tx, by: string | null, d0: DisFull, now: Date): Promise<AuditEntry[]> {
-  if (!by || !live(d0)) return [];
+  if (!live(d0)) return [];
+  const system = systemUserId(d0.tenantId);
   const kind = kindOf(d0);
   const ev = await eventsOf(tx, d0);
   let states = statesOf(d0.steps);
@@ -81,11 +83,11 @@ export async function catchUp(tx: Tx, by: string | null, d0: DisFull, now: Date)
       if (!def.byEvent || def.key === "order" || states[def.key] !== "in-progress" || !ev[def.key]) continue;
       const next = finishStep(kind, states, def.key);
       const x = d0.steps.find((y) => y.key === def.key)!;
-      const n = await tx.dischargeStep.updateMany({ where: { id: x.id, status: "in-progress" }, data: { status: "done", doneById: by, doneAt: now } });
+      const n = await tx.dischargeStep.updateMany({ where: { id: x.id, status: "in-progress" }, data: { status: "done", doneById: system, doneAt: now } });
       if (n.count !== 1) return audit; // another view caught it up at the same moment (review: no 409 on a read)
       for (const y of d0.steps.filter((y) => states[y.key as DischargeStepKey] === "waiting" && next[y.key as DischargeStepKey] === "in-progress"))
         await tx.dischargeStep.update({ where: { id: y.id }, data: { status: "in-progress", startedAt: now } });
-      audit.push({ action: "update", entity: "DischargeStep", entityId: x.id, patientId: d0.patientId, detail: { event: "done-by-event", step: def.key } });
+      audit.push({ action: "update", entity: "DischargeStep", entityId: x.id, patientId: d0.patientId, detail: { event: "done-by-event", step: def.key, doneBy: system, caughtUpBy: by ?? "sweep" } });
       states = next; moved = true;
     }
     if (!moved) break;

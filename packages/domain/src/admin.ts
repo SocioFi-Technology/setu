@@ -107,3 +107,7 @@ export function priceChangeProblems(x: { oldUnitPaisa: number | null; oldVatBp: 
 export const FLAGGED_ACTIONS = ["break-glass", "reprint", "void", "export", "deactivate", "reactivate", "role-change", "reset-password", "price-change", "settings-change", "go-live", /** external review A3 */ "login-failed", /** external review A6 */ "count-abandoned", /** external review B2 */ "duty-list-missing"] as const;
 export type FlaggedAction = (typeof FLAGGED_ACTIONS)[number];
 export const isFlagged = (action: string) => (FLAGGED_ACTIONS as readonly string[]).includes(action);
+
+/** Decision 317: the tenant's system actor — "done by" for what an event finished (no password, no role, inactive). */
+export const systemUserId = (tenantId: string) => `sys_${tenantId}`;
+
