@@ -764,8 +764,9 @@ export async function refundView(tx: Tx, s: SessionData, r: Rf): Promise<RefundV
     }),
     timeline,
     can: {
-      approve: r.status === "requested" && approver, reject: r.status === "requested" && approver,
-      withdraw: r.status === "approved" && APPROVERS.includes(s.role) && !started,
+      // ADR 0018: the excess deposit's refund is never rejected or withdrawn — only approved and paid
+      approve: r.status === "requested" && approver, reject: r.status === "requested" && approver && r.source !== DEPOSIT_EXCESS,
+      withdraw: r.status === "approved" && APPROVERS.includes(s.role) && !started && r.source !== DEPOSIT_EXCESS,
       pay: r.status === "approved" && WRITERS.includes(s.role) && (r.allocations.length === 0 || (r.allocations.some((a) => a.status === "open") && !r.allocations.some((a) => a.status === "paying"))),
       check: r.allocations.some((a) => a.status === "paying"),
       release: s.role === "owner" && Boolean(payingSince) && payingSince!.getTime() + config.refundReleaseMinutes * 60_000 <= Date.now(),

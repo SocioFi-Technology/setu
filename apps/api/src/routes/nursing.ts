@@ -83,7 +83,8 @@ export async function nursingRoutes(app: FastifyInstance) {
     requireAny(req, ["nur", "mar"]); const { id } = pid.parse(req.params); const body = VialOpenRequest.parse(req.body ?? {});
     return command(req, reply, async (tx, s) => { const now = new Date(); const r = await openVial(tx, s, id, body, now); return { status: 201, body: r.view, audit: [...r.audit, ...await syncForEncounter(tx, s, r.view.encounterId, now, "vial")] }; });
   });
-  app.get("/v1/nursing/witnesses", async (req) => { requireAny(req, ["nur", "mar"]); return query(req, async (tx, s) => ({ body: await witnesses(tx, s), audit: [] })); });
+  // the MAR's high-alert witness, and the LAMA record's witness (ADR 0018) on the discharge screen
+  app.get("/v1/nursing/witnesses", async (req) => { requireAny(req, ["nur", "mar"], ["ipd", "discharge"]); return query(req, async (tx, s) => ({ body: await witnesses(tx, s), audit: [] })); });
   /* ── ward stock and indents ── */
   app.get("/v1/nursing/wards/:id/stock", async (req) => { requireAny(req, ["nur", "ward"], ["nur", "mar"]); const { id } = pid.parse(req.params); return query(req, async (tx, s) => ({ body: await wardStock(tx, s, id), audit: [] })); });
   app.get("/v1/nursing/wards/:id/indents", async (req) => { requireAny(req, ["nur", "ward"]); const { id } = pid.parse(req.params); return query(req, async (tx, s) => ({ body: await wardIndents(tx, s, id, new Date()), audit: [] })); });

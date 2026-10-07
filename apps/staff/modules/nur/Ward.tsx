@@ -30,7 +30,8 @@ export function NurWard() {
   const current = useRef<string | null>(null); current.current = wardId;
   // a late answer for the ward just left never paints over the one picked
   const load = useCallback(async () => { if (!wardId) return; try { const b = await ward.board(wardId); if (current.current === wardId) { setBoard(b); setFailed(null); } } catch (e) { setFailed(err(e)); } }, [wardId]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { void load(); const t = setInterval(() => void load(), 60_000); return () => clearInterval(t); }, [load]);
+  // every 20 s: live enough for a bed freed by a discharge (ADR 0018)
+  useEffect(() => { void load(); const t = setInterval(() => void load(), 20_000); return () => clearInterval(t); }, [load]);
   if (failed && !board) return <Callout tone="warn" icon="triangle-alert">{failed}</Callout>;
   if (!wards) return <div aria-busy="true" className="t-muted">{N("loading")}</div>;
   const bn = s.lang === "bn";

@@ -94,6 +94,8 @@ export function receiptHtml(i: TemplateInput): string {
     [L("r_total"), tk(s.totalPaisa), "strong"],
     // decision 221: returned medicine credited off the bill
     ...((s.creditedPaisa ?? 0) > 0 ? [[L("r_credited"), `− ${tk(s.creditedPaisa)}`]] : []),
+    // ADR 0018: the IPD final bill — the deposits held, the excess going back by its refund voucher, then what they paid
+    ...(s.ipd ? [[L("r_ipd_deposits"), tk(s.ipd.depositsPaisa)], ...(s.ipd.excessPaisa > 0 ? [[L("r_ipd_excess"), `− ${tk(s.ipd.excessPaisa)}`]] : [])] : []),
     [L("r_paid"), tk(s.paidPaisa)],
     [L("r_due"), tk(s.duePaisa)],
   ].map(([k, v, cls]) => `<tr class="${cls ?? ""}"><td>${esc(k)}</td><td class="r num">${esc(v)}</td></tr>`).join("");
@@ -110,7 +112,7 @@ export function receiptHtml(i: TemplateInput): string {
         ${qr}
       </header>
       <h1>${esc(title)}</h1>${dupTitle}
-      <table class="meta small"><tr><td>${esc(L("r_receipt_no"))}</td><td class="num">${esc(i.number)}</td><td>${esc(L("r_bill_no"))}</td><td class="num">${esc(s.invoice.number)}</td></tr>
+      <table class="meta small"><tr><td>${esc(L("r_receipt_no"))}</td><td class="num">${esc(i.number)}</td><td>${esc(L("r_bill_no"))}</td><td class="num">${esc(s.invoice.number)}${s.ipd ? ` · ${esc(s.ipd.admissionNumber)}` : ""}</td></tr>
         <tr><td>${esc(L("r_date"))}</td><td class="num">${esc(when(i.createdAt))}</td><td>${esc(L("r_patient"))}</td><td>${esc(name(s.patient.nameBn, s.patient.nameEn))} · <span class="num">${esc(s.patient.facilityNo)}</span></td></tr></table>
       <table class="lines"><thead><tr><th>#</th><th>${esc(L("r_service"))}</th><th class="r">${esc(L("r_vat"))}</th><th class="r">${esc(L("r_amount"))}</th></tr></thead><tbody>
         ${s.lines.map((l, n) => `<tr><td class="num">${num(n + 1)}</td><td>${lineName(l)}${l.qty > 1 ? ` <span class="num">×${num(l.qty)}</span>` : ""}</td><td class="r">${l.notBilledReason ? "—" : esc(vatLabel(l.vatRateBp))}</td><td class="r num">${lineAmount(l)}</td></tr>`).join("")}
@@ -125,7 +127,7 @@ export function receiptHtml(i: TemplateInput): string {
     : `<style>@page{margin:3mm 4mm 6mm 4mm}body{font-size:9pt;width:72mm}.small{font-size:8pt}h1{font-size:11pt;text-align:center}.qr{width:24mm;height:24mm;margin:3mm auto 1mm}</style>
       <div class="c"><b>${esc(name(s.seller.nameBn, s.seller.nameEn))}</b>${s.seller.address ? `<div class="small">${esc(s.seller.address)}</div>` : ""}${bin ? `<div class="small">${bin}</div>` : ""}</div>
       <h1>${esc(title)}</h1>${dupTitle}
-      <div class="small">${esc(L("r_receipt_no"))} <span class="num">${esc(i.number)}</span> · ${esc(L("r_bill_no"))} <span class="num">${esc(s.invoice.number)}</span></div>
+      <div class="small">${esc(L("r_receipt_no"))} <span class="num">${esc(i.number)}</span> · ${esc(L("r_bill_no"))} <span class="num">${esc(s.invoice.number)}${s.ipd ? ` · ${esc(s.ipd.admissionNumber)}` : ""}</span></div>
       <div class="small">${esc(L("r_date"))} <span class="num">${esc(when(i.createdAt))}</span></div>
       <div class="small">${esc(name(s.patient.nameBn, s.patient.nameEn))} · <span class="num">${esc(s.patient.facilityNo)}</span></div>
       <hr><table class="lines small">${s.lines.map((l) => `<tr><td>${lineName(l)}${l.qty > 1 ? ` ×${num(l.qty)}` : ""}</td><td class="r num">${lineAmount(l)}</td></tr>`).join("")}</table><hr>

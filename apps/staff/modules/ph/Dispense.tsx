@@ -44,6 +44,7 @@ function Queue() {
             <span className="t-small t-secondary">{F.name(i.encounter.practitioner)} · {P("signed_at", { t: F.time(i.signedAt) })} · {P("lines_n", { n: i.lineCount })}</span>
           </span>
           {i.bill && <span className="t-small num">{P("bill")}: {F.tk(i.bill.totalPaisa)}</span>}
+          {i.takeHome && <span data-testid="take-home"><Pill tone="info" icon="home">{P("take_home")}</Pill></span>}
           <Pill tone={Q_TONE[i.status]}>{P(`q_${i.status}`)}</Pill>
         </button>
       ))}
@@ -121,6 +122,7 @@ function Visit({ encounterId }: { encounterId: string }) {
     <div data-screen="ph/dispense" data-encounter={encounterId} style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h1 className="t-h2" style={{ margin: 0 }}>{P("dispense_title")}</h1>
+        {v.composition.takeHome && <span data-testid="take-home"><Pill tone="info" icon="home">{P("take_home")}</Pill></span>}
         <span className="t-small t-secondary">{F.name(v.encounter.practitioner)} · {P("note_version", { n: v.composition.version })} · {P("signed_at", { t: F.dateTime(v.composition.signedAt) })}</span>
         <span style={{ marginLeft: "auto" }} />
         <Button size="sm" icon="arrow-left" onClick={() => router.push("/m/ph/dispense")}>{P("queue")}</Button>

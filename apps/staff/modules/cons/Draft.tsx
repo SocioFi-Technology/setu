@@ -419,7 +419,7 @@ function Complaints({ value, disabled, onChange }: { value: Form["sections"]["co
   );
 }
 
-function Diagnoses({ value, disabled, onChange }: { value: Dx[]; disabled: boolean; onChange: (v: Dx[]) => void }) {
+export function Diagnoses({ value, disabled, onChange }: { value: Dx[]; disabled: boolean; onChange: (v: Dx[]) => void }) {
   const s = useSession(); const C = useC();
   const [q, setQ] = useState(""); const [hits, setHits] = useState<{ code: string; bn: string; en: string; verification: string }[] | null>(null);
   useEffect(() => {

@@ -1,5 +1,5 @@
 "use client";
-/* Print a prescription (rx = a consultation note version) or a lab report version (lr) — walkthrough A13, ADR 0007.
+/* Print a prescription (rx = a consultation note version), a lab report version (lr) or a discharge summary (ds, A4) — walkthrough A13, ADR 0007.
    The preview is rendered by the server without a QR and logs no print; a draft shows the DRAFT watermark and the
    message "Drafts cannot be printed — sign first" with Print disabled (issue #19). The first print is the original;
    later ones need a reason and come out "DUPLICATE #n". Nothing says "printed" until the server answers. */
@@ -18,7 +18,8 @@ export function PrintPanel({ kind, id, compact = false }: { kind: DocKindT; id: 
   const P = (key: string, vars: Record<string, string | number> = {}) => fill(s.t("printApp", key), Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, typeof v === "number" ? s.n(v) : v])));
   const [v, setV] = useState<DocPrintView | null>(null);
   const [failed, setFailed] = useState(false);
-  const [paper, setPaper] = useState<"a5" | "a4">("a5");
+  // the discharge summary prints A4 only (ADR 0018)
+  const [paper, setPaper] = useState<"a5" | "a4">(kind === "ds" ? "a4" : "a5");
   const [lang, setLang] = useState<"both" | "bn" | "en">("both");
   const [reason, setReason] = useState<(typeof REASONS)[number] | "">("");
   const [busy, setBusy] = useState(false);
@@ -53,8 +54,8 @@ export function PrintPanel({ kind, id, compact = false }: { kind: DocKindT; id: 
       <b>{P("ui_title")}</b>
       {blockMsg && <Callout tone={blocked === "draft_not_printable" ? "warn" : "bad"} icon="ban" data-testid="print-blocked">{blockMsg}</Callout>}
       <span style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-        <span className="t-small">{P("ui_paper")}</span>
-        <Segmented label={P("ui_paper")} value={paper} onChange={setPaper} options={[{ value: "a5", label: "A5" }, { value: "a4", label: "A4" }]} />
+        {kind !== "ds" && <><span className="t-small">{P("ui_paper")}</span>
+        <Segmented label={P("ui_paper")} value={paper} onChange={setPaper} options={[{ value: "a5", label: "A5" }, { value: "a4", label: "A4" }]} /></>}
         <span className="t-small">{P("ui_lang")}</span>
         <Segmented label={P("ui_lang")} value={lang} onChange={setLang} options={[{ value: "both", label: P("lang_both") }, { value: "bn", label: P("lang_bn") }, { value: "en", label: P("lang_en") }]} />
       </span>

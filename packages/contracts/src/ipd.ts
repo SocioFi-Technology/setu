@@ -235,6 +235,7 @@ export const DischargeList = z.object({ items: z.array(z.object({
   status: z.enum(["ordered", "completed", "cancelled"]), done: z.number().int(), total: z.number().int(), targetAt: z.string(), overdue: z.boolean(),
   blockedBy: z.array(z.object({ key: DischargeStepKey, department: z.enum(["doctor", "pharmacy", "billing", "ward"]), person: Person.nullable() })),
   /** the steps this user can act on now */ mine: z.array(DischargeStepKey), orderedAt: z.string(), completedAt: z.string().nullable(),
+  /** ADR 0018: the summary step (null for a death — it has none) */ summary: z.enum(["waiting", "in-progress", "done"]).nullable(),
 })),
   /** a doctor's list: admitted patients with no discharge ordered (to order one) */
   candidates: z.array(z.object({ admissionId: z.string(), number: z.string(), patient: ErPatient, bed: z.string().nullable(), ward: z.string().nullable(), dayNo: z.number().int(), doctor: Person })),

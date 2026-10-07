@@ -3,13 +3,16 @@
    steps with owner and waiting time, the header naming who is blocking ("Blocked by Pharmacy · Md. Jewel Rana"), Mark
    done (PIN), I'll take it, Remind. The doctor orders the discharge here (advice, target time, PIN) and may cancel it
    before the bed is released. `DischargeSteps` is shared: the IPD bill shows the clearance (steps 4–5 for the cashier)
-   and the pharmacist's indent screen shows step 3. Steps 2, 4 and 5 are recorded by hand until B10 / B11. */
+   and the pharmacist's indent screen shows step 3. ADR 0018 (B10–B12): the doctor records a normal discharge, a LAMA (reason,
+   risks, the form, a witness) or a death on the ward (the ER's checks); the summary, the final bill and the payment finish
+   by their events (links to the summary and the bill); the pharmacy and "patient left" / "body moved" (with the time) are
+   marked with a PIN; the visit's outcome and "visit finished" show in the header. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { DischargeList, DischargeStepView, DischargeView } from "@setu/contracts";
-import { format } from "@setu/domain";
+import type { DischargeList, DischargeStepView, DischargeView, WitnessList } from "@setu/contracts";
+import { DEATH_CHECKS, format } from "@setu/domain";
 import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, TextArea, TextField, useToast, type Tone } from "@setu/ui";
-import { ApiFailure, discharge } from "../../lib/api";
+import { ApiFailure, discharge, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { toBanner, useLabels } from "../fd/common";
 import { PinSheet } from "../nur/common";
@@ -29,6 +32,11 @@ export function useDischargeText() {
   const blocker = (b: { department: string; person: Person | null }) => `${I(`ds_dept_${b.department}`)}${b.person ? ` · ${who(b.person)}` : ""}`;
   return { who, dur, blocker, time: (iso: string) => format.time(iso, s.numerals === "bn"), dateTime: (iso: string) => format.dateTime(iso, s.numerals === "bn") };
 }
+/** A step's name for its kind (LAMA record, death record, body moved), else the normal one. */
+export const stepName = (I: ReturnType<typeof useI>, kind: string, key: string) => { const k = `ds_step_${kind}_${key}`; const t = I(k); return t === k ? I(`ds_step_${key}`) : t; };
+/** Dhaka wall time for a datetime-local input, and back. */
+const local = (d: Date) => new Date(d.getTime() + 6 * 3600_000).toISOString().slice(0, 16);
+const fromLocal = (x: string) => new Date(`${x}:00+06:00`).toISOString();
 const errOf = (s: ReturnType<typeof useSession>, I: ReturnType<typeof useI>) => (e: unknown) => (e instanceof ApiFailure ? s.L(e.body.message_bn, e.body.message_en) : I("error_generic"));
 
 /** The six steps with their actions; `only` limits the actions to some steps (the bill: 4–5, the pharmacy: 3). */
@@ -53,7 +61,7 @@ export function DischargeSteps({ v, onChange, only }: { v: DischargeView; onChan
             <span className="num" style={{ fontWeight: 700, paddingTop: 2 }}>{s.n(n + 1)}</span>
             <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
               <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <b>{I(`ds_step_${x.key}`)}</b>
+                <b>{stepName(I, v.discharge.kind, x.key)}</b>
                 <Pill tone={STEP_TONE[state]!} icon={state === "done" ? "circle-check" : state === "blocking" ? "octagon-alert" : state === "in-progress" ? "loader" : "circle-dashed"}>{I(`ds_st_${state}`)}</Pill>
                 {x.byHand && <Pill tone="warn" icon="pen-line">{I("ds_by_hand")}</Pill>}
               </span>
@@ -63,6 +71,12 @@ export function DischargeSteps({ v, onChange, only }: { v: DischargeView; onChan
               </span>
               {x.status === "in-progress" && <span className="t-small t-muted num" data-testid="step-waited">{I("ds_waited", { d: T.dur(x.startedAt) })}</span>}
               {x.status === "waiting" && <span className="t-small t-muted">{I("ds_waiting_for")}</span>}
+              {x.byEvent && x.status === "in-progress" && x.key !== "order" && (
+                <span className="t-small t-muted" data-testid={`event-${x.key}`}>{I(`ds_event_${x.key}`)}{" "}
+                  {x.key === "summary" && <a href={`/m/ipd/summary?adm=${encodeURIComponent(v.admission.id)}`} data-testid="open-summary">{I("ds_open_summary")}</a>}
+                  {(x.key === "final-bill" || x.key === "payment") && <a href={`/m/bill/ipd?adm=${encodeURIComponent(v.admission.id)}`} data-testid="open-bill">{I("ds_open_bill")}</a>}
+                </span>
+              )}
               {x.note && <span className="t-small">{x.note}</span>}
               {x.reminded && <span className="t-small t-muted">{I("ds_reminded", { name: T.who(x.reminded.by), at: T.time(x.reminded.at), n: x.reminded.count })}</span>}
             </div>
@@ -83,14 +97,18 @@ export function DischargeSteps({ v, onChange, only }: { v: DischargeView; onChan
 function StepDone({ v, step, onClose, onDone }: { v: DischargeView; step: DischargeStepView; onClose: () => void; onDone: (v: DischargeView) => void }) {
   const I = useI();
   const [own, setOwn] = useState<"handed-back" | "none" | "">(""); const [note, setNote] = useState(""); const [pin, setPin] = useState(false);
+  const [at, setAt] = useState(local(new Date()));
   const key = useRef(crypto.randomUUID());
-  const ready = step.key !== "pharmacy" || own !== "";
-  if (pin) return <PinSheet title={I(`ds_step_${step.key}`)} action={I("ds_mark_done")} icon="check" onClose={onClose}
-    submit={async (p) => { try { onDone(await discharge.done(v.discharge.id, step.key, { pin: p, ...(note.trim() ? { note: note.trim() } : {}), ...(own ? { ownMedicines: own } : {}) }, key.current)); } catch (e) { if (e instanceof ApiFailure && e.body.code !== "pin_wrong") key.current = crypto.randomUUID(); throw e; } }} />;
+  const left = step.key === "bed-release";
+  const ready = (step.key !== "pharmacy" || own !== "") && (!left || at !== "");
+  const name = stepName(I, v.discharge.kind, step.key);
+  if (pin) return <PinSheet title={name} action={I("ds_mark_done")} icon="check" onClose={onClose}
+    submit={async (p) => { try { onDone(await discharge.done(v.discharge.id, step.key, { pin: p, ...(note.trim() ? { note: note.trim() } : {}), ...(own ? { ownMedicines: own } : {}), ...(left ? { at: fromLocal(at) } : {}) }, key.current)); } catch (e) { if (e instanceof ApiFailure && e.body.code !== "pin_wrong") key.current = crypto.randomUUID(); throw e; } }} />;
   return (
-    <Dialog open onClose={onClose} label={I(`ds_step_${step.key}`)} width={460}>
+    <Dialog open onClose={onClose} label={name} width={460}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 20 }} data-testid="step-done">
-        <b>{I(`ds_step_${step.key}`)}</b>
+        <b>{name}</b>
+        {left && <TextField label={I(v.discharge.kind === "death" ? "ds_body_at" : "ds_left_at")} type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} name="leftAt" data-testid="left-at" />}
         {step.key === "pharmacy" && (
           <Segmented label={I("ds_own_meds")} value={own} onChange={(x) => setOwn(x as "handed-back" | "none")}
             options={[{ value: "handed-back", label: I("ds_own_handed-back") }, { value: "none", label: I("ds_own_none") }]} />
@@ -156,12 +174,16 @@ export function IpdDischarge() {
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
         <h1 className="t-h2" style={{ margin: 0 }}>{I("ds_title")}</h1>
         <span className="num t-muted">{v.admission.number} · {I("ds_day", { n: v.admission.dayNo })}</span>
+        {v.admission.outcome && <span data-testid="outcome"><Pill tone={v.admission.outcome === "deceased" ? "neu" : "warn"}>{I(`ds_outcome_${v.admission.outcome}`)}</Pill></span>}
+        {v.admission.visitFinished && <span data-testid="visit-finished"><Pill tone="ok" icon="circle-check">{I("ds_visit_finished")}</Pill></span>}
         <span style={{ flex: 1 }} />
+        {v.discharge.kind !== "death" && <Button size="sm" icon="file-text" onClick={() => router.push(`/m/ipd/summary?adm=${encodeURIComponent(v.admission.id)}`)} data-testid="go-summary">{I("ds_open_summary")}</Button>}
         <Button size="sm" icon="arrow-left" onClick={() => router.push("/m/ipd/discharge")}>{I("ds_back")}</Button>
       </div>
       <DischargeHeader v={v} />
       <Card style={{ padding: 12, display: "flex", flexDirection: "column", gap: 4 }}>
-        <span className="t-small"><b>{I("ds_advice_label")}:</b> {v.discharge.advice}</span>
+        <span className="t-small"><b>{I(v.discharge.kind === "lama" ? "ds_lama_reason" : v.discharge.kind === "death" ? "ds_death_cause" : "ds_advice_label")}:</b> {v.discharge.advice}</span>
+        <RecordLine v={v} />
         <span className="t-small t-muted">{I("ds_ordered_by", { name: T.who(v.discharge.orderedBy), at: T.dateTime(v.discharge.orderedAt) })}</span>
       </Card>
       <DischargeSteps v={v} onChange={setV} />
@@ -184,8 +206,9 @@ export function IpdDischarge() {
             </span>
             <span className="t-small">{x.status === "completed" ? I("ds_complete", { at: T.time(x.completedAt!) }) : x.blockedBy.length ? I("ds_blocked", { who: x.blockedBy.map(T.blocker).join(" · ") }) : I("ds_progress", { n: x.done })}</span>
             <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {x.kind !== "normal" && <Pill tone={x.kind === "death" ? "neu" : "warn"}>{I(`ds_kind_${x.kind}`)}</Pill>}
               {x.overdue && <Pill tone="bad" icon="clock">{I("ds_overdue")}</Pill>}
-              {x.mine.map((k) => <Pill key={k} tone="info" icon="user-check">{I("ds_mine")}: {I(`ds_step_${k}`)}</Pill>)}
+              {x.mine.map((k) => <Pill key={k} tone="info" icon="user-check">{I("ds_mine")}: {stepName(I, x.kind, k)}</Pill>)}
             </span>
           </button>
         ))}
@@ -209,29 +232,73 @@ export function IpdDischarge() {
   );
 }
 
-/** The doctor's order: advice, target time (default 3 h), PIN. */
+/** What the record says beyond the advice: the LAMA witness, the time of death and the checks. */
+function RecordLine({ v }: { v: DischargeView }) {
+  const I = useI(); const T = useDischargeText(); const s = useSession();
+  const r = v.discharge.record as null | { witness?: { id: string; nameBn: string; nameEn: string }; timeOfDeath?: string; medicoLegal?: boolean; checks?: string[] };
+  if (!r) return null;
+  if (v.discharge.kind === "lama") return <span className="t-small" data-testid="record-line">{I("ds_lama_witnessed", { name: T.who(r.witness) })} · {I("ds_lama_summary_due")}</span>;
+  return <span className="t-small" data-testid="record-line">{I("ds_death_at", { at: r.timeOfDeath ? T.dateTime(r.timeOfDeath) : "" })}{r.medicoLegal ? ` · ${I("ds_death_ml")}` : ""} · {(r.checks ?? []).map((c) => s.t("erApp", `chk_${c}`)).join(", ")}</span>;
+}
+
+/** The doctor's record: a normal discharge (advice, target time — default 3 h), a LAMA (reason, the risks explained, the
+    form signed, a witness) or a death on the ward (time, cause, medico-legal, the ER's checks) — each with the PIN. */
 function OrderForm({ admissionId, label, onDone }: { admissionId: string; label: string; onDone: (v: DischargeView) => void }) {
   const s = useSession(); const I = useI();
-  const def = new Date(Date.now() + 3 * 3600_000);
-  const local = (d: Date) => new Date(d.getTime() + 6 * 3600_000).toISOString().slice(0, 16); // Dhaka wall time for the input
-  const [advice, setAdvice] = useState(""); const [target, setTarget] = useState(local(def)); const [pin, setPin] = useState(false);
+  const [kind, setKind] = useState<"normal" | "lama" | "death">("normal");
+  const [advice, setAdvice] = useState(""); const [target, setTarget] = useState(local(new Date(Date.now() + 3 * 3600_000))); const [pin, setPin] = useState(false);
+  const [risks, setRisks] = useState(false); const [form, setForm] = useState(false); const [witness, setWitness] = useState(""); const [people, setPeople] = useState<WitnessList["items"]>([]);
+  const [tod, setTod] = useState(local(new Date())); const [ml, setMl] = useState(false); const [checks, setChecks] = useState<string[]>([]);
   const key = useRef(crypto.randomUUID());
-  const ok = advice.trim().length >= 10 && s.online;
+  useEffect(() => { if (kind === "lama" && !people.length) ward.witnesses().then((x) => setPeople(x.items)).catch(() => setPeople([])); }, [kind]); // eslint-disable-line react-hooks/exhaustive-deps
+  const ok = s.online && (kind === "normal" ? advice.trim().length >= 10
+    : kind === "lama" ? advice.trim().length >= 10 && risks && form && witness !== ""
+    : advice.trim().length >= 3 && tod !== "" && checks.includes("certificate") && checks.includes("family") && (!ml || checks.includes("police")));
+  const title = I(kind === "normal" ? "ds_order" : kind === "lama" ? "ds_lama_record" : "ds_death_record");
   return (
     <div data-screen="ipd/discharge" data-status="order" style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 640 }}>
       <h1 className="t-h2" style={{ margin: 0 }}>{I("ds_order_title")}</h1>
       <span>{label}</span>
       <Card style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-        <TextArea label={I("ds_advice")} value={advice} onChange={(e) => setAdvice(e.target.value)} rows={3} name="advice" data-testid="discharge-advice" />
-        <TextField label={I("ds_target")} hint={I("ds_target_hint")} type="datetime-local" value={target} onChange={(e) => setTarget(e.target.value)} name="target" data-testid="discharge-target" />
-        <div><Button variant="primary" icon="log-out" disabled={!ok} onClick={() => setPin(true)} data-testid="discharge-order">{I("ds_order")}</Button>
+        <Segmented label={I("ds_kind")} value={kind} onChange={(x) => { setKind(x as typeof kind); key.current = crypto.randomUUID(); }}
+          options={[{ value: "normal", label: I("ds_kind_normal") }, { value: "lama", label: I("ds_kind_lama") }, { value: "death", label: I("ds_kind_death") }]} />
+        {kind === "normal" && (<>
+          <TextArea label={I("ds_advice")} value={advice} onChange={(e) => setAdvice(e.target.value)} rows={3} name="advice" data-testid="discharge-advice" />
+          <TextField label={I("ds_target")} hint={I("ds_target_hint")} type="datetime-local" value={target} onChange={(e) => setTarget(e.target.value)} name="target" data-testid="discharge-target" />
+        </>)}
+        {kind === "lama" && (<>
+          <TextArea label={I("ds_lama_reason")} value={advice} onChange={(e) => setAdvice(e.target.value)} rows={3} name="lamaReason" data-testid="lama-reason" />
+          <label className="t-small" style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={risks} onChange={(e) => setRisks(e.target.checked)} data-testid="lama-risks" /> {I("ds_lama_risks")}</label>
+          <label className="t-small" style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={form} onChange={(e) => setForm(e.target.checked)} data-testid="lama-form" /> {I("ds_lama_form")}</label>
+          <label className="field t-small">{I("ds_lama_witness")}
+            <select className="input" name="lamaWitness" value={witness} onChange={(e) => setWitness(e.target.value)} data-testid="lama-witness">
+              <option value="">—</option>
+              {people.map((p) => <option key={p.id} value={p.id}>{s.lang === "bn" ? p.nameBn : p.nameEn || p.nameBn} · {s.t("nurApp", `role_${p.role}`)}</option>)}
+            </select>
+          </label>
+        </>)}
+        {kind === "death" && (<>
+          <TextField label={I("ds_death_time")} type="datetime-local" value={tod} onChange={(e) => setTod(e.target.value)} name="timeOfDeath" data-testid="death-time" />
+          <TextField label={I("ds_death_cause")} value={advice} onChange={(e) => setAdvice(e.target.value)} name="cause" data-testid="death-cause" />
+          <label className="t-small" style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={ml} onChange={(e) => setMl(e.target.checked)} data-testid="death-ml" /> {I("ds_death_ml")}</label>
+          {DEATH_CHECKS.map((c) => (
+            <label key={c} className="t-small" style={{ display: "flex", gap: 8, alignItems: "center" }} data-check={c}>
+              <input type="checkbox" checked={checks.includes(c)} onChange={(e) => setChecks(e.target.checked ? [...checks, c] : checks.filter((x) => x !== c))} /> {s.t("erApp", `chk_${c}`)}
+            </label>
+          ))}
+          <Callout tone="warn" icon="triangle-alert">{I("ds_death_warn")}</Callout>
+        </>)}
+        <div><Button variant={kind === "normal" ? "primary" : "danger"} icon={kind === "death" ? "file-x" : "log-out"} disabled={!ok} onClick={() => setPin(true)} data-testid="discharge-order">{title}</Button>
           {!s.online && <span className="t-small t-muted"> {I("needs_connection")}</span>}</div>
       </Card>
-      {pin && <PinSheet title={I("ds_order")} action={I("ds_order")} icon="log-out" onClose={() => setPin(false)}
+      {pin && <PinSheet title={title} action={title} icon="log-out" onClose={() => setPin(false)}
         submit={async (p) => {
-          const at = target ? new Date(`${target}:00+06:00`).toISOString() : undefined;
-          try { const v = await discharge.order(admissionId, { advice: advice.trim(), targetAt: at, pin: p }, key.current); setPin(false); onDone(v); }
-          catch (e) { if (e instanceof ApiFailure && e.body.code !== "pin_wrong") { key.current = crypto.randomUUID(); } throw e; }
+          try {
+            const v = kind === "normal" ? await discharge.order(admissionId, { advice: advice.trim(), targetAt: target ? fromLocal(target) : undefined, pin: p }, key.current)
+              : kind === "lama" ? await discharge.lama(admissionId, { reason: advice.trim(), risksExplained: risks, formSigned: form, witnessId: witness || null, pin: p }, key.current)
+              : await discharge.death(admissionId, { timeOfDeath: fromLocal(tod), cause: advice.trim(), medicoLegal: ml, checks, pin: p }, key.current);
+            setPin(false); onDone(v);
+          } catch (e) { if (e instanceof ApiFailure && e.body.code !== "pin_wrong") { key.current = crypto.randomUUID(); } throw e; }
         }} />}
     </div>
   );

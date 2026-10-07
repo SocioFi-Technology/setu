@@ -1,5 +1,5 @@
 import type {
-  ClassPreviewView, DepositReceiptView, DepositRequest, DischargeList, DischargeStepDoneRequest, DischargeView, InterimPrintList, InterimPrintRequest, IpdBillList, IpdBillView, PackageList, PrintRequest as RcPrintRequest, PrintResponse as RcPrintResponse,
+  ClassPreviewView, DeathRecordRequest, DsVerifyResponse, LamaRequest, NewPaymentRequest as IpdPaymentRequest, ReceiptView as IpdReceiptView, SaveSummaryRequest, SummaryView, DepositReceiptView, DepositRequest, DischargeList, DischargeStepDoneRequest, DischargeView, InterimPrintList, InterimPrintRequest, IpdBillList, IpdBillView, PackageList, PrintRequest as RcPrintRequest, PrintResponse as RcPrintResponse,
   WardList, WardBoard, WardPatientView, WardVitalsRequest, WardVitalsResponse, Escalation, NursingNoteView, MarView, DoseRequest, WitnessList, RoundWorklist, RoundView, SaveRoundRequest, IndentCreate, IndentView, IndentList, IndentIssueRequest, WardStock, BedMoveRequest, WristbandView, BatchLabels, IoView, IoEntryRequest, IoEntryView, CareTaskCreate, CareTaskList, WardHandover, HandoverView, HandoverPatientUpdate,
   AdmissionList, AdmissionView, AdmitRequest, BedActionRequest, BedBoard, BedView, ErArrivalRequest, ErArrivalResponse, ErAssignRequest, ErBoard, ErBoardItem, ErDispositionRequest, ErTriageRequest, ErVisitView,
   RefundableView, RefundRequest, RefundView, RefundDecisionRequest, RefundPayRequest, RefundReleaseRequest, RefundPayResponse, RefundList, RefundVoucherView, RefundVoucherPrintResponse, ReconcileRefundRequest, ResaleRequest,
@@ -186,7 +186,7 @@ export const lab = {
 /* Doctor's inbox and printed documents (slice A12–A13, ADR 0007). An acknowledgement made offline waits in the outbox
    with its Idempotency-Key and the screen says "Acknowledged — not yet synced"; nothing is sent to the patient until
    the server has stored it. Printing needs the server (the PDF is rendered and logged there). */
-export type DocKindT = "rx" | "lr";
+export type DocKindT = "rx" | "lr" | "ds";
 export const doctor = {
   inbox: (days = 14) => call<InboxView>("GET", `/v1/doctor/inbox?days=${days}`),
   ack: (id: string, notifyPatient: boolean, key: string) => write<AckResponse>("POST", `/v1/doctor/inbox/${enc(id)}/ack`, { notifyPatient }, "inbox_ack", key),
@@ -199,6 +199,7 @@ export const docs = {
   pdfSrc: (pdfUrl: string) => `/api${pdfUrl}`,
   verifyRx: (code: string) => call<RxVerifyResponse>("GET", `/v1/verify/rx/${enc(code)}`),
   verifyLr: (code: string) => call<LrVerifyResponse>("GET", `/v1/verify/lr/${enc(code)}`),
+  verifyDs: (code: string) => call<DsVerifyResponse>("GET", `/v1/verify/ds/${enc(code)}`),
 };
 
 /* Shift close and the owner dashboard (slice C1–C4, ADR 0008). Opening, counting and reviewing need the server (the
@@ -340,6 +341,10 @@ export const ipdBill = {
   interimPrints: (admissionId: string) => call<InterimPrintList>("GET", `/v1/ipd/bills/${enc(admissionId)}/interim-prints`),
   printInterim: (admissionId: string, body: InterimPrintRequest, key: string) => call<InterimPrintList>("POST", `/v1/ipd/bills/${enc(admissionId)}/interim-prints`, body, key),
   packages: () => call<PackageList>("GET", "/v1/ipd/packages"),
+  /* ADR 0018 (B10): the final bill */
+  issue: (admissionId: string, key: string) => call<IpdBillView>("POST", `/v1/ipd/bills/${enc(admissionId)}/issue`, {}, key),
+  pay: (admissionId: string, body: IpdPaymentRequest, key: string) => call<IpdBillView>("POST", `/v1/ipd/bills/${enc(admissionId)}/payments`, body, key),
+  finalReceipt: (admissionId: string) => call<IpdReceiptView>("POST", `/v1/ipd/bills/${enc(admissionId)}/receipt`, {}, k()),
 };
 export const discharge = {
   list: () => call<DischargeList>("GET", "/v1/ipd/discharges"),
@@ -349,6 +354,17 @@ export const discharge = {
   take: (id: string, step: string) => call<DischargeView>("POST", `/v1/ipd/discharges/${enc(id)}/steps/${enc(step)}/take`, {}, k()),
   done: (id: string, step: string, body: DischargeStepDoneRequest, key: string) => call<DischargeView>("POST", `/v1/ipd/discharges/${enc(id)}/steps/${enc(step)}/done`, body, key),
   remind: (id: string, step: string) => call<DischargeView>("POST", `/v1/ipd/discharges/${enc(id)}/steps/${enc(step)}/remind`, {}, k()),
+  /* ADR 0018 (B12): LAMA and a death on the ward — the doctor's record with the PIN */
+  lama: (admissionId: string, body: LamaRequest, key: string) => call<DischargeView>("POST", `/v1/ipd/admissions/${enc(admissionId)}/lama`, body, key),
+  death: (admissionId: string, body: DeathRecordRequest, key: string) => call<DischargeView>("POST", `/v1/ipd/admissions/${enc(admissionId)}/death`, body, key),
+};
+/* ADR 0018 (B11): the discharge summary — signing needs the server */
+export const summary = {
+  view: (admissionId: string) => call<SummaryView>("GET", `/v1/ipd/admissions/${enc(admissionId)}/summary`),
+  open: (admissionId: string) => call<SummaryView>("POST", `/v1/ipd/admissions/${enc(admissionId)}/summary/open`, {}, k()),
+  save: (id: string, body: SaveSummaryRequest, key: string) => call<SummaryView>("PUT", `/v1/ipd/summaries/${enc(id)}`, body, key),
+  sign: (id: string, rev: number, pin: string, key: string) => call<SummaryView>("POST", `/v1/ipd/summaries/${enc(id)}/sign`, { rev, pin }, key),
+  amend: (id: string, reason: string) => call<SummaryView>("POST", `/v1/ipd/summaries/${enc(id)}/amend`, { reason }, k()),
 };
 
 /* The ward (ADR 0015, slice B3–B4). Vitals and nursing notes may wait in the outbox with their device time (`write`);

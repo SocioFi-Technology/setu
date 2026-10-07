@@ -5,8 +5,10 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
    B8 (IPD billing): each line tagged Package / Included / Excluded; the low-deposit (here: due) alert offers a bKash
    link to the guardian; deposits with their money receipt; the class-change preview; a move up re-prices today's bed
    day (struck through, "class change"); a charge posted and withdrawn; the interim bill.
-   B9 (ward in-charge): the surgeon orders the discharge; six steps; "Blocked by Pharmacy · <name>"; the pharmacist's
-   clearance, the cashier's steps by hand, remind, the summary, bed release → discharged, the bed to cleaning.
+   B9–B12 (ward in-charge, ADR 0018): the surgeon orders the discharge; six steps; "Blocked by Billing" (the final bill
+   starts at once); the cashier issues the final bill and takes the rest (the steps finish by these events); remind; the
+   surgeon signs the summary; "Blocked by Pharmacy · <name>"; the pharmacist's clearance; "patient left" → discharged,
+   the visit finished, the bed to cleaning.
    Issue #1: the banner is this patient. */
 const NURSE = "01798000004", SURGEON = "01798000005", DESK = "01798000001", ADMIN = "01798000010", PHARM = "01798000011", CASHIER = "01798000008";
 const RUN = Date.now().toString(36).slice(-5).toUpperCase();
@@ -26,6 +28,23 @@ async function post<T = Record<string, any>>(request: APIRequestContext, url: st
 }
 async function getJ<T = Record<string, any>>(request: APIRequestContext, url: string): Promise<T> { const r = await request.get("/api" + url); expect(r.ok(), await r.text()).toBe(true); return (await r.json()) as T; }
 async function pin(page: Page, p = "1234") { await page.getByTestId("pin").fill(p); await page.getByTestId("pin-submit").click(); }
+const tomorrow = () => new Date(Date.now() + 6 * 3600_000 + 864e5).toISOString().slice(0, 10);
+/** B11: the surgeon writes the discharge summary on ipd/summary and signs it with the PIN. */
+async function writeSummary(page: Page, admissionId: string) {
+  await page.goto(`/m/ipd/summary?adm=${admissionId}`);
+  await page.getByTestId("summary-open").click();
+  await page.locator('input[name="dx-search"]').fill("Cystitis");
+  await page.getByRole("option", { name: /GC00/ }).click();
+  await page.locator('[data-dx="GC00"] input[type=checkbox]').check();
+  await page.getByTestId("sm-course").fill("Laparoscopic cystectomy on day 1, uneventful recovery, eating normally");
+  await page.getByTestId("rx-search").fill("ace");
+  await page.locator('[data-medicine="ace"]').first().click();
+  await page.getByTestId("sm-fu-date").fill(tomorrow());
+  await page.getByTestId("sm-fu-place").fill("Surgery OPD room 4");
+  await page.locator('[data-flag="fever"] input').check();
+  await page.getByTestId("sm-sign").click(); await pin(page);
+  await expect(page.locator('[data-screen="ipd/summary"][data-status="signed"]')).toBeVisible();
+}
 
 type Ctx = { admissionId: string; encounterId: string; number: string; nameEn: string; cabinWard: string; bedId: string };
 let ctx: Ctx;
@@ -121,7 +140,7 @@ test.describe("Journey B7–B9: the IPD running bill and the discharge checklist
     await expect(page.getByTestId("interim-card").locator("iframe")).toBeVisible();
   });
 
-  test("B9: the order; Blocked by Pharmacy · the pharmacist; the cashier's steps by hand; remind; summary; bed release → discharged", async ({ page, request }) => {
+  test("B9–B12: the order; the final bill issued and settled (Blocked by Billing first); remind; the summary signed; Blocked by Pharmacy · the pharmacist; patient left → discharged", async ({ page, request }) => {
     // the surgeon orders the discharge from the checklist screen
     await login(page, SURGEON);
     await page.goto("/m/ipd/discharge");
@@ -129,6 +148,41 @@ test.describe("Journey B7–B9: the IPD running bill and the discharge checklist
     await page.getByTestId("discharge-advice").fill("Pain settled, eating normally — home with oral analgesia");
     await page.getByTestId("discharge-order").click(); await pin(page);
     await expect(page.locator('[data-screen="ipd/discharge"][data-status="ordered"]')).toBeVisible();
+    // Kamrul, 2: the final bill starts at once — the payment waits for it
+    await expect(page.locator('[data-step="final-bill"]')).toHaveAttribute("data-step-status", "blocking");
+    await expect(page.getByTestId("discharge-header")).toContainText("Blocked by Billing");
+    await expect(page.getByTestId("event-summary")).toContainText("Finishes when the doctor signs the summary");
+    // B10 — the cashier issues the final bill (the pharmacy has not cleared yet) and takes the rest at the counter
+    await login(page, CASHIER);
+    await page.goto(`/m/bill/ipd?adm=${ctx.admissionId}`);
+    const clear = page.getByTestId("clearance");
+    await page.getByTestId("final-issue").click();
+    await expect(page.getByTestId("final-preview")).toContainText("Due at the counter");
+    await page.getByTestId("final-issue-confirm").click();
+    await expect(page.getByTestId("final-card")).toHaveAttribute("data-status", "partially-paid");
+    await expect(page.getByTestId("final-number")).toContainText(/INV\/\d{2}\/\d{4}/);
+    await expect(page.getByTestId("bill-frozen")).toBeVisible();
+    await expect(clear.locator('[data-step="final-bill"]')).toHaveAttribute("data-step-status", "done");
+    await page.getByTestId("final-pay").click();
+    await page.getByRole("radio", { name: "Card" }).click();
+    await page.getByTestId("final-pay-reference").fill("APPR 9902");
+    await page.getByTestId("final-pay-submit").click();
+    await expect(page.getByTestId("final-card")).toHaveAttribute("data-status", "balanced");
+    await page.reload();
+    await expect(page.getByTestId("clearance").locator('[data-step="payment"]')).toHaveAttribute("data-step-status", "done");
+    await page.getByTestId("final-receipt").click();
+    await expect(page.getByTestId("final-receipt-number")).toContainText(/RCPT\/\d{2}\/\d{4}/);
+    await page.getByTestId("final-receipt-print").click();
+    await expect(page.getByTestId("final-receipt-dialog").locator("iframe")).toBeVisible({ timeout: 20_000 });
+    // the ward reminds the doctor of the summary
+    await login(page, NURSE);
+    await page.goto(`/m/ipd/discharge?adm=${ctx.admissionId}`);
+    await page.getByTestId("remind-summary").click();
+    await expect(page.locator('[data-step="summary"]')).toContainText("Reminded");
+    // B11 — the surgeon writes and signs the summary: now only the pharmacy stands before leaving
+    await login(page, SURGEON);
+    await writeSummary(page, ctx.admissionId);
+    await page.goto(`/m/ipd/discharge?adm=${ctx.admissionId}`);
     await expect(page.locator('[data-step="pharmacy"]')).toHaveAttribute("data-step-status", "blocking");
     await expect(page.getByTestId("discharge-header")).toContainText("Blocked by Pharmacy");
     // the pharmacist takes it (the header names them), then clears it with the PIN
@@ -141,32 +195,13 @@ test.describe("Journey B7–B9: the IPD running bill and the discharge checklist
     await page.getByRole("radio", { name: "There were none" }).click();
     await page.getByTestId("step-continue").click(); await pin(page);
     await expect(page.locator('[data-step="pharmacy"]')).toHaveAttribute("data-step-status", "done");
-    // the cashier: final bill and payment by hand (until B10)
-    await login(page, CASHIER);
-    await page.goto(`/m/bill/ipd?adm=${ctx.admissionId}`);
-    const clear = page.getByTestId("clearance");
-    await clear.getByTestId("done-final-bill").click();
-    await page.getByTestId("step-note").fill("Final bill made on paper");
-    await page.getByTestId("step-continue").click(); await pin(page);
-    await expect(clear.locator('[data-step="final-bill"]')).toHaveAttribute("data-step-status", "done");
-    await clear.getByTestId("done-payment").click();
-    await page.getByTestId("step-continue").click(); await pin(page);
-    await expect(clear.locator('[data-step="payment"]')).toHaveAttribute("data-step-status", "done");
-    // the ward reminds the doctor (the summary is now what blocks)
-    await login(page, NURSE);
-    await page.goto(`/m/ipd/discharge?adm=${ctx.admissionId}`);
-    await expect(page.locator('[data-step="summary"]')).toHaveAttribute("data-step-status", "blocking");
-    await page.getByTestId("remind-summary").click();
-    await expect(page.locator('[data-step="summary"]')).toContainText("Reminded");
-    // the surgeon signs the summary by hand; the nurse releases the bed
-    await login(page, SURGEON);
-    await page.goto(`/m/ipd/discharge?adm=${ctx.admissionId}`);
-    await page.getByTestId("done-summary").click(); await page.getByTestId("step-continue").click(); await pin(page);
+    // B12 — the nurse records "patient left"
     await login(page, NURSE);
     await page.goto(`/m/ipd/discharge?adm=${ctx.admissionId}`);
     await page.getByTestId("done-bed-release").click(); await page.getByTestId("step-continue").click(); await pin(page);
     await expect(page.locator('[data-screen="ipd/discharge"][data-status="completed"]')).toBeVisible();
     await expect(page.getByTestId("discharge-header")).toContainText("Discharged");
+    await expect(page.getByTestId("visit-finished")).toBeVisible();
     await as(request, NURSE);
     const board = await getJ(request, "/v1/ipd/beds");
     const bed = board.wards.flatMap((w: { beds: { name: string; ward: { name: string }; state: string }[] }) => w.beds).find((b: { ward: { name: string } }) => b.ward.name === ctx.cabinWard);

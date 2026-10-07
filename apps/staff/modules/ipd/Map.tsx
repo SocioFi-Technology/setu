@@ -2,7 +2,7 @@
 /* ipd/map — walkthrough B4 (bed moves start here). Ported from docs/prototype/Setu IPD.dc.html (screen "map"): every
    ward bed with its state written on the card (never colour alone), the legend with counts, filters by ward and state;
    a bed opens its actions — block with a reason, unblock, mark ready after cleaning — and an occupied bed links to the
-   bed move. Bed states change only through BED on the server. */
+   bed move. Bed states change only through BED on the server; the map refreshes itself (ADR 0018: the bed after discharge). */
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { BedBoard, BedView } from "@setu/contracts";
@@ -12,6 +12,8 @@ import { useSession } from "../../lib/session";
 import { useErr, useLabels, useN } from "../nur/common";
 import { BED_TONE } from "./BedPicker";
 
+/** how often the map asks the server for bed state */
+export const LIVE_MS = 15_000;
 const STATES = ["vacant", "reserved", "occupied", "discharge-pending", "cleaning", "blocked"] as const;
 
 export function IpdMap() {
@@ -19,8 +21,9 @@ export function IpdMap() {
   const [board, setBoard] = useState<BedBoard | null>(null); const [failed, setFailed] = useState<string | null>(null);
   const [wardF, setWardF] = useState(""); const [stateF, setStateF] = useState("");
   const [sel, setSel] = useState<BedView | null>(null); const [reason, setReason] = useState(""); const [busy, setBusy] = useState(false);
-  const load = useCallback(async () => { try { const b = await ipd.beds(); setBoard(b); setSel((x) => (x ? b.wards.flatMap((w) => w.beds).find((y) => y.id === x.id) ?? null : null)); } catch (e) { setFailed(err(e)); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { void load(); }, [load]);
+  const load = useCallback(async (quiet = false) => { try { const b = await ipd.beds(); setBoard(b); setSel((x) => (x ? b.wards.flatMap((w) => w.beds).find((y) => y.id === x.id) ?? null : null)); } catch (e) { if (!quiet) setFailed(err(e)); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // ADR 0018 (B12): live bed state — a patient leaving puts the bed to cleaning, "Bed ready" makes it vacant elsewhere too
+  useEffect(() => { void load(); const t = setInterval(() => { if (document.visibilityState === "visible") void load(true); }, LIVE_MS); return () => clearInterval(t); }, [load]);
   if (failed) return <Callout tone="warn" icon="triangle-alert">{failed}</Callout>;
   if (!board) return <div aria-busy="true" className="t-muted">{N("loading")}</div>;
   const bn = s.lang === "bn";

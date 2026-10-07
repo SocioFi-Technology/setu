@@ -5,7 +5,8 @@
    Low tag); the low-deposit / due alert offering a bKash link to the guardian; deposits with their money receipts; the
    class-change price preview (classes change through a bed move on the ward); the package; a charge from the price
    list; the interim bill (A4, not a final bill); the discharge clearance (the cashier's steps 4–5). Money is integer
-   paisa from the server, printed through @setu/domain format. The final bill and settling come with B10. */
+   paisa from the server, printed through @setu/domain format. B10 (ADR 0018): the final bill — issued once the discharge
+   is recorded, the deposits applied, the excess back by its refund, the shortfall at the counter, the receipt. */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ChargeDefinitionList, ClassPreviewView, DepositReceiptView, DischargeView, IpdBillList, IpdBillView, IpdLine, InterimPrintList, PackageList } from "@setu/contracts";
@@ -22,6 +23,7 @@ const TAG_ICON: Record<IpdLine["tag"], string> = { package: "package", included:
 const STATE_TONE: Record<string, Tone> = { ok: "ok", low: "warn", due: "bad" };
 const REPRINT = ["lost", "jam", "corp", "ins"] as const;
 const renew = (e: unknown) => e instanceof ApiFailure && e.status < 500;
+const FINAL_TONE: Record<string, Tone> = { issued: "bad", "partially-paid": "warn", balanced: "ok" };
 
 export function BillIpd() {
   const adm = useSearchParams().get("adm");
@@ -42,7 +44,7 @@ function IpdBillListScreen() {
       {list.items.length === 0 ? <PageState icon="receipt-text" title={B("ib_list_title")} body={B("ib_list_none")} /> : (
         <Card style={{ padding: 0, overflowX: "auto" }}>
           <table className="table" style={{ width: "100%", minWidth: 760 }} data-testid="ipd-bill-list">
-            <thead><tr><th>{B("ib_col_patient")}</th><th>{B("ib_col_bed")}</th><th>{B("ib_col_day")}</th><th>{B("ib_package")}</th><th className="r">{B("ib_col_total")}</th><th className="r">{B("ib_col_deposits")}</th><th className="r">{B("ib_col_balance")}</th><th /></tr></thead>
+            <thead><tr><th>{B("ib_col_patient")}</th><th>{B("ib_col_bed")}</th><th>{B("ib_col_day")}</th><th>{B("ib_package")}</th><th className="r">{B("ib_col_total")}</th><th className="r">{B("ib_col_deposits")}</th><th className="r">{B("ib_col_balance")}</th><th>{B("ib_col_bill")}</th><th /></tr></thead>
             <tbody>
               {list.items.map((x) => (
                 <tr key={x.admissionId} data-adm={x.number} style={{ cursor: "pointer" }} onClick={() => router.push(`/m/bill/ipd?adm=${encodeURIComponent(x.admissionId)}`)}>
@@ -56,7 +58,12 @@ function IpdBillListScreen() {
                     {x.balancePaisa < 0 ? `−${M.tk(-x.balancePaisa)}` : M.tk(x.balancePaisa)}{" "}
                     {x.depositState !== "ok" && <Pill tone={STATE_TONE[x.depositState]!}>{x.depositState === "low" ? B("ib_low") : B("ib_t_due")}</Pill>}
                   </td>
-                  <td>{x.discharge && <Pill tone={x.discharge.status === "completed" ? "neu" : "pend"} icon="log-out">{x.discharge.status === "completed" ? B("ib_discharged_pill") : `${s.n(x.discharge.done)}/${s.n(6)}`}</Pill>}</td>
+                  <td data-bill={x.bill}>{x.bill === "draft" ? <span className="t-small t-muted">{B("ib_bill_running")}</span> : (<span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    <span className="num t-small">{x.invoiceNumber}</span>
+                    {x.duePaisa > 0 && <Pill tone="bad">{B("ib_bill_due", { amount: M.tk(x.duePaisa) })}</Pill>}
+                    {x.excessOpenPaisa > 0 && <Pill tone="warn">{B("ib_bill_excess", { amount: M.tk(x.excessOpenPaisa) })}</Pill>}
+                  </span>)}</td>
+                  <td>{x.discharge && <Pill tone={x.discharge.status === "completed" ? "neu" : "pend"} icon="log-out">{x.discharge.status === "completed" ? B("ib_discharged_pill") : `${s.n(x.discharge.done)}`}</Pill>}</td>
                 </tr>
               ))}
             </tbody>
@@ -116,9 +123,10 @@ function IpdBill({ admissionId }: { admissionId: string }) {
         <span className="t-small"><span className="t-muted">{B("ib_doctor")}:</span> {M.name(v.admission.doctor)}</span>
         <span className="t-small"><span className="t-muted">{B("ib_payer")}:</span> {B("ib_self_pay")}</span>
       </Card>
+      {v.final && <Callout icon="lock" data-testid="bill-frozen">{B("fb_frozen")}</Callout>}
       {(v.sample.rates || v.sample.package) && <span className="t-small t-muted" data-testid="ipd-sample">{[v.sample.rates && B("ib_sample_rates"), v.sample.package && B("ib_sample_package")].filter(Boolean).join(" · ")}</span>}
       {!writer && <Callout icon="eye">{B("ib_view_only")}</Callout>}
-      {v.depositState !== "ok" && (
+      {v.depositState !== "ok" && !v.final && (
         <div className={`callout${v.depositState === "due" ? " callout-bad" : " callout-warn"}`} data-testid="deposit-alert" data-state={v.depositState} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ flex: 1, minWidth: 240 }}>{B(v.depositState === "due" ? "ib_alert_due" : "ib_alert_low", { amount: M.tk(Math.abs(v.balancePaisa)), guardian })}</span>
           {v.can.deposit && v.paymentMethods.includes("bkash") && v.guardian && (
@@ -160,6 +168,7 @@ function IpdBill({ admissionId }: { admissionId: string }) {
           </table>
         </Card>
         <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
+          <FinalCard v={v} writer={writer} onChange={(x) => { setV(x); if (x.discharge) void discharge.view(admissionId).then(setDis).catch(() => undefined); }} />
           <Totals v={v} />
           <Deposits v={v} writer={writer} open={depositOpen} setOpen={setDepositOpen} onChange={setV} />
           <ClassCard v={v} />
@@ -169,7 +178,6 @@ function IpdBill({ admissionId }: { admissionId: string }) {
           <Card style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8 }} data-testid="clearance">
             <b>{B("ib_clearance")}</b>
             {dis ? (<><DischargeHeader v={dis} /><DischargeSteps v={dis} onChange={(x) => { setDis(x); void ipdBill.view(admissionId).then(setV); }} only={["final-bill", "payment"]} /></>) : <span className="t-small t-muted">{B("ib_clearance_none")}</span>}
-            <span className="t-small t-muted">{B("ib_final_later")}</span>
           </Card>
         </div>
       </div>
@@ -442,5 +450,175 @@ function InterimCard({ admissionId }: { admissionId: string }) {
       {last && <span className="t-small t-muted">{last.copy === 0 ? B("rc_audit_original", { name: M.name(last.printedBy), at: M.dateTime(last.printedAt) }) : B("rc_audit_dup", { n: last.copy, reason: B(`rr_${last.reason}`), name: M.name(last.printedBy), at: M.dateTime(last.printedAt) })} · <a href={`/api${last.pdfUrl}`} target="_blank" rel="noreferrer">{B("rc_pdf")}</a></span>}
       {shown && <iframe title="interim" src={`/api${shown}`} style={{ width: "100%", height: 360, border: "1px solid var(--border-subtle)" }} />}
     </Card>
+  );
+}
+
+/** B10 (ADR 0018): the final bill. Draft — what stops it, and Issue with the outcome shown first (the deposits against
+    the total: due at the counter, or the excess going back by refund). Issued — the categories, the deposits applied,
+    the excess refund's state, the shortfall taken at the counter, the receipt (Mushak-6.3 on the settling one). */
+function FinalCard({ v, writer, onChange }: { v: IpdBillView; writer: boolean; onChange: (v: IpdBillView) => void }) {
+  const s = useSession(); const B = useB(); const M = useMoney(); const E = useErr(); const toast = useToast(); const router = useRouter();
+  const [confirm, setConfirm] = useState(false); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState<string | null>(null);
+  const [pay, setPay] = useState(false); const [receipt, setReceipt] = useState(false);
+  const key = useRef(crypto.randomUUID());
+  const f = v.final;
+  if (!f) {
+    const deposits = v.deposits.confirmedPaisa, total = v.totals.totalPaisa;
+    const issue = async () => {
+      if (busy) return; setBusy(true); setMsg(null);
+      try { const x = await ipdBill.issue(v.admission.id, key.current); key.current = crypto.randomUUID(); setConfirm(false); onChange(x); toast(B("fb_issued_msg", { number: x.final?.number ?? "" }), "badge-check"); }
+      catch (e) { if (renew(e)) key.current = crypto.randomUUID(); setMsg(E(e)); } finally { setBusy(false); }
+    };
+    return (
+      <Card style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8 }} data-testid="final-card" data-status="draft">
+        <b>{B("fb_title")}</b>
+        {v.issueBlockers.length > 0 && (
+          <div className="t-small" data-testid="final-blockers"><b>{B("fb_blockers")}</b>
+            <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{v.issueBlockers.map((b) => <li key={b} data-blocker={b}>{B(`fb_b_${b}`)}</li>)}</ul>
+          </div>
+        )}
+        {writer && v.can.issue && !confirm && <span><Button variant="primary" icon="file-check-2" disabled={v.issueBlockers.length > 0 || !s.online} onClick={() => setConfirm(true)} data-testid="final-issue">{B("fb_issue")}</Button></span>}
+        {confirm && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid var(--border-subtle)", paddingTop: 8 }} data-testid="final-confirm">
+            <Row k={B("fb_pv_total")} v={M.tk(total)} strong />
+            <Row k={B("fb_pv_deposits")} v={M.tk(deposits)} />
+            <span className="t-small" data-testid="final-preview">{deposits > total ? B("fb_pv_excess", { amount: M.tk(deposits - total) }) : deposits === total ? B("fb_pv_even") : B("fb_pv_due", { amount: M.tk(total - deposits) })}</span>
+            <span className="t-small t-muted">{B("fb_pv_census")}</span>
+            <Callout tone="warn" icon="lock">{B("fb_issue_warn")}</Callout>
+            {msg && <Callout tone="warn" icon="triangle-alert" data-testid="final-error">{msg}</Callout>}
+            <span style={{ display: "flex", gap: 8 }}>
+              <Button onClick={() => setConfirm(false)} disabled={busy}>{B("cancel")}</Button>
+              <Button variant="primary" icon="file-check-2" disabled={busy || !s.online} onClick={() => void issue()} data-testid="final-issue-confirm">{busy ? B("waiting_server") : B("fb_issue")}</Button>
+            </span>
+          </div>
+        )}
+      </Card>
+    );
+  }
+  const ex = f.excessRefund;
+  return (
+    <Card style={{ padding: 14, display: "flex", flexDirection: "column", gap: 6 }} data-testid="final-card" data-status={f.status}>
+      <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <b style={{ flex: 1 }}>{B("fb_title")}</b>
+        <Pill tone={FINAL_TONE[f.status]!} icon={f.status === "balanced" ? "badge-check" : "clock"}>{B(`fb_st_${f.status}`)}</Pill>
+      </span>
+      <span className="t-small num" data-testid="final-number">{B("fb_issued", { number: f.number, at: M.dateTime(f.issuedAt), name: M.name(f.issuedBy) })}</span>
+      <table className="table" style={{ width: "100%" }} data-testid="final-categories">
+        <tbody>
+          {f.categories.map((c) => (
+            <tr key={c.category} data-category={c.category}><td className="t-small">{B(`fb_cat_${c.category}`)} <span className="t-muted">· {B("fb_cat_lines", { n: c.lines })}</span></td>
+              <td className="r num t-small">{c.vatPaisa ? `${B("fb_vat")} ${M.tk(c.vatPaisa)}` : ""}</td><td className="r num t-small">{M.tk(c.totalPaisa)}</td></tr>
+          ))}
+        </tbody>
+      </table>
+      <Row k={B("fb_total")} v={M.tk(v.totals.totalPaisa)} strong />
+      <Row k={B("fb_deposits")} v={M.tk(f.depositsPaisa)} />
+      {f.excessPaisa > 0 && <Row k={B("fb_excess")} v={`− ${M.tk(f.excessPaisa)}`} />}
+      <Row k={B("fb_net_paid")} v={M.tk(f.netPaidPaisa)} />
+      <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid var(--border-subtle)", paddingTop: 6 }} data-testid="final-due">
+        <b>{B("fb_due")}</b><b className="num" style={{ color: f.duePaisa > 0 ? "var(--danger-fg)" : undefined }}>{M.tk(f.duePaisa)}</b>
+      </div>
+      {ex && (
+        <div className={`callout ${ex.status === "paid" ? "" : "callout-warn"}`} data-testid="final-excess" data-status={ex.status} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span><b className="num">{M.tk(ex.amountPaisa)}</b> · {B(`fb_ex_${ex.status}`)}</span>
+          {ex.status !== "paid" && <span className="t-small t-muted">{B("fb_ex_never")}</span>}
+          <span><Button size="sm" icon="undo-2" onClick={() => router.push(`/m/bill/refund?rf=${encodeURIComponent(ex.id)}`)} data-testid="final-excess-open">{B("fb_ex_open")}</Button></span>
+        </div>
+      )}
+      {f.afterIssue.length > 0 && (
+        <Callout tone="warn" icon="triangle-alert" data-testid="final-after">
+          <b>{B("fb_after")}</b>
+          <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{f.afterIssue.map((a) => <li key={`${a.kind}-${a.key}`} className="t-small">{s.lang === "bn" ? a.nameBn : a.nameEn} · {B(`fb_after_${a.kind}`)} <span className="num">{a.amountPaisa < 0 ? `−${M.tk(-a.amountPaisa)}` : M.tk(a.amountPaisa)}</span></li>)}</ul>
+        </Callout>
+      )}
+      <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {writer && v.can.pay && !pay && <Button variant="primary" icon="wallet" onClick={() => setPay(true)} disabled={!s.online} data-testid="final-pay">{B("fb_pay")}</Button>}
+        {writer && v.can.receipt && <Button icon="receipt-text" onClick={() => setReceipt(true)} disabled={!s.online} data-testid="final-receipt">{B("fb_receipt_make")}</Button>}
+      </span>
+      {f.receipts.length > 0 && <span className="t-small t-muted" data-testid="final-receipts">{B("fb_receipts")}: {f.receipts.map((r) => `${r.number} (${M.tk(r.paidPaisa)})`).join(" · ")}</span>}
+      {f.duePaisa > 0 && <span className="t-small t-muted">{B("fb_receipt_mushak")}</span>}
+      {pay && <FinalPayForm v={v} onClose={() => setPay(false)} onDone={(x) => { setPay(false); onChange(x); }} />}
+      {receipt && <FinalReceiptDialog admissionId={v.admission.id} onClose={() => { setReceipt(false); void ipdBill.view(v.admission.id).then(onChange); }} />}
+    </Card>
+  );
+}
+
+/** The shortfall at the counter — cash (from the drawer's shift), card, bank or a bKash link; never more than is due. */
+function FinalPayForm({ v, onClose, onDone }: { v: IpdBillView; onClose: () => void; onDone: (v: IpdBillView) => void }) {
+  const s = useSession(); const B = useB(); const M = useMoney(); const E = useErr(); const toast = useToast();
+  const due = v.final?.duePaisa ?? 0;
+  const methods = (["cash", "card", "bank", "bkash"] as const).filter((m) => v.paymentMethods.includes(m));
+  const [method, setMethod] = useState<(typeof methods)[number]>(methods[0] ?? "cash"); const [amount, setAmount] = useState((due / 100).toFixed(2).replace(/\.00$/, ""));
+  const [tendered, setTendered] = useState(""); const [ref, setRef] = useState(""); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState<string | null>(null);
+  const key = useRef(crypto.randomUUID());
+  const paisa = parseTaka(amount); const tend = method === "cash" ? parseTaka(tendered || amount) : null;
+  const ok = !!paisa && paisa > 0 && paisa <= due && (method !== "cash" || (tend ?? 0) >= paisa) && ((method !== "card" && method !== "bank") || ref.trim().length > 0) && s.online && !busy;
+  const go = async () => {
+    if (!ok) return; setBusy(true); setMsg(null);
+    try {
+      const x = await ipdBill.pay(v.admission.id, { method, amountPaisa: paisa!, ...(method === "cash" ? { tenderedPaisa: tend! } : {}), ...(method === "card" || method === "bank" ? { reference: ref.trim() } : {}) }, key.current);
+      key.current = crypto.randomUUID();
+      toast(method === "bkash" ? B("ib_dep_link_sent") : B("fb_pay_taken", { amount: M.tk(paisa!) }), "badge-check");
+      onDone(x);
+    } catch (e) { if (renew(e)) key.current = crypto.randomUUID(); setMsg(E(e)); } finally { setBusy(false); }
+  };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid var(--border-subtle)", paddingTop: 8 }} data-testid="final-pay-form">
+      <Segmented label={B("ib_dep_method")} value={method} onChange={(m) => setMethod(m as typeof method)} options={methods.map((m) => ({ value: m, label: B(`m_${m}`) }))} />
+      <TextField label={B("ib_dep_amount")} value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" name="finalAmount" data-testid="final-pay-amount" hint={B("fb_pv_due", { amount: M.tk(due) })} />
+      {method === "cash" && <TextField label={B("ib_dep_tendered")} value={tendered} onChange={(e) => setTendered(e.target.value)} inputMode="decimal" name="finalTendered" placeholder={amount} />}
+      {(method === "card" || method === "bank") && <TextField label={B("ib_dep_reference")} value={ref} onChange={(e) => setRef(e.target.value)} name="finalReference" data-testid="final-pay-reference" />}
+      {msg && <Callout tone="warn" icon="triangle-alert" data-testid="final-pay-error">{msg}</Callout>}
+      <div style={{ display: "flex", gap: 8 }}>
+        <Button onClick={onClose} disabled={busy}>{B("cancel")}</Button>
+        <Button variant="primary" icon={method === "bkash" ? "send" : "wallet"} disabled={!ok} onClick={() => void go()} data-testid="final-pay-submit">{busy ? B("waiting_server") : method === "bkash" ? B("ib_send_link") : B("fb_pay")}</Button>
+      </div>
+    </div>
+  );
+}
+
+/** The final bill's receipt as it stands (the same one again if nothing changed), printed A5 or 80 mm; a reprint needs a reason. */
+function FinalReceiptDialog({ admissionId, onClose }: { admissionId: string; onClose: () => void }) {
+  const s = useSession(); const B = useB(); const M = useMoney(); const E = useErr(); const toast = useToast();
+  const [r, setR] = useState<{ id: string; number: string; paidPaisa: number; duePaisa: number } | null>(null); const [prints, setPrints] = useState(0);
+  const [lang, setLang] = useState<"both" | "bn" | "en">("both"); const [paper, setPaper] = useState<"a5" | "thermal">("a5");
+  const [reason, setReason] = useState<(typeof REPRINT)[number] | "">(""); const [shown, setShown] = useState<string | null>(null); const [busy, setBusy] = useState(false);
+  const key = useRef(crypto.randomUUID());
+  const asked = useRef(false);
+  useEffect(() => { if (asked.current) return; asked.current = true; ipdBill.finalReceipt(admissionId).then((x) => { setR(x.receipt); setPrints(x.prints.length); }).catch((e) => toast(E(e), "triangle-alert")); }, [admissionId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const print = async () => {
+    if (!r || busy || (prints > 0 && !reason)) return; setBusy(true);
+    try { const x = await ipdBill.printReceipt(r.id, { format: paper, lang, ...(prints > 0 ? { reason: reason as (typeof REPRINT)[number] } : {}) }, key.current); setShown(x.print.pdfUrl); setPrints(x.view.prints.length); setReason(""); key.current = crypto.randomUUID(); }
+    catch (e) { toast(E(e), "triangle-alert"); if (renew(e)) key.current = crypto.randomUUID(); } finally { setBusy(false); }
+  };
+  return (
+    <Dialog open onClose={onClose} label={B("fb_receipt")} width={720}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 18 }} data-testid="final-receipt-dialog">
+        {!r ? <span className="t-muted">{B("loading")}</span> : (<>
+          <span style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <b>{B("fb_receipt")}</b><b className="num" data-testid="final-receipt-number">{r.number}</b>
+            <span className="num t-muted">{M.tk(r.paidPaisa)}</span>{r.duePaisa > 0 && <span className="num t-small">{B("fb_due")} {M.tk(r.duePaisa)}</span>}
+            {prints > 0 && <Pill tone="neu" icon="printer">{s.n(prints)}</Pill>}
+          </span>
+          <span style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+            <Segmented label={B("rc_lang")} value={lang} onChange={setLang} options={[{ value: "both", label: B("rc_lang_both") }, { value: "bn", label: B("rc_lang_bn") }, { value: "en", label: B("rc_lang_en") }]} />
+            <Segmented label={B("rc_format")} value={paper} onChange={setPaper} options={[{ value: "a5", label: B("v_format_a5") }, { value: "thermal", label: B("rc_format_thermal") }]} />
+          </span>
+          {prints > 0 && (
+            <label className="field t-small">{B("rc_reason")}
+              <select name="final-reprint-reason" className="input" value={reason} onChange={(e) => setReason(e.target.value as typeof reason)}>
+                <option value="">{B("disc_choose")}</option>
+                {REPRINT.map((x) => <option key={x} value={x}>{B(`rr_${x}`)}</option>)}
+              </select>
+            </label>
+          )}
+          <span style={{ display: "flex", gap: 8 }}>
+            <Button variant="primary" icon="printer" disabled={busy || !s.online || (prints > 0 && !reason)} onClick={() => void print()} data-testid="final-receipt-print">{busy ? B("waiting_server") : prints > 0 ? B("ib_dep_reprint") : B("ib_dep_print")}</Button>
+            <Button onClick={onClose}>{B("cancel")}</Button>
+          </span>
+          {shown && <iframe title={r.number} src={`/api${shown}`} style={{ width: "100%", height: 520, border: "1px solid var(--border-subtle)" }} />}
+        </>)}
+      </div>
+    </Dialog>
   );
 }

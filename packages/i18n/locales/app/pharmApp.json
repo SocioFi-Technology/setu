@@ -1078,5 +1078,9 @@
   "returns_since": [
     "ভুল নথির ডোজ থেকে ফেরত: {n} · {reason}",
     "Returned from an errored dose: {n} · {reason}"
+  ],
+  "take_home": [
+    "বাড়ির ওষুধ (ছুটি)",
+    "Take-home (discharge)"
   ]
 }

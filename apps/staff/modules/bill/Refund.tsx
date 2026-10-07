@@ -273,8 +273,10 @@ function RefundScreen({ id }: { id: string }) {
         <span data-testid="rf-status"><Pill tone={STATUS_TONE[r.status]}>{label(r)}</Pill></span>
         {r.selfApproved && <Pill tone="warn" icon="user-check">{B("rf_self_flag")}</Pill>}
         <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="arrow-left" onClick={() => router.push(`/m/${mod}/pay?inv=${encodeURIComponent(v.invoice.id)}`)}>{B("rf_bill")} {v.invoice.number ?? "—"}</Button>
+        {/* ADR 0018: the excess deposit's refund belongs to the IPD final bill */}
+        <Button size="sm" icon="arrow-left" onClick={() => router.push(r.source === "deposit-excess" ? "/m/bill/ipd" : `/m/${mod}/pay?inv=${encodeURIComponent(v.invoice.id)}`)}>{B("rf_bill")} {v.invoice.number ?? "—"}</Button>
       </div>
+      {r.source === "deposit-excess" && <Callout icon="info" data-testid="rf-deposit-excess">{B("fb_ex_never")}</Callout>}
       <span>{v.patient ? <>{M.name(v.patient)} · <span className="num">{v.patient.facilityNo}</span></> : v.buyer?.name ?? B("walk_in")} · {B(`rf_cat_${r.category}`)} — {r.reason}</span>
       {!s.online && <Callout tone="warn" icon="cloud-off">{B("rf_online_only")}</Callout>}
       {r.needsOwner && r.status === "requested" && <Callout tone="warn" icon="shield-alert" data-testid="rf-needs-owner">{B("rf_needs_owner")}</Callout>}
@@ -307,7 +309,7 @@ function RefundScreen({ id }: { id: string }) {
               <label className="field t-small">{B("rf_note")}<textarea name="rf-note" className="input" rows={2} value={note} onChange={(e) => setNote(e.target.value)} /></label>
               <span style={{ display: "flex", gap: 8 }}>
                 <Button variant="primary" icon="check" data-testid="rf-approve" disabled={busy || !s.online || (mine && note.trim().length < 10)} onClick={() => void act("approve", (k) => api.decide(id, { decision: "approve", ...(note.trim() ? { note: note.trim() } : {}) }, k))}>{B("rf_approve")}</Button>
-                <Button variant="danger" icon="x" data-testid="rf-reject" disabled={busy || !s.online || note.trim().length < 10} onClick={() => void act("reject", (k) => api.decide(id, { decision: "reject", note: note.trim() }, k))}>{B("rf_reject")}</Button>
+                {v.can.reject && <Button variant="danger" icon="x" data-testid="rf-reject" disabled={busy || !s.online || note.trim().length < 10} onClick={() => void act("reject", (k) => api.decide(id, { decision: "reject", note: note.trim() }, k))}>{B("rf_reject")}</Button>}
               </span>
             </>
           )}

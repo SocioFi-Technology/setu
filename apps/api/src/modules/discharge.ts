@@ -208,7 +208,7 @@ export async function dischargeList(tx: Tx, s: SessionData, now: Date): Promise<
         status: d.status as "ordered", done: doneCount(states), total: d.steps.length, targetAt: d.targetAt.toISOString(), overdue: d.status === "ordered" && overdue(d.targetAt, now),
         blockedBy: blocking.map((k) => { const x = d.steps.find((y) => y.key === k)!; return { key: k, department: stepDef(kind, k).department, person: x.takenById ? who(x.takenById) : stepDef(kind, k).department === "doctor" ? who(a.admittingDoctorId) : null }; }),
         mine: stepsOf(kind).filter((def) => states[def.key] === "in-progress" && markable(kind, def.key) && canDoStep(kind, def.key, s.role as Role)).map((def) => def.key),
-        orderedAt: d.orderedAt.toISOString(), completedAt: iso(d.completedAt),
+        orderedAt: d.orderedAt.toISOString(), completedAt: iso(d.completedAt), summary: (states.summary ?? null) as "done" | null,
       }];
     }) },
   };

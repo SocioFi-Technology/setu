@@ -53,6 +53,7 @@ import { PhIndent } from "./ph/Indent";
 import { BillIpd } from "./bill/Ipd";
 import { BillPkg } from "./bill/Pkg";
 import { IpdDischarge } from "./ipd/Discharge";
+import { IpdSummary } from "./ipd/Summary";
 
 const SCREENS: Record<string, ComponentType> = {
   // slice A1–A3
@@ -124,6 +125,8 @@ const SCREENS: Record<string, ComponentType> = {
   "bill/ipd": BillIpd,
   "bill/pkg": BillPkg,
   "ipd/discharge": IpdDischarge,
+  // slice B10–B12 (ADR 0018)
+  "ipd/summary": IpdSummary,
   "ph/indent": PhIndent,
 };
 const SLICE: Record<string, string> = { fd: "A1–A3", cons: "A4–A5", bill: "A6–A7", lab: "A8–A11", doc: "A12–A13", ph: "phase 2", own: "C1–C4", adm: "phase 2", er: "B1–B2", ipd: "B3–B4", nur: "B5–B6", net: "E1–E4" };

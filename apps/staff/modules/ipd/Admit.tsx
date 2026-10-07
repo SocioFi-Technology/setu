@@ -6,6 +6,7 @@
    and Admit: one server transaction
    (IPD encounter, bed occupied, ADM/yy/nnnn, the IPD bill draft). */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LIVE_MS } from "./Map";
 import type { AdmissionItem, AdmissionList, AdmissionView, BedBoard, PatientSummary } from "@setu/contracts";
 import { admissionChecklist, bedPickable, format, parseTaka } from "@setu/domain";
 import { Button, Callout, Card, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast } from "@setu/ui";
@@ -27,6 +28,8 @@ export function IpdAdmit() {
   const [done, setDone] = useState<AdmissionView | null>(null);
   const load = useCallback(async () => { try { const [l, b] = await Promise.all([ipd.admissions(), ipd.beds()]); setList(l); setBoard(b); } catch { setFailed(true); } }, []);
   useEffect(() => { void load(); }, [load]);
+  // ADR 0018 (B12): the desk sees beds freed by a discharge (cleaning → ready) without reloading
+  useEffect(() => { const t = setInterval(() => { if (document.visibilityState === "visible") ipd.beds().then(setBoard).catch(() => undefined); }, LIVE_MS); return () => clearInterval(t); }, []);
   useEffect(() => {
     if (q.trim().length < 2) { setHits([]); return; }
     const t = setTimeout(() => { fd.search(q.trim()).then((r) => setHits(r.items ?? [])).catch(() => setHits([])); }, 250);

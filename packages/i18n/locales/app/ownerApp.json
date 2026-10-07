@@ -558,5 +558,21 @@
   "l_ownSupply": [
     "রোগীর নিজের ওষুধ থেকে দেওয়া ডোজ — নার্স অনুযায়ী",
     "Doses from the patient's own supply — per nurse"
+  ],
+  "l_excessUnpaid": [
+    "বাড়তি জমা ফেরত বাকি (ভর্তি)",
+    "Excess deposits not yet paid back (inpatient)"
+  ],
+  "l_ipdOutcomeDues": [
+    "LAMA / মৃত্যুর বিলে বকেয়া",
+    "LAMA / death bills still owing"
+  ],
+  "l_lamaSummaryOverdue": [
+    "LAMA-র সারাংশ ২৪ ঘণ্টায় হয়নি",
+    "LAMA summaries not signed within 24 hours"
+  ],
+  "l_afterFinalBill": [
+    "চূড়ান্ত বিলের পরে ভুল ডোজ (রিফান্ডে মেটান)",
+    "Doses in error after the final bill (settle by refund)"
   ]
 }

@@ -281,26 +281,26 @@ async function ipdException(tx: Tx, org: string, kind: IpdException, now: Date):
     return { count: rows.length, paisa: rows.reduce((t, r) => t + (r.amountPaisa ?? 0), 0), rows };
   }
   if (kind === "ipdOutcomeDues") {
-    const list = await tx.$queryRaw<{ id: string; number: string; patientId: string; issuedAt: Date; due: bigint; outcome: string }[]>`
-      SELECT i."id", i."number", i."patientId", i."issuedAt", (i."totalPaisa" - i."creditedPaisa" - (i."paidPaisa" - i."excessPaisa")) AS due, e."outcome"
+    const list = await tx.$queryRaw<{ id: string; admissionId: string; number: string; patientId: string; issuedAt: Date; due: bigint; outcome: string }[]>`
+      SELECT i."id", a."id" AS "admissionId", i."number", i."patientId", i."issuedAt", (i."totalPaisa" - i."creditedPaisa" - (i."paidPaisa" - i."excessPaisa")) AS due, e."outcome"
       FROM "Invoice" i JOIN "Admission" a ON a."invoiceId" = i."id" JOIN "Encounter" e ON e."id" = a."encounterId"
       WHERE i."organizationId" = ${org} AND i."kind" = 'ipd' AND i."status" IN ('issued', 'partially-paid') AND e."outcome" IN ('lama', 'deceased') ORDER BY i."issuedAt"`;
-    const rows = list.map((r) => ({ id: r.id, at: r.issuedAt, number: r.number, patientId: r.patientId, amountPaisa: Number(r.due), byId: null, detail: r.outcome, link: { kind: "invoice" as const, id: r.id }, status: null }));
+    const rows = list.map((r) => ({ id: r.id, at: r.issuedAt, number: r.number, patientId: r.patientId, amountPaisa: Number(r.due), byId: null, detail: r.outcome, link: { kind: "ipd-bill" as const, id: r.admissionId }, status: null }));
     return { count: rows.length, paisa: rows.reduce((t, r) => t + (r.amountPaisa ?? 0), 0), rows };
   }
   if (kind === "lamaSummaryOverdue") {
     const list = await tx.discharge.findMany({ where: { organizationId: org, kind: "lama", status: { in: ["ordered", "completed"] }, orderedAt: { lt: new Date(now.getTime() - 24 * 3600_000) }, steps: { some: { key: "summary", status: { not: "done" } } } }, orderBy: { orderedAt: "asc" } });
     const adm = new Map((await tx.admission.findMany({ where: { id: { in: list.map((d) => d.admissionId) } }, select: { id: true, number: true } })).map((a) => [a.id, a.number]));
-    const rows = list.map((d) => ({ id: d.id, at: d.orderedAt, number: adm.get(d.admissionId) ?? null, patientId: d.patientId, amountPaisa: null, byId: d.orderedById, detail: "LAMA · summary not signed", link: { kind: "visit" as const, id: d.encounterId }, status: d.status }));
+    const rows = list.map((d) => ({ id: d.id, at: d.orderedAt, number: adm.get(d.admissionId) ?? null, patientId: d.patientId, amountPaisa: null, byId: d.orderedById, detail: "LAMA · summary not signed", link: { kind: "ipd-summary" as const, id: d.admissionId }, status: null }));
     return { count: rows.length, paisa: 0, rows };
   }
   // a dose marked in error after its IPD bill was issued: the bill is never edited — the cashier settles it by refund
-  const list = await tx.$queryRaw<{ id: string; patientId: string; errorAt: Date; errorById: string | null; medicineKey: string; number: string; invoiceId: string }[]>`
-    SELECT m."id", m."patientId", m."errorAt", m."errorById", m."medicineKey", i."number", i."id" AS "invoiceId"
+  const list = await tx.$queryRaw<{ id: string; patientId: string; errorAt: Date; errorById: string | null; medicineKey: string; number: string; admissionId: string }[]>`
+    SELECT m."id", m."patientId", m."errorAt", m."errorById", m."medicineKey", i."number", a."id" AS "admissionId"
     FROM "MedicationAdministration" m JOIN "Admission" a ON a."encounterId" = m."encounterId" JOIN "Invoice" i ON i."id" = a."invoiceId"
     WHERE a."organizationId" = ${org} AND m."status" = 'entered-in-error' AND i."status" <> 'draft' AND i."issuedAt" IS NOT NULL AND m."errorAt" > i."issuedAt"
       AND m."errorAt" > ${new Date(now.getTime() - 30 * 864e5)} ORDER BY m."errorAt" DESC`;
-  const rows = list.map((r) => ({ id: r.id, at: r.errorAt, number: r.number, patientId: r.patientId, amountPaisa: null, byId: r.errorById, detail: `${r.medicineKey} · dose in error after the final bill`, link: { kind: "invoice" as const, id: r.invoiceId }, status: null }));
+  const rows = list.map((r) => ({ id: r.id, at: r.errorAt, number: r.number, patientId: r.patientId, amountPaisa: null, byId: r.errorById, detail: `${r.medicineKey} · dose in error after the final bill`, link: { kind: "ipd-bill" as const, id: r.admissionId }, status: null }));
   return { count: rows.length, paisa: 0, rows };
 }
 

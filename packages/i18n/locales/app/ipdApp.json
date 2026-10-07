@@ -496,8 +496,8 @@
     "Payment & clearance"
   ],
   "ds_step_bed-release": [
-    "শয্যা খালি → পরিষ্কার",
-    "Bed release to cleaning"
+    "রোগী চলে গেছেন → শয্যা পরিষ্কারে",
+    "Patient left → bed to cleaning"
   ],
   "ds_st_done": [
     "সম্পন্ন",
@@ -595,18 +595,6 @@
     "খুলুন",
     "Open"
   ],
-  "ds_step_hint_summary": [
-    "সারাংশ স্বাক্ষরের পাতা পরে আসবে; এখন কাগজে স্বাক্ষর করে এখানে চিহ্ন দিন",
-    "The summary page comes later; sign it on paper for now and mark it here"
-  ],
-  "ds_step_hint_final-bill": [
-    "চূড়ান্ত বিলের পাতা পরে আসবে; এখন কাগজের বিল দিয়ে এখানে চিহ্ন দিন",
-    "The final bill page comes later; mark it here after the paper bill"
-  ],
-  "ds_step_hint_payment": [
-    "জমা থেকে মেটানো পরে আসবে; এখন হাতে মিলিয়ে চিহ্ন দিন",
-    "Settling against the deposit comes later; settle by hand and mark it here"
-  ],
   "ds_order_from_round": [
     "ছুটির আদেশ",
     "Order discharge"
@@ -670,5 +658,425 @@
   "cancel": [
     "বাতিল",
     "Cancel"
+  ],
+  "ds_kind": [
+    "কী রেকর্ড করবেন",
+    "What to record"
+  ],
+  "ds_kind_normal": [
+    "ছুটি",
+    "Discharge"
+  ],
+  "ds_kind_lama": [
+    "LAMA (পরামর্শের বিরুদ্ধে ছুটি)",
+    "LAMA (against advice)"
+  ],
+  "ds_kind_death": [
+    "ওয়ার্ডে মৃত্যু",
+    "Death on the ward"
+  ],
+  "ds_lama_reason": [
+    "কারণ (রোগী বা পরিবার যা বলেছেন)",
+    "Reason (what the patient or family said)"
+  ],
+  "ds_lama_risks": [
+    "ছুটির ঝুঁকি রোগী / অভিভাবককে বুঝিয়ে বলা হয়েছে",
+    "The risks of leaving were explained to the patient / guardian"
+  ],
+  "ds_lama_form": [
+    "রোগী বা অভিভাবক LAMA ফর্মে স্বাক্ষর করেছেন",
+    "The patient or guardian signed the LAMA form"
+  ],
+  "ds_lama_witness": [
+    "সাক্ষী (নার্স বা ডাক্তার)",
+    "Witness (a nurse or doctor)"
+  ],
+  "ds_lama_record": [
+    "LAMA রেকর্ড করুন",
+    "Record LAMA"
+  ],
+  "ds_lama_witnessed": [
+    "সাক্ষী: {name}",
+    "Witness: {name}"
+  ],
+  "ds_lama_summary_due": [
+    "ছাড়পত্র সারাংশ ২৪ ঘণ্টার মধ্যে",
+    "Summary due within 24 hours"
+  ],
+  "ds_death_time": [
+    "মৃত্যুর সময়",
+    "Time of death"
+  ],
+  "ds_death_cause": [
+    "মৃত্যুর কারণ",
+    "Cause of death"
+  ],
+  "ds_death_ml": [
+    "মেডিকো-লিগ্যাল (আগে পুলিশকে জানাতে হবে)",
+    "Medico-legal (police informed first)"
+  ],
+  "ds_death_record": [
+    "মৃত্যু রেকর্ড করুন",
+    "Record the death"
+  ],
+  "ds_death_warn": [
+    "মৃত্যুর রেকর্ড বাতিল হয় না; ওষুধের অর্ডার এখনই বন্ধ হবে।",
+    "A death record is never cancelled; the medication orders stop now."
+  ],
+  "ds_death_at": [
+    "মৃত্যু: {at}",
+    "Died {at}"
+  ],
+  "ds_step_lama_order": [
+    "LAMA রেকর্ড",
+    "LAMA record"
+  ],
+  "ds_step_death_order": [
+    "মৃত্যুর রেকর্ড",
+    "Death record"
+  ],
+  "ds_step_death_bed-release": [
+    "মরদেহ সরানো হয়েছে",
+    "Body moved"
+  ],
+  "ds_event_summary": [
+    "ডাক্তার সারাংশে স্বাক্ষর করলে শেষ হবে ·",
+    "Finishes when the doctor signs the summary ·"
+  ],
+  "ds_event_final-bill": [
+    "ক্যাশিয়ার চূড়ান্ত বিল করলে শেষ হবে ·",
+    "Finishes when the cashier issues the final bill ·"
+  ],
+  "ds_event_payment": [
+    "বিল পরিশোধ (ও বাড়তি জমা ফেরত) হলে শেষ হবে ·",
+    "Finishes when the bill is settled (and any excess deposit paid back) ·"
+  ],
+  "ds_open_summary": [
+    "সারাংশ খুলুন",
+    "Open the summary"
+  ],
+  "ds_open_bill": [
+    "বিল খুলুন",
+    "Open the bill"
+  ],
+  "ds_left_at": [
+    "রোগী যে সময় চলে গেছেন",
+    "Time the patient left"
+  ],
+  "ds_body_at": [
+    "মরদেহ সরানোর সময়",
+    "Time the body was moved"
+  ],
+  "ds_outcome_lama": [
+    "LAMA",
+    "LAMA"
+  ],
+  "ds_outcome_deceased": [
+    "মৃত",
+    "Deceased"
+  ],
+  "ds_visit_finished": [
+    "ভর্তি শেষ",
+    "Visit finished"
+  ],
+  "sm_title": [
+    "ছাড়পত্র সারাংশ",
+    "Discharge summary"
+  ],
+  "sm_list_hint": [
+    "ছুটি বা LAMA রেকর্ড হয়েছে, সারাংশে এখনো স্বাক্ষর হয়নি",
+    "A discharge or LAMA is recorded and the summary is not signed yet"
+  ],
+  "sm_list_none": [
+    "কোনো সারাংশ বাকি নেই",
+    "No summary is owed"
+  ],
+  "sm_owed_since": [
+    "{at} থেকে বাকি",
+    "Owed since {at}"
+  ],
+  "sm_signed_v": [
+    "স্বাক্ষরিত · v{n}",
+    "Signed · v{n}"
+  ],
+  "sm_checklist": [
+    "ছুটির ধাপ",
+    "Discharge checklist"
+  ],
+  "sm_none_death": [
+    "ওয়ার্ডে মৃত্যুতে ছাড়পত্র সারাংশ হয় না",
+    "A death on the ward has no discharge summary"
+  ],
+  "sm_no_discharge": [
+    "আগে ছুটি (বা LAMA) রেকর্ড করুন",
+    "Record the discharge (or LAMA) first"
+  ],
+  "sm_start": [
+    "সারাংশ লিখুন",
+    "Write the summary"
+  ],
+  "sm_start_hint": [
+    "ছুটি রেকর্ড হয়েছে — রোগী চলে যাওয়ার আগে সারাংশে স্বাক্ষর লাগবে",
+    "The discharge is recorded — the summary must be signed before the patient leaves"
+  ],
+  "sm_wait_discharge": [
+    "ছুটি রেকর্ড হলে সারাংশ লেখা যাবে",
+    "The summary can be written once the discharge is recorded"
+  ],
+  "sm_doctor_writes": [
+    "সারাংশ লেখেন ডাক্তার",
+    "A doctor writes the summary"
+  ],
+  "sm_history": [
+    "সংস্করণ",
+    "Versions"
+  ],
+  "sm_st_final": [
+    "চূড়ান্ত",
+    "final"
+  ],
+  "sm_st_amended": [
+    "সংশোধিত",
+    "amended"
+  ],
+  "sm_st_superseded": [
+    "পুরনো সংস্করণ",
+    "superseded"
+  ],
+  "sm_st_entered-in-error": [
+    "ভুলবশত",
+    "entered in error"
+  ],
+  "sm_st_draft": [
+    "খসড়া",
+    "draft"
+  ],
+  "sm_st_queued": [
+    "অপেক্ষায়",
+    "queued"
+  ],
+  "sm_amending": [
+    "v{n} — সংশোধনের কারণ: {reason}",
+    "v{n} — amending because: {reason}"
+  ],
+  "sm_dx": [
+    "চূড়ান্ত রোগ নির্ণয়",
+    "Final diagnosis"
+  ],
+  "sm_dx_hint": [
+    "অন্তত একটি নিশ্চিত (confirmed)",
+    "At least one confirmed"
+  ],
+  "sm_course": [
+    "হাসপাতালে চিকিৎসার বিবরণ",
+    "Course in hospital"
+  ],
+  "sm_course_hint": [
+    "অন্তত {n} অক্ষর",
+    "At least {n} characters"
+  ],
+  "sm_procedures": [
+    "প্রক্রিয়া / অপারেশন",
+    "Procedures"
+  ],
+  "sm_proc_add": [
+    "যোগ করুন",
+    "Add"
+  ],
+  "sm_proc_none": [
+    "কোনো প্রক্রিয়া নেই",
+    "No procedures"
+  ],
+  "sm_proc_name": [
+    "প্রক্রিয়া",
+    "Procedure"
+  ],
+  "sm_proc_date": [
+    "তারিখ",
+    "Date"
+  ],
+  "sm_proc_surgeon": [
+    "সার্জন",
+    "Surgeon"
+  ],
+  "sm_proc_out_of_stay": [
+    "ভর্তির সময়ের মধ্যে তারিখ দিন",
+    "A date within the stay"
+  ],
+  "sm_remove": [
+    "বাদ দিন",
+    "Remove"
+  ],
+  "sm_meds": [
+    "বাড়িতে যে ওষুধ চলবে",
+    "Medicines on discharge"
+  ],
+  "sm_meds_hint": [
+    "ফার্মেসি থেকে সাধারণ ডিসপেন্সে দেওয়া হবে (রোগীর ফার্মেসি বিলে)",
+    "Given by the pharmacy as a normal dispense (on the patient's pharmacy bill)"
+  ],
+  "sm_meds_none": [
+    "বাড়িতে কোনো ওষুধ নেই",
+    "No medicines on discharge"
+  ],
+  "sm_inpatient_only": [
+    "শুধু ওয়ার্ডে দেওয়ার ওষুধ (ইনজেকশন, স্যালাইন) বাড়িতে দেওয়া যায় না",
+    "A ward-only medicine (an injection, an infusion) is not taken home"
+  ],
+  "sm_follow_up": [
+    "পরবর্তী সাক্ষাৎ",
+    "Follow-up"
+  ],
+  "sm_fu_date": [
+    "তারিখ",
+    "Date"
+  ],
+  "sm_fu_place": [
+    "কোথায় (ওপিডি, কক্ষ, চিকিৎসক)",
+    "Where (OPD, room, doctor)"
+  ],
+  "sm_red_flags": [
+    "এগুলো হলে এখনই হাসপাতালে আসুন",
+    "Come back at once if"
+  ],
+  "sm_red_hint": [
+    "অন্তত একটি বাছুন বা লিখুন",
+    "Tick or write at least one"
+  ],
+  "sm_red_other": [
+    "অন্য সতর্কতা (প্রতি লাইনে একটি)",
+    "Other warnings (one per line)"
+  ],
+  "sm_red_sample": [
+    "তালিকার সতর্কতাগুলো নমুনা — চিকিৎসকের অনুমোদনের অপেক্ষায়",
+    "The listed warnings are samples — pending clinical sign-off"
+  ],
+  "sm_sign_card": [
+    "স্বাক্ষর",
+    "Signature"
+  ],
+  "sm_b_diagnosis_final": [
+    "অন্তত একটি নিশ্চিত রোগ নির্ণয় দিন",
+    "Give at least one confirmed diagnosis"
+  ],
+  "sm_b_course": [
+    "চিকিৎসার বিবরণ লিখুন (অন্তত {n} অক্ষর)",
+    "Write the course in hospital (at least {n} characters)"
+  ],
+  "sm_b_follow_up": [
+    "আজ বা পরের একটি সাক্ষাতের তারিখ দিন",
+    "Give a follow-up date, today or later"
+  ],
+  "sm_b_red_flags": [
+    "অন্তত একটি সতর্কতা দিন",
+    "Give at least one red flag"
+  ],
+  "sm_b_rx_warnings": [
+    "ওষুধের সতর্কতা ঠিক করুন",
+    "Resolve the medicine warnings"
+  ],
+  "sm_b_critical_unacked": [
+    "এই ভর্তির {n}টি জরুরি ফল কোনো ডাক্তার এখনো দেখেননি — ইনবক্সে দেখে নিন, তারপর স্বাক্ষর",
+    "{n} critical result(s) of this stay not yet acknowledged by a doctor — acknowledge in the inbox, then sign"
+  ],
+  "sm_b_escalation_open": [
+    "{n}টি এসকেলেশন খোলা — আগে মিটিয়ে নিন",
+    "{n} escalation(s) still open — resolve first"
+  ],
+  "sm_unsaved": [
+    "পরিবর্তন সংরক্ষণ হয়নি",
+    "Changes not saved"
+  ],
+  "sm_save": [
+    "সংরক্ষণ",
+    "Save"
+  ],
+  "sm_saved": [
+    "সংরক্ষিত",
+    "Saved"
+  ],
+  "sm_sign": [
+    "স্বাক্ষর করুন",
+    "Sign"
+  ],
+  "sm_fix_first": [
+    "আগে তালিকার বিষয়গুলো ঠিক করুন",
+    "Fix the listed items first"
+  ],
+  "sm_signed_msg": [
+    "সারাংশ স্বাক্ষরিত — রোগীর অ্যাপে পাঠানো হয়েছে",
+    "Summary signed — available in the patient app"
+  ],
+  "sm_context": [
+    "ভর্তির তথ্য",
+    "From the stay"
+  ],
+  "sm_adm_dx": [
+    "ভর্তির রোগ নির্ণয়",
+    "Admission diagnosis"
+  ],
+  "sm_last_round": [
+    "শেষ রাউন্ডের মূল্যায়ন",
+    "Last round's assessment"
+  ],
+  "sm_active_orders": [
+    "চলমান ওয়ার্ডের অর্ডার",
+    "Active ward orders"
+  ],
+  "sm_signed_by": [
+    "{name} · {at}",
+    "{name} · {at}"
+  ],
+  "sm_days": [
+    "{n} দিন",
+    "{n} days"
+  ],
+  "sm_th_waiting": [
+    "ফার্মেসিতে অপেক্ষায়",
+    "Waiting at the pharmacy"
+  ],
+  "sm_th_partial": [
+    "আংশিক দেওয়া",
+    "Partly given"
+  ],
+  "sm_th_dispensed": [
+    "দেওয়া হয়েছে",
+    "Given"
+  ],
+  "sm_th_declined": [
+    "দেওয়া হয়নি (কারণসহ)",
+    "Declined"
+  ],
+  "sm_th_not-collected": [
+    "নেওয়া হয়নি",
+    "Not collected"
+  ],
+  "sm_not_collected": [
+    "{n}টি ওষুধ ৩ দিনে নেওয়া হয়নি — রোগীকে জানান",
+    "{n} medicine(s) not collected within 3 days — tell the patient"
+  ],
+  "sm_th_until": [
+    "ফার্মেসিতে {at} পর্যন্ত",
+    "At the pharmacy until {at}"
+  ],
+  "sm_amend": [
+    "সংশোধন",
+    "Amend"
+  ],
+  "sm_amend_hint": [
+    "নতুন সংস্করণ হবে; আগেরটি রেকর্ডে থাকবে, স্বাক্ষরের পর বর্তমান থাকবে না",
+    "A new version is made; the old one stays on record and is replaced once the new one is signed"
+  ],
+  "sm_amend_reason": [
+    "সংশোধনের কারণ (অন্তত ৫ অক্ষর)",
+    "Reason for the amendment (at least 5 characters)"
+  ],
+  "sm_amend_open": [
+    "সংশোধন খুলুন",
+    "Open the amendment"
+  ],
+  "waiting_server": [
+    "সার্ভারের উত্তরের অপেক্ষা…",
+    "Waiting for the server…"
   ]
 }
