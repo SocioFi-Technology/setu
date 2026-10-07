@@ -7,8 +7,10 @@
 ARG NODE=node:22.20-bookworm-slim
 
 FROM ${NODE} AS base
-ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=1
-RUN corepack enable && corepack prepare pnpm@10.28.0 --activate
+# openssl: Prisma's engines read its version; COREPACK_HOME: pnpm fetched once at build, readable by the node user
+ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=1 COREPACK_HOME=/corepack COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/* \
+ && corepack enable && corepack prepare pnpm@10.28.0 --activate && chmod -R a+rX /corepack
 WORKDIR /repo
 
 FROM base AS build
@@ -25,7 +27,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm --filter @setu/api deploy
 
 # ── api ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 FROM ${NODE} AS api
-RUN apt-get update && apt-get install -y --no-install-recommends tini chromium ca-certificates curl \
+RUN apt-get update && apt-get install -y --no-install-recommends tini chromium ca-certificates curl openssl \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build --chown=node:node /out/api/node_modules ./node_modules

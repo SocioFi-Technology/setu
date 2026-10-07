@@ -1,0 +1,65 @@
+# Staging (week 2, ADR 0019). The images are tagged with the commit they were built from — SETU_TAG is required and is
+# never "latest". On the host, Postgres, Redis and object storage are managed services (their URLs in the env file);
+# the `local` profile brings up stand-ins to rehearse the whole stack on one machine:
+#   SETU_TAG=<sha> docker compose -f infra/docker-compose.staging.yml --env-file infra/staging.local.env --profile local up -d
+# Migrations run once per deploy (infra/deploy.sh): docker compose ... run --rm migrate
+name: setu-staging
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "20m", max-file: "5" }
+
+services:
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    # on the host: SETU_HTTP_BIND=80, SETU_HTTPS_BIND=443, SETU_SITE_ADDRESS=<the staging domain> (Caddy gets its certificate)
+    ports: ["${SETU_HTTP_BIND:-127.0.0.1:8088}:80", "${SETU_HTTPS_BIND:-127.0.0.1:8443}:443"]
+    environment: { SETU_SITE_ADDRESS: "${SETU_SITE_ADDRESS:-:80}" }
+    volumes: ["./Caddyfile:/etc/caddy/Caddyfile:ro", "caddy-data:/data"]
+    depends_on: { staff: { condition: service_healthy } }
+    logging: *logging
+
+  staff:
+    image: ${SETU_REGISTRY:-ghcr.io/sociofi-technology}/setu-staff:${SETU_TAG:?set SETU_TAG to the commit SHA to deploy}
+    restart: unless-stopped
+    depends_on: { api: { condition: service_healthy } }
+    logging: *logging
+
+  api:
+    image: ${SETU_REGISTRY:-ghcr.io/sociofi-technology}/setu-api:${SETU_TAG:?set SETU_TAG to the commit SHA to deploy}
+    restart: unless-stopped
+    env_file: ["${SETU_ENV_FILE:-staging.env}"]
+    environment: { API_PORT: "4000", TRUST_PROXY: "2" }
+    deploy: { replicas: 2 }
+    stop_grace_period: 20s
+    logging: *logging
+
+  migrate:
+    image: ${SETU_REGISTRY:-ghcr.io/sociofi-technology}/setu-tools:${SETU_TAG:?set SETU_TAG to the commit SHA to deploy}
+    env_file: ["${SETU_ENV_FILE:-staging.env}"]
+    profiles: ["migrate"]
+    logging: *logging
+
+  # ── local rehearsal only (managed services on the host) ──
+  postgres:
+    image: postgres:16
+    profiles: ["local"]
+    environment: { POSTGRES_USER: setu, POSTGRES_PASSWORD: setu, POSTGRES_DB: setu }
+    volumes: ["pg-staging:/var/lib/postgresql/data"]
+    healthcheck: { test: ["CMD", "pg_isready", "-U", "setu"], interval: 5s, retries: 20 }
+  redis:
+    image: redis:7
+    profiles: ["local"]
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, retries: 20 }
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    profiles: ["local"]
+    command: ["server", "/data"]
+    environment: { MINIO_ROOT_USER: setu, MINIO_ROOT_PASSWORD: setustagingsecret }
+    volumes: ["minio-staging:/data"]
+
+volumes:
+  caddy-data:
+  pg-staging:
+  minio-staging:
