@@ -17,6 +17,8 @@ let app: Awaited<ReturnType<typeof buildApp>>;
 const RUN = randomUUID().slice(0, 6);
 const cookies: Record<string, string> = {};
 const T = "t_e2e";
+/** the short drawer of this run (issue #24 test) — the drill must show its own hand-over reason, not an earlier run's */
+let varianceShiftId = "";
 const USERS = { desk: "01799000001", doctor: "01799000002", cashier: "01799000008", owner: "01799000009", admin: "01799000010" } as const;
 type Who = keyof typeof USERS;
 
@@ -121,6 +123,7 @@ describe.runIf(db)("C4 shift close", () => {
 
   it("issue #24: a short drawer needs a reason to hand over and a note to accept; a recount sends it back and keeps both counts", async () => {
     const sh = ok<Shift>(await post("/v1/shifts", { openingFloatPaisa: 100_000 }), 201);
+    varianceShiftId = sh.id;
     const c1 = ok<Shift>(await post(`/v1/shifts/${sh.id}/count`, { counts: notesFor(100_000 - 50_000) }));
     // blind count: the variance is shown only now, after the count is stored (money-controls review M1, external review A5)
     expect(c1).toMatchObject({ status: "counted", latestCount: { variancePaisa: -50_000, judgement: "short" } });
@@ -233,7 +236,8 @@ describe.runIf(db)("C1–C2 owner dashboard", () => {
     const a = await db!.forTenant(T, (tx) => tx.auditEvent.findFirst({ where: { entity: "OwnerDrill", userId: "u_e2e_owner" }, orderBy: { at: "desc" } }));
     expect((a!.detail as { patientIds: string[] }).patientIds.length).toBeGreaterThan(0);
     const sv = ok<{ rows: { amountPaisa: number; by: { id: string }; approvedBy: { id: string }; detail: string }[] }>(await get("/v1/owner/drill?period=today&what=shiftVariance"));
-    expect(sv.rows.some((r) => r.amountPaisa === -50_000 && r.by.id === "u_e2e_cashier" && /gave change twice|not found on recount/.test(r.detail))).toBe(true);
+    // external review A5: the reason is the hand-over's (the count itself no longer carries one)
+    expect(sv.rows.find((r) => (r as { id?: string }).id === varianceShiftId)).toMatchObject({ amountPaisa: -50_000, by: { id: "u_e2e_cashier" }, detail: expect.stringMatching(/^the ৳500 note was not found on recount — accepted, cashier to repay/) });
   });
   it("cash taken outside a shift is on the leakage list", async () => {
     await finishOpenShifts();

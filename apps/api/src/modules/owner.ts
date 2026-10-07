@@ -398,7 +398,8 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
     rows = rp.map((x) => ({ id: x.id, at: x.printedAt.toISOString(), number: x.receipt.number, patient: P(x.receipt.patientId), amountPaisa: null, by: W(x.printedById), approvedBy: null, detail: `DUPLICATE #${x.copy} · ${x.reason ?? ""}`, link: { kind: "receipt" as const, id: x.receipt.id } }));
   } else if (what === "shiftVariance") {
     const rv = await tx.shiftReview.findMany({ where: { decision: "approve", at: { gte: from, lt: to }, shift: { organizationId: org } }, include: { shift: true }, orderBy: { at: "desc" } });
-    const counts = await tx.shiftCount.findMany({ where: { id: { in: rv.map((r) => r.countId) } } });
+    // external review A5: a variance's reason is on its hand-over (counts before A5 carried it themselves)
+    const counts = await tx.shiftCount.findMany({ where: { id: { in: rv.map((r) => r.countId) } }, include: { handover: { select: { reason: true } } } });
     const C = new Map(counts.map((c) => [c.id, c]));
     const withVar = rv.filter((r) => (C.get(r.countId)?.variancePaisa ?? 0) !== 0);
     count = withVar.length;
@@ -406,7 +407,7 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
     totalPaisa = withVar.reduce((a, r) => a + Math.abs(C.get(r.countId)!.variancePaisa), 0);
     const shown = withVar.slice(0, DRILL_ROWS);
     const W = await people([...shown.map((r) => r.byId), ...shown.map((r) => r.shift.cashierId)]);
-    rows = shown.map((r) => ({ id: r.shiftId, at: r.at.toISOString(), number: null, patient: null, amountPaisa: C.get(r.countId)!.variancePaisa, by: W(r.shift.cashierId), approvedBy: W(r.byId), detail: `${C.get(r.countId)!.reason ?? ""} — ${r.note ?? ""}`, link: { kind: "shift" as const, id: r.shiftId } }));
+    rows = shown.map((r) => ({ id: r.shiftId, at: r.at.toISOString(), number: null, patient: null, amountPaisa: C.get(r.countId)!.variancePaisa, by: W(r.shift.cashierId), approvedBy: W(r.byId), detail: `${C.get(r.countId)!.reason ?? C.get(r.countId)!.handover?.reason ?? ""} — ${r.note ?? ""}`, link: { kind: "shift" as const, id: r.shiftId } }));
   } else if (what === "notBilledHere") {
     const where = { notBilledAt: { gte: from, lt: to }, invoice: { organizationId: org } };
     const [ci, agg] = await Promise.all([tx.chargeItem.findMany({ where, include: { invoice: { select: { number: true, patientId: true } } }, orderBy: { notBilledAt: "desc" }, take: DRILL_ROWS }), tx.chargeItem.aggregate({ where, _count: { _all: true }, _sum: { grossPaisa: true } })]);
