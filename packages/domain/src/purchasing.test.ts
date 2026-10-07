@@ -104,6 +104,8 @@ describe("goods received (prototype Purchase › Goods received)", () => {
   });
   it("a short delivery becomes a debit note: billed 100 × ৳3.40, received 90 → owed ৳306, debit note ৳34", () => {
     expect(grnMoney([{ invoicedQty: 100, receivedQty: 90, costPaisa: 340 }])).toEqual({ invoicedPaisa: 34_000, debitNotePaisa: 3_400, owedPaisa: 30_600 });
+    // decision 321: VAT billed on top adds to what is owed
+    expect(supplierOwedPaisa([{ kind: "goods-received", amountPaisa: 10_000 }, { kind: "supplier-vat", amountPaisa: 750 }, { kind: "payment", amountPaisa: 5_000 }])).toBe(5_750);
     expect(supplierOwedPaisa([{ kind: "goods-received", amountPaisa: 34_000 }, { kind: "debit-note", amountPaisa: 3_400 }, { kind: "payment", amountPaisa: 10_000 }])).toBe(20_600);
   });
 });

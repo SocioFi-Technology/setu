@@ -20,7 +20,7 @@ export const SupplierCreate = z.object({ name: z.string().trim().min(2).max(120)
 /** owner / admin: change how the supplier's bills show VAT (audited; receipts already posted keep theirs) */
 export const SupplierVatRequest = z.object({ vatTreatment: SupplierVatTreatment });
 export type SupplierCreate = z.infer<typeof SupplierCreate>;
-export const SupplierEntryView = z.object({ id: z.string(), kind: z.enum(["goods-received", "debit-note", "payment"]), amountPaisa: Paisa, ref: z.string().nullable(), note: z.string().nullable(), by: Person, at: z.string() });
+export const SupplierEntryView = z.object({ id: z.string(), kind: z.enum(["goods-received", "debit-note", "payment", "supplier-vat"]), amountPaisa: Paisa, ref: z.string().nullable(), note: z.string().nullable(), by: Person, at: z.string() });
 export const SupplierLedger = z.object({ supplier: SupplierView, entries: z.array(SupplierEntryView) });
 export type SupplierLedger = z.infer<typeof SupplierLedger>;
 /** A payment to the supplier (owner / admin): how it was paid goes in the note (cheque no., bKash TrxID …). */

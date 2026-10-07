@@ -116,3 +116,7 @@ pilot clinic names its printer (phase 2). Each print is audited.
   withdrawn, recorded with who cancelled and why (`order cancelled: <reason>`); nobody is recorded as having rejected
   it. The database (`task_withdraw_guard`): only an open request is withdrawn, by the signed-in user, with a reason of
   10+ characters; a withdrawn request is final. Billing and refund tasks are never withdrawn.
+- **Decision 321 (Kamrul 08/10/2026): VAT billed on top is owed to the supplier.** Posting a receipt whose flag is
+  `on-top` writes a `supplier-vat` ledger entry for the VAT printed on the bill; it adds to the supplier's balance and
+  to the receipt's "owed for this". The database accepts such an entry only equal to a posted on-top receipt's VAT.
+  Still never computed; reclaiming input VAT is the accountant's question; AIT stays data (withheld by the buyer).

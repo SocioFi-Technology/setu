@@ -287,7 +287,13 @@ describe.runIf(db)("external review A6: purchasing decisions 179–186", () => {
     g = await ok(post(`/v1/pharmacy/goods-receipts/${g.id}/lines`, { rev: g.rev, orderLineId: sent.lines[0].id, batchNo: `NV${RUN}`, expiry: day(700), invoicedQty: 100, receivedQty: 100, costPaisa: 100, mrpPaisa: 120, location: "store" }));
     expect(g.supplierVatTreatment).toBe("on-top");
     g = await ok(post(`/v1/pharmacy/goods-receipts/${g.id}/post`, { rev: g.rev, supplierVatPaisa: 750 }));
-    expect(g).toMatchObject({ status: "posted", supplierVatTreatment: "on-top", supplierVatPaisa: 750, money: { owedPaisa: 10_000 } });
+    // decision 321: VAT billed on top is owed — its own ledger entry beside the goods
+    expect(g).toMatchObject({ status: "posted", supplierVatTreatment: "on-top", supplierVatPaisa: 750, money: { owedPaisa: 10_750 } });
+    const led = await ok(get(`/v1/pharmacy/suppliers/${sup.id}`));
+    expect(led.supplier.owedPaisa).toBe(10_750);
+    expect(led.entries.map((e: { kind: string; amountPaisa: number }) => [e.kind, e.amountPaisa]).sort()).toEqual([["goods-received", 10_000], ["supplier-vat", 750]]);
+    // the database: a VAT entry equals the VAT on a posted receipt billed on top — never anything else
+    await expect(inTenant((tx) => tx.supplierEntry.create({ data: { tenantId: T, organizationId: "o_e2e", supplierId: sup.id, kind: "supplier-vat", amountPaisa: 999, refType: "grn", refId: g.id, byId: "u_e2e_pharm", at: new Date() } }))).rejects.toThrow(/billed on top/);
     // the flag is the owner's / admin's to change (audited); the posted receipt keeps the one it was posted with
     expect((await post(`/v1/pharmacy/suppliers/${sup.id}/vat`, { vatTreatment: "exempt" })).statusCode).toBe(403);
     expect((await ok(post(`/v1/pharmacy/suppliers/${sup.id}/vat`, { vatTreatment: "exempt" }, "owner"))).supplier.vatTreatment).toBe("exempt");
@@ -314,7 +320,7 @@ describe.runIf(db)("external review A6: purchasing decisions 179–186", () => {
     expect(g.postBlockers).toEqual([]);
     g = await ok(post(`/v1/pharmacy/goods-receipts/${g.id}/post`, { rev: g.rev, supplierVatPaisa: 1_500, supplierAitPaisa: 300 }));
     expect(g).toMatchObject({ status: "posted", supplierVatPaisa: 1_500, supplierAitPaisa: 300, money: { owedPaisa: 34_600 } });
-    expect(await owed()).toBe(owedBefore + 34_600); // VAT / AIT are data, not owed
+    expect(await owed()).toBe(owedBefore + 34_600); // this supplier bills VAT included: VAT / AIT stay data, not owed
     const audit = (await inTenant((tx) => tx.auditEvent.findMany({ where: { entity: "GoodsReceipt", entityId: g.id, action: "update" } }))).find((x) => (x.detail as { event?: string }).event === "post");
     expect(audit!.detail).toMatchObject({ supplierVatPaisa: 1_500, supplierAitPaisa: 300, lines: [expect.objectContaining({ withinTolerance: true })] });
     await expect(inTenant((tx) => tx.goodsReceipt.updateMany({ where: { id: g.id }, data: { supplierVatPaisa: 0 } }))).rejects.toThrow(/never changes/);

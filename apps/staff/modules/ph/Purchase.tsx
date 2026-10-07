@@ -375,7 +375,7 @@ function Supplier({ id }: { id: string }) {
             {l.entries.map((e) => (
               <tr key={e.id} data-kind={e.kind}>
                 <td className="num">{F.dateTime(e.at)}</td><td>{P(`se_${e.kind}`)}</td><td className="num">{e.ref ?? e.note ?? "—"}</td>
-                <td className="num">{e.kind === "goods-received" ? "+" : "−"}{F.tk(e.amountPaisa)}</td><td>{F.name(e.by)}</td>
+                <td className="num">{e.kind === "goods-received" || e.kind === "supplier-vat" ? "+" : "−"}{F.tk(e.amountPaisa)}</td><td>{F.name(e.by)}</td>
               </tr>
             ))}
           </tbody>

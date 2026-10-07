@@ -1138,5 +1138,9 @@
   "vat_exempt": [
     "ভ্যাটমুক্ত",
     "exempt"
+  ],
+  "se_supplier-vat": [
+    "চালানের উপরে ভ্যাট",
+    "VAT billed on top"
   ]
 }

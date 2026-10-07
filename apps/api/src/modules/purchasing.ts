@@ -301,7 +301,8 @@ export async function grnView(tx: Tx, s: SessionData, g: Grn, now: Date): Promis
     })),
     supplierVatPaisa: g.supplierVatPaisa, supplierAitPaisa: g.supplierAitPaisa, tolerance,
     supplierVatTreatment: (g.supplierVatTreatment ?? supplier?.vatTreatment ?? "included") as SupplierVatTreatment,
-    money: g.status === "posted" ? { invoicedPaisa: g.invoicedPaisa, debitNotePaisa: g.debitNotePaisa, owedPaisa: g.invoicedPaisa - g.debitNotePaisa } : grnMoney(lines.map((x) => x.d)),
+    // decision 321: what this receipt adds to the supplier's balance includes VAT billed on top
+    money: g.status === "posted" ? { invoicedPaisa: g.invoicedPaisa, debitNotePaisa: g.debitNotePaisa, owedPaisa: g.invoicedPaisa - g.debitNotePaisa + (g.supplierVatTreatment === "on-top" ? g.supplierVatPaisa : 0) } : grnMoney(lines.map((x) => x.d)),
     postBlockers: g.status === "checking" ? grnPostBlockers({ lines: lines.map((x) => x.d), role: s.role as Role, today, tolerance }) : [],
     createdBy: who(g.createdById), createdAt: g.createdAt.toISOString(), postedBy: g.postedById ? who(g.postedById) : null, postedAt: iso(g.postedAt),
   };
@@ -384,9 +385,11 @@ export async function postGrn(tx: Tx, s: SessionData, id: string, rev: number, n
   const posted = await bumpGrn(tx, g, { status: transition("GOODS_RECEIPT", GOODS_RECEIPT, "checking", "post"), number: await nextNumber(tx, s, "GRN", now), postedById: s.userId, postedAt: now, statusAt: now, invoicedPaisa: money.invoicedPaisa, debitNotePaisa: money.debitNotePaisa, note: note?.trim() || null,
     supplierVatPaisa: tax.supplierVatPaisa ?? 0, supplierAitPaisa: tax.supplierAitPaisa ?? 0,
     supplierVatTreatment: (await tx.supplier.findFirst({ where: { id: g.supplierId }, select: { vatTreatment: true } }))?.vatTreatment ?? "included" });
-  const entry = (kind: SupplierEntryKind, amountPaisa: number) => tx.supplierEntry.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, supplierId: g.supplierId, kind, amountPaisa, refType: "grn", refId: g.id, note: kind === "debit-note" ? "short delivery" : g.supplierInvoiceNo, byId: s.userId, at: now } });
+  const entry = (kind: SupplierEntryKind, amountPaisa: number) => tx.supplierEntry.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, supplierId: g.supplierId, kind, amountPaisa, refType: "grn", refId: g.id, note: kind === "debit-note" ? "short delivery" : kind === "supplier-vat" ? `VAT on top · ${g.supplierInvoiceNo ?? ""}`.trim() : g.supplierInvoiceNo, byId: s.userId, at: now } });
   if (money.invoicedPaisa > 0) await entry("goods-received", money.invoicedPaisa);
   if (money.debitNotePaisa > 0) await entry("debit-note", money.debitNotePaisa);
+  // decision 321: VAT billed on top is owed to the supplier (as printed on the bill; never computed)
+  if (posted.supplierVatTreatment === "on-top" && posted.supplierVatPaisa > 0) await entry("supplier-vat", posted.supplierVatPaisa);
   const olines = await tx.purchaseOrderLine.findMany({ where: { orderId: po.id } });
   const to = undash<"received">(transition("PURCHASE_ORDER", PURCHASE_ORDER, dash<PurchaseOrderState>(po.status), poEventAfterReceipt(olines)));
   await tx.purchaseOrder.update({ where: { id: po.id }, data: { status: to, statusAt: now, rev: { increment: 1 } } });

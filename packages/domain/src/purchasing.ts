@@ -92,10 +92,12 @@ export function grnMoney(lines: readonly Pick<GrnLine, "invoicedQty" | "received
 /** After a posting: every line received in full → receiveAll, otherwise receivePart. */
 export const poEventAfterReceipt = (lines: readonly { qty: number; receivedQty: number }[]) => (lines.every((l) => l.receivedQty >= l.qty) ? "receiveAll" as const : "receivePart" as const);
 
-export type SupplierEntryKind = "goods-received" | "debit-note" | "payment";
+export type SupplierEntryKind = "goods-received" | "debit-note" | "payment" | "supplier-vat";
+/** Decision 321: goods received and VAT billed on top add to what is owed; debit notes and payments take from it. */
+export const supplierEntryAdds = (kind: SupplierEntryKind) => kind === "goods-received" || kind === "supplier-vat";
 /** What the facility owes the supplier: goods received − debit notes − payments. */
 export const supplierOwedPaisa = (entries: readonly { kind: SupplierEntryKind; amountPaisa: number }[]) =>
-  entries.reduce((a, e) => a + (e.kind === "goods-received" ? e.amountPaisa : -e.amountPaisa), 0);
+  entries.reduce((a, e) => a + (supplierEntryAdds(e.kind) ? e.amountPaisa : -e.amountPaisa), 0);
 
 export interface CountLine { systemQty: number; countedQty: number | null; reason: string | null }
 export type CountSubmitBlocker = "no_lines" | "not_counted" | "reason_required";

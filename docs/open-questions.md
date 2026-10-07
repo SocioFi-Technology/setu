@@ -1331,3 +1331,7 @@ Built on the cautious reading from the reviews; Kamrul to confirm or change.
      the batch cost (the review: recorded, never computed). Until the accountant decides, a supplier billing VAT on top
      is paid from the ledger figure plus the VAT printed on the receipt.
 
+### Decided by Kamrul (08/10/2026)
+- **321 → VAT on top is owed to the supplier**: a `supplier-vat` ledger entry for the VAT printed on the bill; recorded as
+  data; whether it can be reclaimed is the accountant's question (ADR 0009 addendum 2).
+

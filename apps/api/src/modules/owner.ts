@@ -204,7 +204,7 @@ async function stockAt(tx: Tx, org: string, at: Date) {
            coalesce(sum(q.qty * b."costPaisa") FILTER (WHERE b."expiry" >= ${day} AND b."expiry" <= ${near} AND b."location" <> 'quarantine'), 0)::bigint AS near
     FROM q JOIN "StockBatch" b ON b."id" = q."batchId"`;
   const [sd] = await tx.$queryRaw<{ owed: bigint }[]>`
-    SELECT coalesce(sum(CASE WHEN "kind" = 'goods-received' THEN "amountPaisa" ELSE -"amountPaisa" END), 0)::bigint AS owed
+    SELECT coalesce(sum(CASE WHEN "kind" IN ('goods-received', 'supplier-vat') THEN "amountPaisa" ELSE -"amountPaisa" END), 0)::bigint AS owed
     FROM "SupplierEntry" WHERE "organizationId" = ${org} AND "at" <= ${at}`;
   return { stockValue: Number(st?.value ?? 0), nearExpiry: Number(st?.near ?? 0), supplierDues: Number(sd?.owed ?? 0) };
 }
@@ -487,9 +487,9 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
     rows = memPage(valued).map(({ b, v }) => ({ id: b.id, at: b.createdAt.toISOString(), number: b.batchNo, patient: null, amountPaisa: v, by: null, approvedBy: null, detail: `${name(b.medicineKey)} · ${b.location} · exp ${b.expiry} · ${b.qtyOnHand}`, link: null }));
   } else if (what === "supplierDues") {
     const owed = await tx.$queryRaw<{ id: string; name: string; owed: bigint; last: Date }[]>`
-      SELECT s."id", s."name", sum(CASE WHEN e."kind" = 'goods-received' THEN e."amountPaisa" ELSE -e."amountPaisa" END)::bigint AS owed, max(e."at") AS last
+      SELECT s."id", s."name", sum(CASE WHEN e."kind" IN ('goods-received', 'supplier-vat') THEN e."amountPaisa" ELSE -e."amountPaisa" END)::bigint AS owed, max(e."at") AS last
       FROM "SupplierEntry" e JOIN "Supplier" s ON s."id" = e."supplierId" WHERE e."organizationId" = ${org} GROUP BY s."id", s."name"
-      HAVING sum(CASE WHEN e."kind" = 'goods-received' THEN e."amountPaisa" ELSE -e."amountPaisa" END) <> 0 ORDER BY 3 DESC`;
+      HAVING sum(CASE WHEN e."kind" IN ('goods-received', 'supplier-vat') THEN e."amountPaisa" ELSE -e."amountPaisa" END) <> 0 ORDER BY 3 DESC`;
     count = owed.length; totalPaisa = owed.reduce((a, x) => a + Number(x.owed), 0);
     rows = memPage(owed).map((x) => ({ id: x.id, at: x.last.toISOString(), number: x.name, patient: null, amountPaisa: Number(x.owed), by: null, approvedBy: null, detail: null, link: null }));
   } else if (what === "selfApproved") {
