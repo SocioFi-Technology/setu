@@ -11,10 +11,14 @@ const Reason = z.string().trim().max(500);
 const Rev = z.object({ rev: z.number().int() });
 
 /* ── suppliers ── */
-export const SupplierView = z.object({ id: z.string(), name: z.string(), phone: z.string().nullable(), active: z.boolean(), sample: z.boolean(), owedPaisa: z.number().int() });
+/** decision 181: how the supplier's bills show VAT (recorded, never computed) */
+export const SupplierVatTreatment = z.enum(["included", "on-top", "exempt"]);
+export const SupplierView = z.object({ id: z.string(), name: z.string(), phone: z.string().nullable(), active: z.boolean(), sample: z.boolean(), owedPaisa: z.number().int(), vatTreatment: SupplierVatTreatment });
 export const SupplierList = z.object({ items: z.array(SupplierView) });
 export type SupplierList = z.infer<typeof SupplierList>;
-export const SupplierCreate = z.object({ name: z.string().trim().min(2).max(120), phone: z.string().regex(/^01[3-9]\d{8}$/).optional() });
+export const SupplierCreate = z.object({ name: z.string().trim().min(2).max(120), phone: z.string().regex(/^01[3-9]\d{8}$/).optional(), vatTreatment: SupplierVatTreatment.default("included") });
+/** owner / admin: change how the supplier's bills show VAT (audited; receipts already posted keep theirs) */
+export const SupplierVatRequest = z.object({ vatTreatment: SupplierVatTreatment });
 export type SupplierCreate = z.infer<typeof SupplierCreate>;
 export const SupplierEntryView = z.object({ id: z.string(), kind: z.enum(["goods-received", "debit-note", "payment"]), amountPaisa: Paisa, ref: z.string().nullable(), note: z.string().nullable(), by: Person, at: z.string() });
 export const SupplierLedger = z.object({ supplier: SupplierView, entries: z.array(SupplierEntryView) });
@@ -27,8 +31,10 @@ export type SupplierPaymentRequest = z.infer<typeof SupplierPaymentRequest>;
 export const PurchaseOrderStatus = z.enum(["draft", "sent", "partially-received", "received", "cancelled"]);
 export const PoLineView = z.object({ id: z.string(), position: z.number().int(), medicine: MedicineRef, qty: z.number().int(), costPaisa: Paisa, receivedQty: z.number().int() });
 export const PoApprovalView = z.object({
-  taskId: z.string(), status: z.enum(["requested", "approved", "rejected"]), requestedBy: Person, requestedAt: z.string(),
+  taskId: z.string(), status: z.enum(["requested", "approved", "rejected", "withdrawn"]), requestedBy: Person, requestedAt: z.string(),
   decidedBy: Person.nullable(), decidedAt: z.string().nullable(), note: z.string().nullable(),
+  /** decision 179: the orders to the same supplier sent earlier that day without an approver, which the limit counted */
+  earlierOrders: z.array(z.object({ id: z.string(), number: z.string().nullable(), totalPaisa: z.number().int() })),
 });
 export const PurchaseOrderView = z.object({
   id: z.string(), number: z.string().nullable(), status: PurchaseOrderStatus, rev: z.number().int(),
@@ -78,6 +84,8 @@ export const GoodsReceiptView = z.object({
   money: z.object({ invoicedPaisa: z.number().int(), debitNotePaisa: z.number().int(), owedPaisa: z.number().int() }),
   /** decision 181: the supplier's VAT and AIT as on their bill — recorded, not added to what is owed */
   supplierVatPaisa: z.number().int(), supplierAitPaisa: z.number().int(),
+  /** posted: the flag as it was when posted; checking: the supplier's current flag */
+  supplierVatTreatment: SupplierVatTreatment,
   /** decision 180: the facility's receipt tolerance — min(bp of the line at the order's cost, paisa) */
   tolerance: z.object({ bp: z.number().int(), paisa: z.number().int() }),
   /** short_expiry_needs_owner: a batch expiring within 6 months — the owner / admin posts it */

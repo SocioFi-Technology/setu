@@ -1114,5 +1114,29 @@
   "decided_abandoned": [
     "গণনা শেষ হওয়ার আগে {name}-এর শিফট হস্তান্তর হয়েছে · {at} — মালিককে জানানো হয়েছে; আবার গণনা করা যায়",
     "{name}'s shift was handed over before the count was finished · {at} — the owner is told; the location can be counted again"
+  ],
+  "appr_withdrawn": [
+    "অর্ডার বাতিল হওয়ায় অনুমোদনের অনুরোধ তুলে নেওয়া হয়েছে ({who}) — {note}",
+    "The approval request was withdrawn because the order was cancelled ({who}) — {note}"
+  ],
+  "earlier_orders": [
+    "আজ এই সরবরাহকারীকে অনুমোদন ছাড়া আগেই পাঠানো: {list}",
+    "Sent to this supplier earlier today without approval: {list}"
+  ],
+  "supplier_vat": [
+    "চালানে ভ্যাট",
+    "VAT on the bills"
+  ],
+  "vat_included": [
+    "দামের মধ্যে ধরা",
+    "included in the price"
+  ],
+  "vat_on-top": [
+    "দামের উপরে আলাদা",
+    "on top of the price"
+  ],
+  "vat_exempt": [
+    "ভ্যাটমুক্ত",
+    "exempt"
   ]
 }

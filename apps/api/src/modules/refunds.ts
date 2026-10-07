@@ -24,7 +24,7 @@ import { config } from "../config.js";
 import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
-import { invoiceHere, RECONCILE_TASK, wireSource } from "./billing.js";
+import { billTaskStatus, invoiceHere, RECONCILE_TASK, wireSource } from "./billing.js";
 import { notFound } from "./frontdesk.js";
 import { deliverInApp } from "./lab.js";
 import { batchFor } from "./purchasing.js";
@@ -865,7 +865,7 @@ export async function refundApprovalItems(tx: Tx, s: SessionData, status: "reque
     const since = new Date(`${dhakaDay(t.requestedAt)}T00:00:00+06:00`);
     const mine = await tx.refund.findMany({ where: { organizationId: s.organizationId, requestedById: t.requestedById, requestedAt: { gte: since } }, select: { amountPaisa: true } });
     out.push({
-      taskId: t.id, status: t.status, amountPaisa: r.amountPaisa, category: null, reason: r.reason, subtotalPaisa: inv.subtotalPaisa, limitPaisa: 0,
+      taskId: t.id, status: billTaskStatus(t.status), amountPaisa: r.amountPaisa, category: null, reason: r.reason, subtotalPaisa: inv.subtotalPaisa, limitPaisa: 0,
       requestedBy: who(t.requestedById), requestedAt: t.requestedAt.toISOString(),
       decidedBy: t.decidedById ? who(t.decidedById) : null, decidedAt: iso(t.decidedAt), decisionNote: t.decisionNote,
       kind: "refund-approval", line: null,
@@ -896,7 +896,7 @@ export async function refundCheckItems(tx: Tx, s: SessionData, status: "requeste
     const inv = (await tx.invoice.findFirst({ where: { id: a.refund.invoiceId } }))!;
     const who = await people(tx, [a.paidById, t.decidedById]);
     out.push({
-      taskId: t.id, status: t.status, why: t.reason ?? "", createdAt: t.requestedAt.toISOString(), whyCode: "manual-refund",
+      taskId: t.id, status: billTaskStatus(t.status), why: t.reason ?? "", createdAt: t.requestedAt.toISOString(), whyCode: "manual-refund",
       reported: { providerRef: null, trxId: null, amountPaisa: a.amountPaisa },
       payment: { id: p.id, method: p.method as PaymentMethod, status: dash<ReconcileItem["payment"]["status"]>(p.status), amountPaisa: p.amountPaisa, trxId: p.trxId, attempt: p.attempt },
       invoice: { id: inv.id, number: inv.number, status: dash<InvoiceState>(inv.status), totalPaisa: inv.totalPaisa, paidPaisa: inv.paidPaisa },
@@ -923,7 +923,7 @@ export async function decideRefundCheck(tx: Tx, s: SessionData, taskId: string, 
   const status = transition("APPROVAL", APPROVAL, t.status, action === "apply" ? "approve" : "reject");
   const u = await tx.task.updateMany({ where: { id: t.id, status: "requested" }, data: { status, decidedById: s.userId, decidedAt: now, decisionNote: note?.trim() || null } });
   if (u.count !== 1) throw stale();
-  const item = (await refundCheckItems(tx, s, status)).find((i) => i.taskId === t.id)!;
+  const item = (await refundCheckItems(tx, s, billTaskStatus(status))).find((i) => i.taskId === t.id)!;
   return { item, patientId: a.refund.patientId, invoiceId: a.refund.invoiceId };
 }
 

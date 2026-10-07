@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GOODS_RECEIPT, PURCHASE_ORDER, STOCK_COUNT, TransitionError, transition } from "./machines.js";
+import { APPROVAL, GOODS_RECEIPT, PURCHASE_ORDER, STOCK_COUNT, TransitionError, transition } from "./machines.js";
 import {
   DEFAULT_GRN_TOLERANCE, PO_APPROVAL_PAISA_SAMPLE, countDecisionBlockers, lineTolerancePaisa, priceBeyondTolerance, toleranceOk, isCountApprover, countSubmitBlockers, countVariance, grnLineBlockers, grnMoney, grnPostBlockers, poEventAfterReceipt, poSendBlockers,
   shortExpiry, supplierOwedPaisa,
@@ -24,6 +24,10 @@ describe("machines (ADR 0009)", () => {
     expect(() => transition("count", STOCK_COUNT, "counting", "approve")).toThrow(TransitionError);
     // external review A6: a count left in progress at its counter's shift close is ended, never decided
     expect(transition("count", STOCK_COUNT, "counting", "abandon")).toBe("abandoned");
+    // external review A6: a cancelled order's open request is withdrawn — not rejected; final
+    expect(transition("approval", APPROVAL, "requested", "withdraw")).toBe("withdrawn");
+    expect(() => transition("approval", APPROVAL, "approved", "withdraw")).toThrow(TransitionError);
+    expect(() => transition("approval", APPROVAL, "withdrawn", "approve")).toThrow(TransitionError);
     expect(() => transition("count", STOCK_COUNT, "submitted", "abandon")).toThrow(TransitionError);
     expect(() => transition("count", STOCK_COUNT, "abandoned", "submit")).toThrow(TransitionError);
   });

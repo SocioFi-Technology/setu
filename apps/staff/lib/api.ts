@@ -252,7 +252,8 @@ export const pharm = {
 export const purch = {
   suppliers: () => call<SupplierList>("GET", "/v1/pharmacy/suppliers"),
   supplier: (id: string) => call<SupplierLedger>("GET", `/v1/pharmacy/suppliers/${enc(id)}`),
-  newSupplier: (body: { name: string; phone?: string }) => call<SupplierLedger>("POST", "/v1/pharmacy/suppliers", body, k()),
+  newSupplier: (body: { name: string; phone?: string; vatTreatment?: "included" | "on-top" | "exempt" }) => call<SupplierLedger>("POST", "/v1/pharmacy/suppliers", body, k()),
+  supplierVat: (id: string, vatTreatment: "included" | "on-top" | "exempt") => call<SupplierLedger>("POST", `/v1/pharmacy/suppliers/${enc(id)}/vat`, { vatTreatment }, k()),
   pay: (id: string, body: SupplierPaymentRequest, key: string) => call<SupplierLedger>("POST", `/v1/pharmacy/suppliers/${enc(id)}/payments`, body, key),
   orders: (status?: string) => call<PurchaseOrderList>("GET", "/v1/pharmacy/purchase-orders" + (status ? `?status=${status}` : "")),
   order: (id: string) => call<PurchaseOrderView>("GET", `/v1/pharmacy/purchase-orders/${enc(id)}`),

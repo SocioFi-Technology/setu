@@ -140,8 +140,9 @@ function Order({ id }: { id: string }) {
       )}
 
       {o.approval && (
-        <Callout tone={o.approval.status === "approved" ? "info" : o.approval.status === "rejected" ? "bad" : "warn"} icon="stamp" data-testid="po-approval">
+        <Callout tone={o.approval.status === "approved" ? "info" : o.approval.status === "rejected" ? "bad" : o.approval.status === "withdrawn" ? "info" : "warn"} icon="stamp" data-testid="po-approval" data-status={o.approval.status}>
           {P(`appr_${o.approval.status}`, { by: F.name(o.approval.requestedBy), at: F.dateTime(o.approval.requestedAt), who: F.name(o.approval.decidedBy), note: o.approval.note ?? "" })}
+          {o.approval.earlierOrders.length > 0 && <><br /><span className="t-small" data-testid="po-earlier">{P("earlier_orders", { list: o.approval.earlierOrders.map((x) => `${x.number ?? "—"} (${F.tk(x.totalPaisa)})`).join(", ") })}</span></>}
         </Callout>
       )}
 
@@ -282,6 +283,7 @@ function Receipt({ id }: { id: string }) {
         <span>{P("billed")}: <b className="num">{F.tk(g.money.invoicedPaisa)}</b></span>
         <span>{P("debit_note")}: <b className="num">{F.tk(g.money.debitNotePaisa)}</b></span>
         <span>{P("owed_for_this")}: <b className="num">{F.tk(g.money.owedPaisa)}</b></span>
+        <span className="t-small t-muted" data-testid="grn-vat-treatment" data-vat={g.supplierVatTreatment}>{P("supplier_vat")}: {P(`vat_${g.supplierVatTreatment}`)}</span>
         {g.status === "posted" && (g.supplierVatPaisa > 0 || g.supplierAitPaisa > 0) && <span className="t-small t-muted" data-testid="grn-supplier-tax">{P("supplier_tax", { vat: F.tk(g.supplierVatPaisa), ait: F.tk(g.supplierAitPaisa) })}</span>}
       </Card>
 
@@ -304,13 +306,17 @@ function Receipt({ id }: { id: string }) {
 function Suppliers() {
   const s = useSession(); const P = useP(); const F = useFmt(); const E = useErr(); const router = useRouter(); const toast = useToast();
   const [list, setList] = useState<SupplierList | null>(null); const [name, setName] = useState(""); const [busy, setBusy] = useState(false);
+  const [vat, setVat] = useState<"included" | "on-top" | "exempt">("included");
   const load = useCallback(() => purch.suppliers().then(setList).catch(() => setList({ items: [] })), []);
   useEffect(() => { void load(); }, [load]);
   return (
     <>
       <Card style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }}>
         <TextField label={P("new_supplier")} value={name} onChange={(e) => setName(e.target.value)} data-testid="supplier-name" />
-        <Button icon="plus" disabled={!s.online || busy || name.trim().length < 2} onClick={async () => { setBusy(true); try { await purch.newSupplier({ name: name.trim() }); setName(""); await load(); } catch (e) { toast(E(e), "triangle-alert"); } finally { setBusy(false); } }}>{P("add")}</Button>
+        <SelectField label={P("supplier_vat")} value={vat} onChange={(e) => setVat(e.target.value as typeof vat)} data-testid="supplier-vat">
+          {(["included", "on-top", "exempt"] as const).map((x) => <option key={x} value={x}>{P(`vat_${x}`)}</option>)}
+        </SelectField>
+        <Button icon="plus" disabled={!s.online || busy || name.trim().length < 2} onClick={async () => { setBusy(true); try { await purch.newSupplier({ name: name.trim(), vatTreatment: vat }); setName(""); await load(); } catch (e) { toast(E(e), "triangle-alert"); } finally { setBusy(false); } }}>{P("add")}</Button>
       </Card>
       {!list ? <div aria-busy="true" className="t-muted">{P("loading")}</div> : (
         <Card style={{ padding: 0, overflowX: "auto" }}>
@@ -343,6 +349,12 @@ function Supplier({ id }: { id: string }) {
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h1 className="t-h2" style={{ margin: 0 }}>{l.supplier.name}</h1>
         <span>{P("owed")}: <b className="num" data-testid="supplier-owed">{F.tk(l.supplier.owedPaisa)}</b></span>
+        {approver
+          ? <SelectField label={P("supplier_vat")} value={l.supplier.vatTreatment} data-testid="supplier-vat-edit" disabled={!s.online || busy}
+              onChange={async (e) => { setBusy(true); try { setL(await purch.supplierVat(id, e.target.value as "included" | "on-top" | "exempt")); } catch (x) { toast(E(x), "triangle-alert"); } finally { setBusy(false); } }}>
+              {(["included", "on-top", "exempt"] as const).map((x) => <option key={x} value={x}>{P(`vat_${x}`)}</option>)}
+            </SelectField>
+          : <span className="t-small t-muted" data-testid="supplier-vat-shown">{P("supplier_vat")}: {P(`vat_${l.supplier.vatTreatment}`)}</span>}
         <span style={{ marginLeft: "auto" }} />
         <Button size="sm" icon="arrow-left" onClick={() => router.push("/m/ph/purchase?tab=suppliers")}>{P("tab_suppliers")}</Button>
       </div>

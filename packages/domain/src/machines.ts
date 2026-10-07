@@ -128,9 +128,10 @@ export const PAYMENT: Table<PaymentState, PaymentEvent> = {
   failed: { retry: "initiated" },
 };
 
-export type ApprovalState = "requested" | "approved" | "rejected";
-export type ApprovalEvent = "approve" | "reject";
-export const APPROVAL: Table<ApprovalState, ApprovalEvent> = { requested: { approve: "approved", reject: "rejected" }, approved: {}, rejected: {} };
+export type ApprovalState = "requested" | "approved" | "rejected" | "withdrawn";
+export type ApprovalEvent = "approve" | "reject" | "withdraw";
+/** external review A6: `withdraw` — the request no longer applies (its purchase order was cancelled); nobody decided it. */
+export const APPROVAL: Table<ApprovalState, ApprovalEvent> = { requested: { approve: "approved", reject: "rejected", withdraw: "withdrawn" }, approved: {}, rejected: {}, withdrawn: {} };
 
 /* ADR 0013: a refund of money confirmed on one bill. Nothing moves before `approve`; `pay` when every allocation was
    paid out; `withdraw` = an approved refund that will not be paid (owner / admin, note) — never shown as rejected. */

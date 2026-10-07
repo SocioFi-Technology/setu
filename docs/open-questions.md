@@ -1325,3 +1325,9 @@ Built on the cautious reading from the reviews; Kamrul to confirm or change.
 
 ### Decided by Kamrul (07/10/2026) — track 1 week 1
 318–320 accepted as recorded.
+
+### External review A6 follow-up — chosen in the session (Kamrul to confirm)
+321. **A supplier's VAT flag changes nothing in the money**: "on top" does not add the printed VAT to what is owed or to
+     the batch cost (the review: recorded, never computed). Until the accountant decides, a supplier billing VAT on top
+     is paid from the ledger figure plus the VAT printed on the receipt.
+

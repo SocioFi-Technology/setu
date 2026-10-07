@@ -21,6 +21,9 @@ const dayDiff = (a: string, b: string) => Math.round((Date.parse(`${a}T00:00:00Z
 export const isDay = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(`${d}T00:00:00Z`)) && new Date(`${d}T00:00:00Z`).toISOString().slice(0, 10) === d;
 export const shortExpiry = (expiry: string, today: string) => dayDiff(expiry, today) < SHORT_EXPIRY_DAYS;
 
+/** Decision 181: how a supplier's bills show VAT — recorded from the bill, never computed. */
+export const SUPPLIER_VAT_TREATMENTS = ["included", "on-top", "exempt"] as const;
+export type SupplierVatTreatment = (typeof SUPPLIER_VAT_TREATMENTS)[number];
 export interface PoLine { qty: number; costPaisa: number; receivedQty?: number }
 export const poTotalPaisa = (lines: readonly PoLine[]) => lines.reduce((a, l) => a + l.qty * l.costPaisa, 0);
 

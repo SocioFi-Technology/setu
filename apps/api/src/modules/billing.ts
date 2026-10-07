@@ -35,6 +35,9 @@ const dash = <T extends string>(s: string) => s.replace(/_/g, "-") as T;
 const undash = <T extends string>(s: string) => s.replace(/-/g, "_") as T;
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 export const DISCOUNT_TASK = "discount-approval";
+/** A bill's approval / reconciliation task as the contracts show it: only a purchase order's request is ever withdrawn
+    (external review A6), so these are requested, approved or rejected. */
+export const billTaskStatus = (x: string) => x as "requested" | "approved" | "rejected";
 export const RECONCILE_TASK = "payment-reconciliation";
 /** decision 98: "Not billed here" on an unpriced order line (ADR 0005) */
 export const BILL_ELSEWHERE_TASK = "bill-elsewhere";
@@ -190,7 +193,7 @@ export async function invoiceView(tx: Tx, s: SessionData, inv: Inv): Promise<Inv
     }) : [],
     lineApprovals: lineTasks.map((t) => {
       const d = t.detail as unknown as NotBilledDetail;
-      return { taskId: t.id, lineId: d.lineId, status: t.status, reason: d.reason, requestedBy: who(t.requestedById), requestedAt: t.requestedAt.toISOString(),
+      return { taskId: t.id, lineId: d.lineId, status: billTaskStatus(t.status), reason: d.reason, requestedBy: who(t.requestedById), requestedAt: t.requestedAt.toISOString(),
         decidedBy: t.decidedById ? who(t.decidedById) : null, decidedAt: iso(t.decidedAt), decisionNote: t.decisionNote };
     }),
     ordersChanged,
@@ -218,7 +221,7 @@ function toApprovalView(t: TaskRow, who: (id: string) => { id: string; nameBn: s
   const d = t.detail as unknown as DiscountDetail & NotBilledDetail;
   const discount = t.kind === DISCOUNT_TASK;
   return {
-    taskId: t.id, status: t.status, amountPaisa: discount ? d.amountPaisa : 0, category: discount ? d.category : null, reason: d.reason,
+    taskId: t.id, status: billTaskStatus(t.status), amountPaisa: discount ? d.amountPaisa : 0, category: discount ? d.category : null, reason: d.reason,
     subtotalPaisa: discount ? d.subtotalPaisa : 0, limitPaisa: discount ? d.limitPaisa : 0,
     requestedBy: who(t.requestedById), requestedAt: t.requestedAt.toISOString(),
     decidedBy: t.decidedById ? who(t.decidedById) : null, decidedAt: iso(t.decidedAt), decisionNote: t.decisionNote,
@@ -665,7 +668,7 @@ async function reconcileItem(tx: Tx, s: SessionData, t: TaskRow): Promise<Reconc
   });
   const who = await people(tx, [d.resolution?.by]);
   return {
-    taskId: t.id, status: t.status, why: t.reason ?? "", createdAt: t.requestedAt.toISOString(), whyCode: whyCodeOf(t.reason),
+    taskId: t.id, status: billTaskStatus(t.status), why: t.reason ?? "", createdAt: t.requestedAt.toISOString(), whyCode: whyCodeOf(t.reason),
     reported: { providerRef: d.providerRef, trxId: d.trxId, amountPaisa: d.amountPaisa },
     payment: { id: p.id, method: p.method as PaymentMethod, status: dash<PaymentState>(p.status), amountPaisa: p.amountPaisa, trxId: p.trxId, attempt: p.attempt },
     invoice: { id: inv.id, number: inv.number, status: dash<InvoiceState>(inv.status), totalPaisa: inv.totalPaisa, paidPaisa: inv.paidPaisa },

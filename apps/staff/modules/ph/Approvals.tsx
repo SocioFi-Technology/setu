@@ -57,6 +57,7 @@ export function PharmacyApprovalCards({ status, kinds, onCount }: { status: Stat
               <Button size="sm" variant="ghost" icon="external-link" onClick={() => router.push(`/m/ph/purchase?po=${encodeURIComponent(o.id)}`)}>{P("open")}</Button>
             </span>
             <span className="t-small">{P("asked_by", { name: F.name(approval.requestedBy), at: F.dateTime(approval.requestedAt) })}</span>
+            {approval.earlierOrders.length > 0 && <span className="t-small" data-testid="appr-po-earlier">{P("earlier_orders", { list: approval.earlierOrders.map((x) => `${x.number ?? "—"} (${F.tk(x.totalPaisa)})`).join(", ") })}</span>}
             {approval.status === "requested" ? (
               <>
                 {noteBox(approval.taskId)}

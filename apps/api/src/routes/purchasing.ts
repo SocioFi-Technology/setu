@@ -4,7 +4,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
-  ApprovalDecision, ApprovalStatusQuery, CountCreate, CountLineRequest, GrnCreate, GrnLineRequest, GrnPostRequest, PoCreate, PoEndRequest, PoLineRequest, PoRev, SupplierCreate, SupplierPaymentRequest, TransferRequest,
+  ApprovalDecision, ApprovalStatusQuery, CountCreate, CountLineRequest, GrnCreate, GrnLineRequest, GrnPostRequest, PoCreate, PoEndRequest, PoLineRequest, PoRev, SupplierCreate, SupplierPaymentRequest, SupplierVatRequest, TransferRequest,
   type CountList, type GoodsReceiptView, type PharmacyApprovals, type PurchaseOrderList, type PurchaseOrderView, type StockCountView, type SupplierLedger, type SupplierList,
 } from "@setu/contracts";
 import { authorize } from "@setu/domain";
@@ -12,7 +12,7 @@ import { command, query } from "../command.js";
 import { forbidden } from "../errors.js";
 import { notFound } from "../modules/frontdesk.js";
 import {
-  addGrnLine, addPoLine, countList, countView, createCount, createGrn, createPo, createSupplier, decideCount, decidePoApproval, discardGrn, endPo, grnView, paySupplier,
+  addGrnLine, addPoLine, countList, countView, createCount, createGrn, createPo, createSupplier, decideCount, decidePoApproval, discardGrn, endPo, grnView, paySupplier, setSupplierVat,
   pharmacyApprovals, poList, poView, postGrn, removeGrnLine, removePoLine, sendPo, setCountLine, submitCount, supplierLedger, supplierList, transfer,
 } from "../modules/purchasing.js";
 import { requireSession } from "../plugins/session.js";
@@ -49,6 +49,14 @@ export async function purchasingRoutes(app: FastifyInstance) {
     const { id } = pid.parse(req.params);
     const body = SupplierPaymentRequest.parse(req.body ?? {});
     return command(req, reply, async (tx, s) => { const e = await paySupplier(tx, s, id, body, new Date()); return { status: 201, body: await supplierLedger(tx, s, id), audit: [{ action: "create", entity: "SupplierEntry", entityId: e.id, detail: { kind: "payment", supplierId: id, amountPaisa: body.amountPaisa, note: body.note } }] }; });
+  });
+
+  // decision 181: how the supplier's bills show VAT (owner / admin, audited)
+  app.post("/v1/pharmacy/suppliers/:id/vat", { config: { ownTx: true } }, async (req, reply): Promise<SupplierLedger> => {
+    requirePh(req, "purchase");
+    const { id } = pid.parse(req.params);
+    const body = SupplierVatRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const audit = await setSupplierVat(tx, s, id, body.vatTreatment); return { status: 200, body: await supplierLedger(tx, s, id), audit }; });
   });
 
   /* ── purchase orders ── */

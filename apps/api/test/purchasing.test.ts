@@ -249,7 +249,11 @@ describe.runIf(db)("external review A6: purchasing decisions 179–186", () => {
     const asked = await post(`/v1/pharmacy/purchase-orders/${b.id}/send`, { rev: b.rev });
     expect(asked.statusCode, asked.body).toBe(202);
     const task = await inTenant((tx) => tx.task.findFirst({ where: { kind: "purchase-approval", focusId: b.id } }));
-    expect(task!.detail).toMatchObject({ totalPaisa: 3_000_000, supplierDayPaisa: 3_000_000 });
+    const aSent = await ok(get(`/v1/pharmacy/purchase-orders/${a.id}`));
+    // the review: the request names the earlier orders the limit counted
+    expect(task!.detail).toMatchObject({ totalPaisa: 3_000_000, supplierDayPaisa: 3_000_000, earlierOrders: [{ id: a.id, number: aSent.number, totalPaisa: 3_000_000 }] });
+    expect(task!.reason).toContain(aSent.number);
+    expect((await ok(get("/v1/pharmacy/approvals", "owner"))).orders.find((x: { order: { id: string } }) => x.order.id === b.id).approval.earlierOrders).toEqual([{ id: a.id, number: aSent.number, totalPaisa: 3_000_000 }]);
     // the same ৳30,000 to another supplier goes without asking
     const c = await order(other, half);
     expect(await ok(post(`/v1/pharmacy/purchase-orders/${c.id}/send`, { rev: c.rev }))).toMatchObject({ status: "sent" });
@@ -257,12 +261,40 @@ describe.runIf(db)("external review A6: purchasing decisions 179–186", () => {
     await ok(post(`/v1/pharmacy/purchase-orders/${b.id}/approval`, { decision: "approve" }, "owner"));
     const d = await order(split, [{ medicineKey: "napa", qty: 1000, costPaisa: 100 }]);
     expect(d).toMatchObject({ sendBlockers: [], supplierDayPaisa: 3_000_000 });
-    // ৳25,000 more would make ৳55,000 unapproved today: it asks — and cancelled, its request is rejected through APPROVAL
+    // ৳25,000 more would make ৳55,000 unapproved today: it asks — and cancelled, its request is withdrawn (nobody rejected it)
     const e = await order(split, [{ medicineKey: "azith", qty: 834, costPaisa: 3000 }]);
     expect(e.sendBlockers).toEqual(["approval_required"]);
     expect((await post(`/v1/pharmacy/purchase-orders/${e.id}/send`, { rev: e.rev })).statusCode).toBe(202);
     const cancelled = await ok(post(`/v1/pharmacy/purchase-orders/${e.id}/cancel`, { rev: e.rev, reason: "Not needed after all, ordered less" }));
-    expect(cancelled).toMatchObject({ status: "cancelled", approval: { status: "rejected", note: "order cancelled", decidedBy: { nameEn: "Test Pharmacist" } } });
+    expect(cancelled).toMatchObject({ status: "cancelled", approval: { status: "withdrawn", note: "order cancelled: Not needed after all, ordered less", decidedBy: { nameEn: "Test Pharmacist" } } });
+    // the database: a withdrawal says why, and a withdrawn request is final
+    const t2 = await inTenant((tx) => tx.task.findFirst({ where: { kind: "purchase-approval", focusId: e.id } }));
+    await expect(db!.forTenant(T, (tx) => tx.task.updateMany({ where: { id: t2!.id }, data: { status: "approved" } }), { userId: "u_e2e_owner" })).rejects.toThrow(/final/);
+    const f = await order(split, [{ medicineKey: "azith", qty: 834, costPaisa: 3000 }]);
+    expect((await post(`/v1/pharmacy/purchase-orders/${f.id}/send`, { rev: f.rev })).statusCode).toBe(202);
+    const t3 = await inTenant((tx) => tx.task.findFirst({ where: { kind: "purchase-approval", focusId: f.id } }));
+    await expect(db!.forTenant(T, (tx) => tx.task.updateMany({ where: { id: t3!.id }, data: { status: "withdrawn", decidedById: "u_e2e_pharm", decidedAt: new Date(), decisionNote: "short" } }), { userId: "u_e2e_pharm" })).rejects.toThrow(/says why/);
+    await ok(post(`/v1/pharmacy/purchase-orders/${f.id}/cancel`, { rev: f.rev, reason: "Asked by mistake, cancelling it" }));
+  });
+
+  it("181 (the review): each supplier says how its bills show VAT; a receipt keeps the flag it was posted with", { timeout: 30_000 }, async () => {
+    const sup = (await ok(post("/v1/pharmacy/suppliers", { name: `VAT Supplier ${RUN}`, vatTreatment: "on-top" }), 201)).supplier;
+    expect(sup.vatTreatment).toBe("on-top");
+    expect((await ok(post("/v1/pharmacy/suppliers", { name: `Plain Supplier ${RUN}` }), 201)).supplier.vatTreatment).toBe("included");
+    const po = await order(sup.id, [{ medicineKey: "napa", qty: 100, costPaisa: 100 }]);
+    const sent = await ok(post(`/v1/pharmacy/purchase-orders/${po.id}/send`, { rev: po.rev }));
+    let g = await ok(post("/v1/pharmacy/goods-receipts", { orderId: po.id, supplierInvoiceNo: `VAT-${RUN}` }), 201);
+    g = await ok(post(`/v1/pharmacy/goods-receipts/${g.id}/lines`, { rev: g.rev, orderLineId: sent.lines[0].id, batchNo: `NV${RUN}`, expiry: day(700), invoicedQty: 100, receivedQty: 100, costPaisa: 100, mrpPaisa: 120, location: "store" }));
+    expect(g.supplierVatTreatment).toBe("on-top");
+    g = await ok(post(`/v1/pharmacy/goods-receipts/${g.id}/post`, { rev: g.rev, supplierVatPaisa: 750 }));
+    expect(g).toMatchObject({ status: "posted", supplierVatTreatment: "on-top", supplierVatPaisa: 750, money: { owedPaisa: 10_000 } });
+    // the flag is the owner's / admin's to change (audited); the posted receipt keeps the one it was posted with
+    expect((await post(`/v1/pharmacy/suppliers/${sup.id}/vat`, { vatTreatment: "exempt" })).statusCode).toBe(403);
+    expect((await ok(post(`/v1/pharmacy/suppliers/${sup.id}/vat`, { vatTreatment: "exempt" }, "owner"))).supplier.vatTreatment).toBe("exempt");
+    expect((await ok(get(`/v1/pharmacy/goods-receipts/${g.id}`))).supplierVatTreatment).toBe("on-top");
+    const ev = await inTenant((tx) => tx.auditEvent.findFirst({ where: { entity: "Supplier", entityId: sup.id, action: "update" } }));
+    expect(ev!.detail).toMatchObject({ event: "vat-treatment", before: "on-top", after: "exempt" });
+    await expect(inTenant((tx) => tx.supplier.updateMany({ where: { id: sup.id }, data: { vatTreatment: "zero" } }))).rejects.toThrow();
   });
 
   it("180 / 181: within min(2 %, ৳50) per line the pharmacist posts a price difference; beyond it the owner; the supplier's VAT / AIT recorded, not owed", { timeout: 30_000 }, async () => {

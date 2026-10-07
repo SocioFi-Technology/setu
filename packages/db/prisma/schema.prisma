@@ -526,6 +526,8 @@ enum ApprovalStatus {
   requested
   approved
   rejected
+  /// external review A6: the request no longer applies (its purchase order was cancelled) — nobody decided it
+  withdrawn
 }
 
 /// Work items: approvals, reviews, checklist phases. kind "patient-link-review" = duplicate review from the front desk:
@@ -1800,6 +1802,8 @@ model Supplier {
   phone          String?
   active         Boolean  @default(true)
   sample         Boolean  @default(false)
+  /// decision 181: the supplier's bills show VAT included | on-top | exempt (recorded, never computed)
+  vatTreatment   String   @default("included")
   createdAt      DateTime @default(now())
 
   @@unique([tenantId, organizationId, name])
@@ -1877,6 +1881,8 @@ model GoodsReceipt {
   /// decision 181 (external review A6): the supplier's VAT and AIT as on their bill — data only, not in what is owed
   supplierVatPaisa  Int                @default(0)
   supplierAitPaisa  Int                @default(0)
+  /// the supplier's VAT treatment as it was when this receipt was posted
+  supplierVatTreatment String?
   note              String?
   createdById       String
   createdAt         DateTime           @default(now())

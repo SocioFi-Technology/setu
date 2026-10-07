@@ -103,3 +103,16 @@ pilot clinic names its printer (phase 2). Each print is audited.
   exceptions list (`selfApproved` leakage row) and its drill.
 - **The PO cancel path:** a cancelled order's open approval request is closed through
   `transition("APPROVAL", …, "requested", "reject")`, not an inline status.
+
+## Addendum 2 (2026-10-07, external review A6 follow-up): as the review states the decisions
+- **179:** the approval request names the earlier orders the limit counted — their ids, numbers and totals in the
+  Task detail (`earlierOrders`), their numbers in its reason and audit; the owner's approval card and the order show them.
+- **181:** each Supplier carries `vatTreatment` — `included` | `on-top` | `exempt` (CHECK; default included; set when
+  the supplier is added, changed by the owner / admin, audited). A goods receipt copies the flag when it is posted
+  (`supplierVatTreatment`, frozen with the receipt), beside the VAT / AIT amounts printed on the bill. Nothing is
+  computed: the batch's unit cost is the bill's net unit cost as entered (the landed net cost), and what is owed stays
+  received × that cost. How input VAT is accounted for is on the accountant's pre-pilot list.
+- **The PO cancel path — APPROVAL gains `withdraw` (requested → withdrawn).** A cancelled order's open request is
+  withdrawn, recorded with who cancelled and why (`order cancelled: <reason>`); nobody is recorded as having rejected
+  it. The database (`task_withdraw_guard`): only an open request is withdrawn, by the signed-in user, with a reason of
+  10+ characters; a withdrawn request is final. Billing and refund tasks are never withdrawn.
