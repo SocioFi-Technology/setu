@@ -13,7 +13,7 @@ import { randomUUID } from "node:crypto";
 import type { DeclineRequest, DispenseLine, DispenseQueue, DispenseRequest, DispenseView, MedicineRef, OtcCreateRequest, OtcView, RxPhotoRequest, StockList, BatchView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
-  MEDICINES_SAMPLE, batchState, sameGeneric, dhakaDay, dispenseStatus, doseLabel, fefoPick, nearExpiry, otcCheck, saleClass, substitutionBlockers, type AllergyFact, type Meal,
+  MEDICINES_SAMPLE, TAKE_HOME_DAYS, batchState, sameGeneric, dhakaDay, dispenseStatus, doseLabel, fefoPick, nearExpiry, otcCheck, saleClass, substitutionBlockers, type AllergyFact, type Meal,
   wardMedicine,
 } from "@setu/domain";
 import { storage } from "../adapters/storage.js";
@@ -65,8 +65,6 @@ const pickable = (tx: Tx, s: SessionData, keys: string[]) =>
 /** What the pharmacy dispenses from: the OPD consultation note, or the IPD discharge summary's medicines on discharge
     (ADR 0018: the take-home medicines are a normal dispense, billed on the visit's pharmacy bill). */
 const RX_KINDS = ["consultation-note", "discharge-summary"];
-/** A discharge summary stays on the queue this many days after it is signed (the family may collect the next day). */
-const TAKE_HOME_DAYS = 3;
 /** The visit's signed, current note (final or amended) with its prescription lines, or null. */
 async function currentNote(tx: Tx, encounterId: string) {
   return tx.composition.findFirst({

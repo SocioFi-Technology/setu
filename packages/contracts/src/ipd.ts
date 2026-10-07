@@ -291,8 +291,11 @@ export const SummaryView = z.object({
     /** signed round notes' diagnoses and the admission's for the picker */
     lastRoundAssessment: z.string().nullable() }),
   redFlagsSample: z.array(z.object({ key: z.string(), bn: z.string(), en: z.string() })),
-  /** the take-home medicines dispensed from the pharmacy against the current version */
-  takeHome: z.object({ dispensed: z.boolean(), at: z.string().nullable() }),
+  /** the take-home medicines from the pharmacy against the current version (Kamrul, 304: after 3 days a line not given is
+      "not collected" — shown, never dropped) */
+  takeHome: z.object({ dispensed: z.boolean(), at: z.string().nullable(), until: z.string().nullable(), notCollected: z.number().int(),
+    lines: z.array(z.object({ requestId: z.string(), medicineKey: z.string(), brand: z.string(), quantity: z.number().int(), givenQty: z.number().int(),
+      status: z.enum(["waiting", "partial", "dispensed", "declined", "not-collected"]) })) }),
   can: z.object({ open: z.boolean(), amend: z.boolean(), print: z.boolean() }),
 });
 export type SummaryView = z.infer<typeof SummaryView>;

@@ -9,7 +9,7 @@ import { randomUUID } from "node:crypto";
 import type { AmendSummaryRequest, SaveSummaryRequest, SignSummaryRequest, SummaryDoc, SummaryView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
-  AMEND_REASON_MIN, DOCUMENT, authorize, RED_FLAGS_SAMPLE, SUMMARY_KIND, bedDaysDue, dhakaDay, emptySummarySections, isCritical, rxQuantity, rxWarnings, signDocument, summarySignBlockers, transition,
+  AMEND_REASON_MIN, DOCUMENT, TAKE_HOME_DAYS, authorize, takeHomeStatus, RED_FLAGS_SAMPLE, SUMMARY_KIND, bedDaysDue, dhakaDay, emptySummarySections, isCritical, rxQuantity, rxWarnings, signDocument, summarySignBlockers, transition,
   type LabFlag, type RxLine, type SummarySections,
 } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
@@ -98,6 +98,23 @@ async function blockersOf(tx: Tx, c: Comp, encounterId: string, patientId: strin
   };
 }
 
+/** The current version's medicines on discharge as the pharmacy gave them: a dispense (less returns) or a decline counts
+    for the line it was written against, or for this version's line of the same medicine (an earlier version's). */
+async function takeHomeOf(tx: Tx, current: Comp | null, lines: SummaryDoc["medicines"], now: Date): Promise<SummaryView["takeHome"]> {
+  if (!current || !current.signedAt) return { dispensed: false, at: null, until: null, notCollected: 0, lines: [] };
+  const rows = await tx.medicationDispense.findMany({ where: { encounterId: current.encounterId }, orderBy: { at: "asc" } });
+  const own = (l: SummaryDoc["medicines"][number]) => rows.filter((r) => r.requestId === l.id || r.prescribedKey === l.medicineKey);
+  const out = lines.map((l) => {
+    const rs = own(l);
+    const given = rs.filter((r) => r.action === "dispense").reduce((t, r) => t + r.qty, 0) - rs.filter((r) => r.action === "return").reduce((t, r) => t + r.qty, 0);
+    const status = takeHomeStatus({ prescribed: l.quantity, given, declined: rs.some((r) => r.action === "decline"), signedAt: current.signedAt!, now });
+    return { requestId: l.id, medicineKey: l.medicineKey, brand: l.brand, quantity: l.quantity, givenQty: Math.max(0, given), status };
+  });
+  const first = rows.find((r) => r.action === "dispense");
+  return { dispensed: out.length > 0 && out.every((l) => l.status === "dispensed" || l.status === "declined"), at: iso(first?.at ?? null),
+    until: new Date(current.signedAt.getTime() + TAKE_HOME_DAYS * 864e5).toISOString(), notCollected: out.filter((l) => l.status === "not-collected").length, lines: out };
+}
+
 export async function summaryView(tx: Tx, s: SessionData, admissionId: string, now: Date): Promise<{ view: SummaryView; patientId: string }> {
   requireReader(s);
   const a = await admissionHere(tx, s, admissionId);
@@ -117,7 +134,7 @@ export async function summaryView(tx: Tx, s: SessionData, admissionId: string, n
   const needed = Boolean(d && d.kind !== "death");
   const [draftW] = draft ? await docWires(tx, [draft]) : [null];
   const [curW] = current ? await docWires(tx, [current]) : [null];
-  const take = current ? await tx.medicationDispense.findFirst({ where: { compositionId: current.id, action: "dispense" }, orderBy: { at: "asc" }, select: { at: true } }) : null;
+  const takeHome = await takeHomeOf(tx, current, curW?.medicines ?? [], now);
   return {
     patientId: a.patientId,
     view: {
@@ -132,7 +149,7 @@ export async function summaryView(tx: Tx, s: SessionData, admissionId: string, n
         activeOrders: orders.filter(isActive).map((o) => ({ medicineKey: o.medicineKey, brand: o.brand, generic: o.generic, strength: o.strength, form: o.form, doseText: o.doseText ?? "", route: o.route ?? "" })),
         lastRoundAssessment: round ? ((round.sections as { a?: string }).a ?? null) : null },
       redFlagsSample: RED_FLAGS_SAMPLE.map((x) => ({ ...x })),
-      takeHome: { dispensed: Boolean(take), at: iso(take?.at ?? null) },
+      takeHome,
       can: { open: s.role === "doctor" && needed && !draft && !current, amend: s.role === "doctor" && Boolean(current) && !draft, print: Boolean(current) },
     },
   };

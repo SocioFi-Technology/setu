@@ -156,3 +156,15 @@ export function summarySignBlockers(x: {
   if (x.rxBlocking > 0) b.push("rx_warnings");
   return b;
 }
+
+/** Kamrul (07/10/2026, on 304): the take-home medicines wait on the pharmacy's queue this many days after the summary
+    is signed; after that a line not (fully) given is "not collected" on the summary — shown to the doctor, never
+    silently dropped. */
+export const TAKE_HOME_DAYS = 3;
+export type TakeHomeStatus = "waiting" | "partial" | "dispensed" | "declined" | "not-collected";
+export function takeHomeStatus(x: { prescribed: number; given: number; declined: boolean; signedAt: Date; now: Date }): TakeHomeStatus {
+  if (x.declined) return "declined";
+  if (x.given >= x.prescribed) return "dispensed";
+  if (x.now.getTime() - x.signedAt.getTime() >= TAKE_HOME_DAYS * 864e5) return "not-collected";
+  return x.given > 0 ? "partial" : "waiting";
+}

@@ -54165,11 +54165,64 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "until": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "notCollected": {
+                          "type": "integer"
+                        },
+                        "lines": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "requestId": {
+                                "type": "string"
+                              },
+                              "medicineKey": {
+                                "type": "string"
+                              },
+                              "brand": {
+                                "type": "string"
+                              },
+                              "quantity": {
+                                "type": "integer"
+                              },
+                              "givenQty": {
+                                "type": "integer"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "waiting",
+                                  "partial",
+                                  "dispensed",
+                                  "declined",
+                                  "not-collected"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "requestId",
+                              "medicineKey",
+                              "brand",
+                              "quantity",
+                              "givenQty",
+                              "status"
+                            ]
+                          }
                         }
                       },
                       "required": [
                         "dispensed",
-                        "at"
+                        "at",
+                        "until",
+                        "notCollected",
+                        "lines"
                       ]
                     },
                     "can": {
@@ -55585,11 +55638,64 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "until": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "notCollected": {
+                          "type": "integer"
+                        },
+                        "lines": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "requestId": {
+                                "type": "string"
+                              },
+                              "medicineKey": {
+                                "type": "string"
+                              },
+                              "brand": {
+                                "type": "string"
+                              },
+                              "quantity": {
+                                "type": "integer"
+                              },
+                              "givenQty": {
+                                "type": "integer"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "waiting",
+                                  "partial",
+                                  "dispensed",
+                                  "declined",
+                                  "not-collected"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "requestId",
+                              "medicineKey",
+                              "brand",
+                              "quantity",
+                              "givenQty",
+                              "status"
+                            ]
+                          }
                         }
                       },
                       "required": [
                         "dispensed",
-                        "at"
+                        "at",
+                        "until",
+                        "notCollected",
+                        "lines"
                       ]
                     },
                     "can": {
@@ -57173,11 +57279,64 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "until": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "notCollected": {
+                          "type": "integer"
+                        },
+                        "lines": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "requestId": {
+                                "type": "string"
+                              },
+                              "medicineKey": {
+                                "type": "string"
+                              },
+                              "brand": {
+                                "type": "string"
+                              },
+                              "quantity": {
+                                "type": "integer"
+                              },
+                              "givenQty": {
+                                "type": "integer"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "waiting",
+                                  "partial",
+                                  "dispensed",
+                                  "declined",
+                                  "not-collected"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "requestId",
+                              "medicineKey",
+                              "brand",
+                              "quantity",
+                              "givenQty",
+                              "status"
+                            ]
+                          }
                         }
                       },
                       "required": [
                         "dispensed",
-                        "at"
+                        "at",
+                        "until",
+                        "notCollected",
+                        "lines"
                       ]
                     },
                     "can": {
@@ -58695,11 +58854,64 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "until": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "notCollected": {
+                          "type": "integer"
+                        },
+                        "lines": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "requestId": {
+                                "type": "string"
+                              },
+                              "medicineKey": {
+                                "type": "string"
+                              },
+                              "brand": {
+                                "type": "string"
+                              },
+                              "quantity": {
+                                "type": "integer"
+                              },
+                              "givenQty": {
+                                "type": "integer"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "waiting",
+                                  "partial",
+                                  "dispensed",
+                                  "declined",
+                                  "not-collected"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "requestId",
+                              "medicineKey",
+                              "brand",
+                              "quantity",
+                              "givenQty",
+                              "status"
+                            ]
+                          }
                         }
                       },
                       "required": [
                         "dispensed",
-                        "at"
+                        "at",
+                        "until",
+                        "notCollected",
+                        "lines"
                       ]
                     },
                     "can": {
@@ -60371,11 +60583,64 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "until": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "notCollected": {
+                          "type": "integer"
+                        },
+                        "lines": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "requestId": {
+                                "type": "string"
+                              },
+                              "medicineKey": {
+                                "type": "string"
+                              },
+                              "brand": {
+                                "type": "string"
+                              },
+                              "quantity": {
+                                "type": "integer"
+                              },
+                              "givenQty": {
+                                "type": "integer"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "waiting",
+                                  "partial",
+                                  "dispensed",
+                                  "declined",
+                                  "not-collected"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "requestId",
+                              "medicineKey",
+                              "brand",
+                              "quantity",
+                              "givenQty",
+                              "status"
+                            ]
+                          }
                         }
                       },
                       "required": [
                         "dispensed",
-                        "at"
+                        "at",
+                        "until",
+                        "notCollected",
+                        "lines"
                       ]
                     },
                     "can": {
@@ -173278,7 +173543,8 @@
                           "type": "string",
                           "enum": [
                             "bill",
-                            "reconciliation"
+                            "reconciliation",
+                            "deposit-excess"
                           ]
                         },
                         "caseTaskId": {
@@ -173297,7 +173563,8 @@
                             "wrong-dispense",
                             "overpayment",
                             "patient-request",
-                            "other"
+                            "other",
+                            "deposit-excess"
                           ]
                         },
                         "reason": {
@@ -173784,7 +174051,8 @@
                             ],
                             "enum": [
                               "no-wallet-access",
-                              "gateway-failed"
+                              "gateway-failed",
+                              "deposit-excess"
                             ]
                           },
                           "status": {
@@ -174434,7 +174702,8 @@
                               "wrong-dispense",
                               "overpayment",
                               "patient-request",
-                              "other"
+                              "other",
+                              "deposit-excess"
                             ]
                           },
                           "reason": {
@@ -174730,7 +174999,8 @@
                           "type": "string",
                           "enum": [
                             "bill",
-                            "reconciliation"
+                            "reconciliation",
+                            "deposit-excess"
                           ]
                         },
                         "caseTaskId": {
@@ -174749,7 +175019,8 @@
                             "wrong-dispense",
                             "overpayment",
                             "patient-request",
-                            "other"
+                            "other",
+                            "deposit-excess"
                           ]
                         },
                         "reason": {
@@ -175236,7 +175507,8 @@
                             ],
                             "enum": [
                               "no-wallet-access",
-                              "gateway-failed"
+                              "gateway-failed",
+                              "deposit-excess"
                             ]
                           },
                           "status": {
@@ -175724,7 +175996,8 @@
                           "type": "string",
                           "enum": [
                             "bill",
-                            "reconciliation"
+                            "reconciliation",
+                            "deposit-excess"
                           ]
                         },
                         "caseTaskId": {
@@ -175743,7 +176016,8 @@
                             "wrong-dispense",
                             "overpayment",
                             "patient-request",
-                            "other"
+                            "other",
+                            "deposit-excess"
                           ]
                         },
                         "reason": {
@@ -176230,7 +176504,8 @@
                             ],
                             "enum": [
                               "no-wallet-access",
-                              "gateway-failed"
+                              "gateway-failed",
+                              "deposit-excess"
                             ]
                           },
                           "status": {
@@ -176919,7 +177194,8 @@
                               "type": "string",
                               "enum": [
                                 "bill",
-                                "reconciliation"
+                                "reconciliation",
+                                "deposit-excess"
                               ]
                             },
                             "caseTaskId": {
@@ -176938,7 +177214,8 @@
                                 "wrong-dispense",
                                 "overpayment",
                                 "patient-request",
-                                "other"
+                                "other",
+                                "deposit-excess"
                               ]
                             },
                             "reason": {
@@ -177425,7 +177702,8 @@
                                 ],
                                 "enum": [
                                   "no-wallet-access",
-                                  "gateway-failed"
+                                  "gateway-failed",
+                                  "deposit-excess"
                                 ]
                               },
                               "status": {
@@ -178051,7 +178329,8 @@
                           "type": "string",
                           "enum": [
                             "bill",
-                            "reconciliation"
+                            "reconciliation",
+                            "deposit-excess"
                           ]
                         },
                         "caseTaskId": {
@@ -178070,7 +178349,8 @@
                             "wrong-dispense",
                             "overpayment",
                             "patient-request",
-                            "other"
+                            "other",
+                            "deposit-excess"
                           ]
                         },
                         "reason": {
@@ -178557,7 +178837,8 @@
                             ],
                             "enum": [
                               "no-wallet-access",
-                              "gateway-failed"
+                              "gateway-failed",
+                              "deposit-excess"
                             ]
                           },
                           "status": {
@@ -179050,7 +179331,8 @@
                           "type": "string",
                           "enum": [
                             "bill",
-                            "reconciliation"
+                            "reconciliation",
+                            "deposit-excess"
                           ]
                         },
                         "caseTaskId": {
@@ -179069,7 +179351,8 @@
                             "wrong-dispense",
                             "overpayment",
                             "patient-request",
-                            "other"
+                            "other",
+                            "deposit-excess"
                           ]
                         },
                         "reason": {
@@ -179556,7 +179839,8 @@
                             ],
                             "enum": [
                               "no-wallet-access",
-                              "gateway-failed"
+                              "gateway-failed",
+                              "deposit-excess"
                             ]
                           },
                           "status": {
@@ -180226,7 +180510,8 @@
                                 "wrong-dispense",
                                 "overpayment",
                                 "patient-request",
-                                "other"
+                                "other",
+                                "deposit-excess"
                               ]
                             },
                             "reason": {
@@ -181047,7 +181332,8 @@
                                     "wrong-dispense",
                                     "overpayment",
                                     "patient-request",
-                                    "other"
+                                    "other",
+                                    "deposit-excess"
                                   ]
                                 },
                                 "reason": {
@@ -182465,7 +182751,8 @@
                           "type": "string",
                           "enum": [
                             "bill",
-                            "reconciliation"
+                            "reconciliation",
+                            "deposit-excess"
                           ]
                         },
                         "caseTaskId": {
@@ -182484,7 +182771,8 @@
                             "wrong-dispense",
                             "overpayment",
                             "patient-request",
-                            "other"
+                            "other",
+                            "deposit-excess"
                           ]
                         },
                         "reason": {
@@ -182971,7 +183259,8 @@
                             ],
                             "enum": [
                               "no-wallet-access",
-                              "gateway-failed"
+                              "gateway-failed",
+                              "deposit-excess"
                             ]
                           },
                           "status": {

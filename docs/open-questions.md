@@ -1274,3 +1274,8 @@ Built on the cautious reading; Kamrul to confirm or change.
      recorded afterwards (the orders are completed with the record). Rare; a nursing note records it.
 308. **The owner's four inpatient rows are live, not by period** (excess unpaid, LAMA / death bills owing, LAMA summary
      over 24 hours, a dose in error after the final bill — the last for 30 days), as each stays until it is settled.
+
+### Decided by Kamrul (07/10/2026) — B10–B12 session 1
+301–308 accepted on the cautious reading. **304 with an addition:** after 3 days uncollected, the take-home lines are
+marked "not collected" on the summary (visible to the doctor), never silently dropped — `takeHomeStatus` (@setu/domain),
+the summary view's `takeHome.lines` (waiting / partial / dispensed / declined / not collected).

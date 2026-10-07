@@ -32,7 +32,7 @@ const step = (v: { steps: { key: string; status: string }[] }, k: string) => v.s
 const SECTIONS = { course: "Laparoscopic cystectomy on day 1, uneventful recovery", procedures: [], followUp: { date: tomorrow(), place: "Surgery OPD room 4" }, redFlags: ["Fever above 100.4°F (38°C)"] };
 async function draftSummary(admissionId: string, body: Record<string, unknown> = {}) {
   const d = ok(await c.post(`/v1/ipd/admissions/${admissionId}/summary/open`, {}, "surgeon")).draft;
-  const saved = ok(await c.put(`/v1/ipd/summaries/${d.id}`, { rev: d.rev, sections: SECTIONS, diagnoses: [{ code: "GC00", verificationStatus: "confirmed" }], medicines: [{ medicineKey: "napa", dose: "1+1+1", meal: "after", days: 5 }], ...body }));
+  const saved = ok(await c.put(`/v1/ipd/summaries/${d.id}`, { rev: d.rev, sections: SECTIONS, diagnoses: [{ code: "GC00", verificationStatus: "confirmed" }], medicines: [{ medicineKey: "ace", dose: "1+1+1", meal: "after", days: 5 }], ...body }));
   return saved.draft as { id: string; rev: number };
 }
 const sign = (d: { id: string; rev: number }, pin = "1234") => c.post(`/v1/ipd/summaries/${d.id}/sign`, { rev: d.rev, pin }, "surgeon");
@@ -133,7 +133,7 @@ describe.runIf(db)("B11: the discharge summary", () => {
     expect(ok(await c.get(`/v1/ipd/admissions/${a.admissionId}/summary`, "surgeon")).blockers).toEqual(["critical_unacked"]);
     ok(await c.post(`/v1/doctor/inbox/${com.id}/ack`, { notifyPatient: false }, "surgeon"));
     const s = ok(await sign(d));
-    expect(s.current).toMatchObject({ version: 1, status: "final", diagnoses: [expect.objectContaining({ code: "GC00", verificationStatus: "confirmed" })], medicines: [expect.objectContaining({ medicineKey: "napa", quantity: 15 })] });
+    expect(s.current).toMatchObject({ version: 1, status: "final", diagnoses: [expect.objectContaining({ code: "GC00", verificationStatus: "confirmed" })], medicines: [expect.objectContaining({ medicineKey: "ace", quantity: 15 })] });
     expect(s.can).toMatchObject({ amend: true, print: true, open: false });
     const app1 = await tenant((tx) => tx.communication.findFirst({ where: { encounterId: a.encounterId, kind: "summary-available" } }));
     expect(app1).toMatchObject({ channel: "patient_app", compositionId: s.current.id, status: "completed" });
@@ -145,6 +145,15 @@ describe.runIf(db)("B11: the discharge summary", () => {
     expect(q.items.find((x: { encounter: { id: string } }) => x.encounter.id === a.encounterId)).toMatchObject({ takeHome: true, lineCount: 1, status: "to-dispense" });
     const dv = ok(await c.get(`/v1/pharmacy/encounters/${a.encounterId}`, "pharm"));
     expect(dv.composition).toMatchObject({ id: s.current.id, takeHome: true });
+    expect(s.takeHome).toMatchObject({ dispensed: false, notCollected: 0, lines: [{ medicineKey: "ace", quantity: 15, givenQty: 0, status: "waiting" }] });
+    // the pharmacist gives part of it (a normal dispense on the visit's pharmacy bill): partial on the summary
+    const line0 = dv.lines[0];
+    {
+      expect(line0.proposal.shortfall).toBe(0);
+      ok(await c.post(`/v1/pharmacy/encounters/${a.encounterId}/dispense`, { compositionId: s.current.id, lines: [{ requestId: line0.requestId, medicineKey: "ace", qty: 5 }] }, "pharm"));
+      const sv = ok(await c.get(`/v1/ipd/admissions/${a.admissionId}/summary`, "surgeon"));
+      expect(sv.takeHome.lines[0]).toMatchObject({ givenQty: 5, status: "partial" });
+    }
   }, 60_000);
   it("amend, never overwrite: v2 supersedes v1; the A4 print with its QR; the public check shows no clinical content; v1 no longer prints", async () => {
     const a = await admit();
@@ -155,7 +164,7 @@ describe.runIf(db)("B11: the discharge summary", () => {
     expect((await c.get(`/v1/documents/prints/${pr1.print.id}/pdf`, "nurse")).headers["content-type"]).toBe("application/pdf");
     expect((await c.post(`/v1/ipd/summaries/${v1.id}/amend`, { reason: "ok" }, "surgeon")).statusCode).toBe(400);
     const am = ok(await c.post(`/v1/ipd/summaries/${v1.id}/amend`, { reason: "Follow-up moved to the surgeon's Thursday clinic" }, "surgeon"), 201);
-    expect(am.draft).toMatchObject({ version: 2, amendsId: v1.id, medicines: [expect.objectContaining({ medicineKey: "napa" })] });
+    expect(am.draft).toMatchObject({ version: 2, amendsId: v1.id, medicines: [expect.objectContaining({ medicineKey: "ace" })] });
     const saved = ok(await c.put(`/v1/ipd/summaries/${am.draft.id}`, { rev: am.draft.rev, sections: { ...SECTIONS, followUp: { date: tomorrow(), place: "Surgeon's Thursday clinic" } }, diagnoses: [{ code: "GC00", verificationStatus: "confirmed" }], medicines: [] }));
     const v2 = ok(await sign(saved.draft)).current;
     expect(v2).toMatchObject({ version: 2, status: "amended", medicines: [] });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   blockingSteps, canDoStep, canRemind, deathRecordBlockers, dischargeOrderBlockers, doneCount, finishStep, initialStepStates, lamaBlockers, markable,
-  pharmacyClearanceBlockers, startReady, summarySignBlockers, visitFinishes, emptySummarySections, type StepStates,
+  pharmacyClearanceBlockers, startReady, summarySignBlockers, takeHomeStatus, visitFinishes, emptySummarySections, type StepStates,
 } from "./discharge.js";
 import { TransitionError } from "./machines.js";
 
@@ -91,5 +91,19 @@ describe("the order, the checks, the summary (B11)", () => {
     expect(summarySignBlockers({ ...base, sections: emptySummarySections(), finalDiagnoses: 0 })).toEqual(["diagnosis_final", "course", "follow_up", "red_flags"]);
     expect(summarySignBlockers({ ...base, criticalUnacked: 1, openEscalations: 1, rxBlocking: 2 })).toEqual(["critical_unacked", "escalation_open", "rx_warnings"]);
     expect(summarySignBlockers({ ...base, sections: { ...sections, followUp: { date: "2026-10-06", place: "" } } })).toEqual(["follow_up"]);
+  });
+});
+
+describe("the take-home medicines (Kamrul, 304)", () => {
+  const signedAt = new Date("2026-10-07T10:00:00+06:00");
+  const at = (h: number) => new Date(signedAt.getTime() + h * 36e5);
+  it("waiting, partial, dispensed or declined while on the queue; after 3 days what was not given is 'not collected', never dropped", () => {
+    expect(takeHomeStatus({ prescribed: 15, given: 0, declined: false, signedAt, now: at(2) })).toBe("waiting");
+    expect(takeHomeStatus({ prescribed: 15, given: 5, declined: false, signedAt, now: at(2) })).toBe("partial");
+    expect(takeHomeStatus({ prescribed: 15, given: 15, declined: false, signedAt, now: at(100) })).toBe("dispensed");
+    expect(takeHomeStatus({ prescribed: 15, given: 0, declined: true, signedAt, now: at(100) })).toBe("declined");
+    expect(takeHomeStatus({ prescribed: 15, given: 0, declined: false, signedAt, now: at(71) })).toBe("waiting");
+    expect(takeHomeStatus({ prescribed: 15, given: 0, declined: false, signedAt, now: at(72) })).toBe("not-collected");
+    expect(takeHomeStatus({ prescribed: 15, given: 5, declined: false, signedAt, now: at(80) })).toBe("not-collected");
   });
 });
