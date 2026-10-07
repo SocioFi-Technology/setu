@@ -1236,3 +1236,20 @@ Built on the cautious reading; Kamrul to confirm or change.
 
 ### Decided by Kamrul (06/10/2026) — B7–B9 session 2
 298–300 accepted as built.
+
+## Slice B10–B12 plan — Kamrul's decisions (07/10/2026)
+1, 4–11, 13, 14, 16, 17 accepted as recommended (ADR 0018), and the CI e2e job's limit to 30 minutes. Changed:
+- **2** Issue does not wait for the pharmacy: once the discharge is ordered and the final census has run. A dose-error
+  answer pending at issue leaves the line at its charged value; an errored dose after issue is settled by a refund through
+  the refunds slice, never by editing the bill. Pharmacy clearance gates the patient leaving (step 3), not the money.
+- **3** A deposit-excess refund that cannot be paid at the counter (patient left, no cash in the shift) stays approved and
+  appears on the owner's dues / exceptions list until paid; it is the one refund kind with no expiry (refunds have no
+  expiry today, decision 225 — if one is added, deposit-excess is exempt).
+- **12** The summary signature is also refused while a critical lab result on the visit is unacknowledged by the doctor, or
+  an escalation is open.
+- **15** A death on the ward sets the inpatient visit's outcome "deceased"; the final bill carries no discharge-medicine or
+  follow-up lines; "body moved" needs the nurse's PIN like "patient left".
+
+### For the accountant (pre-pilot)
+- **One INV series for IPD and OPD bills** (decision 4) is a VAT-registration question: kept as one sequential series
+  until the accountant decides.
