@@ -69,12 +69,17 @@ export async function documentRoutes(app: FastifyInstance) {
     }, { txTimeoutMs: 30_000 });
   });
 
+  /** opening the copy one just printed within this time is part of printing it, not a reprint */
+  const STORED_OWN_MS = 10 * 60_000;
   app.get("/v1/documents/prints/:id/pdf", async (req, reply) => {
     const { id } = pid.parse(req.params);
     const r = await query(req, async (tx, s) => {
       const x = await storedPdf(tx, s, id);
       requireKind(req, x.kind);
-      return { body: x, audit: [{ action: "view", entity: "DocumentPrint", entityId: id, patientId: x.patientId, detail: { kind: x.kind, documentId: x.documentId, copy: x.print.copy } }] };
+      // external review B1: handing a stored copy out again is a reprint, audited as one — except the printer opening
+      // the copy they just made (the print screen shows it at once)
+      const own = x.print.printedById === s.userId && Date.now() - x.print.printedAt.getTime() < STORED_OWN_MS;
+      return { body: x, audit: [{ action: own ? "view" : "reprint", entity: "DocumentPrint", entityId: id, patientId: x.patientId, detail: { kind: x.kind, documentId: x.documentId, copy: x.print.copy, stored: true, ...(own ? { purpose: "just-printed" } : {}) } }] };
     });
     return reply.header("content-type", "application/pdf").header("content-disposition", `inline; filename="${r.kind}${r.print.copy ? `-DUPLICATE-${r.print.copy}` : ""}.pdf"`).header("cache-control", "no-store").send(Buffer.from(r.bytes));
   });

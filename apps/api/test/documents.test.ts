@@ -174,6 +174,68 @@ describe.runIf(db)("lab report print (decision D10 of A8–A11)", () => {
   }, 60_000);
 });
 
+describe.runIf(db)("external review B1: a stored lab report copy after a withdrawal or correction", () => {
+  type LV = { orders: { id: string; testCode?: string; results: { id: string; status: string }[] }[]; release: { observationIds: string[] }; reports: { id: string; version: number }[] };
+  /** A visit whose RBS is released: the report id and the lab view. */
+  async function releasedReport() {
+    const d = await signed(["rbs"]);
+    const v = ok<{ specimens: { id: string; status: string }[] }>(await post(`/v1/lab/visits/${d.enc}/labels`, {}, "tech"));
+    for (const sp of v.specimens.filter((x) => x.status === "pending")) for (const step of ["collect", "receive", "start"]) ok(await post(`/v1/lab/specimens/${sp.id}/${step}`, { at: now() }, "tech"));
+    let lv = ok<LV>(await get(`/v1/lab/visits/${d.enc}`, "tech"));
+    ok(await post(`/v1/lab/orders/${lv.orders[0]!.id}/results`, { entries: [{ analyteCode: "rbs", value: "11.2" }] }, "tech"), 201);
+    lv = ok<LV>(await get(`/v1/lab/visits/${d.enc}`, "tech"));
+    ok(await post(`/v1/lab/visits/${d.enc}/verify`, { pin: "1234", observationIds: lv.orders[0]!.results.map((r) => r.id), deltaChecked: true }, "tech"));
+    ok(await post(`/v1/lab/visits/${d.enc}/validate`, { pin: "1234", observationIds: lv.orders[0]!.results.map((r) => r.id) }, "path"));
+    lv = ok<LV>(await get(`/v1/lab/visits/${d.enc}`, "tech"));
+    lv = ok<LV>(await post(`/v1/lab/visits/${d.enc}/release`, { observationIds: lv.release.observationIds }, "path"), 201);
+    return { ...d, rep: lv.reports[0]!.id, orderId: lv.orders[0]!.id, obsId: lv.orders[0]!.results[0]!.id };
+  }
+  const pdf = (id: string, who: Who) => get(`/v1/documents/prints/${id}/pdf`, who);
+  const auditOf = (id: string) => db!.forTenant(T, (tx) => tx.auditEvent.findMany({ where: { entity: "DocumentPrint", entityId: id }, orderBy: { at: "asc" } }));
+
+  it("withdrawn after printing: the stored copy is refused (409 content_changed); a new copy prints and is served; a stored copy handed out again is audited as a reprint", async () => {
+    const r = await releasedReport();
+    const p = ok<PrintView>(await post(`/v1/documents/lr/${r.rep}/print`, { format: "a4" }, "tech"), 201);
+    const c0 = p.prints[0]!.id;
+    expect((await pdf(c0, "tech")).statusCode).toBe(200); // the printer opening the copy just made
+    expect((await pdf(c0, "doctor")).statusCode).toBe(200); // anyone else: a reprint
+    expect((await auditOf(c0)).map((a) => a.action)).toEqual(["view", "reprint"]);
+    ok(await post(`/v1/lab/orders/${r.orderId}/withdraw`, { reason: "tube belonged to another patient" }, "tech"));
+    for (const who of ["tech", "doctor"] as const) {
+      const x = await pdf(c0, who);
+      expect([x.statusCode, x.json().code]).toEqual([409, "content_changed"]);
+    }
+    // a copy printed now shows the withdrawal: it is served
+    const p2 = ok<PrintView>(await post(`/v1/documents/lr/${r.rep}/print`, { reason: "copy" }, "tech"), 201);
+    expect((await pdf(p2.prints[1]!.id, "doctor")).statusCode).toBe(200);
+  }, 60_000);
+
+  it("a value put under correction after printing: the stored copy is refused too", async () => {
+    const r = await releasedReport();
+    const p = ok<PrintView>(await post(`/v1/documents/lr/${r.rep}/print`, {}, "tech"), 201);
+    ok(await post(`/v1/lab/observations/${r.obsId}/correct`, { value: "12.1", reason: "transcription error at entry" }, "tech"), 201);
+    expect((await pdf(p.prints[0]!.id, "tech")).json().code).toBe("content_changed");
+  }, 60_000);
+
+  it("the review's print tests: a replay returns the same copy; two first prints at once make one original; the public check is rate-limited", async () => {
+    const r = await releasedReport();
+    const key = randomUUID();
+    const a = ok<PrintView & { print: { id: string } }>(await post(`/v1/documents/lr/${r.rep}/print`, {}, "tech", key), 201);
+    const b = ok<PrintView & { print: { id: string } }>(await post(`/v1/documents/lr/${r.rep}/print`, {}, "tech", key), 201);
+    expect(b.print.id).toBe(a.print.id);
+    expect(b.prints).toHaveLength(1);
+    const r2 = await releasedReport();
+    const both = await Promise.all([post(`/v1/documents/lr/${r2.rep}/print`, {}, "tech"), post(`/v1/documents/lr/${r2.rep}/print`, {}, "path")]);
+    expect(both.map((x) => x.statusCode).sort()).toEqual([201, 409]);
+    expect(both.find((x) => x.statusCode === 409)!.json().code).toBe("reprint_needs_reason");
+    const ip = `203.0.113.${randomInt(1, 250)}`;
+    const codes: number[] = [];
+    for (let i = 0; i < 21; i++) codes.push((await app.inject({ method: "GET", url: `/v1/verify/lr/${a.verifyCode}`, headers: { "x-forwarded-for": ip } })).statusCode);
+    expect(codes.slice(0, 20).every((c) => c === 200)).toBe(true);
+    expect(codes[20]).toBe(429);
+  }, 90_000);
+});
+
 describe.runIf(db)("ADR 0007 database guards (printing)", () => {
   it("no code for a draft; prints in order only; codes and prints never edited", async () => {
     const d = await draft();

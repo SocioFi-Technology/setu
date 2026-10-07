@@ -221,9 +221,21 @@ export async function storedPdf(tx: Tx, s: SessionData, printId: string) {
   // clinical review M5: a stored copy of a replaced or withdrawn version is not handed out again (it would print as a
   // clean original); the record stays, the QR page says what happened
   if (b.blockers.length) { const k = b.blockers[0]!; throw err(409, k, BLOCKED[k][0], BLOCKED[k][1]); }
+  // external review B1: a lab report version stays current when a value on it is withdrawn or put under correction — a
+  // copy printed before that shows the value clean (no strike, no "do not act on it"); it is not handed out again.
+  // A copy printed after the change already shows it. Print a new copy instead.
+  if (p.code.kind === "lr" && (await changedSince(tx, p.code.documentId, p.printedAt)))
+    throw err(409, "content_changed", "এই কপি প্রিন্টের পরে একটি ফল সংশোধন বা প্রত্যাহার করা হয়েছে — নতুন কপি প্রিন্ট করুন", "A result was corrected or withdrawn after this copy was printed — print a new copy");
   const bytes = await storage.get(p.storageKey);
   if (!bytes) throw err(410, "file_missing", "ফাইলটি পাওয়া যায়নি", "The stored file is missing");
   return { bytes, print: p, kind: p.code.kind as DocKind, documentId: p.code.documentId, patientId: b.patientId };
+}
+
+/** A result on the report was withdrawn or put under correction after `at` (a row without the time counts as changed). */
+async function changedSince(tx: Tx, reportId: string, at: Date) {
+  const ids = (await tx.diagnosticReportResult.findMany({ where: { reportId }, select: { observationId: true } })).map((r) => r.observationId);
+  const errored = ids.length ? await tx.observation.findMany({ where: { id: { in: ids }, status: "entered_in_error" }, select: { errorAt: true, statusAt: true } }) : [];
+  return errored.some((o) => { const t = o.errorAt ?? o.statusAt; return !t || t > at; });
 }
 
 /* ───── public verify (no session): the SECURITY DEFINER lookups return only what decision D2 allows ───── */
