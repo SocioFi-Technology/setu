@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); next: see Next)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); next: see Next)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -1183,11 +1183,31 @@ lines show "not collected" on the summary (visible to the doctor), never dropped
   all timeouts ("session closed", a navigation that never loaded); the four files again together 24/25 and b3-b4 alone
   5/5. journey-b 1/1 and b7-b9 3/3 on their own runs.
 
+## Done (pilot-readiness sprint, track 1 week 1, 07/10/2026) — external review A1–A6 ✅
+Plan: `docs/plans/2026-10-07-pilot-readiness-sprint.md` (the review file itself is not in the repo; the work follows the
+plan's wording). One commit per item:
+- **A1 rest:** production refuses `AI_PROVIDER=fake`; `AI_PROVIDER=off` hides the AI panel (`Me.ai`) and 404s the draft route.
+- **A2:** argon2id (`@node-rs/argon2`) for passwords, PINs and one-time passwords; a legacy sha256 hash is verified with
+  `timingSafeEqual` and re-hashed on that success; the seed writes argon2 (`modules/secrets.ts`, `requireUserPin`).
+- **A3:** failed sign-ins limited per address + phone (10/min → 429), an account locked after 10 wrong passwords for
+  15 minutes (423), PIN tries — all in Redis (`REDIS_URL`; CI has a Redis service); `login` / `login-failed` audited in
+  the handler's transaction; cookie `secure` in production.
+- **A4:** bKash `ask()` answers status | unknown | unreachable; settled only on a definite answer; Completed without a
+  TrxID → reconciliation; the sweep leaves claims younger than the execute bound (120 s); ADR 0011 addendum.
+- **A5 (ADR 0008 addendum):** the blind count — the cashier's responses carry no expected figure; a count is stored
+  (open → counted) before any variance shows; a variance is handed over with its reason as its own step
+  (`POST /v1/shifts/:id/hand-over`, `ShiftHandover`).
+- **A6 (ADR 0009 addendum):** decisions 179–186 — one supplier's unapproved orders of the day toward the limit; the
+  receipt tolerance min(2 %, ৳50) per line per facility; the supplier's VAT / AIT as data; a count left open at its
+  counter's shift close ended and flagged (`countAbandoned`); the PO cancel through APPROVAL. Open questions 318–320.
+- **Tests:** typecheck 13/13; domain 449; api 393/393 in one full run (dev API stopped); e2e c1-c4 5/5 and p1-p6 5/5
+  on the real stack; walk-owner runs through. The full Playwright suite was not run this session.
+
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
 2. ~~MinIO image cannot be pulled~~ — dev and tests store receipts with `LocalFolderStorage` (A6–A7). Before staging: an S3-compatible adapter behind the same `Storage` interface.
-3. Password and PIN hashing is dev-only SHA-256 (`apps/api/src/modules/users.ts`); replace with argon2id in the auth hardening pass (before the pilot).
-4. PIN attempt counter and idempotency keys live in memory when the DB is off; with the DB they use `IdempotencyKey`; PIN tries should move to Redis.
+3. ~~Password and PIN hashing is dev-only SHA-256~~ — argon2id since external review A2 (07/10/2026), old hashes re-hashed on the next success.
+4. ~~PIN tries should move to Redis~~ — done in external review A3 (07/10/2026) with the login limits (`adapters/counters.ts`; in-memory only without `REDIS_URL`, refused in production). Idempotency keys stay in `IdempotencyKey`.
 5. Home-page figures are sample data; each slice swaps its tiles/rows for live queries.
 6. Patient app (`apps/patient`) is a placeholder until Journey D.
 7. Prisma migrations: create with `--create-only`, append SQL, then apply (see `packages/db/prisma/migrations/README.md`). Never edit an applied migration.
@@ -1251,10 +1271,9 @@ lines show "not collected" on the summary (visible to the doctor), never dropped
    deposits, the discharge checklist (ADR 0017) · ~~B10–B12~~ the final bill, the discharge summary, LAMA / death, the bed
    after discharge (ADR 0018). One patient runs ER arrival → discharge in `e2e/journeys/journey-b.spec.ts`. Kamrul to
    confirm open questions 309–317.
-8. **Next: the pilot-readiness sprint** — its contents come from Kamrul (to be written here when given). Candidates
-   already listed: known gaps 3, 4, 10, 12 (argon2id, PIN tries in Redis, composite keys, clinical sign-offs), real
-   credentials (bKash sandbox, BulkSMSBD), the accountant's questions (one INV series, Mushak-6.3), the owner / accountant
-   list (288). Phase 3's remaining modules follow per `docs/BUILD-PLAN.md`.
+8. **The pilot-readiness sprint** (`docs/plans/2026-10-07-pilot-readiness-sprint.md`): ~~track 1 week 1, A1–A6~~ — done
+   07/10/2026. **Next:** week 1–2, review section B (B1–B11) and the staging prerequisites, then gap 10 (composite keys,
+   encrypted device drafts, `pnpm db:migrate` without the role password in clear). Kamrul to confirm open questions 318–320.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating
