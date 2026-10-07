@@ -49,12 +49,15 @@ async function toItems(tx: Tx, s: SessionData, rows: Row[], now: Date): Promise<
   ]);
   const D = new Map(dispenses.map((d) => [d.id, d])), MR = new Map(prescribedRows.map((m) => [m.id, m])), U = new Map(dispensers.map((u) => [u.id, u]));
   const reportObsIds = reports.flatMap((r) => r.results.map((x) => x.observationId));
-  const [reportObs, analytes, smsRows] = await Promise.all([
+  const [reportObs, replacements, analytes, smsRows] = await Promise.all([
     tx.observation.findMany({ where: { id: { in: reportObsIds } } }),
+    // external review B3: an entered-in-error value with a replacement is under correction; with none it is withdrawn
+    tx.observation.findMany({ where: { replacesId: { in: reportObsIds } }, select: { replacesId: true } }),
     tx.labAnalyte.findMany({ select: { code: true, nameEn: true, nameBn: true, decimals: true } }),
     tx.communication.findMany({ where: { id: { in: rows.map((r) => r.ack?.notifyCommunicationId).filter((x): x is string => !!x) } }, select: { id: true, status: true, lastError: true, deliveryConfirmed: true } }),
   ]);
   const P = new Map(patients.map((p) => [p.id, p])), E = new Map(encounters.map((e) => [e.id, e])), R = new Map(reports.map((r) => [r.id, r]));
+  const replaced = new Set(replacements.map((r) => r.replacesId!));
   const O = new Map(orders.map((o) => [o.id, o])), V = new Map([...obs, ...reportObs].map((o) => [o.id, o])), A = new Map(analytes.map((a) => [a.code, a])), S = new Map(smsRows.map((m) => [m.id, m]));
 
   return rows.map((c): InboxItem => {
@@ -65,7 +68,7 @@ async function toItems(tx: Tx, s: SessionData, rows: Row[], now: Date): Promise<
       const a = A.get(o.code);
       return { code: o.code, nameEn: a?.nameEn ?? o.code, nameBn: a?.nameBn ?? o.code, value: o.value, unit: o.unit, decimals: a?.decimals ?? 1,
         flag: (o.interpretation ?? null) as Interpretation | null, refLow: o.refLow, refHigh: o.refHigh, refLabel: (o.refLabel ?? null) as RangeLabel | null,
-        underCorrection: o.status === "entered_in_error" };
+        underCorrection: o.status === "entered_in_error" && replaced.has(o.id), withdrawn: o.status === "entered_in_error" && !replaced.has(o.id) };
     }) : [];
     const vObs = (kind === "critical-vital" || kind === "news2-escalation") && c.observationId ? V.get(c.observationId) ?? null : null;
     const order = c.serviceRequestId ? O.get(c.serviceRequestId) ?? null : null;

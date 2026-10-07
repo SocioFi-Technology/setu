@@ -262,6 +262,42 @@ describe.runIf(db)("decision 47: a critical vital sign reaches the visit's docto
   });
 });
 
+describe.runIf(db)("external review B3: a withdrawn value is not a correction", () => {
+  it("a result withdrawn with no replacement: labelled withdrawn, not 'under correction'; the report item can be acknowledged", async () => {
+    const p = await newPatientVisit();
+    await sign(p.enc, ["rbs"]);
+    await released(p.enc, { rbs: [["rbs", "9.4"]] });
+    const o = (await labView(p.enc)).orders.find((x) => x.testCode === "rbs")!;
+    ok(await post(`/v1/lab/orders/${o.id}/withdraw`, { reason: "tube belonged to another patient" }, "tech"));
+    const item = itemFor(await inbox(), p.enc, "report-inbox")!;
+    expect(item.report!.results[0]).toMatchObject({ withdrawn: true, underCorrection: false });
+    expect(item.correctionPending).toBe(false);
+    ok(await post(`/v1/doctor/inbox/${item.id}/ack`, {}));
+    // a value that is corrected (a replacement exists) still waits for the corrected version
+    const q = await newPatientVisit();
+    await sign(q.enc, ["rbs"]);
+    await released(q.enc, { rbs: [["rbs", "9.4"]] });
+    const r = (await labView(q.enc)).orders.find((x) => x.testCode === "rbs")!.results.find((x) => x.status === "final")!;
+    ok(await post(`/v1/lab/observations/${r.id}/correct`, { value: "9.9", reason: "transcription error at entry" }, "tech"), 201);
+    const pending = itemFor(await inbox(), q.enc, "report-inbox")!;
+    expect(pending.report!.results[0]).toMatchObject({ withdrawn: false, underCorrection: true });
+    expect((await post(`/v1/doctor/inbox/${pending.id}/ack`, {})).json().code).toBe("correction_pending");
+  }, 60_000);
+  it("the public page of a withdrawn prescription lists no medicines", async () => {
+    const p = await newPatientVisit();
+    await sign(p.enc, []);
+    const c = await db!.forTenant(T, (tx) => tx.composition.findFirst({ where: { encounterId: p.enc, status: "final" } }));
+    const pr = ok<{ verifyCode: string }>(await post(`/v1/documents/rx/${c!.id}/print`, {}), 201);
+    const before = ok<{ status: string; medicines: unknown[] }>(await app.inject({ method: "GET", url: `/v1/verify/rx/${pr.verifyCode}` }));
+    expect(before).toMatchObject({ status: "current" });
+    expect(before.medicines.length).toBeGreaterThan(0);
+    const o = new db!.PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+    try { await o.composition.update({ where: { id: c!.id }, data: { status: "entered_in_error" } }); } finally { await o.$disconnect(); }
+    const after = ok<{ status: string; medicines: unknown[] }>(await app.inject({ method: "GET", url: `/v1/verify/rx/${pr.verifyCode}` }));
+    expect(after).toMatchObject({ status: "withdrawn", medicines: [] });
+  });
+});
+
 describe.runIf(db)("ADR 0007 database guards", () => {
   it("an acknowledgement is never edited or deleted, and never made for an item sent to someone else", async () => {
     const p = await newPatientVisit();

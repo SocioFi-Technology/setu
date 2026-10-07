@@ -290,5 +290,9 @@
   "open_round": [
     "রাউন্ড খুলুন",
     "Open the round"
+  ],
+  "r_withdrawn_no_result": [
+    "প্রত্যাহার — কোনো ফলাফল নেই (নতুন নমুনা লাগবে)",
+    "Withdrawn — no result (a new sample is needed)"
   ]
 }

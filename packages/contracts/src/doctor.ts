@@ -14,8 +14,10 @@ export const InboxSeverity = z.enum(["critical", "abnormal", "normal", "notice"]
 export const InboxResult = z.object({
   code: z.string(), nameEn: z.string(), nameBn: z.string(), value: z.number(), unit: z.string(), decimals: z.number().int(),
   flag: Interpretation.nullable(), refLow: z.number().nullable(), refHigh: z.number().nullable(), refLabel: RangeLabel.nullable(),
-  /** marked entered-in-error since this version was released: "do not act on it" */
+  /** marked entered-in-error since this version was released and a corrected value exists: "do not act on it" */
   underCorrection: z.boolean(),
+  /** external review B3: withdrawn with no replacement (decision 133) — "withdrawn — no result"; never blocks the acknowledgement */
+  withdrawn: z.boolean(),
 });
 export const InboxItem = z.object({
   /** the doctor-inbox Communication id */

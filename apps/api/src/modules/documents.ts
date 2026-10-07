@@ -266,7 +266,8 @@ export async function rxVerify(code: string): Promise<{ body: RxVerifyResponse; 
     body: {
       facilityEn: h.facilityEn, facilityBn: h.facilityBn, doctorEn: h.doctorEn, doctorBn: h.doctorBn, regBody: h.regBody, regNo: h.regNo, regVerified: h.regVerified,
       signedAt: signedAt?.toISOString() ?? null, version: h.version, status, patient: patientOf(h, signedAt ?? new Date()),
-      medicines: h.medicines.map((m) => ({ ...m, note: m.note ?? null, sample: !!m.sample })),
+      // external review B3: a withdrawn prescription's medicines are not shown to whoever holds the paper
+      medicines: status === "withdrawn" ? [] : h.medicines.map((m) => ({ ...m, note: m.note ?? null, sample: !!m.sample })),
     },
   };
 }

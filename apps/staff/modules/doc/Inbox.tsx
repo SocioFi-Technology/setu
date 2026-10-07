@@ -102,11 +102,12 @@ function InboxCard({ item: x, queued, busy, onAck }: { item: InboxItem; queued: 
           {shown.map((r) => (
             <span key={r.code} data-result={r.code} style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
               <span>{s.lang === "bn" ? r.nameBn : r.nameEn}</span>
-              <b className={`num${r.underCorrection ? " strike" : ""}`} style={r.underCorrection ? { textDecoration: "line-through" } : undefined}>{val(r.value, r.decimals)}</b>
+              <b className={`num${r.underCorrection || r.withdrawn ? " strike" : ""}`} style={r.underCorrection || r.withdrawn ? { textDecoration: "line-through" } : undefined}>{val(r.value, r.decimals)}</b>
               <span className="t-small">{r.unit}</span>
               {r.flag && <span data-flag={r.flag}><Pill tone={r.flag === "HH" || r.flag === "LL" ? "crit" : r.flag === "N" ? "ok" : "warn"} icon={r.flag === "HH" || r.flag === "LL" ? "siren" : r.flag === "H" ? "arrow-up" : r.flag === "L" ? "arrow-down" : "check"}>{lab(`flag_${r.flag}`)}</Pill></span>}
               {r.refLow != null && r.refHigh != null && <span className="t-small t-muted num">({val(r.refLow, r.decimals)}–{val(r.refHigh, r.decimals)}{r.refLabel ? ` · ${lab(`range_${r.refLabel}`)}` : ""})</span>}
               {r.underCorrection && <b className="t-small" data-testid="under-correction">{lab("under_correction_dna")}</b>}
+              {r.withdrawn && <b className="t-small" data-testid="result-withdrawn">{D("r_withdrawn_no_result")}</b>}
             </span>
           ))}
           {results.length > shown.length && <span className="t-small t-muted">{D("more_results", { n: results.length - shown.length })}</span>}
