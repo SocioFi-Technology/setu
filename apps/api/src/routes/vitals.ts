@@ -45,6 +45,7 @@ export async function vitalsRoutes(app: FastifyInstance) {
         audit: [
           { action: "create", entity: "Observation", entityId: r.batch.batchId, patientId: pid, detail: { encounterId: id, count: r.batch.observations.length, outOfRange: r.assessment.outOfRange, critical: r.assessment.critical } },
           ...(r.from === "arrived" ? [{ action: "update", entity: "Encounter", entityId: id, patientId: pid, detail: { event: "triage", from: r.from, to: r.encounter.status } }] : []),
+          ...r.audit,
         ],
       };
     });

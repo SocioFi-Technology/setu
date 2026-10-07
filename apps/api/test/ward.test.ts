@@ -200,6 +200,11 @@ describe.runIf(db)("escalation reach: unacknowledged in the app within N minutes
     const recipients = (await tenant((tx) => tx.communication.findMany({ where: { encounterId: a.encounterId, kind: "news2-escalation" }, select: { recipientUserId: true } }))).map((x) => x.recipientUserId).sort();
     expect(recipients).toEqual(expect.arrayContaining(["u_e2l_doctor", "u_e2l_paed", "u_e2l_surgeon"]));
     expect(recipients.filter((x) => x === "u_e2l_surgeon")).toHaveLength(1); // the admitting doctor is not told twice
+    // external review B2: with no duty list it went to every active doctor — the owner is told to set the roster
+    const org = (await tenant((tx) => tx.encounter.findFirst({ where: { id: a.encounterId }, select: { organizationId: true } })))!.organizationId;
+    const list = (await tenant((tx) => tx.organization.findFirst({ where: { id: org }, select: { escalationDutyDoctorIds: true } })))?.escalationDutyDoctorIds ?? [];
+    const flags = await tenant((tx) => tx.auditEvent.findMany({ where: { action: "duty-list-missing", entityId: a.encounterId } }));
+    expect(flags.map((f) => (f.detail as { kind: string }).kind)).toEqual(list.length ? [] : ["news2-escalation"]);
     const board = (await c.get(`/v1/nursing/wards/${a.wardId}/board`)).json();
     expect(board.escalations[0].escalation).toMatchObject({ unacknowledged: true });
     expect(board.escalations[0].escalation.widenedAt).not.toBeNull();

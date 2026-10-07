@@ -3,7 +3,8 @@
    same function): any impossible value refuses the whole batch; abnormal values are stored with their interpretation. */
 import type { VitalsBatch, VitalsBatchRequest, VitalsValues } from "@setu/contracts";
 import type { Tx } from "@setu/db";
-import { ENCOUNTER, assessVitals, bpComponents, dhakaDay, format, transition, type EncounterState, type VitalField } from "@setu/domain";
+import { ENCOUNTER, assessVitals, bpComponents, dhakaDay, format, onDutyDoctors, transition, type EncounterState, type VitalField } from "@setu/domain";
+import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
 import { branchOf, notFound } from "./frontdesk.js";
@@ -132,14 +133,34 @@ export async function recordVitals(tx: Tx, s: SessionData, encounterId: string, 
   if (a.bmi !== null) rows.push({ ...base, code: "bmi", unit: "kg/m2", value: a.bmi, method: "calculated", interpretation: null });
   await tx.observation.createMany({ data: rows });
   // Decision 47 / ADR 0007: a critical reading reaches the inbox of the visit's doctor (one item per critical value).
-  if (e.practitionerId) {
-    const crit = await tx.observation.findMany({ where: { batchId, interpretation: { in: ["HH", "LL"] } }, select: { id: true } });
-    for (const o of crit) await deliverInApp(tx, s, { patientId: e.patientId, encounterId: e.id }, { kind: "critical-vital", channel: "doctor_inbox", recipientUserId: e.practitionerId, observationId: o.id }, now);
+  // External review B2: with no doctor on the visit yet it goes to the doctors on duty — the facility's duty list
+  // (ADR 0015), or every active doctor when the list is empty; that fallback is flagged for the owner (Kamrul: fix the
+  // roster rather than live with it). The rule is a sample pending the clinician (pre-pilot list).
+  const crit = await tx.observation.findMany({ where: { batchId, interpretation: { in: ["HH", "LL"] } }, select: { id: true } });
+  const audit: AuditEntry[] = [];
+  if (crit.length) {
+    const duty = e.practitionerId ? { to: [e.practitionerId], fallback: false } : await dutyDoctors(tx, e.organizationId);
+    for (const d of duty.to) for (const o of crit) await deliverInApp(tx, s, { patientId: e.patientId, encounterId: e.id }, { kind: "critical-vital", channel: "doctor_inbox", recipientUserId: d, observationId: o.id }, now);
+    if (!e.practitionerId) audit.push({ action: "update", entity: "Encounter", entityId: e.id, patientId: e.patientId, detail: { event: "critical-vital-to-duty", doctors: duty.to, dutyList: !duty.fallback } });
+    if (duty.fallback) audit.push(dutyListMissing(e.id, e.patientId, "critical-vital", duty.to.length));
   }
   await tx.provenance.create({ data: {
     tenantId: s.tenantId, targetType: "Observation", targetId: batchId, activity: "record-vitals", agentId: s.userId, onBehalfOf: s.organizationId,
     source: "provider_verified", detail: { encounterId: e.id, role: s.role, deviceLabel: req.deviceLabel ?? null, outOfRange: a.outOfRange, critical: a.critical, confirmed: req.confirmed ?? [] } as object,
   } });
   const after = await encounterHere(tx, s, e.id);
-  return { encounter: toVitalsEncounter(after), batch: (await batchOf(tx, batchId))!, assessment: a, from };
+  return { encounter: toVitalsEncounter(after), batch: (await batchOf(tx, batchId))!, assessment: a, from, audit };
 }
+
+/** The doctors on duty at a facility: its duty list (active doctors only), or — when the list is empty — every active
+    doctor (`fallback`, flagged for the owner). */
+export async function dutyDoctors(tx: Tx, organizationId: string): Promise<{ to: string[]; fallback: boolean }> {
+  const org = await tx.organization.findFirst({ where: { id: organizationId }, select: { escalationDutyDoctorIds: true } });
+  const doctors = (await tx.practitionerRole.findMany({ where: { organizationId, role: "doctor", user: { active: true } }, select: { userId: true } })).map((r) => r.userId);
+  const listed = (org?.escalationDutyDoctorIds ?? []).filter((d) => doctors.includes(d));
+  return { to: onDutyDoctors(doctors, org?.escalationDutyDoctorIds ?? []), fallback: listed.length === 0 };
+}
+/** The owner's exceptions row "no duty list set" (a flagged audit event; owner.ts counts them). */
+export const DUTY_LIST_MISSING = "duty-list-missing";
+export const dutyListMissing = (encounterId: string, patientId: string, kind: string, doctors: number): AuditEntry =>
+  ({ action: DUTY_LIST_MISSING, entity: "Encounter", entityId: encounterId, patientId, detail: { kind, doctors, flag: DUTY_LIST_MISSING } });

@@ -20,7 +20,7 @@ let app: Awaited<ReturnType<typeof buildApp>>;
 const RUN = randomUUID().slice(0, 6);
 const cookies: Record<string, string> = {};
 const T = "t_e2e";
-const USERS = { desk: "01799000001", doctor: "01799000002", doctor2: "01799000003", nurse: "01799000004", tech: "01799000005", path: "01799000006", liteDoctor: "01733000002" } as const;
+const USERS = { desk: "01799000001", doctor: "01799000002", doctor2: "01799000003", nurse: "01799000004", tech: "01799000005", path: "01799000006", liteDoctor: "01733000002", owner: "01799000009" } as const;
 type Who = keyof typeof USERS;
 
 beforeAll(async () => {
@@ -223,11 +223,42 @@ describe.runIf(db)("decision 47: a critical vital sign reaches the visit's docto
     expect(itemFor(await inbox("doctor2"), p.enc, "critical-vital")).toBeUndefined();
     ok(await post(`/v1/doctor/inbox/${item.id}/ack`, {}));
   });
-  it("no doctor on the visit yet → no inbox item (the queue card still shows the flag)", async () => {
-    const p = await newPatientVisit();
-    ok(await post(`/v1/encounters/${p.enc}/vitals`, { values: { spo2: 88 }, effectiveAt: now() }, "nurse"), 201);
-    const n = await db!.forTenant(T, (tx) => tx.communication.count({ where: { encounterId: p.enc, kind: "critical-vital" } }));
-    expect(n).toBe(0);
+  // external review B2: before a doctor is assigned, someone is told — the duty list, or every active doctor
+  const dutyList = (ids: string[]) => { const o = new db!.PrismaClient({ datasourceUrl: process.env.DATABASE_URL }); return o.organization.update({ where: { id: "o_e2e" }, data: { escalationDutyDoctorIds: ids } }).finally(() => o.$disconnect()); };
+  const toldOn = (enc: string) => db!.forTenant(T, (tx) => tx.communication.findMany({ where: { encounterId: enc, kind: "critical-vital" }, select: { recipientUserId: true } })).then((r) => r.map((x) => x.recipientUserId).sort());
+  it("B2: no doctor on the visit and no duty list → every active doctor is told, and the owner's exceptions say 'no duty list set'", async () => {
+    const before = await db!.forTenant(T, (tx) => tx.organization.findFirst({ where: { id: "o_e2e" }, select: { escalationDutyDoctorIds: true } }));
+    await dutyList([]);
+    try {
+      const p = await newPatientVisit();
+      ok(await post(`/v1/encounters/${p.enc}/vitals`, { values: { spo2: 88 }, effectiveAt: now() }, "nurse"), 201);
+      const told = await toldOn(p.enc);
+      expect(told).toEqual(expect.arrayContaining(["u_e2e_doctor", "u_e2e_doctor2"]));
+      const item = itemFor(await inbox("doctor2"), p.enc, "critical-vital")!;
+      expect(item).toMatchObject({ severity: "critical", vital: { value: 88, flag: "LL" } });
+      ok(await post(`/v1/doctor/inbox/${item.id}/ack`, {}, "doctor2"));
+      const flag = await db!.forTenant(T, (tx) => tx.auditEvent.findFirst({ where: { action: "duty-list-missing", entityId: p.enc } }));
+      expect(flag).toMatchObject({ organizationId: "o_e2e", patientId: p.patient, detail: expect.objectContaining({ kind: "critical-vital", doctors: told.length }) });
+      const d = ok<{ leakage: { kind: string; count: number }[] }>(await get("/v1/owner/dashboard?period=today", "owner"));
+      expect(d.leakage.find((l) => l.kind === "noDutyList")!.count).toBeGreaterThanOrEqual(1);
+      const drill = ok<{ rows: { id: string; patient: { id: string } | null }[] }>(await get("/v1/owner/drill?period=today&what=noDutyList", "owner"));
+      expect(drill.rows.find((r) => r.id === flag!.id)).toMatchObject({ patient: { id: p.patient } });
+    } finally { await dutyList(before?.escalationDutyDoctorIds ?? []); }
+  });
+  it("B2: with a duty list, only the doctors on it are told, and nothing is flagged", async () => {
+    const before = await db!.forTenant(T, (tx) => tx.organization.findFirst({ where: { id: "o_e2e" }, select: { escalationDutyDoctorIds: true } }));
+    await dutyList(["u_e2e_doctor2"]);
+    try {
+      const p = await newPatientVisit();
+      ok(await post(`/v1/encounters/${p.enc}/vitals`, { values: { spo2: 88 }, effectiveAt: now() }, "nurse"), 201);
+      expect(await toldOn(p.enc)).toEqual(["u_e2e_doctor2"]);
+      expect(itemFor(await inbox(), p.enc, "critical-vital")).toBeUndefined();
+      expect(await db!.forTenant(T, (tx) => tx.auditEvent.count({ where: { action: "duty-list-missing", entityId: p.enc } }))).toBe(0);
+      // the visit's own doctor, once assigned, is the one told for the next critical reading
+      ok(await post(`/v1/encounters/${p.enc}/consultation/open`, {}));
+      ok(await post(`/v1/encounters/${p.enc}/vitals`, { values: { spo2: 87 }, effectiveAt: now() }, "nurse"), 201);
+      expect(await toldOn(p.enc)).toEqual(["u_e2e_doctor", "u_e2e_doctor2"]);
+    } finally { await dutyList(before?.escalationDutyDoctorIds ?? []); }
   });
 });
 

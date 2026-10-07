@@ -594,5 +594,9 @@
   "l_countAbandoned": [
     "শিফট শেষে অসম্পূর্ণ রয়ে যাওয়া স্টক গণনা",
     "Stock counts left unfinished at shift close"
+  ],
+  "l_noDutyList": [
+    "ডিউটি তালিকা নেই — জরুরি সতর্কতা সব ডাক্তারকে গেছে (অ্যাডমিন সেটিংসে তালিকা দিন)",
+    "No duty list set — urgent alerts went to every doctor (set the list in the admin settings)"
   ]
 }

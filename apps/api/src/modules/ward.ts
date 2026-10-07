@@ -13,6 +13,7 @@ import { toAllergyView } from "./consultation.js";
 import { getPatient, notFound, toSummary } from "./frontdesk.js";
 import { closedVisit, dayOfStay, erPatientOf, inpatientHere, iso, latestNews2, news2OfBatch, peopleOf, stale, type Enc } from "./inpatient.js";
 import { deliverInApp } from "./lab.js";
+import { dutyListMissing } from "./vitals.js";
 import { doseCounts } from "./mar.js";
 import { io24h, overdueTasks } from "./care.js";
 
@@ -265,6 +266,11 @@ export async function sweepEscalations(now: Date): Promise<{ widened: number; to
       if (!n.count) return;
       widened++; told += to.length;
       await tx.auditEvent.create({ data: { tenantId: t.tenantId, organizationId: e.organizationId, userId: null, role: null, action: "update", entity: "EscalationEvent", entityId: e.id, patientId: e.patientId, detail: { actor: "system:escalation-sweep", event: "widen", doctors: to, dueAt: iso(e.ackDueAt) } } });
+      // external review B2 (Kamrul): no duty list → every active doctor, and the owner is told to set the roster
+      if (!(org?.escalationDutyDoctorIds ?? []).some((d) => doctors.includes(d))) {
+        const m = dutyListMissing(e.encounterId, e.patientId, "news2-escalation", to.length);
+        await tx.auditEvent.create({ data: { tenantId: t.tenantId, organizationId: e.organizationId, userId: null, role: null, action: m.action, entity: m.entity, entityId: m.entityId, patientId: m.patientId, detail: { actor: "system:escalation-sweep", ...m.detail } as object } });
+      }
     });
   }
   return { widened, told };
