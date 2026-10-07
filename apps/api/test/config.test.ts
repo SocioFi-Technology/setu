@@ -17,6 +17,7 @@ const good = {
   SESSION_SECRET: S32, WRISTBAND_SECRET: S32, DATABASE_URL_APP: "postgresql://setu_app:pw@localhost:5432/setu", AI_PROVIDER: "off",
   REDIS_URL: "redis://localhost:6379", GATEWAY_TOKEN_KEY: S32, DEVICE_KEY_SECRET: "y".repeat(32),
   STORAGE: "s3", S3_ENDPOINT: "https://s3.example", S3_BUCKET: "setu", S3_ACCESS_KEY: "k", S3_SECRET_KEY: "s",
+  VERIFY_BASE_URL: "https://clinic.example/verify/rc", TRUST_PROXY: "2",
 };
 /** the startup error, or "" when the config loads */
 function start(env: Record<string, string | undefined>): string {
@@ -41,6 +42,14 @@ describe("production refuses to start without its secrets (external review A1)",
     expect(start({ ...good, AI_PROVIDER: "fake" })).toContain("AI_PROVIDER=fake is not allowed in production");
     expect(start({ ...good, AI_PROVIDER: undefined })).toContain("AI_PROVIDER=fake is not allowed in production");
     expect(start({ ...good, AI_PROVIDER: "claude" })).toContain("AI_PROVIDER=claude is not available");
+  });
+  it("staging config: the public links are https, the proxy hops are stated, CORS lists origins only (https)", () => {
+    expect(start({ ...good, VERIFY_BASE_URL: "http://clinic.example/verify/rc" })).toContain("VERIFY_BASE_URL must be https");
+    expect(start({ ...good, VERIFY_DOC_ROOT_URL: "http://clinic.example/verify" })).toContain("VERIFY_DOC_ROOT_URL must be https");
+    expect(start({ ...good, TRUST_PROXY: undefined })).toContain("TRUST_PROXY");
+    expect(start({ ...good, CORS_ORIGINS: "http://other.example" })).toContain("CORS_ORIGINS");
+    expect(start({ ...good, CORS_ORIGINS: "https://other.example/path" })).toContain("CORS_ORIGINS");
+    expect(start({ ...good, CORS_ORIGINS: "https://patient.example, https://doctor.example" })).toBe("");
   });
   it("STORAGE other than s3 in production — files never live on a container's disk (staging)", () => {
     expect(start({ ...good, STORAGE: undefined })).toContain("STORAGE=s3 is required");

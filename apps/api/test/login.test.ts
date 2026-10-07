@@ -50,6 +50,13 @@ describe("sign-in limits (external review A3)", () => {
     const failed = await app.inject({ method: "GET", url: "/v1/admin/audit?action=login-failed&flagged=1", headers: { cookie } });
     expect(failed.statusCode).toBe(200);
   });
+  it.runIf(db)("staging: behind the proxy (TRUST_PROXY=1) the audit records the address our proxy added, never one a caller prepended", async () => {
+    const r = await app.inject({ method: "POST", url: "/v1/auth/login", payload: { identifier: "01798000007", password: "not-the-password" }, remoteAddress: "127.0.0.1", headers: { "x-forwarded-for": "6.6.6.6, 198.51.100.23" } });
+    expect(r.statusCode).toBe(401);
+    const ev = await db!.forTenant(T, (tx) => tx.auditEvent.findFirst({ where: { action: "login-failed", entityId: "u_e2l_nurse2" }, orderBy: { at: "desc" } }));
+    expect(ev!.ip).toBe("198.51.100.23");
+    await counters().del("login:fail:u_e2l_nurse2");
+  });
   it("the session cookie is httpOnly and signed; `secure` in production (set from NODE_ENV)", async () => {
     const r = await login(config.dbEnabled ? "01798000008" : "01711000008", "setu1234");
     const set = String([r.headers["set-cookie"]].flat()[0]);

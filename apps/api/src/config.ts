@@ -22,6 +22,13 @@ export const config = {
       (<origin>/p/<code>), bKash's return (<origin>/api/v1/payments/return/bkash) and the result page (<origin>/pay/result). */
   publicAppUrl: (process.env.PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/+$/, ""),
   get publicApiUrl() { return `${this.publicAppUrl}/api`; },
+  /** staging (week 2, open question 104): how many proxies stand in front of the API (Caddy, then the staff app's /api
+      rewrite = 2). Fastify takes the client's address that many hops from the right of X-Forwarded-For — what the
+      rate limits and the audit log record. Default 1 (the staff app's rewrite in development). */
+  trustProxy: Math.max(0, Math.min(5, Number(process.env.TRUST_PROXY ?? 1) || 0)),
+  /** cross-origin callers allowed (comma-separated origins). The staff app is same-origin through its /api rewrite and
+      needs none; production allows only what is listed (development also allows http://localhost:<any>). */
+  corsOrigins: (process.env.CORS_ORIGINS ?? "").split(",").map((x) => x.trim()).filter(Boolean),
   /** ADR 0012: the gap between two payment-link SMS for one payment (tests shorten it; never below 1 s) */
   linkSmsGapMs: Math.max(1_000, Number(process.env.LINK_SMS_GAP_MS) || 60_000),
   /** The fake gateway's "play the customer" route (dev and tests only). Off unless FAKE_PAYMENTS_DEV_ROUTE=1, and never
@@ -44,6 +51,11 @@ if (process.env.DATABASE_URL && !process.env.DATABASE_URL_APP)
 
 /* The fake gateway is for dev and tests: a production API refuses to start with it (or with its published secret). */
 if (process.env.NODE_ENV === "production" && !/^https:\/\//.test(config.publicAppUrl)) throw new Error("PUBLIC_APP_URL must be https in production (payment links and bKash's return use it)");
+// staging (week 2): every public link printed or sent is https, and the proxy hops are stated, not assumed
+if (process.env.NODE_ENV === "production" && !/^https:\/\//.test(config.verifyBaseUrl)) throw new Error("VERIFY_BASE_URL must be https in production (receipt QR codes)");
+if (process.env.NODE_ENV === "production" && process.env.VERIFY_DOC_ROOT_URL && !/^https:\/\//.test(process.env.VERIFY_DOC_ROOT_URL)) throw new Error("VERIFY_DOC_ROOT_URL must be https in production");
+if (process.env.NODE_ENV === "production" && process.env.TRUST_PROXY === undefined) throw new Error("TRUST_PROXY (the number of proxies in front of the API) is required in production");
+if (config.corsOrigins.some((o) => !/^https?:\/\/[^/]+$/.test(o) || (process.env.NODE_ENV === "production" && !o.startsWith("https://")))) throw new Error("CORS_ORIGINS: origins only (scheme://host[:port]), https in production");
 if (process.env.NODE_ENV === "production" && config.adapters.payments === "fake") throw new Error("PAYMENTS_PROVIDER=fake is not allowed in production");
 if (process.env.NODE_ENV === "production" && config.adapters.sms === "fake") throw new Error("SMS_PROVIDER=fake is not allowed in production");
 // ADR 0016 review: wristbands are forged with the published dev secret — production sets its own

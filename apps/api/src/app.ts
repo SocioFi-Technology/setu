@@ -32,8 +32,9 @@ import { queuedPlugin } from "./plugins/queued.js";
 
 export async function buildApp() {
   /* Request logs never carry the query string: search terms are phone numbers and names (security review A1–A3). */
-  const app = Fastify({ logger: process.env.NODE_ENV === "test" ? false : { serializers: { req: (r) => ({ method: r.method, url: (r.url ?? "").split("?")[0], id: r.id }) } } });
-  await app.register(cors, { origin: [/^http:\/\/localhost:\d+$/], credentials: true });
+  const app = Fastify({ trustProxy: (_addr: string, hop: number) => hop < config.trustProxy, logger: process.env.NODE_ENV === "test" ? false : { serializers: { req: (r) => ({ method: r.method, url: (r.url ?? "").split("?")[0], id: r.id }) } } });
+  // staging: the listed origins; development also any http://localhost:<port>
+  await app.register(cors, { origin: [...config.corsOrigins, ...(process.env.NODE_ENV === "production" ? [] : [/^http:\/\/localhost:\d+$/])], credentials: true });
   await app.register(cookie, { secret: config.sessionSecret });
   /* Only routes that opt in are limited (the public receipt check). */
   await app.register(rateLimit, { global: false });

@@ -40,12 +40,9 @@ type SessionRole = ReturnType<typeof requireSession>["role"];
    X-Forwarded-For entry is the visitor; anything else is keyed on its own address, so a direct caller cannot pick its key
    (security review A6–A7: one shared limit for every patient). */
 export function clientKey(req: FastifyRequest): string {
-  const fromProxy = /^(::1|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::ffff:127\.)/.test(req.ip);
-  const xff = req.headers["x-forwarded-for"];
-  const first = (Array.isArray(xff) ? xff[0] : xff)?.split(",")[0]?.trim();
-  // the right-most entry is the one our proxy added (security review, bKash slice): a caller can prepend anything
-  const last = (Array.isArray(xff) ? xff.at(-1) : xff)?.split(",").at(-1)?.trim();
-  return fromProxy && (last || first) ? (last || first)! : req.ip;
+  // staging (week 2): Fastify's trustProxy (TRUST_PROXY hops) decides which X-Forwarded-For entry is the client — the
+  // right-most one our own proxy added, never one a caller prepended
+  return req.ip;
 }
 const isUnique = (e: unknown) => typeof e === "object" && e !== null && (e as { code?: string }).code === "P2002";
 
