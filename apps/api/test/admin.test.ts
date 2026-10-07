@@ -89,9 +89,15 @@ describe.runIf(db)("G1 onboarding → go live", () => {
     expect(f.sms.testedAt).toEqual(expect.any(String));
     expect(f.checklist.every((c: { done: boolean; required: boolean }) => c.done || !c.required)).toBe(true);
 
-    f = await ok(post("/v1/admin/go-live", {}, "newadmin"));
+    // external review B4: through the ORGANIZATION machine — two go-lives at once make one
+    const since = new Date();
+    const both = await Promise.all([post("/v1/admin/go-live", {}, "newadmin"), post("/v1/admin/go-live", {}, "newadmin")]);
+    expect(both.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+    expect(both.find((r) => r.statusCode === 409)!.json().code).toBe("already_live");
+    f = both.find((r) => r.statusCode === 200)!.json();
     expect(f).toMatchObject({ status: "live", liveAt: expect.any(String) });
     expect((await post("/v1/admin/go-live", {}, "newadmin")).json().code).toBe("already_live");
+    expect((await db!.forTenant(T, (tx) => tx.auditEvent.findMany({ where: { action: "go-live", entityId: "o_e2e_new", at: { gte: since } } })))).toHaveLength(1);
     const flagged = await ok(get("/v1/admin/audit?flagged=1", "newadmin"));
     expect(flagged.items.map((x: { action: string }) => x.action)).toContain("go-live");
     // the database keeps a live facility live

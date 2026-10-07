@@ -15,7 +15,7 @@ import { BED_CLASSES_SAMPLE,
   FLAGGED_ACTIONS, ONE_TIME_PASSWORD_HOURS, REG_BODY, createUserBlockers, deactivateBlockers, goLiveBlockers, goLiveChecklist, isFlagged, labelPageOk, limitProblems,
   priceChangeProblems, roleChangeBlockers, type GoLiveFacts, type Role, type UserAdminBlocker,
   smsSafeName,
-  ackMinutesOk, shiftHoursOk, toleranceOk,
+  ackMinutesOk, shiftHoursOk, toleranceOk, ORGANIZATION, transition,
 } from "@setu/domain";
 import { messenger } from "../adapters/messaging/index.js";
 import { registration } from "../adapters/registration.js";
@@ -176,7 +176,9 @@ export async function goLive(tx: Tx, s: SessionData, now: Date): Promise<AuditEn
   if (o.status === "live") throw err(409, "already_live", "প্রতিষ্ঠান আগেই চালু", "The facility is already live");
   const b = goLiveBlockers(facts);
   if (b.length) throw err(422, "checklist_incomplete", "চেকলিস্ট সম্পূর্ণ করুন", "Complete the checklist first", { blockers: b.map((code) => ({ code })) });
-  await tx.organization.update({ where: { id: o.id }, data: { status: "live", liveAt: now } });
+  // external review B4: through the ORGANIZATION machine (setup → live), not an inline status
+  const n = await tx.organization.updateMany({ where: { id: o.id, status: "setup" }, data: { status: transition("ORGANIZATION", ORGANIZATION, "setup", "goLive"), liveAt: now } });
+  if (n.count !== 1) throw err(409, "already_live", "প্রতিষ্ঠান আগেই চালু", "The facility is already live");
   return [{ action: "go-live", entity: "Organization", entityId: o.id, detail: { checklist: goLiveChecklist(facts) } }];
 }
 

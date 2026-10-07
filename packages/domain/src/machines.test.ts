@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ADMISSION, ALLERGY, BED, INVOICE, REFUND, CLAIM, DISCHARGE, DOCUMENT, ENCOUNTER, ORDER, PAYMENT, TransitionError, can, transition } from "./machines.js";
+import { ADMISSION, ALLERGY, BED, ORGANIZATION, INVOICE, REFUND, CLAIM, DISCHARGE, DOCUMENT, ENCOUNTER, ORDER, PAYMENT, TransitionError, can, transition } from "./machines.js";
 
 describe("document", () => {
   it("offline sign is queued, never final, until the server acks (rule 1)", () => {
@@ -100,5 +100,13 @@ describe("refund (ADR 0013)", () => {
     expect(can(REFUND, "requested", "withdraw")).toBe(false);
     expect(can(REFUND, "approved", "reject")).toBe(false);
     for (const end of ["paid", "rejected", "withdrawn"] as const) for (const ev of ["approve", "reject", "pay", "withdraw"] as const) expect(can(REFUND, end, ev)).toBe(false);
+  });
+});
+
+describe("organization (ADR 0010 addendum, external review B4)", () => {
+  it("setup → live once; never back, never twice", () => {
+    expect(transition("organization", ORGANIZATION, "setup", "goLive")).toBe("live");
+    expect(() => transition("organization", ORGANIZATION, "live", "goLive")).toThrow(TransitionError);
+    expect(Object.keys(ORGANIZATION.live)).toEqual([]);
   });
 });

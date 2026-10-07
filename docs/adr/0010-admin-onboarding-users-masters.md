@@ -49,3 +49,9 @@ CSV; the export is itself an audited, flagged event. Flagged actions: `FLAGGED_A
   same generation.
 - Not in this slice: print template designer, subscription, integrations, departments, bed classes, packages, the
   Manager role, argon2id (HANDOVER gap 3).
+
+## Addendum (2026-10-07, external review B4): the ORGANIZATION machine
+Going live was an inline `status: "live"` write. `@setu/domain` now has `ORGANIZATION`: `setup —goLive→ live`, `live`
+final. `goLive` (owner / admin, the checklist complete) moves the facility through `transition()` with a conditional
+update (`status = setup`), so two go-lives at once make one; the second answers 409 `already_live`. The database
+already refuses `live → setup` (organization guard); nothing else changes.

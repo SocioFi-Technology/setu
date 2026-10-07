@@ -277,6 +277,12 @@ export type StockCountEvent = "submit" | "approve" | "reject" | "abandon";
     flagged for the owner) — nothing moves; the location can be counted again. */
 export const STOCK_COUNT: Table<StockCountState, StockCountEvent> = { counting: { submit: "submitted", abandon: "abandoned" }, submitted: { approve: "approved", reject: "rejected" }, approved: {}, rejected: {}, abandoned: {} };
 
+/* ADR 0010 addendum (external review B4): a facility is set up, then goes live — once; never back. The checklist
+   (goLiveBlockers) decides whether `goLive` may run; the database also refuses live → setup. */
+export type OrganizationState = "setup" | "live";
+export type OrganizationEvent = "goLive";
+export const ORGANIZATION: Table<OrganizationState, OrganizationEvent> = { setup: { goLive: "live" }, live: {} };
+
 export type SyncState = "local" | "pending" | "confirmed" | "conflict" | "failed-retry";
 export type SyncEvent = "queue" | "ack" | "conflict" | "fail" | "retry" | "resolve";
 export const SYNC: Table<SyncState, SyncEvent> = {
