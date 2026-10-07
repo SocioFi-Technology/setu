@@ -69,6 +69,7 @@ jobs:
           set -euo pipefail
           test -n "${{ secrets.SETU_APP_PASSWORD }}" || { echo "secret SETU_APP_PASSWORD is not set"; exit 1; }
           test -n "${{ secrets.CI_SESSION_SECRET }}" || { echo "secret CI_SESSION_SECRET is not set"; exit 1; }
+          test -n "${{ secrets.DEVICE_KEY_SECRET }}" || { echo "secret DEVICE_KEY_SECRET is not set"; exit 1; }
           test -n "${{ secrets.FAKE_PAYMENTS_SECRET }}" || { echo "secret FAKE_PAYMENTS_SECRET is not set"; exit 1; }
           cat > .env <<ENV
           DATABASE_URL=postgresql://setu:setu@localhost:5432/setu
@@ -76,6 +77,7 @@ jobs:
           REDIS_URL=redis://localhost:6379
           API_PORT=${API_PORT}
           SESSION_SECRET=${{ secrets.CI_SESSION_SECRET }}
+          DEVICE_KEY_SECRET=${{ secrets.DEVICE_KEY_SECRET }}
           PAYMENTS_PROVIDER=fake
           SMS_PROVIDER=fake
           AI_PROVIDER=fake
@@ -159,6 +161,7 @@ jobs:
           REDIS_URL=redis://localhost:6379
           API_PORT=${API_PORT}
           SESSION_SECRET=${{ secrets.CI_SESSION_SECRET }}
+          DEVICE_KEY_SECRET=${{ secrets.DEVICE_KEY_SECRET }}
           PAYMENTS_PROVIDER=fake
           SMS_PROVIDER=fake
           AI_PROVIDER=fake

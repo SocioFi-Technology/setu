@@ -10,6 +10,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { config } from "../config.js";
 import type { SessionData } from "../plugins/session.js";
 
+// production refuses to start without its own DEVICE_KEY_SECRET (config.ts); the session secret stands in for dev only
 const secret = () => process.env.DEVICE_KEY_SECRET || config.sessionSecret;
 const derive = (label: string) => createHmac("sha256", secret()).update(label).digest();
 /** The device's own id as the client sends it at sign-in (random, kept in the browser). */

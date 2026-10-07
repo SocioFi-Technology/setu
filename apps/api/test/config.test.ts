@@ -15,7 +15,7 @@ const S32 = "x".repeat(32);
 const good = {
   NODE_ENV: "production", PUBLIC_APP_URL: "https://clinic.example", PAYMENTS_PROVIDER: "bkash", SMS_PROVIDER: "bulksmsbd",
   SESSION_SECRET: S32, WRISTBAND_SECRET: S32, DATABASE_URL_APP: "postgresql://setu_app:pw@localhost:5432/setu", AI_PROVIDER: "off",
-  REDIS_URL: "redis://localhost:6379", GATEWAY_TOKEN_KEY: S32,
+  REDIS_URL: "redis://localhost:6379", GATEWAY_TOKEN_KEY: S32, DEVICE_KEY_SECRET: "y".repeat(32),
 };
 /** the startup error, or "" when the config loads */
 function start(env: Record<string, string | undefined>): string {
@@ -40,6 +40,11 @@ describe("production refuses to start without its secrets (external review A1)",
     expect(start({ ...good, AI_PROVIDER: "fake" })).toContain("AI_PROVIDER=fake is not allowed in production");
     expect(start({ ...good, AI_PROVIDER: undefined })).toContain("AI_PROVIDER=fake is not allowed in production");
     expect(start({ ...good, AI_PROVIDER: "claude" })).toContain("AI_PROVIDER=claude is not available");
+  });
+  it("DEVICE_KEY_SECRET missing, short, or the session secret — the device keys need their own (gap 10)", () => {
+    expect(start({ ...good, DEVICE_KEY_SECRET: undefined })).toContain("DEVICE_KEY_SECRET");
+    expect(start({ ...good, DEVICE_KEY_SECRET: "short" })).toContain("DEVICE_KEY_SECRET");
+    expect(start({ ...good, DEVICE_KEY_SECRET: S32 })).toContain("must differ from SESSION_SECRET");
   });
   it("GATEWAY_TOKEN_KEY missing or short — the gateway tokens are stored encrypted (review B6)", () => {
     expect(start({ ...good, GATEWAY_TOKEN_KEY: undefined })).toContain("GATEWAY_TOKEN_KEY");

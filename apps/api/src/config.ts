@@ -59,4 +59,7 @@ if (process.env.NODE_ENV === "production" && config.adapters.ai === "fake") thro
 if (process.env.NODE_ENV === "production" && !process.env.REDIS_URL) throw new Error("REDIS_URL is required in production (login and PIN tries are counted there)");
 // external review B6: the stored bKash tokens are encrypted with this key (a refresh token lives 30 days)
 if (process.env.NODE_ENV === "production" && (!process.env.GATEWAY_TOKEN_KEY || process.env.GATEWAY_TOKEN_KEY.length < 32)) throw new Error("GATEWAY_TOKEN_KEY (at least 32 characters) is required in production (the payment gateway's tokens are stored encrypted with it)");
+// gap 10: the device keys (drafts, queued writes) come from their own secret in production — never the session's
+if (process.env.NODE_ENV === "production" && (!process.env.DEVICE_KEY_SECRET || process.env.DEVICE_KEY_SECRET.length < 32)) throw new Error("DEVICE_KEY_SECRET (at least 32 characters) is required in production (the device keys are derived from it)");
+if (process.env.NODE_ENV === "production" && process.env.DEVICE_KEY_SECRET === process.env.SESSION_SECRET) throw new Error("DEVICE_KEY_SECRET must differ from SESSION_SECRET");
 if (!["fake", "off"].includes(config.adapters.ai)) throw new Error(`AI_PROVIDER=${config.adapters.ai} is not available (fake, off)`);
