@@ -12,6 +12,8 @@ export interface Counters {
   ttlMs(key: string): Promise<number>;
   set(key: string, value: number, ttlMs: number): Promise<void>;
   del(...keys: string[]): Promise<void>;
+  /** staging (/ready): the store answers */
+  ping(): Promise<boolean>;
 }
 
 class RedisCounters implements Counters {
@@ -24,6 +26,7 @@ class RedisCounters implements Counters {
   async ttlMs(key: string) { return Math.max(0, await this.r.pttl(key)); }
   async set(key: string, value: number, ttlMs: number) { await this.r.set(key, String(value), "PX", ttlMs); }
   async del(...keys: string[]) { if (keys.length) await this.r.del(...keys); }
+  async ping() { try { return (await this.r.ping()) === "PONG"; } catch { return false; } }
 }
 
 class MemoryCounters implements Counters {
@@ -34,6 +37,7 @@ class MemoryCounters implements Counters {
   async ttlMs(key: string) { const x = this.live(key); return x ? x.until - Date.now() : 0; }
   async set(key: string, value: number, ttlMs: number) { this.m.set(key, { n: value, until: Date.now() + ttlMs }); }
   async del(...keys: string[]) { for (const k of keys) this.m.delete(k); }
+  async ping() { return true; }
 }
 
 let store: Counters | null = null;

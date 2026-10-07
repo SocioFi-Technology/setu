@@ -4,6 +4,8 @@ import { scheduleNightlyRollup } from "./routes/owner.js";
 
 const app = await buildApp();
 await app.listen({ port: config.port, host: "0.0.0.0" });
+// staging (week 2): the PDF browser starts now, not inside the first print's transaction
+{ const { warmPdfBrowser } = await import("./receipts/pdf.js"); warmPdfBrowser().then(() => app.log.info("pdf browser ready")).catch((e) => app.log.error({ err: e }, "pdf browser failed to start")); }
 // ADR 0008: the owner dashboard's nightly rollup (00:30 Dhaka); not in tests (they import the app, not the server)
 if (config.dbEnabled) scheduleNightlyRollup(app.log);
 // ADR 0011 / 0012: the sweeps, every minute — payments (links never made, executes never answered) and SMS (queued too

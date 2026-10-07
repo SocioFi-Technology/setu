@@ -5,7 +5,20 @@
 import { chromium, type Browser } from "playwright-core";
 
 let browser: Promise<Browser> | null = null;
-const launch = () => (browser ??= chromium.launch({ headless: true, ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}) }).catch((e) => { browser = null; throw e; }));
+const launch = () => (browser ??= chromium.launch({ headless: true, ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}) })
+  // a browser that crashed or was closed is started again on the next render
+  .then((b) => { b.on("disconnected", () => { browser = null; }); return b; })
+  .catch((e) => { browser = null; throw e; }));
+/** Staging (week 2): start the browser and render once when the server starts — the first render's cold start (about
+    8 s in a container: the browser, its first page, fonts) would otherwise fall inside the first print's database
+    transaction and time it out. */
+let warm: "idle" | "warming" | "ready" | "failed" = "idle";
+/** /ready holds traffic while the server's own warm-up runs (a rolling restart waits for it). */
+export const pdfWarming = () => warm === "warming";
+export const warmPdfBrowser = async () => {
+  warm = "warming";
+  try { await htmlToPdf("<!doctype html><p>warm</p>", "a4"); warm = "ready"; } catch (e) { warm = "failed"; throw e; }
+};
 
 export async function htmlToPdf(html: string, paper: "a5" | "a4" | "thermal"): Promise<Uint8Array> {
   const b = await launch();

@@ -46,6 +46,12 @@ describe("auth", () => {
     const mods = r.json().modules as { key: string }[];
     expect(mods.map((m) => m.key)).toContain("fd"); expect(mods.map((m) => m.key)).not.toContain("cons");
   });
+  it("staging: /ready answers 200 with the database and the counter store up (no session, no detail beyond up / down)", async () => {
+    const r = await app.inject({ method: "GET", url: "/ready" });
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual({ ready: true, db: true, redis: true, pdf: true });
+    expect(r.headers["cache-control"]).toBe("no-store");
+  });
   it("needs a session", async () => {
     const r = await app.inject({ method: "GET", url: "/v1/me" }); expect(r.statusCode).toBe(401);
   });
