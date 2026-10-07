@@ -62,4 +62,6 @@ if (process.env.NODE_ENV === "production" && (!process.env.GATEWAY_TOKEN_KEY || 
 // gap 10: the device keys (drafts, queued writes) come from their own secret in production — never the session's
 if (process.env.NODE_ENV === "production" && (!process.env.DEVICE_KEY_SECRET || process.env.DEVICE_KEY_SECRET.length < 32)) throw new Error("DEVICE_KEY_SECRET (at least 32 characters) is required in production (the device keys are derived from it)");
 if (process.env.NODE_ENV === "production" && process.env.DEVICE_KEY_SECRET === process.env.SESSION_SECRET) throw new Error("DEVICE_KEY_SECRET must differ from SESSION_SECRET");
+// staging (week 2): files live in object storage in production — never a container's own disk
+if (process.env.NODE_ENV === "production" && process.env.STORAGE !== "s3") throw new Error("STORAGE=s3 is required in production (with S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY)");
 if (!["fake", "off"].includes(config.adapters.ai)) throw new Error(`AI_PROVIDER=${config.adapters.ai} is not available (fake, off)`);

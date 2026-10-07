@@ -22,6 +22,7 @@
     "@setu/db": "workspace:*",
     "@setu/domain": "workspace:*",
     "@setu/i18n": "workspace:*",
+    "aws4fetch": "1.0.20",
     "dotenv": "^16.4.0",
     "fastify": "^5.1.0",
     "ioredis": "5.8.2",

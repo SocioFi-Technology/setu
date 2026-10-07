@@ -3,7 +3,7 @@
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**", ".next/**"] },
     "typecheck": { "dependsOn": ["^build"] },
-    "test": { "dependsOn": ["^build"] },
+    "test": { "dependsOn": ["^build"], "passThroughEnv": ["S3_TEST_*", "SETU_TEST_ERRORS"] },
     "lint": {},
     "dev": { "cache": false, "persistent": true }
   }

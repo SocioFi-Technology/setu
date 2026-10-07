@@ -109,10 +109,15 @@ jobs:
           kill "$API_PID"
           (cd apps/staff && NODE_OPTIONS=--max-old-space-size=3072 NEXT_DIST_DIR=.next-build API_URL=http://localhost:4100 pnpm exec next build)
           test -f apps/staff/.next-build/standalone/apps/staff/server.js
+      - name: Start MinIO (S3Storage test; the official image is no longer on Docker Hub — Chainguard's build)
+        run: |
+          docker run -d --name minio -p 127.0.0.1:9000:9000 -e MINIO_ROOT_USER=setutest -e MINIO_ROOT_PASSWORD=setutestsecret cgr.dev/chainguard/minio:latest server /data
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:9000/minio/health/live && break; sleep 1; done
       - name: Unit and contract tests (the API suite needs DATABASE_URL_APP or it skips itself)
         run: |
           set -euo pipefail
           set -a; . ./.env; set +a
+          export S3_TEST_ENDPOINT=http://127.0.0.1:9000 S3_TEST_ACCESS_KEY=setutest S3_TEST_SECRET_KEY=setutestsecret
           test -n "${DATABASE_URL_APP}"
           pnpm test
 
