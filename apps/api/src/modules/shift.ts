@@ -3,7 +3,7 @@
    over (a variance needs a reason); the owner or admin — never the cashier — approves (a variance needs a note, issue
    #24) or sends it back for a recount. Every count and decision is an append-only row; the database re-checks the
    arithmetic and the SHIFT transitions (migration shift_close_rollup). */
-import type { CountShiftRequest, ReviewShiftRequest, ShiftView } from "@setu/contracts";
+import type { CountShiftRequest, HandOverShiftRequest, ReviewShiftRequest, ShiftView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import { DIGITAL_METHODS, SHIFT, acceptBlockers, countCheck, digitalRows, expectedCashPaisa, handOverBlockers, transition, varianceJudgement, type Counts, type DigitalMethod, type Role, type ShiftState } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
@@ -12,7 +12,7 @@ import type { SessionData } from "../plugins/session.js";
 import { notFound } from "./frontdesk.js";
 
 type Shift = NonNullable<Awaited<ReturnType<typeof shiftRow>>>;
-const shiftRow = (tx: Tx, s: SessionData, id: string) => tx.shift.findFirst({ where: { id, organizationId: s.organizationId }, include: { counts: { orderBy: { countNo: "asc" } }, reviews: { orderBy: { at: "asc" } } } });
+const shiftRow = (tx: Tx, s: SessionData, id: string) => tx.shift.findFirst({ where: { id, organizationId: s.organizationId }, include: { counts: { orderBy: { countNo: "asc" } }, reviews: { orderBy: { at: "asc" } }, handovers: true } });
 const APPROVERS: Role[] = ["owner", "admin"];
 
 async function people(tx: Tx, ids: (string | null | undefined)[]) {
@@ -38,16 +38,22 @@ export async function takings(tx: Tx, s: SessionData, cashierId: string, from: D
 async function viewOf(tx: Tx, s: SessionData, sh: Shift, now: Date): Promise<ShiftView> {
   const who = await people(tx, [sh.cashierId, ...sh.counts.map((c) => c.countedById), ...sh.reviews.map((r) => r.byId)]);
   const org = await tx.organization.findFirst({ where: { id: sh.organizationId }, select: { name: true } });
+  // external review A5 (blind count): what the system expected is the owner's / admin's to see — never the cashier's
+  const figures = APPROVERS.includes(s.role as Role) && sh.cashierId !== s.userId;
+  const handover = new Map(sh.handovers.map((h) => [h.countId, h.reason]));
   const counts = sh.counts.map((c) => ({
     id: c.id, countNo: c.countNo, counts: c.counts as Record<string, number>, countedPaisa: c.countedPaisa, openingFloatPaisa: c.openingFloatPaisa,
-    cashInPaisa: c.cashInPaisa, cashRefundPaisa: c.cashRefundPaisa, expectedCashPaisa: c.expectedCashPaisa, variancePaisa: c.variancePaisa,
-    judgement: varianceJudgement(c.variancePaisa), digital: digitalRows(c.digitalSystem as Record<DigitalMethod, number>, c.digitalSettlement as Partial<Record<DigitalMethod, number>>),
-    reason: c.reason, countedBy: who(c.countedById), countedAt: c.countedAt.toISOString(), windowFrom: c.windowFrom.toISOString(), windowTo: c.windowTo.toISOString(),
+    ...(figures ? { cashInPaisa: c.cashInPaisa, cashRefundPaisa: c.cashRefundPaisa, expectedCashPaisa: c.expectedCashPaisa,
+      digital: digitalRows(c.digitalSystem as Record<DigitalMethod, number>, c.digitalSettlement as Partial<Record<DigitalMethod, number>>) } : {}),
+    variancePaisa: c.variancePaisa, judgement: varianceJudgement(c.variancePaisa),
+    reason: c.reason ?? handover.get(c.id) ?? null, countedBy: who(c.countedById), countedAt: c.countedAt.toISOString(), windowFrom: c.windowFrom.toISOString(), windowTo: c.windowTo.toISOString(),
   }));
   let live: ShiftView["live"] = null;
   if (sh.status === "open") {
     const t = await takings(tx, s, sh.cashierId, sh.openedAt, now);
-    live = { cashInPaisa: t.cashInPaisa, cashRefundPaisa: t.cashRefundPaisa, expectedCashPaisa: expectedCashPaisa({ openingFloatPaisa: sh.openingFloatPaisa, cashInPaisa: t.cashInPaisa, cashRefundPaisa: t.cashRefundPaisa }), digital: digitalRows(t.digital, {}), payments: t.payments };
+    live = figures
+      ? { cashInPaisa: t.cashInPaisa, cashRefundPaisa: t.cashRefundPaisa, expectedCashPaisa: expectedCashPaisa({ openingFloatPaisa: sh.openingFloatPaisa, cashInPaisa: t.cashInPaisa, cashRefundPaisa: t.cashRefundPaisa }), digital: digitalRows(t.digital, {}), payments: t.payments }
+      : { payments: t.payments };
   }
   const countNo = new Map(sh.counts.map((c) => [c.id, c.countNo]));
   return {
@@ -56,6 +62,7 @@ async function viewOf(tx: Tx, s: SessionData, sh: Shift, now: Date): Promise<Shi
     latestCount: counts.find((c) => c.id === sh.latestCountId) ?? null, counts,
     reviews: sh.reviews.map((r) => ({ id: r.id, decision: r.decision as "approve" | "recount", note: r.note, by: who(r.byId), at: r.at.toISOString(), countNo: countNo.get(r.countId) ?? 0 })),
     canCount: sh.status === "open" && sh.cashierId === s.userId,
+    canHandOver: sh.status === "counted" && sh.cashierId === s.userId,
     canReview: sh.status === "closed" && sh.cashierId !== s.userId && APPROVERS.includes(s.role as Role),
   };
 }
@@ -76,7 +83,9 @@ export async function openShift(tx: Tx, s: SessionData, openingFloatPaisa: numbe
   return { view: await viewOf(tx, s, (await shiftRow(tx, s, sh.id))!, now), audit: [{ action: "create", entity: "Shift", entityId: sh.id, detail: { openingFloatPaisa } }] };
 }
 
-/** Count by note and hand over (SHIFT count + close in one transaction). */
+/** Count by note (external review A5, blind count): the count is stored and the shift moves open → counted before any
+    variance is shown — the answer is the first time the cashier sees it, so a probe count is a count (audited). A
+    matched count is handed over at once (counted → closed); a variance waits for its reason (handOverShift). */
 export async function countShift(tx: Tx, s: SessionData, id: string, req: CountShiftRequest, now: Date): Promise<{ view: ShiftView; audit: AuditEntry[] }> {
   await tx.$executeRaw`SELECT 1 FROM "Shift" WHERE "id" = ${id} FOR UPDATE`;
   const sh = await shiftRow(tx, s, id);
@@ -89,27 +98,40 @@ export async function countShift(tx: Tx, s: SessionData, id: string, req: CountS
   const t = await takings(tx, s, sh.cashierId, sh.openedAt, now);
   const expected = expectedCashPaisa({ openingFloatPaisa: sh.openingFloatPaisa, cashInPaisa: t.cashInPaisa, cashRefundPaisa: t.cashRefundPaisa });
   const variance = c.countedPaisa - expected;
-  const reason = req.reason?.trim() ?? "";
-  // blind count (money-controls review M1): the cashier counts without seeing what the drawer should hold; the server
-  // reveals the variance here and asks for a reason; if the money changed since it was revealed, it asks again (M2)
-  if (handOverBlockers({ variancePaisa: variance, reason }).length)
-    throw err(422, "reason_required", "গরমিল আছে — কারণ লিখুন (অন্তত ১০ অক্ষর)", "There is a variance — give a reason (at least 10 characters)", { field: "reason", amountPaisa: variance });
-  if (variance !== 0 && req.varianceSeenPaisa !== undefined && req.varianceSeenPaisa !== variance)
-    throw err(409, "variance_changed", "এর মধ্যে আরেকটি পেমেন্ট এসেছে — গরমিল বদলেছে, কারণ আবার দেখুন", "Another payment arrived meanwhile — the variance changed; check the reason", { field: "reason", amountPaisa: variance });
   const countNo = sh.counts.length + 1;
   const row = await tx.shiftCount.create({ data: {
     tenantId: s.tenantId, shiftId: sh.id, countNo, counts: Object.fromEntries(Object.entries(counts).filter(([, n]) => (n ?? 0) > 0)) as object,
     countedPaisa: c.countedPaisa, openingFloatPaisa: sh.openingFloatPaisa, cashInPaisa: t.cashInPaisa, cashRefundPaisa: t.cashRefundPaisa, expectedCashPaisa: expected, variancePaisa: variance,
-    digitalSystem: t.digital as object, digitalSettlement: req.settlement as object, reason: variance !== 0 ? reason : (reason || null),
+    digitalSystem: t.digital as object, digitalSettlement: req.settlement as object, reason: null,
     windowFrom: sh.openedAt, windowTo: now, countedById: s.userId, countedAt: now,
   } });
   const counted = transition("SHIFT", SHIFT, "open", "count");
-  const closed = transition("SHIFT", SHIFT, counted, "close");
-  // two SHIFT steps in the one transaction (the database allows one step per update): counted, then handed over
   const n = await tx.shift.updateMany({ where: { id: sh.id, status: "open" }, data: { status: counted, latestCountId: row.id, statusAt: now } });
   if (n.count !== 1) throw err(409, "stale", "অন্য কোথাও আগেই বদলেছে — আবার দেখুন", "This changed somewhere else first — refresh");
-  await tx.shift.update({ where: { id: sh.id }, data: { status: closed, statusAt: now } });
-  return { view: await viewOf(tx, s, (await shiftRow(tx, s, sh.id))!, now), audit: [{ action: "update", entity: "Shift", entityId: sh.id, detail: { event: "count+close", countNo, countedPaisa: c.countedPaisa, expectedCashPaisa: expected, variancePaisa: variance } }] };
+  const audit: AuditEntry[] = [{ action: "update", entity: "Shift", entityId: sh.id, detail: { event: "count", countNo, countedPaisa: c.countedPaisa, expectedCashPaisa: expected, variancePaisa: variance } }];
+  if (variance === 0) {
+    await tx.shiftHandover.create({ data: { tenantId: s.tenantId, shiftId: sh.id, countId: row.id, reason: null, byId: s.userId, at: now } });
+    await tx.shift.update({ where: { id: sh.id }, data: { status: transition("SHIFT", SHIFT, counted, "close"), statusAt: now } });
+    audit.push({ action: "update", entity: "Shift", entityId: sh.id, detail: { event: "hand-over", countNo } });
+  }
+  return { view: await viewOf(tx, s, (await shiftRow(tx, s, sh.id))!, now), audit };
+}
+
+/** The hand-over of a counted shift with a variance (SHIFT counted → closed): the reason, after the variance was shown. */
+export async function handOverShift(tx: Tx, s: SessionData, id: string, req: HandOverShiftRequest, now: Date): Promise<{ view: ShiftView; audit: AuditEntry[] }> {
+  await tx.$executeRaw`SELECT 1 FROM "Shift" WHERE "id" = ${id} FOR UPDATE`;
+  const sh = await shiftRow(tx, s, id);
+  if (!sh) throw notFound();
+  if (sh.cashierId !== s.userId) throw err(403, "forbidden", "শুধু নিজের ড্রয়ার হস্তান্তর করা যায়", "Only the shift's cashier hands its drawer over", { reason: "role", canRequest: false });
+  if (sh.status !== "counted") throw err(409, "shift_not_counted", "এই শিফট হস্তান্তরের অবস্থায় নেই", "This shift is not counted and waiting for its hand-over");
+  const c = sh.counts.find((x) => x.id === sh.latestCountId)!;
+  const reason = req.reason?.trim() ?? "";
+  if (handOverBlockers({ variancePaisa: c.variancePaisa, reason }).length)
+    throw err(400, "reason_required", "গরমিল আছে — কারণ লিখুন (অন্তত ১০ অক্ষর)", "There is a variance — give a reason (at least 10 characters)", { field: "reason" });
+  await tx.shiftHandover.create({ data: { tenantId: s.tenantId, shiftId: sh.id, countId: c.id, reason: reason || null, byId: s.userId, at: now } });
+  const n = await tx.shift.updateMany({ where: { id: sh.id, status: "counted" }, data: { status: transition("SHIFT", SHIFT, "counted", "close"), statusAt: now } });
+  if (n.count !== 1) throw err(409, "stale", "অন্য কোথাও আগেই বদলেছে — আবার দেখুন", "This changed somewhere else first — refresh");
+  return { view: await viewOf(tx, s, (await shiftRow(tx, s, sh.id))!, now), audit: [{ action: "update", entity: "Shift", entityId: sh.id, detail: { event: "hand-over", countNo: c.countNo, variancePaisa: c.variancePaisa, reason } }] };
 }
 
 export async function reviewShift(tx: Tx, s: SessionData, id: string, req: ReviewShiftRequest, now: Date): Promise<{ view: ShiftView; audit: AuditEntry[] }> {

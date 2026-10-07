@@ -51,16 +51,13 @@ const post = (url: string, payload: object = {}, who: Who = "cashier", key: stri
 const ok = <T = Record<string, any>>(r: { statusCode: number; body: string; json: () => unknown }, status = 200): T => { expect(r.statusCode, r.body).toBe(status); return r.json() as T; };
 const inTenant = <R>(fn: (tx: NonNullable<typeof db>["prisma"]) => Promise<R>) => db!.forTenant(T, fn as never) as Promise<R>;
 
-const notesFor = (paisa: number) => {
-  let taka = Math.round(paisa / 100); const out: Record<string, number> = {};
-  for (const d of [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1]) { const k = Math.floor(taka / d); if (k) { out[String(d)] = k; taka -= k * d; } }
-  return out;
-};
 /** Close whatever shift an earlier run left, then open a new one with a ৳2,000 float. */
 async function freshShift(who: "cashier" | "pharm") {
   const mine = ok(await get("/v1/shifts/mine", who));
   let sh = mine.shift;
-  if (sh?.status === "open") sh = ok(await post(`/v1/shifts/${sh.id}/count`, { counts: notesFor(sh.live.expectedCashPaisa) }, who));
+  // the cashier never sees the expected figure (external review A5): count nothing, hand the variance over, the owner accepts
+  if (sh?.status === "open") sh = ok(await post(`/v1/shifts/${sh.id}/count`, { counts: {} }, who));
+  if (sh?.status === "counted") sh = ok(await post(`/v1/shifts/${sh.id}/hand-over`, { reason: "closing a shift left by an earlier test run" }, who));
   if (sh?.status === "closed") ok(await post(`/v1/shifts/${sh.id}/review`, { decision: "approve", note: "closing a shift left by an earlier test run" }, "owner"));
   return ok(await post("/v1/shifts", { openingFloatPaisa: 200_000 }, who), 201);
 }
@@ -69,7 +66,11 @@ async function owner2<R>(fn: (c: InstanceType<NonNullable<typeof db>["PrismaClie
   const c = new db!.PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
   try { return await fn(c); } finally { await c.$disconnect(); }
 }
-const myShift = async (who: "cashier" | "pharm" = "cashier") => ok(await get("/v1/shifts/mine", who)).shift;
+/** The cashier's open shift as the owner sees it (the expected figures are the owner's — external review A5). */
+const myShift = async (who: "cashier" | "pharm" = "cashier") => {
+  const sh = ok(await get("/v1/shifts/mine", who)).shift;
+  return sh ? ok(await get(`/v1/shifts/${sh.id}`, "owner")) : null;
+};
 
 type Med = { medicineKey: string; dose: string; meal: string; days: number };
 async function signedVisit(o: { orders?: string[]; meds?: Med[] } = {}) {

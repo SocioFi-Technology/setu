@@ -51,3 +51,25 @@ issue #24: accepting a variance needed no note; #23: every KPI showed the same t
   (periods, changes, which tiles have data).
 - The API gets a small scheduler (`setTimeout` to the next 00:30 Dhaka, one run per process; a second process would only
   recompute the same rows — upsert).
+
+## Addendum (2026-10-07, external review A5): the blind count — count and hand-over are separate steps
+The money-controls review (M1) made the count blind on the screen, but the server still revealed the variance in a 422
+that stored nothing, so a cashier could post an empty count, read what the drawer should hold, and then "count" to
+match. Now:
+- **What the system expects is never the cashier's to see.** The cashier's shift view (`/v1/shifts/mine`, the shift
+  itself, the counts) carries no expected cash, cash in, cash refunds or digital system totals: the fields are optional
+  in `ShiftView` / `ShiftCountView` and only the owner or admin (not on their own shift) gets them. While open, the
+  cashier sees how many payments were taken, nothing more.
+- **`count` (open → counted) stores the count first.** Every `POST /v1/shifts/:id/count` writes the ShiftCount (no
+  reason on it), points the shift at it and moves it to `counted`, audited as `count` with the variance. Only that
+  answer shows the variance. A count cannot be repeated: the next one needs the owner's `recount` (closed → open), so a
+  zero-note probe is itself the count of record.
+- **`close` (counted → closed) is the hand-over.** A matching count is handed over in the same request. A variance
+  waits in `counted` for `POST /v1/shifts/:id/hand-over { reason }` (10+ characters), which writes an append-only
+  **ShiftHandover** row (shift, the count it hands over, reason, the cashier, when) and is audited as `hand-over`.
+- The database: `ShiftHandover` is immutable, its guard requires a counted shift's latest count, the cashier themself
+  and a reason when the variance is not zero; `shift_guard` closes a counted shift with a variance only when that count
+  has a hand-over reason (or, for counts written before this change, the reason on the count). `shift_count_sums` no
+  longer asks the count for a reason.
+- The `variance_changed` / `varianceSeenPaisa` handshake (M2) is gone: the variance a reason answers is the stored one.
+- The owner's review is unchanged (closed → approved | open), and so are the dashboard's variance list and drill.

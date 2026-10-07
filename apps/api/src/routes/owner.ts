@@ -3,13 +3,13 @@
    transaction per request under RLS; writes take an Idempotency-Key and replay inside their own transaction. */
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { CountShiftRequest, DashboardQuery, DrillQuery, OpenShiftRequest, ReviewShiftRequest, ShiftListQuery, type DashboardView, type DrillView, type MyShiftResponse, type ShiftList, type ShiftView } from "@setu/contracts";
+import { CountShiftRequest, DashboardQuery, HandOverShiftRequest, DrillQuery, OpenShiftRequest, ReviewShiftRequest, ShiftListQuery, type DashboardView, type DrillView, type MyShiftResponse, type ShiftList, type ShiftView } from "@setu/contracts";
 import { authorize, holdsShift } from "@setu/domain";
 import { command, query } from "../command.js";
 import { config } from "../config.js";
 import { err, forbidden } from "../errors.js";
 import { dashboard, drill, runNightlyRollup } from "../modules/owner.js";
-import { countShift, myShift, openShift, reviewShift, shiftList, shiftView } from "../modules/shift.js";
+import { countShift, handOverShift, myShift, openShift, reviewShift, shiftList, shiftView } from "../modules/shift.js";
 import { requireSession } from "../plugins/session.js";
 
 function requireScreen(req: FastifyRequest, mod: string, screen: string) {
@@ -45,6 +45,13 @@ export async function ownerRoutes(app: FastifyInstance) {
     const { id } = pid.parse(req.params);
     const body = CountShiftRequest.parse(req.body ?? {});
     return command(req, reply, async (tx, s) => { const r = await countShift(tx, s, id, body, new Date()); return { status: 200, body: r.view, audit: r.audit }; });
+  });
+  // external review A5: the hand-over of a counted shift (the variance's reason, after it was shown)
+  app.post("/v1/shifts/:id/hand-over", { config: { ownTx: true } }, async (req, reply): Promise<ShiftView> => {
+    requireShift(req);
+    const { id } = pid.parse(req.params);
+    const body = HandOverShiftRequest.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const r = await handOverShift(tx, s, id, body, new Date()); return { status: 200, body: r.view, audit: r.audit }; });
   });
   app.get("/v1/shifts", async (req): Promise<ShiftList> => {
     const s0 = requireShift(req);

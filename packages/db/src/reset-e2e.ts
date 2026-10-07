@@ -138,11 +138,14 @@ for (const sh of unfinished) {
     const cashIn = Number(cash?.paisa ?? 0), expected = sh.openingFloatPaisa + cashIn;
     const n = await db.shiftCount.count({ where: { shiftId: sh.id } });
     const c = await db.shiftCount.create({ data: { tenantId: T, shiftId: sh.id, countNo: n + 1, counts: {}, countedPaisa: expected, openingFloatPaisa: sh.openingFloatPaisa, cashInPaisa: cashIn,
-      expectedCashPaisa: expected, variancePaisa: 0, digitalSystem: {}, digitalSettlement: {}, reason: "e2e reset: test run", windowFrom: sh.openedAt, windowTo: now, countedById: sh.cashierId, countedAt: now } });
+      expectedCashPaisa: expected, variancePaisa: 0, digitalSystem: {}, digitalSettlement: {}, reason: null, windowFrom: sh.openedAt, windowTo: now, countedById: sh.cashierId, countedAt: now } });
     await db.shift.update({ where: { id: sh.id }, data: { status: transition("shift", SHIFT, "open", "count"), latestCountId: c.id, statusAt: now } });
+    await db.shiftHandover.create({ data: { tenantId: T, shiftId: sh.id, countId: c.id, reason: "e2e reset: test run", byId: sh.cashierId, at: now } });
     await db.shift.update({ where: { id: sh.id }, data: { status: transition("shift", SHIFT, "counted", "close"), statusAt: now } });
     latest = c.id;
   } else if (sh.status === "counted") {
+    // external review A5: a counted shift is handed over (with the reason a variance needs) before it closes
+    await db.shiftHandover.create({ data: { tenantId: T, shiftId: sh.id, countId: latest!, reason: "e2e reset: test run", byId: sh.cashierId, at: now } });
     await db.shift.update({ where: { id: sh.id }, data: { status: transition("shift", SHIFT, "counted", "close"), statusAt: now } });
   }
   await db.shiftReview.create({ data: { tenantId: T, shiftId: sh.id, countId: latest!, decision: "approve", note: "e2e reset: test run", byId: RECONCILE_BY, at: now } });

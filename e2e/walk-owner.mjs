@@ -25,7 +25,7 @@ async function billFor(tag) {
 // finish any shift the cashier has open
 await as(CASHIER);
 const mine = await get("/v1/shifts/mine");
-if (mine.shift) { if (mine.shift.status === "open") await post(`/v1/shifts/${mine.shift.id}/count`, { counts: {}, reason: "closing before the hands-on walkthrough" }).catch(() => {}); await as(OWNER); await post(`/v1/shifts/${mine.shift.id}/review`, { decision: "approve", note: "closing before the hands-on walkthrough" }).catch(() => {}); }
+if (mine.shift) { if (mine.shift.status === "open") await post(`/v1/shifts/${mine.shift.id}/count`, { counts: {} }).catch(() => {}); await post(`/v1/shifts/${mine.shift.id}/hand-over`, { reason: "closing before the hands-on walkthrough" }).catch(() => {}); await as(OWNER); await post(`/v1/shifts/${mine.shift.id}/review`, { decision: "approve", note: "closing before the hands-on walkthrough" }).catch(() => {}); }
 
 const browser = await chromium.launch();
 const desk = await browser.newPage({ viewport: { width: 1280, height: 900 } });
@@ -41,8 +41,8 @@ const inv = await billFor("cash");
 const issued = await post(`/v1/invoices/${inv.id}/issue`, { rev: inv.rev });
 await post(`/v1/invoices/${inv.id}/payments`, { method: "cash", amountPaisa: issued.invoice.totalPaisa, tenderedPaisa: issued.invoice.totalPaisa }, 201);
 await step(desk, "C4-cashier-blind-count", async () => { await desk.reload(); await desk.fill("input[name=note-1000]", "2"); await desk.fill("input[name=note-100]", "3"); await desk.fill("input[name=settle-bkash]", "0"); });
-await step(desk, "C4-server-reveals-variance", async () => { await desk.getByTestId("shift-handover").click(); await desk.getByTestId("shift-variance").waitFor(); await desk.getByTestId("reason-needed").waitFor(); });
-await step(desk, "C4-handed-over", async () => { await desk.fill("textarea[name=shift-reason]", "a ৳500 note seems to be missing"); await desk.getByTestId("shift-handover").click(); await desk.getByTestId("shift-closed").waitFor(); });
+await step(desk, "C4-count-stored-variance-shown", async () => { await desk.getByTestId("shift-handover").click(); await desk.getByTestId("shift-counted-card").waitFor(); await desk.getByTestId("reason-needed").waitFor(); });
+await step(desk, "C4-handed-over", async () => { await desk.fill("textarea[name=shift-reason]", "a ৳500 note seems to be missing"); await desk.getByTestId("shift-handover-reason").click(); await desk.getByTestId("shift-closed").waitFor(); });
 // two discount requests above the cashier's limit
 const d1 = await billFor("disc1"); await post(`/v1/invoices/${d1.id}/discount`, { mode: "amount", amountPaisa: 20_000, category: "doctor", reason: `Doctor's request, morning ${RUN}`, rev: d1.rev });
 const d2 = await billFor("disc2"); await post(`/v1/invoices/${d2.id}/discount`, { mode: "amount", amountPaisa: 30_000, category: "poor", reason: `Patient cannot pay, morning ${RUN}`, rev: d2.rev });
@@ -65,7 +65,8 @@ await step(phone, "C2-discounts-above-policy", async () => { await phone.goto(BA
 await step(phone, "C4-owner-shift-card", async () => { await phone.goto(BASE + "/m/bill/shift"); await phone.locator("[data-shift]").first().waitFor(); });
 await step(phone, "C4-owner-recount", async () => { const c = phone.locator("[data-shift]").first(); await c.locator("textarea[name=review-note]").fill("count the drawer again, check the coin box"); await c.getByTestId("shift-recount").click(); await phone.waitForTimeout(1000); });
 await as(CASHIER); const ms = await get("/v1/shifts/mine");
-await post(`/v1/shifts/${ms.shift.id}/count`, { counts: { 1000: 2, 100: 3 }, reason: "recounted — the ৳500 note is not in the drawer" }).catch(async (e) => { const r = String(e.message); if (!r.includes("variance_changed")) throw e; });
+await post(`/v1/shifts/${ms.shift.id}/count`, { counts: { 1000: 2, 100: 3 } });
+await post(`/v1/shifts/${ms.shift.id}/hand-over`, { reason: "recounted — the ৳500 note is not in the drawer" });
 await step(phone, "C4-owner-accepts-with-note", async () => { await phone.reload(); const c = phone.locator("[data-shift]").first(); await c.locator("textarea[name=review-note]").fill("accepted — cashier repays from next salary"); await c.getByTestId("shift-approve").click(); await phone.waitForTimeout(1200); });
 await step(phone, "C4-dashboard-after", async () => { await phone.goto(BASE + "/m/own/dash"); await phone.locator('[data-leak="shiftVariance"]').scrollIntoViewIfNeeded(); });
 await step(phone, "C1-bangla-7-days", async () => { await phone.getByRole("radio", { name: "বাং", exact: true }).click(); await phone.getByRole("radio", { name: "০১২৩", exact: true }).click(); await phone.goto(BASE + "/m/own/dash"); await phone.getByRole("radio", { name: "৭ দিন", exact: true }).click(); await phone.waitForTimeout(2500); });

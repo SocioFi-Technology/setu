@@ -1,6 +1,7 @@
 /* Slice C1–C4 contract tests (ADR 0008) on the real database (as setu_app), in the seeded E2E Test Clinic:
-   - C4 shift close: open with a float, expected = float + the cashier's confirmed cash, count by note and hand over;
-     a variance needs a reason; the owner / admin (never the cashier) approves — a variance needs a note (issue #24) —
+   - C4 shift close: open with a float, expected = float + the cashier's confirmed cash (the owner's figure, never the
+     cashier's — external review A5), count by note (stored before any variance is shown) and hand over; a variance needs
+     a reason; the owner / admin (never the cashier) approves — a variance needs a note (issue #24) —
      or asks for a recount; digital money against the settlement is shown, never blocking; history kept;
    - C1–C2 owner dashboard: live today, rollup for past days, KPI changes, tiles that come with later modules say so,
      the leakage list, the list behind each number (audited with the patients it revealed);
@@ -23,9 +24,9 @@ const get = (url: string, who: Who = "owner") => app.inject({ method: "GET", url
 const post = (url: string, payload: object = {}, who: Who = "cashier", key: string | null = randomUUID()) =>
   app.inject({ method: "POST", url, payload, headers: { cookie: cookies[who]!, ...(key ? { "idempotency-key": key } : {}) } });
 const ok = <R>(r: { statusCode: number; body: string; json: () => R }, code = 200) => { expect(r.statusCode, r.body).toBe(code); return r.json(); };
-type Shift = { id: string; status: string; live: { cashInPaisa: number; expectedCashPaisa: number; digital: { method: string; systemPaisa: number }[] } | null;
-  latestCount: { countNo: number; variancePaisa: number; expectedCashPaisa: number; countedPaisa: number; judgement: string; digital: { method: string; state: string; diffPaisa: number | null }[] } | null;
-  counts: unknown[]; reviews: { decision: string; note: string | null }[]; canCount: boolean; canReview: boolean };
+type Shift = { id: string; status: string; live: { cashInPaisa?: number; expectedCashPaisa?: number; digital?: { method: string; systemPaisa: number }[]; payments: number } | null;
+  latestCount: { countNo: number; variancePaisa: number; expectedCashPaisa?: number; countedPaisa: number; judgement: string; reason: string | null; digital?: { method: string; state: string; diffPaisa: number | null }[] } | null;
+  counts: unknown[]; reviews: { decision: string; note: string | null }[]; canCount: boolean; canHandOver: boolean; canReview: boolean };
 
 /** Count the drawer so it matches exactly: the expected cash in notes. */
 const notesFor = (paisa: number) => {
@@ -37,7 +38,9 @@ async function finishOpenShifts() {
   const mine = ok<{ shift: Shift | null }>(await get("/v1/shifts/mine", "cashier"));
   let sh = mine.shift;
   if (!sh) return;
-  if (sh.status === "open") sh = ok<Shift>(await post(`/v1/shifts/${sh.id}/count`, { counts: notesFor(sh.live!.expectedCashPaisa) }));
+  // the cashier never sees the expected figure (external review A5): count nothing, hand the variance over, the owner accepts
+  if (sh.status === "open") sh = ok<Shift>(await post(`/v1/shifts/${sh.id}/count`, { counts: {} }));
+  if (sh.status === "counted") sh = ok<Shift>(await post(`/v1/shifts/${sh.id}/hand-over`, { reason: "closing a shift left by an earlier test run" }));
   if (sh.status === "closed") ok(await post(`/v1/shifts/${sh.id}/review`, { decision: "approve", note: "closing a shift left by an earlier test run" }, "owner"));
 }
 /** A finished visit with only the consultation (৳800), billed, issued and paid in cash by the E2E cashier. */
@@ -75,53 +78,79 @@ beforeAll(async () => {
 afterAll(async () => { await app.close(); });
 
 describe.runIf(db)("C4 shift close", () => {
-  it("open with a float; expected = float + the cashier's confirmed cash; a matching count hands over without a reason; the owner approves", async () => {
+  it("open with a float; the owner sees expected = float + the cashier's confirmed cash, the cashier never does; a matching count hands over at once; the owner approves", async () => {
     const opened = ok<Shift>(await post("/v1/shifts", { openingFloatPaisa: 200_000 }), 201);
-    expect(opened).toMatchObject({ status: "open", canCount: true, live: { cashInPaisa: 0, expectedCashPaisa: 200_000 } });
+    expect(opened).toMatchObject({ status: "open", canCount: true, live: { payments: 0 } });
+    // external review A5: the cashier's response simply does not contain what the system expects
+    expect(opened.live).toEqual({ payments: 0 });
     expect((await post("/v1/shifts", { openingFloatPaisa: 100 })).json().code).toBe("shift_unfinished");
     const paid = await paidVisit();
     const live = ok<{ shift: Shift }>(await get("/v1/shifts/mine", "cashier")).shift;
-    expect(live.live).toMatchObject({ cashInPaisa: paid.totalPaisa, expectedCashPaisa: 200_000 + paid.totalPaisa });
+    expect(live.live).toEqual({ payments: 1 });
+    expect(JSON.stringify(live)).not.toMatch(/expectedCashPaisa|cashInPaisa|systemPaisa/);
+    const owners = ok<Shift>(await get(`/v1/shifts/${opened.id}`, "owner"));
+    expect(owners.live).toMatchObject({ cashInPaisa: paid.totalPaisa, expectedCashPaisa: 200_000 + paid.totalPaisa });
     const closed = ok<Shift>(await post(`/v1/shifts/${opened.id}/count`, { counts: notesFor(200_000 + paid.totalPaisa) }));
-    expect(closed).toMatchObject({ status: "closed", canCount: false, latestCount: { countNo: 1, variancePaisa: 0, judgement: "matched" } });
+    expect(closed).toMatchObject({ status: "closed", canCount: false, canHandOver: false, latestCount: { countNo: 1, variancePaisa: 0, judgement: "matched" } });
+    expect(closed.latestCount!.expectedCashPaisa).toBeUndefined();
     expect((await post(`/v1/shifts/${opened.id}/review`, { decision: "approve" }, "cashier")).statusCode).toBe(403);
     const approved = ok<Shift>(await post(`/v1/shifts/${opened.id}/review`, { decision: "approve" }, "owner"));
-    expect(approved).toMatchObject({ status: "approved", reviews: [{ decision: "approve", note: null }] });
+    expect(approved).toMatchObject({ status: "approved", reviews: [{ decision: "approve", note: null }], latestCount: { expectedCashPaisa: 200_000 + paid.totalPaisa } });
+  }, 60_000);
+
+  it("external review A5: a zero-note probe is a count — stored, audited, the shift counted; no second count; the variance is handed over with a reason", async () => {
+    const sh = ok<Shift>(await post("/v1/shifts", { openingFloatPaisa: 100_000 }), 201);
+    const probe = ok<Shift>(await post(`/v1/shifts/${sh.id}/count`, { counts: {} }));
+    expect(probe).toMatchObject({ status: "counted", canCount: false, canHandOver: true, latestCount: { countNo: 1, countedPaisa: 0, variancePaisa: -100_000, judgement: "short", reason: null } });
+    const rows = await db!.forTenant(T, (tx) => tx.shiftCount.findMany({ where: { shiftId: sh.id } }));
+    expect(rows).toHaveLength(1);
+    const ev = await db!.forTenant(T, (tx) => tx.auditEvent.findMany({ where: { entity: "Shift", entityId: sh.id, action: "update" } }));
+    expect(ev.map((e) => e.detail)).toEqual([expect.objectContaining({ event: "count", countNo: 1, countedPaisa: 0, variancePaisa: -100_000 })]);
+    // the probe cannot be followed by a "real" count: the next count needs the owner's recount
+    const again = await post(`/v1/shifts/${sh.id}/count`, { counts: notesFor(100_000) });
+    expect([again.statusCode, again.json().code]).toEqual([409, "shift_not_open"]);
+    expect((await post(`/v1/shifts/${sh.id}/review`, { decision: "approve", note: "approving before the hand-over" }, "owner")).json().code).toBe("shift_not_closed");
+    expect((await post(`/v1/shifts/${sh.id}/hand-over`, {})).json()).toMatchObject({ code: "reason_required", field: "reason" });
+    expect((await post(`/v1/shifts/${sh.id}/hand-over`, { reason: "short" })).json().code).toBe("reason_required");
+    expect((await post(`/v1/shifts/${sh.id}/hand-over`, { reason: "I did not count the drawer" }, "owner")).statusCode).toBe(403);
+    const handed = ok<Shift>(await post(`/v1/shifts/${sh.id}/hand-over`, { reason: "I did not count the drawer" }));
+    expect(handed).toMatchObject({ status: "closed", canHandOver: false, latestCount: { reason: "I did not count the drawer" } });
+    expect((await post(`/v1/shifts/${sh.id}/hand-over`, { reason: "I did not count the drawer" })).json().code).toBe("shift_not_counted");
+    ok(await post(`/v1/shifts/${sh.id}/review`, { decision: "approve", note: "probe count, accepted for the test" }, "owner"));
   }, 60_000);
 
   it("issue #24: a short drawer needs a reason to hand over and a note to accept; a recount sends it back and keeps both counts", async () => {
     const sh = ok<Shift>(await post("/v1/shifts", { openingFloatPaisa: 100_000 }), 201);
-    const short = { counts: notesFor(100_000 - 50_000) };
-    const r1 = await post(`/v1/shifts/${sh.id}/count`, short);
-    expect(r1.statusCode).toBe(422);
-    // blind count: the server reveals the variance only now (money-controls review M1)
-    expect(r1.json()).toMatchObject({ code: "reason_required", amountPaisa: -50_000 });
-    // the reason was written for a different variance → asked again with the current one (M2)
-    expect((await post(`/v1/shifts/${sh.id}/count`, { ...short, reason: "gave change twice to one patient", varianceSeenPaisa: -20_000 })).json()).toMatchObject({ code: "variance_changed", amountPaisa: -50_000 });
-    const c1 = ok<Shift>(await post(`/v1/shifts/${sh.id}/count`, { ...short, reason: "gave change twice to one patient" }));
-    expect(c1.latestCount).toMatchObject({ variancePaisa: -50_000, judgement: "short" });
+    const c1 = ok<Shift>(await post(`/v1/shifts/${sh.id}/count`, { counts: notesFor(100_000 - 50_000) }));
+    // blind count: the variance is shown only now, after the count is stored (money-controls review M1, external review A5)
+    expect(c1).toMatchObject({ status: "counted", latestCount: { variancePaisa: -50_000, judgement: "short" } });
+    ok<Shift>(await post(`/v1/shifts/${sh.id}/hand-over`, { reason: "gave change twice to one patient" }));
     expect((await post(`/v1/shifts/${sh.id}/review`, { decision: "approve" }, "owner")).json().code).toBe("note_required");
     expect((await post(`/v1/shifts/${sh.id}/review`, { decision: "recount", note: "short" }, "owner")).json().code).toBe("note_required");
     const back = ok<Shift>(await post(`/v1/shifts/${sh.id}/review`, { decision: "recount", note: "count the coins box again please" }, "owner"));
     expect(back.status).toBe("open");
-    const c2 = ok<Shift>(await post(`/v1/shifts/${sh.id}/count`, { counts: notesFor(100_000 - 50_000), reason: "the ৳500 note was not found on recount" }));
-    expect(c2.latestCount!.countNo).toBe(2);
+    const c2 = ok<Shift>(await post(`/v1/shifts/${sh.id}/count`, { counts: notesFor(100_000 - 50_000) }));
+    expect(c2).toMatchObject({ status: "counted", latestCount: { countNo: 2 } });
+    ok<Shift>(await post(`/v1/shifts/${sh.id}/hand-over`, { reason: "the ৳500 note was not found on recount" }));
     const done = ok<Shift>(await post(`/v1/shifts/${sh.id}/review`, { decision: "approve", note: "accepted, cashier to repay from salary" }, "admin"));
     expect(done.status).toBe("approved");
     expect(done.counts).toHaveLength(2);
+    expect(done.counts.map((c) => (c as { reason: string }).reason)).toEqual(["gave change twice to one patient", "the ৳500 note was not found on recount"]);
     expect(done.reviews.map((r) => r.decision)).toEqual(["recount", "approve"]);
     const audit = await db!.forTenant(T, (tx) => tx.auditEvent.findFirst({ where: { entity: "Shift", entityId: sh.id, action: "approve" } }));
     expect(audit!.detail).toMatchObject({ variancePaisa: -50_000 });
   }, 60_000);
 
-  it("digital money against the settlement: shown (matched / mismatch / pending), never blocking", async () => {
+  it("digital money against the settlement: shown to the owner (matched / mismatch / pending), never blocking, never shown to the cashier", async () => {
     const sh = ok<Shift>(await post("/v1/shifts", { openingFloatPaisa: 0 }), 201);
     const paid = await paidVisit("bkash");
-    const live = ok<{ shift: Shift }>(await get("/v1/shifts/mine", "cashier")).shift;
-    expect(live.live!.digital.find((d) => d.method === "bkash")!.systemPaisa).toBe(paid.totalPaisa);
+    const owners = ok<Shift>(await get(`/v1/shifts/${sh.id}`, "owner"));
+    expect(owners.live!.digital!.find((d) => d.method === "bkash")!.systemPaisa).toBe(paid.totalPaisa);
     const c = ok<Shift>(await post(`/v1/shifts/${sh.id}/count`, { counts: {}, settlement: { bkash: paid.totalPaisa - 1000 } }));
     expect(c.status).toBe("closed");
-    expect(c.latestCount!.digital.find((d) => d.method === "bkash")).toMatchObject({ state: "mismatch", diffPaisa: -1000 });
+    expect(c.latestCount!.digital).toBeUndefined();
+    const seen = ok<Shift>(await get(`/v1/shifts/${sh.id}`, "owner"));
+    expect(seen.latestCount!.digital!.find((d) => d.method === "bkash")).toMatchObject({ state: "mismatch", diffPaisa: -1000 });
     ok(await post(`/v1/shifts/${sh.id}/review`, { decision: "approve" }, "owner"));
   }, 60_000);
 
@@ -137,14 +166,20 @@ describe.runIf(db)("C4 shift close", () => {
     ok(await post(`/v1/shifts/${sh.id}/review`, { decision: "approve" }, "owner"));
   });
 
-  it("the database refuses an edited count, a review by the cashier, and accepting a variance without a note", async () => {
+  it("the database refuses an edited count, a review by the cashier, accepting a variance without a note, and closing a variance without its hand-over", async () => {
     const sh = ok<Shift>(await post("/v1/shifts", { openingFloatPaisa: 100_000 }), 201);
-    const c = ok<Shift>(await post(`/v1/shifts/${sh.id}/count`, { counts: notesFor(90_000), reason: "a ৳100 note missing from the drawer" }));
+    const c = ok<Shift>(await post(`/v1/shifts/${sh.id}/count`, { counts: notesFor(90_000) }));
+    expect(c.status).toBe("counted");
     const row = await db!.forTenant(T, (tx) => tx.shiftCount.findFirst({ where: { shiftId: sh.id } }));
+    // A5: counted → closed with a variance needs the hand-over row; a hand-over without a reason, or by someone else, is refused
+    await expect(db!.forTenant(T, (tx) => tx.shift.updateMany({ where: { id: sh.id }, data: { status: "closed" } }), { userId: "u_e2e_cashier" })).rejects.toThrow(/handed over with its reason/);
+    await expect(db!.forTenant(T, (tx) => tx.shiftHandover.create({ data: { tenantId: T, shiftId: sh.id, countId: row!.id, reason: "short", byId: "u_e2e_cashier" } }), { userId: "u_e2e_cashier" })).rejects.toThrow(/needs a reason/);
+    await expect(db!.forTenant(T, (tx) => tx.shiftHandover.create({ data: { tenantId: T, shiftId: sh.id, countId: row!.id, reason: "handing over for the cashier", byId: "u_e2e_owner" } }), { userId: "u_e2e_owner" })).rejects.toThrow(/own drawer/);
+    ok<Shift>(await post(`/v1/shifts/${sh.id}/hand-over`, { reason: "a ৳100 note missing from the drawer" }));
     await expect(db!.forTenant(T, (tx) => tx.shiftCount.updateMany({ where: { id: row!.id }, data: { countedPaisa: 100_000 } }), { userId: "u_e2e_cashier" })).rejects.toThrow();
+    await expect(db!.forTenant(T, (tx) => tx.shiftHandover.updateMany({ where: { countId: row!.id }, data: { reason: "something else entirely" } }), { userId: "u_e2e_cashier" })).rejects.toThrow();
     await expect(db!.forTenant(T, (tx) => tx.shiftReview.create({ data: { tenantId: T, shiftId: sh.id, countId: row!.id, decision: "approve", note: "approving my own drawer", byId: "u_e2e_cashier" } }), { userId: "u_e2e_cashier" })).rejects.toThrow(/own shift/);
     await expect(db!.forTenant(T, (tx) => tx.shiftReview.create({ data: { tenantId: T, shiftId: sh.id, countId: row!.id, decision: "approve", byId: "u_e2e_owner" } }), { userId: "u_e2e_owner" })).rejects.toThrow(/note/);
-    expect(c.status).toBe("closed");
     // security review #1 / #2: no approval without the owner's decision row; the latest count is never repointed
     await expect(db!.forTenant(T, (tx) => tx.shift.updateMany({ where: { id: sh.id }, data: { status: "approved" } }), { userId: "u_e2e_cashier" })).rejects.toThrow(/decision on the latest count/);
     await expect(db!.forTenant(T, (tx) => tx.shift.updateMany({ where: { id: sh.id }, data: { latestCountId: null } }), { userId: "u_e2e_cashier" })).rejects.toThrow(/latest count changes only when counting/);

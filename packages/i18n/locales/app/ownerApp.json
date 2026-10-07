@@ -420,8 +420,8 @@
     "Settlement figures were entered by the cashier — check them against the terminal / bank statement"
   ],
   "sh_blind": [
-    "না দেখে গণনা: ড্রয়ারে কত থাকার কথা তা গণনার পরে দেখানো হবে",
-    "Blind count: what the drawer should hold is shown after you count"
+    "না দেখে গণনা: ড্রয়ারে কত থাকার কথা তা দেখানো হয় না; গণনা জমা দেওয়ার পরে শুধু গরমিল দেখাবে",
+    "Blind count: what the drawer should hold is not shown; only a variance shows, after the count is submitted"
   ],
   "sh_revealed": [
     "সার্ভারের হিসাব",
@@ -574,5 +574,21 @@
   "l_afterFinalBill": [
     "চূড়ান্ত বিলের পরে ভুল ডোজ (রিফান্ডে মেটান)",
     "Doses in error after the final bill (settle by refund)"
+  ],
+  "sh_counted_variance": [
+    "গণনা সংরক্ষিত — গরমিল আছে; কারণ লিখে হস্তান্তর করুন",
+    "Count stored — there is a variance; give the reason and hand over"
+  ],
+  "sh_d_hint_blind": [
+    "মেশিন বা অ্যাপের দিনের হিসাব যা দেখাচ্ছে তা লিখুন; সিস্টেমের সঙ্গে মেলানো মালিক বা অ্যাডমিন দেখবেন",
+    "Write what the terminal or app shows for the day; the owner or admin checks it against the system"
+  ],
+  "sh_count_final": [
+    "গণনা জমা দিলে আর বদলানো যায় না — গরমিল থাকলে তখন দেখাবে",
+    "Once submitted the count cannot be changed — a variance is shown then"
+  ],
+  "sh_submit_count": [
+    "গণনা জমা দিন",
+    "Submit the count"
   ]
 }

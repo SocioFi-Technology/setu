@@ -46,9 +46,12 @@ async function discountRequest(request: APIRequestContext, tag: string) {
 }
 async function finishCashierShift(request: APIRequestContext) {
   await as(request, CASHIER);
-  const mine = await getJ<{ shift: { id: string; status: string; live: { expectedCashPaisa: number } | null } | null }>(request, "/v1/shifts/mine");
+  const mine = await getJ<{ shift: { id: string; status: string } | null }>(request, "/v1/shifts/mine");
   if (!mine.shift) return;
-  if (mine.shift.status === "open") await post(request, `/v1/shifts/${mine.shift.id}/count`, { counts: {}, reason: "closing a shift left open by an earlier test run" });
+  let status = mine.shift.status;
+  // external review A5: the count is stored first; a variance is handed over with its reason as a second step
+  if (status === "open") status = (await post<{ status: string }>(request, `/v1/shifts/${mine.shift.id}/count`, { counts: {} })).status;
+  if (status === "counted") await post(request, `/v1/shifts/${mine.shift.id}/hand-over`, { reason: "closing a shift left open by an earlier test run" });
   await as(request, OWNER);
   await post(request, `/v1/shifts/${mine.shift.id}/review`, { decision: "approve", note: "closing a shift left open by an earlier test run" });
 }
@@ -122,28 +125,34 @@ test("@phone C3: approve one, reject one with a reason; the cashier sees both ou
   expect(r.invoice.discountPaisa).toBe(0);
 });
 
-test("C4 cashier: counts the drawer by note, a short count needs a reason, hands over", async ({ page, request }) => {
+test("C4 cashier: counts the drawer by note, blind; the count is stored before the variance shows; a short count is handed over with a reason", async ({ page, request }) => {
   test.setTimeout(120_000);
   await finishCashierShift(request);
   await login(page, CASHIER);
   await page.goto("/m/bill/shift");
   await page.fill("input[name=shift-float]", "2000");
   await page.getByTestId("shift-open").click();
-  // blind count (money-controls review M1): what the drawer should hold is not shown while counting
+  // blind count (money-controls review M1, external review A5): what the drawer should hold is never shown to the cashier
   await expect(page.getByTestId("shift-live")).toContainText("Blind count");
-  await expect(page.getByTestId("shift-variance")).toHaveCount(0);
+  await expect(page.getByText(/Expected/)).toHaveCount(0);
+  await expect(page.getByTestId("count-variance")).toHaveCount(0);
   await page.fill("input[name=note-1000]", "1");
   await page.fill("input[name=note-500]", "1");
   await expect(page.getByTestId("shift-counted")).toContainText("৳ 1,500");
   await page.fill("input[name=settle-bkash]", "0");
   await page.getByTestId("shift-handover").click();
-  // the server reveals the variance and asks for the reason
-  await expect(page.getByTestId("shift-variance")).toHaveAttribute("data-judgement", "short");
-  await expect(page.getByTestId("shift-variance")).toContainText("500");
+  // the count is stored (the shift is counted, no recount without the owner); only now the variance shows, never the expected figure
+  await expect(page.getByTestId("shift-counted-card")).toHaveAttribute("data-status", "counted");
+  await expect(page.getByTestId("count-variance")).toHaveAttribute("data-judgement", "short");
+  await expect(page.getByTestId("count-variance")).toContainText("500");
+  await expect(page.getByText(/Expected/)).toHaveCount(0);
   await expect(page.getByTestId("reason-needed")).toBeVisible();
-  await expect(page.getByTestId("shift-handover")).toBeDisabled();
+  await expect(page.getByTestId("shift-handover-reason")).toBeDisabled();
+  await page.reload();
+  await expect(page.getByTestId("shift-counted-card")).toBeVisible();
+  await expect(page.locator("input[name=note-1000]")).toHaveCount(0);
   await page.fill("textarea[name=shift-reason]", "gave change twice to one patient");
-  await page.getByTestId("shift-handover").click();
+  await page.getByTestId("shift-handover-reason").click();
   await expect(page.getByTestId("shift-closed")).toContainText("waiting for the owner / admin");
   await expect(page.getByTestId("count-variance")).toHaveAttribute("data-judgement", "short");
 });
@@ -153,7 +162,8 @@ test("@phone C4 owner: a recount sends it back; accepting the variance needs a n
   await finishCashierShift(request);
   await as(request, CASHIER);
   const sh = await post<{ id: string }>(request, "/v1/shifts", { openingFloatPaisa: 200_000 }, 201);
-  await post(request, `/v1/shifts/${sh.id}/count`, { counts: { "1000": 1, "500": 1 }, reason: `drawer short on ${RUN}` });
+  await post(request, `/v1/shifts/${sh.id}/count`, { counts: { "1000": 1, "500": 1 } });
+  await post(request, `/v1/shifts/${sh.id}/hand-over`, { reason: `drawer short on ${RUN}` });
   await page.setViewportSize({ width: 412, height: 900 });
   await login(page, OWNER);
   await page.getByTestId("pending-shifts").click();
@@ -169,7 +179,8 @@ test("@phone C4 owner: a recount sends it back; accepting the variance needs a n
   await as(request, CASHIER);
   const mine = await getJ<{ shift: { reviews: { note: string }[] } }>(request, "/v1/shifts/mine");
   expect(mine.shift.reviews.at(-1)!.note).toBe("count the coin box again please");
-  await post(request, `/v1/shifts/${sh.id}/count`, { counts: { "1000": 1, "500": 1 }, reason: "the ৳500 was not found on recount" });
+  await post(request, `/v1/shifts/${sh.id}/count`, { counts: { "1000": 1, "500": 1 } });
+  await post(request, `/v1/shifts/${sh.id}/hand-over`, { reason: "the ৳500 was not found on recount" });
   await page.reload();
   await expect(card.getByTestId("shift-approve")).toHaveText(/Accept the variance/);
   await expect(card.getByTestId("shift-approve")).toBeDisabled();

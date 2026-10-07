@@ -1627,6 +1627,7 @@ model Shift {
   statusAt          DateTime      @default(now())
   counts            ShiftCount[]
   reviews           ShiftReview[]
+  handovers         ShiftHandover[]
 
   @@index([tenantId, organizationId, status])
   @@index([tenantId, cashierId])
@@ -1657,12 +1658,30 @@ model ShiftCount {
   countedById       String
   countedAt         DateTime @default(now())
 
+  handover          ShiftHandover?
+
   @@unique([shiftId, countNo])
   @@index([tenantId, shiftId])
 }
 
 /// The owner's / admin's decision on a closed shift (append-only): approve (with a note when there is a variance) or
 /// recount (the shift goes back to open).
+/// External review A5 (blind count): the hand-over of a counted shift — the reason for its count's variance, given after
+/// the count was stored and the variance shown (append-only).
+model ShiftHandover {
+  id       String     @id @default(cuid())
+  tenantId String
+  shiftId  String
+  shift    Shift      @relation(fields: [shiftId], references: [id])
+  countId  String     @unique
+  count    ShiftCount @relation(fields: [countId], references: [id])
+  reason   String?
+  byId     String
+  at       DateTime   @default(now())
+
+  @@index([tenantId, shiftId])
+}
+
 model ShiftReview {
   id       String   @id @default(cuid())
   tenantId String

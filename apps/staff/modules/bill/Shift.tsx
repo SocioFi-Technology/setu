@@ -6,7 +6,7 @@
    the server answers; offline these buttons are off. Fits a phone (the owner reviews on the phone, C4). */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ShiftView } from "@setu/contracts";
-import { DENOMINATIONS, countCheck, digitalRows, parseTaka, varianceJudgement } from "@setu/domain";
+import { DENOMINATIONS, DIGITAL_METHODS, countCheck, parseTaka } from "@setu/domain";
 import { fill } from "@setu/i18n";
 import { Button, Callout, Card, PageState, Pill, useToast } from "@setu/ui";
 import { ApiFailure, shifts } from "../../lib/api";
@@ -65,40 +65,33 @@ function MyDrawer() {
           </label>
           <span><Button variant="primary" icon="play" data-testid="shift-open" disabled={busy || !s.online || parseTaka(float || "0") === null} onClick={() => void open()}>{O("sh_open")}</Button></span>
         </Card>
-      ) : sh.status === "open" ? <CountForm sh={sh} onDone={load} /> : <ClosedCard sh={sh} />}
+      ) : sh.status === "open" ? <CountForm sh={sh} onDone={load} /> : sh.status === "counted" ? <HandOverCard sh={sh} onDone={load} /> : <ClosedCard sh={sh} />}
     </>
   );
 }
 
+/** Blind count (external review A5): the cashier never sees what the drawer should hold. The count is stored first —
+    the server's answer is the first time its variance is shown; a variance is then handed over with its reason. */
 function CountForm({ sh, onDone }: { sh: ShiftView; onDone: () => Promise<void> }) {
   const s = useSession(); const O = useO(); const M = useMoney(); const toast = useToast();
   const [counts, setCounts] = useState<Record<string, string>>({});
   const [settle, setSettle] = useState<Record<string, string>>({});
-  const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [key, setKey] = useState(() => crypto.randomUUID());
-  /** blind count (money-controls review M1): the variance is unknown until the server reveals it after the count */
-  const [revealed, setRevealed] = useState<number | null>(null);
   const live = sh.live!;
   const parsed = useMemo(() => Object.fromEntries(Object.entries(counts).filter(([, v]) => v.trim() !== "").map(([k, v]) => [k, Number(v.replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d))))])), [counts]);
   const check = countCheck(parsed as never);
   const counted = check.ok ? check.countedPaisa : 0;
   const settlement = Object.fromEntries(Object.entries(settle).map(([k, v]) => [k, parseTaka(v)]).filter(([, v]) => v !== null)) as Record<string, number>;
-  const rows = digitalRows(Object.fromEntries(live.digital.map((d) => [d.method, d.systemPaisa])), settlement);
-  const needReason = revealed !== null && revealed !== 0 && reason.trim().length < 10;
   const lastRecount = [...sh.reviews].reverse().find((r) => r.decision === "recount");
   const submit = async () => {
     setBusy(true);
     try {
-      await shifts.count(sh.id, { counts: parsed as Record<string, number>, settlement, ...(reason.trim() ? { reason: reason.trim() } : {}), ...(revealed !== null ? { varianceSeenPaisa: revealed } : {}) }, key);
-      setKey(crypto.randomUUID()); toast(O("sh_done_handover"), "check"); await onDone();
-    } catch (e) {
-      // the server revealed a variance (or it changed meanwhile): show it, ask for the reason, send again
-      if (e instanceof ApiFailure && (e.body.code === "reason_required" || e.body.code === "variance_changed") && e.body.amountPaisa !== undefined) {
-        setRevealed(e.body.amountPaisa); setKey(crypto.randomUUID());
-        if (e.body.code === "variance_changed") toast(errText(e, s.lang), "triangle-alert");
-      } else { toast(errText(e, s.lang), "triangle-alert"); await onDone(); }
-    } finally { setBusy(false); }
+      const v = await shifts.count(sh.id, { counts: parsed as Record<string, number>, settlement }, key);
+      setKey(crypto.randomUUID());
+      toast(v.status === "closed" ? O("sh_done_handover") : O("sh_counted_variance"), v.status === "closed" ? "check" : "triangle-alert");
+      await onDone();
+    } catch (e) { toast(errText(e, s.lang), "triangle-alert"); await onDone(); } finally { setBusy(false); }
   };
   return (
     <>
@@ -121,31 +114,46 @@ function CountForm({ sh, onDone }: { sh: ShiftView; onDone: () => Promise<void> 
         {!check.ok && <span className="field-error" role="alert">{O("error_generic")}</span>}
         <span style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }} data-testid="shift-sums">
           <span>{O("sh_counted")}: <b className="num" data-testid="shift-counted">{M.tk(counted)}</b></span>
-          {revealed !== null && <span data-testid="shift-variance" data-judgement={varianceJudgement(revealed)}>{O("sh_variance")}: <b className="num">{M.tk(revealed)}</b> <Pill tone={VTONE[varianceJudgement(revealed)]} icon="triangle-alert">{O(`sh_${varianceJudgement(revealed)}`)}</Pill> <span className="t-small t-muted">{O("sh_revealed")}</span></span>}
         </span>
       </Card>
       <Card style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }} data-testid="shift-digital">
         <b>{O("sh_digital")}</b>
-        {rows.map((r) => (
-          <span key={r.method} data-method={r.method} data-state={r.state} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <span style={{ minWidth: 64 }}>{O(`m_${r.method}`)}</span>
-            <span className="t-small">{O("sh_system")}: <b className="num">{M.tk(r.systemPaisa)}</b></span>
-            <input className="input num" name={`settle-${r.method}`} inputMode="decimal" style={{ width: 120 }} aria-label={`${O(`m_${r.method}`)} — ${O("sh_settlement")}`} placeholder={O("sh_settlement")} value={settle[r.method] ?? ""} onChange={(e) => setSettle((x) => ({ ...x, [r.method]: e.target.value }))} />
-            <Pill tone={r.state === "matched" ? "ok" : r.state === "pending" ? "pend" : "warn"}>{r.state === "mismatch" ? O("sh_d_mismatch", { diff: M.tk(r.diffPaisa ?? 0) }) : r.state === "matched" && r.systemPaisa === 0 && r.settlementPaisa === null ? O("sh_d_none") : O(`sh_d_${r.state}`)}</Pill>
+        {DIGITAL_METHODS.map((m) => (
+          <span key={m} data-method={m} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ minWidth: 64 }}>{O(`m_${m}`)}</span>
+            <input className="input num" name={`settle-${m}`} inputMode="decimal" style={{ width: 120 }} aria-label={`${O(`m_${m}`)} — ${O("sh_settlement")}`} placeholder={O("sh_settlement")} value={settle[m] ?? ""} onChange={(e) => setSettle((x) => ({ ...x, [m]: e.target.value }))} />
           </span>
         ))}
-        <span className="t-small t-muted">{O("sh_d_hint")}</span>
+        <span className="t-small t-muted">{O("sh_d_hint_blind")}</span>
       </Card>
       <Card style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-        {revealed !== null && revealed !== 0 && (
-          <label className="field t-small">{O("sh_reason")}
-            <textarea className="input" name="shift-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
-          </label>
-        )}
-        {needReason && <span className="t-small" data-testid="reason-needed" style={{ color: "var(--danger-fg)" }}>{O("sh_reason_needed")}</span>}
-        <span><Button variant="primary" icon="lock" data-testid="shift-handover" disabled={busy || needReason || !check.ok || !s.online} onClick={() => void submit()}>{busy ? O("sh_waiting") : O("sh_handover")}</Button></span>
+        <span className="t-small t-muted">{O("sh_count_final")}</span>
+        <span><Button variant="primary" icon="lock" data-testid="shift-handover" disabled={busy || !check.ok || !s.online} onClick={() => void submit()}>{busy ? O("sh_waiting") : O("sh_submit_count")}</Button></span>
       </Card>
     </>
+  );
+}
+
+/** The count is stored and shows a variance: the cashier gives the reason and hands the drawer over (counted → closed). */
+function HandOverCard({ sh, onDone }: { sh: ShiftView; onDone: () => Promise<void> }) {
+  const s = useSession(); const O = useO(); const toast = useToast();
+  const [reason, setReason] = useState(""); const [busy, setBusy] = useState(false); const [key, setKey] = useState(() => crypto.randomUUID());
+  const ok = reason.trim().length >= 10;
+  const go = async () => {
+    setBusy(true);
+    try { await shifts.handOver(sh.id, reason.trim(), key); setKey(crypto.randomUUID()); toast(O("sh_done_handover"), "check"); await onDone(); }
+    catch (e) { toast(errText(e, s.lang), "triangle-alert"); } finally { setBusy(false); }
+  };
+  return (
+    <Card style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }} data-testid="shift-counted-card" data-status={sh.status}>
+      <Callout tone="warn" icon="triangle-alert">{O("sh_counted_variance")}</Callout>
+      {sh.latestCount && <CountSummary sh={sh} />}
+      <label className="field t-small">{O("sh_reason")}
+        <textarea className="input" name="shift-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} data-testid="shift-reason" />
+      </label>
+      {!ok && <span className="t-small" data-testid="reason-needed" style={{ color: "var(--danger-fg)" }}>{O("sh_reason_needed")}</span>}
+      <span><Button variant="primary" icon="lock" data-testid="shift-handover-reason" disabled={busy || !ok || !s.online} onClick={() => void go()}>{busy ? O("sh_waiting") : O("sh_handover")}</Button></span>
+    </Card>
   );
 }
 
@@ -157,14 +165,14 @@ function CountSummary({ sh }: { sh: ShiftView }) {
       <span className="t-small t-muted">{O("sh_count_no", { n: c.countNo })} · {M.dateTime(c.countedAt)}</span>
       <span style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
         <span>{O("sh_counted")}: <b className="num">{M.tk(c.countedPaisa)}</b></span>
-        <span>{O("sh_expected")}: <b className="num">{M.tk(c.expectedCashPaisa)}</b></span>
+        {c.expectedCashPaisa !== undefined && <span>{O("sh_expected")}: <b className="num">{M.tk(c.expectedCashPaisa)}</b></span>}
         <span data-testid="count-variance" data-judgement={c.judgement}>{O("sh_variance")}: <b className="num">{M.tk(c.variancePaisa)}</b> <Pill tone={VTONE[c.judgement]} icon={c.judgement === "matched" ? "check" : "triangle-alert"}>{O(`sh_${c.judgement}`)}</Pill></span>
       </span>
       {c.reason && <span className="t-small">{O("sh_why", { reason: c.reason })}</span>}
       <span className="t-small" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {c.digital.filter((d) => d.systemPaisa || d.settlementPaisa !== null).map((d) => <span key={d.method} data-method={d.method} data-state={d.state}>{O(`m_${d.method}`)} <span className="num">{M.tk(d.systemPaisa)}</span>{d.state === "mismatch" ? ` · ${O("sh_d_mismatch", { diff: M.tk(d.diffPaisa ?? 0) })}` : d.state === "pending" ? ` · ${O("sh_d_pending")}` : ` · ${O("sh_d_matched")}`}</span>)}
+        {(c.digital ?? []).filter((d) => d.systemPaisa || d.settlementPaisa !== null).map((d) => <span key={d.method} data-method={d.method} data-state={d.state}>{O(`m_${d.method}`)} <span className="num">{M.tk(d.systemPaisa)}</span>{d.state === "mismatch" ? ` · ${O("sh_d_mismatch", { diff: M.tk(d.diffPaisa ?? 0) })}` : d.state === "pending" ? ` · ${O("sh_d_pending")}` : ` · ${O("sh_d_matched")}`}</span>)}
       </span>
-      {c.digital.some((d) => d.settlementPaisa !== null) && <span className="t-small t-muted">{O("sh_d_unverified")}</span>}
+      {(c.digital ?? []).some((d) => d.settlementPaisa !== null) && <span className="t-small t-muted">{O("sh_d_unverified")}</span>}
     </span>
   );
 }

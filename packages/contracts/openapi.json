@@ -175,6 +175,10 @@
                     "mustSetCredentials": {
                       "type": "boolean",
                       "default": false
+                    },
+                    "ai": {
+                      "type": "boolean",
+                      "default": true
                     }
                   },
                   "required": [
@@ -356,6 +360,10 @@
                     "mustSetCredentials": {
                       "type": "boolean",
                       "default": false
+                    },
+                    "ai": {
+                      "type": "boolean",
+                      "default": true
                     }
                   },
                   "required": [
@@ -169027,10 +169035,6 @@
                             }
                           },
                           "required": [
-                            "cashInPaisa",
-                            "cashRefundPaisa",
-                            "expectedCashPaisa",
-                            "digital",
                             "payments"
                           ]
                         },
@@ -169166,12 +169170,8 @@
                             "counts",
                             "countedPaisa",
                             "openingFloatPaisa",
-                            "cashInPaisa",
-                            "cashRefundPaisa",
-                            "expectedCashPaisa",
                             "variancePaisa",
                             "judgement",
-                            "digital",
                             "reason",
                             "countedBy",
                             "countedAt",
@@ -169310,12 +169310,8 @@
                               "counts",
                               "countedPaisa",
                               "openingFloatPaisa",
-                              "cashInPaisa",
-                              "cashRefundPaisa",
-                              "expectedCashPaisa",
                               "variancePaisa",
                               "judgement",
-                              "digital",
                               "reason",
                               "countedBy",
                               "countedAt",
@@ -169384,6 +169380,9 @@
                         "canCount": {
                           "type": "boolean"
                         },
+                        "canHandOver": {
+                          "type": "boolean"
+                        },
                         "canReview": {
                           "type": "boolean"
                         }
@@ -169401,6 +169400,7 @@
                         "counts",
                         "reviews",
                         "canCount",
+                        "canHandOver",
                         "canReview"
                       ]
                     },
@@ -169520,10 +169520,6 @@
                             }
                           },
                           "required": [
-                            "cashInPaisa",
-                            "cashRefundPaisa",
-                            "expectedCashPaisa",
-                            "digital",
                             "payments"
                           ]
                         },
@@ -169659,12 +169655,8 @@
                             "counts",
                             "countedPaisa",
                             "openingFloatPaisa",
-                            "cashInPaisa",
-                            "cashRefundPaisa",
-                            "expectedCashPaisa",
                             "variancePaisa",
                             "judgement",
-                            "digital",
                             "reason",
                             "countedBy",
                             "countedAt",
@@ -169803,12 +169795,8 @@
                               "counts",
                               "countedPaisa",
                               "openingFloatPaisa",
-                              "cashInPaisa",
-                              "cashRefundPaisa",
-                              "expectedCashPaisa",
                               "variancePaisa",
                               "judgement",
-                              "digital",
                               "reason",
                               "countedBy",
                               "countedAt",
@@ -169877,6 +169865,9 @@
                         "canCount": {
                           "type": "boolean"
                         },
+                        "canHandOver": {
+                          "type": "boolean"
+                        },
                         "canReview": {
                           "type": "boolean"
                         }
@@ -169894,6 +169885,7 @@
                         "counts",
                         "reviews",
                         "canCount",
+                        "canHandOver",
                         "canReview"
                       ]
                     }
@@ -170137,10 +170129,6 @@
                         }
                       },
                       "required": [
-                        "cashInPaisa",
-                        "cashRefundPaisa",
-                        "expectedCashPaisa",
-                        "digital",
                         "payments"
                       ]
                     },
@@ -170276,12 +170264,8 @@
                         "counts",
                         "countedPaisa",
                         "openingFloatPaisa",
-                        "cashInPaisa",
-                        "cashRefundPaisa",
-                        "expectedCashPaisa",
                         "variancePaisa",
                         "judgement",
-                        "digital",
                         "reason",
                         "countedBy",
                         "countedAt",
@@ -170420,12 +170404,8 @@
                           "counts",
                           "countedPaisa",
                           "openingFloatPaisa",
-                          "cashInPaisa",
-                          "cashRefundPaisa",
-                          "expectedCashPaisa",
                           "variancePaisa",
                           "judgement",
-                          "digital",
                           "reason",
                           "countedBy",
                           "countedAt",
@@ -170494,6 +170474,9 @@
                     "canCount": {
                       "type": "boolean"
                     },
+                    "canHandOver": {
+                      "type": "boolean"
+                    },
                     "canReview": {
                       "type": "boolean"
                     }
@@ -170511,6 +170494,7 @@
                     "counts",
                     "reviews",
                     "canCount",
+                    "canHandOver",
                     "canReview"
                   ]
                 }
@@ -170829,10 +170813,6 @@
                               }
                             },
                             "required": [
-                              "cashInPaisa",
-                              "cashRefundPaisa",
-                              "expectedCashPaisa",
-                              "digital",
                               "payments"
                             ]
                           },
@@ -170968,12 +170948,8 @@
                               "counts",
                               "countedPaisa",
                               "openingFloatPaisa",
-                              "cashInPaisa",
-                              "cashRefundPaisa",
-                              "expectedCashPaisa",
                               "variancePaisa",
                               "judgement",
-                              "digital",
                               "reason",
                               "countedBy",
                               "countedAt",
@@ -171112,12 +171088,8 @@
                                 "counts",
                                 "countedPaisa",
                                 "openingFloatPaisa",
-                                "cashInPaisa",
-                                "cashRefundPaisa",
-                                "expectedCashPaisa",
                                 "variancePaisa",
                                 "judgement",
-                                "digital",
                                 "reason",
                                 "countedBy",
                                 "countedAt",
@@ -171186,6 +171158,9 @@
                           "canCount": {
                             "type": "boolean"
                           },
+                          "canHandOver": {
+                            "type": "boolean"
+                          },
                           "canReview": {
                             "type": "boolean"
                           }
@@ -171203,6 +171178,7 @@
                           "counts",
                           "reviews",
                           "canCount",
+                          "canHandOver",
                           "canReview"
                         ]
                       }
@@ -171352,13 +171328,6 @@
                       }
                     },
                     "default": {}
-                  },
-                  "reason": {
-                    "type": "string",
-                    "maxLength": 300
-                  },
-                  "varianceSeenPaisa": {
-                    "type": "integer"
                   }
                 },
                 "required": [
@@ -171486,10 +171455,6 @@
                         }
                       },
                       "required": [
-                        "cashInPaisa",
-                        "cashRefundPaisa",
-                        "expectedCashPaisa",
-                        "digital",
                         "payments"
                       ]
                     },
@@ -171625,12 +171590,8 @@
                         "counts",
                         "countedPaisa",
                         "openingFloatPaisa",
-                        "cashInPaisa",
-                        "cashRefundPaisa",
-                        "expectedCashPaisa",
                         "variancePaisa",
                         "judgement",
-                        "digital",
                         "reason",
                         "countedBy",
                         "countedAt",
@@ -171769,12 +171730,8 @@
                           "counts",
                           "countedPaisa",
                           "openingFloatPaisa",
-                          "cashInPaisa",
-                          "cashRefundPaisa",
-                          "expectedCashPaisa",
                           "variancePaisa",
                           "judgement",
-                          "digital",
                           "reason",
                           "countedBy",
                           "countedAt",
@@ -171843,6 +171800,9 @@
                     "canCount": {
                       "type": "boolean"
                     },
+                    "canHandOver": {
+                      "type": "boolean"
+                    },
                     "canReview": {
                       "type": "boolean"
                     }
@@ -171860,6 +171820,7 @@
                     "counts",
                     "reviews",
                     "canCount",
+                    "canHandOver",
                     "canReview"
                   ]
                 }
@@ -172315,10 +172276,6 @@
                         }
                       },
                       "required": [
-                        "cashInPaisa",
-                        "cashRefundPaisa",
-                        "expectedCashPaisa",
-                        "digital",
                         "payments"
                       ]
                     },
@@ -172454,12 +172411,8 @@
                         "counts",
                         "countedPaisa",
                         "openingFloatPaisa",
-                        "cashInPaisa",
-                        "cashRefundPaisa",
-                        "expectedCashPaisa",
                         "variancePaisa",
                         "judgement",
-                        "digital",
                         "reason",
                         "countedBy",
                         "countedAt",
@@ -172598,12 +172551,8 @@
                           "counts",
                           "countedPaisa",
                           "openingFloatPaisa",
-                          "cashInPaisa",
-                          "cashRefundPaisa",
-                          "expectedCashPaisa",
                           "variancePaisa",
                           "judgement",
-                          "digital",
                           "reason",
                           "countedBy",
                           "countedAt",
@@ -172672,6 +172621,9 @@
                     "canCount": {
                       "type": "boolean"
                     },
+                    "canHandOver": {
+                      "type": "boolean"
+                    },
                     "canReview": {
                       "type": "boolean"
                     }
@@ -172689,6 +172641,7 @@
                     "counts",
                     "reviews",
                     "canCount",
+                    "canHandOver",
                     "canReview"
                   ]
                 }
@@ -173019,10 +172972,6 @@
                         }
                       },
                       "required": [
-                        "cashInPaisa",
-                        "cashRefundPaisa",
-                        "expectedCashPaisa",
-                        "digital",
                         "payments"
                       ]
                     },
@@ -173158,12 +173107,8 @@
                         "counts",
                         "countedPaisa",
                         "openingFloatPaisa",
-                        "cashInPaisa",
-                        "cashRefundPaisa",
-                        "expectedCashPaisa",
                         "variancePaisa",
                         "judgement",
-                        "digital",
                         "reason",
                         "countedBy",
                         "countedAt",
@@ -173302,12 +173247,8 @@
                           "counts",
                           "countedPaisa",
                           "openingFloatPaisa",
-                          "cashInPaisa",
-                          "cashRefundPaisa",
-                          "expectedCashPaisa",
                           "variancePaisa",
                           "judgement",
-                          "digital",
                           "reason",
                           "countedBy",
                           "countedAt",
@@ -173376,6 +173317,9 @@
                     "canCount": {
                       "type": "boolean"
                     },
+                    "canHandOver": {
+                      "type": "boolean"
+                    },
                     "canReview": {
                       "type": "boolean"
                     }
@@ -173393,6 +173337,7 @@
                     "counts",
                     "reviews",
                     "canCount",
+                    "canHandOver",
                     "canReview"
                   ]
                 }

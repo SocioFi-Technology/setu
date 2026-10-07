@@ -208,6 +208,8 @@ export const shifts = {
   mine: () => call<MyShiftResponse>("GET", "/v1/shifts/mine"),
   open: (openingFloatPaisa: number, key: string) => call<ShiftView>("POST", "/v1/shifts", { openingFloatPaisa }, key),
   count: (id: string, body: CountShiftRequest, key: string) => call<ShiftView>("POST", `/v1/shifts/${enc(id)}/count`, body, key),
+  /** external review A5: a counted shift with a variance is handed over with its reason */
+  handOver: (id: string, reason: string, key: string) => call<ShiftView>("POST", `/v1/shifts/${enc(id)}/hand-over`, reason ? { reason } : {}, key),
   list: (status: "closed" | "open" | "approved" | "all" = "closed") => call<ShiftList>("GET", `/v1/shifts?status=${status}`),
   view: (id: string) => call<ShiftView>("GET", `/v1/shifts/${enc(id)}`),
   review: (id: string, decision: "approve" | "recount", note: string, key: string) => call<ShiftView>("POST", `/v1/shifts/${enc(id)}/review`, { decision, ...(note ? { note } : {}) }, key),
