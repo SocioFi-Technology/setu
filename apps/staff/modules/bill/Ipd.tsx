@@ -169,7 +169,7 @@ function IpdBill({ admissionId }: { admissionId: string }) {
         </Card>
         <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
           <FinalCard v={v} writer={writer} onChange={(x) => { setV(x); if (x.discharge) void discharge.view(admissionId).then(setDis).catch(() => undefined); }} />
-          <Totals v={v} />
+          {!v.final && <Totals v={v} />}
           <Deposits v={v} writer={writer} open={depositOpen} setOpen={setDepositOpen} onChange={setV} />
           <ClassCard v={v} />
           <PackageCard v={v} writer={writer} onChange={setV} />
@@ -216,7 +216,7 @@ function Deposits({ v, writer, open, setOpen, onChange }: { v: IpdBillView; writ
       {v.deposits.items.length === 0 && <span className="t-small t-muted">{B("ib_deposits_none")}</span>}
       {v.deposits.items.map((d) => (
         <div key={d.id} className="t-small" data-deposit={d.method} data-status={d.status} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", borderTop: "1px solid var(--border-subtle)", paddingTop: 6 }}>
-          <span style={{ flexBasis: "100%" }}><span className="num">{M.dateTime(d.confirmedAt ?? d.createdAt)}</span> · {B(`m_${d.method}`)}{d.to ? ` → ${d.to === "guardian" ? B("ib_dep_to_guardian", { name: v.guardian?.name ?? "" }) : B("ib_dep_to_patient")}` : ""}{d.phoneLast4 ? ` ··${s.n(Number(d.phoneLast4)).padStart(4, s.numerals === "bn" ? "০" : "0")}` : ""}</span>
+          <span style={{ flexBasis: "100%" }}><span className="num">{M.dateTime(d.confirmedAt ?? d.createdAt)}</span> · {B(`m_${d.method}`)}{d.atCounter ? ` · ${B("ib_dep_counter")}` : ""}{d.to ? ` → ${d.to === "guardian" ? B("ib_dep_to_guardian", { name: v.guardian?.name ?? "" }) : B("ib_dep_to_patient")}` : ""}{d.phoneLast4 ? ` ··${s.n(Number(d.phoneLast4)).padStart(4, s.numerals === "bn" ? "০" : "0")}` : ""}</span>
           <b className="num">{M.tk(d.amountPaisa)}</b>
           <span style={{ flex: 1 }} />
           <Pill tone={d.status === "confirmed" ? "ok" : d.status === "failed" ? "bad" : "pend"}>{B(d.status === "confirmed" ? "ib_dep_status_confirmed" : d.status === "failed" ? "ib_dep_status_failed" : "ib_dep_status_pending")}</Pill>

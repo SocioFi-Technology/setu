@@ -284,7 +284,7 @@ describe.runIf(db)("the discharge checklist (B9)", () => {
     }));
     expect(after.adm).toMatchObject({ status: "discharged" }); expect(after.enc!.status).toBe("finished");
     // B12: the bed to cleaning with a note the ward board shows
-    expect(after.bed!.bedState).toBe("cleaning"); expect(after.bed!.bedNote).toMatch(/^Discharged \d\d:\d\d · /); expect(after.asg).toMatchObject({ status: "ended", endReason: "discharged" });
+    expect(after.bed!.bedState).toBe("cleaning"); expect(after.bed!.bedNote).toMatch(/^ছুটি \/ Discharged \d\d:\d\d · /); expect(after.asg).toMatchObject({ status: "ended", endReason: "discharged" });
     expect(after.inv!.status).toBe("balanced");
     // the census never posts after the release
     expect(await censusOf(T, a.admissionId, new Date(Date.now() + 3 * DAY))).toBe(0);

@@ -271,13 +271,13 @@ export async function dashboard(tx: Tx, s: SessionData, period: Period, now: Dat
 /* ───── ADR 0018: the inpatient exceptions (live) ───── */
 const IPD_EXCEPTIONS = ["excessUnpaid", "ipdOutcomeDues", "lamaSummaryOverdue", "afterFinalBill"] as const;
 type IpdException = (typeof IPD_EXCEPTIONS)[number];
-interface IpdRow { id: string; at: Date; number: string | null; patientId: string | null; amountPaisa: number | null; byId: string | null; detail: string; link: Row["link"]; status: string | null }
+interface IpdRow { id: string; at: Date; number: string | null; patientId: string | null; amountPaisa: number | null; byId: string | null; detail: string | null; link: Row["link"]; status: string | null }
 async function ipdException(tx: Tx, org: string, kind: IpdException, now: Date): Promise<{ count: number; paisa: number; rows: IpdRow[] }> {
   if (kind === "excessUnpaid") {
     // decision 3: an excess the counter could not pay stays approved here until paid — it never expires
     const list = await tx.refund.findMany({ where: { organizationId: org, source: "deposit-excess", status: { not: "paid" } }, include: { allocations: { select: { amountPaisa: true, status: true } }, invoice: { select: { number: true } } }, orderBy: { requestedAt: "asc" } });
     const rows = list.map((r) => { const owed = r.amountPaisa - r.allocations.filter((a) => a.status === "paid").reduce((t, a) => t + a.amountPaisa, 0);
-      return { id: r.id, at: r.requestedAt, number: r.invoice.number, patientId: r.patientId, amountPaisa: owed, byId: r.decidedById, detail: `deposit-excess · ${r.status}`, link: { kind: "refund" as const, id: r.id }, status: r.status }; });
+      return { id: r.id, at: r.requestedAt, number: r.invoice.number, patientId: r.patientId, amountPaisa: owed, byId: r.decidedById, detail: null, link: { kind: "refund" as const, id: r.id }, status: r.status }; });
     return { count: rows.length, paisa: rows.reduce((t, r) => t + (r.amountPaisa ?? 0), 0), rows };
   }
   if (kind === "ipdOutcomeDues") {
@@ -285,13 +285,13 @@ async function ipdException(tx: Tx, org: string, kind: IpdException, now: Date):
       SELECT i."id", a."id" AS "admissionId", i."number", i."patientId", i."issuedAt", (i."totalPaisa" - i."creditedPaisa" - (i."paidPaisa" - i."excessPaisa")) AS due, e."outcome"
       FROM "Invoice" i JOIN "Admission" a ON a."invoiceId" = i."id" JOIN "Encounter" e ON e."id" = a."encounterId"
       WHERE i."organizationId" = ${org} AND i."kind" = 'ipd' AND i."status" IN ('issued', 'partially-paid') AND e."outcome" IN ('lama', 'deceased') ORDER BY i."issuedAt"`;
-    const rows = list.map((r) => ({ id: r.id, at: r.issuedAt, number: r.number, patientId: r.patientId, amountPaisa: Number(r.due), byId: null, detail: r.outcome, link: { kind: "ipd-bill" as const, id: r.admissionId }, status: null }));
+    const rows = list.map((r) => ({ id: r.id, at: r.issuedAt, number: r.number, patientId: r.patientId, amountPaisa: Number(r.due), byId: null, detail: r.outcome === "deceased" ? "মৃত · Deceased" : "LAMA", link: { kind: "ipd-bill" as const, id: r.admissionId }, status: null }));
     return { count: rows.length, paisa: rows.reduce((t, r) => t + (r.amountPaisa ?? 0), 0), rows };
   }
   if (kind === "lamaSummaryOverdue") {
     const list = await tx.discharge.findMany({ where: { organizationId: org, kind: "lama", status: { in: ["ordered", "completed"] }, orderedAt: { lt: new Date(now.getTime() - 24 * 3600_000) }, steps: { some: { key: "summary", status: { not: "done" } } } }, orderBy: { orderedAt: "asc" } });
     const adm = new Map((await tx.admission.findMany({ where: { id: { in: list.map((d) => d.admissionId) } }, select: { id: true, number: true } })).map((a) => [a.id, a.number]));
-    const rows = list.map((d) => ({ id: d.id, at: d.orderedAt, number: adm.get(d.admissionId) ?? null, patientId: d.patientId, amountPaisa: null, byId: d.orderedById, detail: "LAMA · summary not signed", link: { kind: "ipd-summary" as const, id: d.admissionId }, status: null }));
+    const rows = list.map((d) => ({ id: d.id, at: d.orderedAt, number: adm.get(d.admissionId) ?? null, patientId: d.patientId, amountPaisa: null, byId: d.orderedById, detail: "LAMA · সারাংশ বাকি · summary not signed", link: { kind: "ipd-summary" as const, id: d.admissionId }, status: null }));
     return { count: rows.length, paisa: 0, rows };
   }
   // a dose marked in error after its IPD bill was issued: the bill is never edited — the cashier settles it by refund

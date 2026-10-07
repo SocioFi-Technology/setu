@@ -152,6 +152,7 @@ await page.getByRole("radio", { name: "LAMA (পরামর্শের বি�
 await page.getByTestId("lama-reason").fill("পরিবার ঢাকা মেডিকেলে নিয়ে যেতে চান");
 await page.getByTestId("lama-risks").check(); await page.getByTestId("lama-form").check();
 await page.getByTestId("lama-witness").selectOption("u_e2l_nurse");
+await page.getByTestId("lama-witness-pin").fill("1234");
 await shot("doctor-lama-filled");
 await page.getByTestId("discharge-order").click(); await pin();
 await page.locator('[data-screen="ipd/discharge"][data-status="ordered"]').waitFor();

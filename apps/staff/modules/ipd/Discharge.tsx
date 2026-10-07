@@ -58,7 +58,7 @@ export function DischargeSteps({ v, onChange, only }: { v: DischargeView; onChan
         const person = x.status === "done" ? T.who(x.doneBy) : x.takenBy ? T.who(x.takenBy) : x.department === "doctor" && x.key !== "order" ? T.who(v.admission.doctor) : "";
         return (
           <div key={x.key} className="card" data-step={x.key} data-step-status={state}
-            style={{ display: "grid", gridTemplateColumns: "28px minmax(0, 1fr) auto", gap: 10, padding: "10px 12px", alignItems: "start", borderColor: x.blocking ? "var(--danger-fg)" : undefined }}>
+            style={{ display: "grid", gridTemplateColumns: only ? "28px minmax(0, 1fr)" : "28px minmax(0, 1fr) auto", gap: 10, padding: "10px 12px", alignItems: "start", borderColor: x.blocking ? "var(--danger-fg)" : undefined }}>
             <span className="num" style={{ fontWeight: 700, paddingTop: 2 }}>{s.n(n + 1)}</span>
             <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
               <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -74,14 +74,15 @@ export function DischargeSteps({ v, onChange, only }: { v: DischargeView; onChan
               {x.status === "waiting" && <span className="t-small t-muted">{I("ds_waiting_for")}</span>}
               {x.byEvent && x.status === "in-progress" && x.key !== "order" && (
                 <span className="t-small t-muted" data-testid={`event-${x.key}`}>{I(`ds_event_${x.key}`)}{" "}
-                  {x.key === "summary" && <a href={`/m/ipd/summary?adm=${encodeURIComponent(v.admission.id)}`} data-testid="open-summary">{I("ds_open_summary")}</a>}
-                  {(x.key === "final-bill" || x.key === "payment") && <a href={`/m/bill/ipd?adm=${encodeURIComponent(v.admission.id)}`} data-testid="open-bill">{I("ds_open_bill")}</a>}
+                  {x.key === "summary" && ["doctor", "admin"].includes(s.me?.role ?? "") && <a href={`/m/ipd/summary?adm=${encodeURIComponent(v.admission.id)}`} data-testid="open-summary">{I("ds_open_summary")}</a>}
+                  {(x.key === "final-bill" || x.key === "payment") && ["cashier", "owner", "admin"].includes(s.me?.role ?? "") && <a href={`/m/bill/ipd?adm=${encodeURIComponent(v.admission.id)}`} data-testid="open-bill">{I("ds_open_bill")}</a>}
                 </span>
               )}
               {x.note && <span className="t-small">{x.note}</span>}
               {x.reminded && <span className="t-small t-muted">{I("ds_reminded", { name: T.who(x.reminded.by), at: T.time(x.reminded.at), n: x.reminded.count })}</span>}
             </div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            {/* in a narrow panel (the bill's, the pharmacy's) the actions go under the text */}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: only ? "flex-start" : "flex-end", gridColumn: only ? "2" : undefined }}>
               {mine && x.can.take && <Button size="sm" icon="hand" disabled={busy || !s.online} onClick={() => void act(() => discharge.take(id, x.key), I("ds_taken_msg"))} data-testid={`take-${x.key}`}>{I("ds_take")}</Button>}
               {mine && x.can.done && <Button size="sm" variant="primary" icon="check" disabled={busy || !s.online} onClick={() => setDoing(x)} data-testid={`done-${x.key}`}>{I("ds_mark_done")}</Button>}
               {x.can.remind && !x.can.done && (x.blocking || x.department === "doctor") && <Button size="sm" icon="bell" disabled={busy || !s.online} onClick={() => void act(() => discharge.remind(id, x.key), I("ds_reminded_msg"))} data-testid={`remind-${x.key}`}>{I("ds_remind")}</Button>}
@@ -98,18 +99,18 @@ export function DischargeSteps({ v, onChange, only }: { v: DischargeView; onChan
 function StepDone({ v, step, onClose, onDone }: { v: DischargeView; step: DischargeStepView; onClose: () => void; onDone: (v: DischargeView) => void }) {
   const I = useI();
   const [own, setOwn] = useState<"handed-back" | "none" | "">(""); const [note, setNote] = useState(""); const [pin, setPin] = useState(false);
-  const [at, setAt] = useState(local(new Date()));
+  const [at, setAt] = useState(local(new Date())); const [atChanged, setAtChanged] = useState(false);
   const key = useRef(crypto.randomUUID());
   const left = step.key === "bed-release";
   const ready = (step.key !== "pharmacy" || own !== "") && (!left || at !== "");
   const name = stepName(I, v.discharge.kind, step.key);
   if (pin) return <PinSheet title={name} action={I("ds_mark_done")} icon="check" onClose={onClose}
-    submit={async (p) => { try { onDone(await discharge.done(v.discharge.id, step.key, { pin: p, ...(note.trim() ? { note: note.trim() } : {}), ...(own ? { ownMedicines: own } : {}), ...(left ? { at: fromLocal(at) } : {}) }, key.current)); } catch (e) { if (e instanceof ApiFailure && e.body.code !== "pin_wrong") key.current = crypto.randomUUID(); throw e; } }} />;
+    submit={async (p) => { try { onDone(await discharge.done(v.discharge.id, step.key, { pin: p, ...(note.trim() ? { note: note.trim() } : {}), ...(own ? { ownMedicines: own } : {}), ...(left && atChanged ? { at: fromLocal(at) } : {}) }, key.current)); } catch (e) { if (e instanceof ApiFailure && e.body.code !== "pin_wrong") key.current = crypto.randomUUID(); throw e; } }} />;
   return (
     <Dialog open onClose={onClose} label={name} width={460}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 20 }} data-testid="step-done">
         <b>{name}</b>
-        {left && <TextField label={I(v.discharge.kind === "death" ? "ds_body_at" : "ds_left_at")} type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} name="leftAt" data-testid="left-at" />}
+        {left && <TextField label={I(v.discharge.kind === "death" ? "ds_body_at" : "ds_left_at")} type="datetime-local" value={at} onChange={(e) => { setAt(e.target.value); setAtChanged(true); }} name="leftAt" data-testid="left-at" />}
         {step.key === "pharmacy" && (
           <Segmented label={I("ds_own_meds")} value={own} onChange={(x) => setOwn(x as "handed-back" | "none")}
             options={[{ value: "handed-back", label: I("ds_own_handed-back") }, { value: "none", label: I("ds_own_none") }]} />
@@ -167,7 +168,7 @@ export function IpdDischarge() {
   // a doctor ordering a discharge for a patient who has none
   if (adm && none) {
     const c = list?.candidates.find((x) => x.admissionId === adm);
-    return c ? <OrderForm admissionId={adm} label={`${bn ? c.patient.nameBn : c.patient.nameEn || c.patient.nameBn} · ${c.number}${c.bed ? ` · ${c.bed}` : ""}`} onDone={(nv) => { setNone(false); setV(nv); toast(I("ds_ordered"), "badge-check"); }} />
+    return c ? <OrderForm admissionId={adm} label={`${bn ? c.patient.nameBn : c.patient.nameEn || c.patient.nameBn} · ${c.number}${c.bed ? ` · ${c.bed}` : ""}`} onDone={(nv) => { setNone(false); setV(nv); toast(I(nv.discharge.kind === "death" ? "ds_death_recorded" : nv.discharge.kind === "lama" ? "ds_lama_recorded" : "ds_ordered"), "badge-check"); }} />
       : <PageState icon="clipboard-check" title={I("ds_title")} body={I("ds_list_none")} />;
   }
   if (adm && v) return (
@@ -256,12 +257,12 @@ function OrderForm({ admissionId, label, onDone }: { admissionId: string; label:
   const [kind, setKind] = useState<"normal" | "lama" | "death">("normal");
   const [advice, setAdvice] = useState(""); const [target, setTarget] = useState(local(new Date(Date.now() + 3 * 3600_000))); const [pin, setPin] = useState(false);
   const [risks, setRisks] = useState(false); const [form, setForm] = useState(false); const [witness, setWitness] = useState(""); const [witnessPin, setWitnessPin] = useState(""); const [people, setPeople] = useState<WitnessList["items"]>([]);
-  const [tod, setTod] = useState(local(new Date())); const [ml, setMl] = useState(false); const [checks, setChecks] = useState<string[]>([]);
+  const [tod, setTod] = useState(local(new Date())); const [ml, setMl] = useState(false); const [checks, setChecks] = useState<string[]>([]); const [cause, setCause] = useState("");
   const key = useRef(crypto.randomUUID());
   useEffect(() => { if (kind === "lama" && !people.length) ward.witnesses().then((x) => setPeople(x.items)).catch(() => setPeople([])); }, [kind]); // eslint-disable-line react-hooks/exhaustive-deps
   const ok = s.online && (kind === "normal" ? advice.trim().length >= 10
     : kind === "lama" ? advice.trim().length >= 10 && risks && form && witness !== "" && /^\d{4}$/.test(format.toEn(witnessPin))
-    : advice.trim().length >= 3 && tod !== "" && checks.includes("certificate") && checks.includes("family") && (!ml || checks.includes("police")));
+    : cause.trim().length >= 3 && tod !== "" && checks.includes("certificate") && checks.includes("family") && (!ml || checks.includes("police")));
   const title = I(kind === "normal" ? "ds_order" : kind === "lama" ? "ds_lama_record" : "ds_death_record");
   return (
     <div data-screen="ipd/discharge" data-status="order" style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 640 }}>
@@ -288,7 +289,7 @@ function OrderForm({ admissionId, label, onDone }: { admissionId: string; label:
         </>)}
         {kind === "death" && (<>
           <TextField label={I("ds_death_time")} type="datetime-local" value={tod} onChange={(e) => setTod(e.target.value)} name="timeOfDeath" data-testid="death-time" />
-          <TextField label={I("ds_death_cause")} value={advice} onChange={(e) => setAdvice(e.target.value)} name="cause" data-testid="death-cause" />
+          <TextField label={I("ds_death_cause")} value={cause} onChange={(e) => setCause(e.target.value)} name="cause" data-testid="death-cause" />
           <label className="t-small" style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={ml} onChange={(e) => setMl(e.target.checked)} data-testid="death-ml" /> {I("ds_death_ml")}</label>
           {DEATH_CHECKS.map((c) => (
             <label key={c} className="t-small" style={{ display: "flex", gap: 8, alignItems: "center" }} data-check={c}>
@@ -305,7 +306,7 @@ function OrderForm({ admissionId, label, onDone }: { admissionId: string; label:
           try {
             const v = kind === "normal" ? await discharge.order(admissionId, { advice: advice.trim(), targetAt: target ? fromLocal(target) : undefined, pin: p }, key.current)
               : kind === "lama" ? await discharge.lama(admissionId, { reason: advice.trim(), risksExplained: risks, formSigned: form, witnessId: witness || null, witnessPin: format.toEn(witnessPin), pin: p }, key.current)
-              : await discharge.death(admissionId, { timeOfDeath: fromLocal(tod), cause: advice.trim(), medicoLegal: ml, checks, pin: p }, key.current);
+              : await discharge.death(admissionId, { timeOfDeath: fromLocal(tod), cause: cause.trim(), medicoLegal: ml, checks, pin: p }, key.current);
             setPin(false); onDone(v);
           } catch (e) { if (e instanceof ApiFailure && e.body.code !== "pin_wrong") { key.current = crypto.randomUUID(); } throw e; }
         }} />}

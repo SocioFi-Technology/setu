@@ -1102,5 +1102,13 @@
   "sm_draft_by": [
     "{name} একটি খসড়া লিখছেন — তিনিই স্বাক্ষর করবেন",
     "{name} is writing a draft — they sign it"
+  ],
+  "ds_death_recorded": [
+    "মৃত্যু রেকর্ড হয়েছে — ওষুধের অর্ডার বন্ধ",
+    "Death recorded — the medication orders stopped"
+  ],
+  "ds_lama_recorded": [
+    "LAMA রেকর্ড হয়েছে",
+    "LAMA recorded"
   ]
 }

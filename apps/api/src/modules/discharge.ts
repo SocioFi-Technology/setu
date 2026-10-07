@@ -148,7 +148,7 @@ async function viewOf(tx: Tx, s: SessionData, d: DisFull, now: Date): Promise<Di
   const escWho = await peopleOf(tx, escs.flatMap((e) => [e.raisedById, e.informedById, e.resolvedById, e.acknowledgedById]));
   return {
     discharge: {
-      id: d.id, kind, status: d.status as DischargeView["discharge"]["status"], advice: d.advice, targetAt: d.targetAt.toISOString(), overdue: d.status === "ordered" && overdue(d.targetAt, now),
+      id: d.id, kind, status: d.status as DischargeView["discharge"]["status"], advice: d.advice, targetAt: d.targetAt.toISOString(), overdue: d.status === "ordered" && kind === "normal" && overdue(d.targetAt, now),
       orderedBy: who(d.orderedById), orderedAt: d.orderedAt.toISOString(), completedAt: iso(d.completedAt),
       cancel: d.cancelledById && d.cancelledAt ? { by: who(d.cancelledById), at: d.cancelledAt.toISOString(), reason: d.cancelReason ?? "" } : null,
       // the LAMA / death details are the ward's and the doctor's — not the pharmacy's or the counter's (review)
@@ -212,7 +212,7 @@ export async function dischargeList(tx: Tx, s: SessionData, now: Date): Promise<
       const bed = beds.get(a.bedId);
       return [{
         id: d.id, kind, admissionId: a.id, number: a.number ?? "", patient: erPatientOf(p as Parameters<typeof erPatientOf>[0]), bed: bed?.name ?? null, ward: bed?.parentId ? beds.get(bed.parentId)?.name ?? null : null,
-        status: d.status as "ordered", done: doneCount(states), total: d.steps.length, targetAt: d.targetAt.toISOString(), overdue: d.status === "ordered" && overdue(d.targetAt, now),
+        status: d.status as "ordered", done: doneCount(states), total: d.steps.length, targetAt: d.targetAt.toISOString(), overdue: d.status === "ordered" && kind === "normal" && overdue(d.targetAt, now),
         blockedBy: blocking.map((k) => { const x = d.steps.find((y) => y.key === k)!; return { key: k, department: stepDef(kind, k).department, person: x.takenById ? who(x.takenById) : stepDef(kind, k).department === "doctor" ? who(a.admittingDoctorId) : null }; }),
         mine: stepsOf(kind).filter((def) => states[def.key] === "in-progress" && markable(kind, def.key) && canDoStep(kind, def.key, s.role as Role)).map((def) => def.key),
         orderedAt: d.orderedAt.toISOString(), completedAt: iso(d.completedAt), summary: (states.summary ?? null) as "done" | null,
@@ -296,6 +296,9 @@ export async function recordLama(tx: Tx, s: SessionData, admissionId: string, bo
 /** A death on the ward (decision 15): the ER's checks; the visit's outcome "deceased"; no summary. */
 export async function recordDeath(tx: Tx, s: SessionData, admissionId: string, body: { timeOfDeath: string; cause: string; medicoLegal: boolean; checks: string[]; pin: string }, now: Date) {
   const a = await admittedHere(tx, s, admissionId, true);
+  // the screen's time has whole minutes: the admission's own minute counts (the time is then the admission's)
+  const t0 = new Date(body.timeOfDeath).getTime(), adm0 = a.admittedAt!.getTime();
+  if (t0 < adm0 && t0 >= Math.floor(adm0 / 60_000) * 60_000) body = { ...body, timeOfDeath: a.admittedAt!.toISOString() };
   const b = deathRecordBlockers({ timeOfDeath: body.timeOfDeath, cause: body.cause, medicoLegal: body.medicoLegal, checks: body.checks }, a.admittedAt!, now);
   if (b.length) throw err(400, `death_${b[0]!.code}`, "মৃত্যুর রেকর্ডে যা লাগে তা পূরণ করুন", "Complete the death record", { field: b[0]!.field, blockers: b as unknown as Record<string, unknown>[] });
   // review: a dose charted as given after the time of death contradicts the record
@@ -393,7 +396,10 @@ export async function doneStep(tx: Tx, s: SessionData, id: string, key: string, 
     const f = await (await import("./summary.js")).safetyFacts(tx, d.encounterId);
     if (f.criticalUnacked > 0 || f.openEscalations > 0) throw err(409, "safety_open", "একটি জরুরি ফল বা এসকেলেশন এখনো খোলা — ডাক্তার দেখে নিন, তারপর ছুটি", "A critical result or an escalation is still open — the doctor must see it before the patient leaves");
   }
-  const leftAt = k === "bed-release" && body.at ? new Date(body.at) : now;
+  // the screen's time has whole minutes: the order's own minute counts (the time is then the order's)
+  const asked = k === "bed-release" && body.at ? new Date(body.at) : now;
+  const orderMinute = Math.floor(d.orderedAt.getTime() / 60_000) * 60_000;
+  const leftAt = asked.getTime() < d.orderedAt.getTime() && asked.getTime() >= orderMinute ? d.orderedAt : asked;
   if (k === "bed-release" && (Number.isNaN(leftAt.getTime()) || leftAt.getTime() > now.getTime() + 60_000 || leftAt.getTime() < d.orderedAt.getTime()))
     throw err(400, "left_at", "সময় ছুটির আদেশ আর এখনের মধ্যে দিন", "The time is between the order and now", { field: "at" });
   await checkPin(tx, s, body.pin);
@@ -431,8 +437,9 @@ async function patientLeft(tx: Tx, s: SessionData, d: Dis, at: Date, now: Date):
   if (live) await endAssignment(tx, s, live, at, why);
   const p = await tx.patient.findFirst({ where: { id: d.patientId }, select: { nameBn: true, nameEn: true } });
   const hhmm = format.time(at.toISOString(), false);
-  const label = kind === "death" ? "Body moved" : kind === "lama" ? "LAMA" : "Discharged";
-  const bed = await setBed(tx, a.bedId, "leave", `${label} ${hhmm} · ${p?.nameEn || p?.nameBn || ""}`.slice(0, 120));
+  // the board shows the note as written: Bangla first, then English (the bed's note is one text for every reader)
+  const label = kind === "death" ? "মরদেহ সরানো / Body moved" : kind === "lama" ? "LAMA" : "ছুটি / Discharged";
+  const bed = await setBed(tx, a.bedId, "leave", `${label} ${hhmm} · ${p?.nameBn || p?.nameEn || ""}`.slice(0, 120));
   audit.push(
     { action: "update", entity: "Discharge", entityId: d.id, patientId: d.patientId, detail: { event: "complete", kind, at: at.toISOString() } },
     { action: "update", entity: "Admission", entityId: a.id, patientId: a.patientId, detail: { event: "discharge", kind } },

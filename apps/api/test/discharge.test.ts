@@ -224,7 +224,7 @@ describe.runIf(db)("B12: LAMA and a death on the ward", () => {
     v = ok(await c.post(`/v1/ipd/discharges/${v.discharge.id}/steps/bed-release/done`, { pin: "1234" }, "nurse"));
     expect(v.discharge.status).toBe("completed"); expect(v.admission.visitFinished).toBe(false);
     const after = await tenant(async (tx) => ({ bed: await tx.location.findFirst({ where: { id: a.bedId } }), asg: await tx.bedAssignment.findFirst({ where: { encounterId: a.encounterId }, orderBy: { createdAt: "desc" } }) }));
-    expect(after.bed!.bedNote).toMatch(/^Body moved \d\d:\d\d · /); expect(after.asg).toMatchObject({ status: "ended", endReason: "deceased" });
+    expect(after.bed!.bedNote).toMatch(/^মরদেহ সরানো \/ Body moved \d\d:\d\d · /); expect(after.asg).toMatchObject({ status: "ended", endReason: "deceased" });
     ok(await c.post(`/v1/ipd/bills/${a.admissionId}/issue`, {}, "cashier"));
     expect((await view(a.admissionId)).admission.visitFinished).toBe(true);
   }, 60_000);
