@@ -126,9 +126,9 @@ describe.runIf(db)("G2 users: one-time password, first sign-in, sessions end", (
     const fsKey = randomUUID();
     const set = await post("/v1/auth/first-sign-in", { password: "greenlife7", pin: "2580" }, first.cookie, fsKey);
     expect(set.statusCode, set.body).toBe(200);
-    const again = await post("/v1/auth/first-sign-in", { password: "greenlife7", pin: "2580" }, first.cookie, fsKey);
-    expect([again.statusCode, again.json().code]).toEqual([401, "session_ended"]);
-    expect(again.headers["set-cookie"]).toBeUndefined();
+    const replayed = await post("/v1/auth/first-sign-in", { password: "greenlife7", pin: "2580" }, first.cookie, fsKey);
+    expect([replayed.statusCode, replayed.json().code]).toEqual([401, "session_ended"]);
+    expect(replayed.headers["set-cookie"]).toBeUndefined();
     const stored = await db!.forTenant(T, (tx) => tx.idempotencyKey.findFirst({ where: { key: fsKey } }));
     expect(JSON.stringify(stored!.response)).not.toMatch(/greenlife7|2580/);
     expect(await db!.forTenant(T, (tx) => tx.auditEvent.count({ where: { action: "first-sign-in", entityId: c.user.id } }))).toBe(1);

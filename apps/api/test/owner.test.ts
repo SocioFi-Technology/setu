@@ -191,6 +191,7 @@ describe.runIf(db)("C4 shift close", () => {
 });
 
 describe.runIf(db)("external review B11: every confirmed taka is in the count or after its window", () => {
+  type Dash = { leakage: { kind: string; count: number; paisa: number }[] };
   /** On the owner's connection: hold the cashier's shift gate (as a count or a confirmation in flight would) until released;
       `heldUntil` is the database clock just before letting go. */
   function holdGate(mode: "shared" | "exclusive") {
