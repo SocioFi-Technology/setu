@@ -1147,6 +1147,42 @@ for OPD and IPD bills kept, on the accountant's list.
   `e2e/journeys/journey-b.spec.ts` (ER arrival to discharge); reviews (money, clinical safety, security); hands-on as
   cashier, doctor, nurse; the CI e2e limit to 30 minutes; CI green twice; "Next" rewritten.
 
+## Done (slice B10–B12, session 2 of 2, 07/10/2026) — screens, Journey B end to end, reviews, hands-on ✅
+Kamrul's decisions on 301–308 (07/10/2026): accepted; **304** with an addition — after 3 days uncollected the take-home
+lines show "not collected" on the summary (visible to the doctor), never dropped (`takeHomeStatus`).
+- **Screens:** `bill/ipd` final bill card (what stops it, Issue with the outcome shown first, categories, deposits applied,
+  the excess refund's state with a link, the shortfall at the counter, the receipt A5 / 80 mm, "Refund a line" after the
+  issue), the bills list's bill column; `ipd/discharge` record form — normal, LAMA (reason, risks, form, witness + the
+  witness's PIN), death (time, cause, medico-legal, the ER's checks); step names per kind; event steps say what finishes
+  them and link to the summary / bill (by role); the leave time; outcome and "visit finished"; open escalations with
+  inform / resolve; `ipd/summary` (new) — summaries owed, the editor (ICD picker, course, procedures, prescription
+  builder, follow-up, red flags), sign with PIN, the signed view with each take-home line's state, A4 print, amend,
+  "signed for an earlier discharge" and "another doctor's draft" notices; `/verify/ds`; the bed map, admissions desk and
+  ward board refresh bed state (15–20 s); the pharmacy's "Take-home" badge; the owner's four inpatient rows with drills.
+- **Journey B end to end (`journeys/journey-b.spec.ts`):** ER arrival → triage → the ER doctor's admit → the desk's
+  admission → vitals and the surgeon's round (CBC) → the cashier's card deposit → the discharge order → the pharmacy's
+  clearance → the final bill balanced with an excess refund the owner approves and the counter pays → the summary
+  signed and printed → take-home on the pharmacy queue → "patient left" → visit finished, bed cleaning → "Bed ready" →
+  the summary's QR check. `b7-b9.spec.ts` B9–B12 rewritten for the events (Blocked by Billing → … → Blocked by Pharmacy).
+- **Reviews (money 9, clinical safety 9, security 7 — fixed in `e154d8a`):** high — an excess split over wallet and
+  cash deposits could never be paid; the owner who issued could never approve the excess; the bKash sweep finishing an
+  excess refund rolled back; a death could not be recorded once the bill was issued; a summary signed before a
+  cancelled discharge stayed live (take-home dispensable, the next discharge's step finished at once). Medium — the
+  approvals queue, the receipt's deposits, refunds after issue, take-home line counting, "patient left" re-checks the
+  safety facts, round notes after a death, the round worklist, LAMA escalations, summary author check, the LAMA witness's
+  PIN, the excess and a bill refund side by side. Open questions 309–317 record the cautious readings.
+- **Hands-on (`node e2e/walk-discharge.mjs <dir>`, Bangla, 30 screenshots; cashier, doctor, nurse; LAMA with an
+  excess deposit; a death; owner rows; the QR page):** fixed the whole-minute leave / death time refused seconds after
+  the order, the English-only bed note, the death form showing the advice as the cause, LAMA "overdue", the clearance
+  panel crushing the step text, links shown to roles that cannot open them, "low" on a settled bill, counter payments
+  listed as deposits, raw codes in the owner's drill.
+- **CI:** the e2e job's limit is 30 minutes.
+- **Tests:** domain 447; api 375 (discharge 13, ipdbill 15; the full run 371/375 under load — lab ×2, bkash 235 and the
+  bills list, the last fixed, each file green alone); typecheck 13/13. **Full Playwright (2 workers, fresh `next dev`,
+  load average up to 10.8): 103 passed, 5 failed, 1 did not run** — a1-a3 A2, a4, p1-p6 P5 and the 1024 px check, b3-b4 B7,
+  all timeouts ("session closed", a navigation that never loaded); the four files again together 24/25 and b3-b4 alone
+  5/5. journey-b 1/1 and b7-b9 3/3 on their own runs.
+
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
 2. ~~MinIO image cannot be pulled~~ — dev and tests store receipts with `LocalFolderStorage` (A6–A7). Before staging: an S3-compatible adapter behind the same `Storage` interface.
@@ -1209,8 +1245,16 @@ for OPD and IPD bills kept, on the accountant's list.
 4. ~~`/slice A8-A11`~~ — done 03/10/2026 (two sessions). Kamrul to confirm open question 134.
 5. ~~`/slice A12-A13`~~ — done 03/10/2026 (two sessions); **Journey A complete**. Kamrul to confirm open questions
    135–149.
-6. **Phase 2 pilot clinic, split in four slices (Kamrul, 03/10/2026):** ~~`/slice C1-C4`~~ owner dashboard + shift close
-   (done 03/10/2026; Kamrul to confirm open questions 150–165) → **pharmacy** (session 1 done 03/10/2026, questions 166–178; session 2 done 03/10/2026, questions 179–191; session 3 done 03/10/2026 — the screens and journey P, questions 192–194) → ~~admin~~ (done 04/10/2026, two sessions; questions 195–204) → ~~SMS + bKash~~ (done 04/10/2026, two sessions; questions 205–219). **The four Phase 2 pilot-clinic slices are done.** ~~**Refunds**~~ done 05/10/2026 (two sessions + the 233–235 follow-up; ADR 0013; questions 220–239, 233–235 decided). **Phase 3 Journey B started:** ~~`/slice B1-B2`~~ done 05/10/2026 (two sessions; ADR 0014; questions 240–253). ~~`/slice B3-B4`~~ done 06/10/2026 (two sessions; ADR 0015 + amendment; questions 254–269). ~~`/slice B5-B6`~~ done 06/10/2026 (two sessions; ADR 0016; questions 270–285). ~~`/slice B7-B9`~~ done 06/10/2026 (two sessions; ADR 0017; questions 287–300 decided). Next: `/slice B10-B12` (B10 the final bill settled against the deposit — decision 297; B11 the discharge summary; B12 the bed map after discharge). Or Kamrul's call — the pre-pilot hardening (known gaps 3, 4, 10, 12: argon2id, PIN tries in Redis, composite keys, clinical sign-offs), real credentials (bKash sandbox, BulkSMSBD), then the pilot; or Phase 3 per `docs/BUILD-PLAN.md`. See open questions "Phase 2 plan".
+6. ~~**Phase 2 pilot clinic**~~ — ~~C1–C4~~, ~~pharmacy~~, ~~admin~~, ~~SMS + bKash~~ (03–04/10/2026), ~~refunds~~ (05/10/2026).
+7. ~~**Journey B (Phase 3 hospital)**~~ — **complete 07/10/2026**: ~~B1–B2~~ ER arrival, triage, admission (ADR 0014) ·
+   ~~B3–B4~~ the ward (ADR 0015) · ~~B5–B6~~ scans, I/O, care tasks, handover (ADR 0016) · ~~B7–B9~~ the IPD running bill,
+   deposits, the discharge checklist (ADR 0017) · ~~B10–B12~~ the final bill, the discharge summary, LAMA / death, the bed
+   after discharge (ADR 0018). One patient runs ER arrival → discharge in `e2e/journeys/journey-b.spec.ts`. Kamrul to
+   confirm open questions 309–317.
+8. **Next: the pilot-readiness sprint** — its contents come from Kamrul (to be written here when given). Candidates
+   already listed: known gaps 3, 4, 10, 12 (argon2id, PIN tries in Redis, composite keys, clinical sign-offs), real
+   credentials (bKash sandbox, BulkSMSBD), the accountant's questions (one INV series, Mushak-6.3), the owner / accountant
+   list (288). Phase 3's remaining modules follow per `docs/BUILD-PLAN.md`.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating
