@@ -1078,5 +1078,29 @@
   "waiting_server": [
     "সার্ভারের উত্তরের অপেক্ষা…",
     "Waiting for the server…"
+  ],
+  "ds_esc_title": [
+    "খোলা এসকেলেশন",
+    "Open escalations"
+  ],
+  "ds_esc_hint": [
+    "এগুলো খোলা থাকলে সারাংশে স্বাক্ষর ও ছুটি হয় না — ডাক্তারকে জানানো লিখুন, তারপর মিটিয়ে দিন",
+    "While these are open the summary is not signed and a normal discharge does not complete — log the doctor's contact, then resolve"
+  ],
+  "ds_lama_witness_pin": [
+    "সাক্ষীর পিন",
+    "Witness's PIN"
+  ],
+  "ds_lama_witness_pin_hint": [
+    "সাক্ষী নিজে পিন দিয়ে নিশ্চিত করবেন",
+    "The witness confirms with their own PIN"
+  ],
+  "sm_stale": [
+    "এই সারাংশ আগের (বাতিল) ছুটির সময় স্বাক্ষরিত — এই ছুটির জন্য সংশোধন করে আবার স্বাক্ষর করুন",
+    "This summary was signed for an earlier, cancelled discharge — amend and sign it for this one"
+  ],
+  "sm_draft_by": [
+    "{name} একটি খসড়া লিখছেন — তিনিই স্বাক্ষর করবেন",
+    "{name} is writing a draft — they sign it"
   ]
 }

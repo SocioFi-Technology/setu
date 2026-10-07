@@ -107,7 +107,7 @@ function VitalsFor({ enc }: { enc: string }) {
   );
 }
 
-function EscalationCard({ esc, onChanged }: { esc: WardPatientView["escalations"][number]; onChanged: () => Promise<void> }) {
+export function EscalationCard({ esc, onChanged }: { esc: WardPatientView["escalations"][number]; onChanged: () => Promise<void> }) {
   const s = useSession(); const N = useN(); const err = useErr();
   const [spokeTo, setSpokeTo] = useState(""); const [instruction, setInstruction] = useState(""); const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false); const [msg, setMsg] = useState<string | null>(null);

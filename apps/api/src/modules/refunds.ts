@@ -46,7 +46,8 @@ const WRITERS = ["cashier", "pharmacist", "owner", "admin"];
 const APPROVERS = ["owner", "admin"];
 const LIVE = { notIn: ["rejected", "withdrawn"] as ("rejected" | "withdrawn")[] };
 /** The bill a refund belongs to — the IPD bill for a deposit-excess refund (ADR 0018). */
-const billOf = (tx: Tx, s: SessionData, r: { invoiceId: string; source: string }, lock = false) => invoiceHere(tx, s, r.invoiceId, lock, { ipd: r.source === DEPOSIT_EXCESS });
+/** The refund's bill — an IPD final bill too (its excess deposit, or a refund after issue — ADR 0018). */
+const billOf = (tx: Tx, s: SessionData, r: { invoiceId: string; source: string }, lock = false) => invoiceHere(tx, s, r.invoiceId, lock, { ipd: true });
 
 const dash = <T extends string>(s: string) => s.replace(/_/g, "-") as T;
 const undash = <T extends string>(s: string) => s.replace(/-/g, "_") as T;
@@ -80,7 +81,8 @@ const gatewayRefunds = (p: { provider: string | null; method: string }) => isWal
 
 /* ───── what can be refunded ───── */
 async function lineFacts(tx: Tx, inv: Inv) {
-  const lines = await tx.chargeItem.findMany({ where: { invoiceId: inv.id }, orderBy: { position: "asc" } });
+  // an IPD final bill (ADR 0018): only its live lines — never a superseded line or a credit pair
+  const lines = await tx.chargeItem.findMany({ where: { invoiceId: inv.id, supersededById: null, creditOfId: null, creditedById: null }, orderBy: { position: "asc" } });
   const taken = await tx.refundLine.findMany({ where: { chargeItemId: { in: lines.map((l) => l.id) }, refund: { status: LIVE } } });
   const orders = await tx.serviceRequest.findMany({ where: { id: { in: lines.flatMap((l) => (l.source === "order" && l.sourceId ? [l.sourceId] : [])) } }, select: { id: true, status: true } });
   const orderById = new Map(orders.map((o) => [o.id, dash<OrderState>(o.status)]));
@@ -95,7 +97,8 @@ async function lineFacts(tx: Tx, inv: Inv) {
 }
 async function paymentFacts(tx: Tx, inv: Inv) {
   const pays = await tx.payment.findMany({ where: { invoiceId: inv.id, status: "confirmed" }, orderBy: { confirmedAt: "asc" } });
-  const taken = await tx.refundAllocation.findMany({ where: { paymentId: { in: pays.map((p) => p.id) }, refund: { status: LIVE, source: "bill" } }, select: { paymentId: true, amountPaisa: true } });
+  // the excess deposit's refund (ADR 0018) takes from a payment like a bill refund does
+  const taken = await tx.refundAllocation.findMany({ where: { paymentId: { in: pays.map((p) => p.id) }, refund: { status: LIVE, source: { in: ["bill", DEPOSIT_EXCESS] } } }, select: { paymentId: true, amountPaisa: true } });
   return pays.map((p) => {
     const gw = gatewayRefunds(p);
     const method = p.method as PaymentMethod;
@@ -103,15 +106,17 @@ async function paymentFacts(tx: Tx, inv: Inv) {
     return { p, method, gw, ways, leftPaisa: p.amountPaisa - taken.filter((x) => x.paymentId === p.id).reduce((a, x) => a + x.amountPaisa, 0) };
   });
 }
-const openRefundOf = (tx: Tx, invoiceId: string) => tx.refund.findFirst({ where: { invoiceId, status: { in: ["requested", "approved"] } }, select: { id: true, status: true } });
+/** An open refund of the bill (the excess deposit's refund of an IPD final bill runs on its own — ADR 0018). */
+const openRefundOf = (tx: Tx, invoiceId: string) => tx.refund.findFirst({ where: { invoiceId, status: { in: ["requested", "approved"] }, source: { not: DEPOSIT_EXCESS } }, select: { id: true, status: true } });
 /** Money refunds of the bill (paid or open) — a return without refund moves no money and is not counted here (review). */
 const liveBillRefunds = async (tx: Tx, invoiceId: string) =>
   (await tx.refund.aggregate({ where: { invoiceId, source: "bill", kind: "refund", status: LIVE }, _sum: { amountPaisa: true } }))._sum.amountPaisa ?? 0;
 
 export async function refundableView(tx: Tx, s: SessionData, invoiceId: string): Promise<RefundableView> {
-  const inv = await invoiceHere(tx, s, invoiceId);
+  // Kamrul, 2 (ADR 0018): an errored dose after the IPD final bill is settled by refund — the issued IPD bill is reachable
+  const inv = await invoiceHere(tx, s, invoiceId, false, { ipd: true });
   const [lines, pays, open, live] = await Promise.all([lineFacts(tx, inv), paymentFacts(tx, inv), openRefundOf(tx, inv.id), liveBillRefunds(tx, inv.id)]);
-  const confirmedLeftPaisa = inv.paidPaisa - live;
+  const confirmedLeftPaisa = inv.paidPaisa - inv.excessPaisa - live;
   const blockers: RefundableView["blockers"] = [];
   if (!["issued", "partially_paid", "balanced"].includes(inv.status)) blockers.push("bill_not_refundable");
   if (open) blockers.push("refund_open");
@@ -137,7 +142,7 @@ export async function refusePendingCaseRefund(tx: Tx, detail: unknown) {
 }
 
 /** What the bill still asks for: total − credited returns − confirmed money. */
-const dueOf = (inv: Inv) => inv.totalPaisa - inv.creditedPaisa - inv.paidPaisa;
+const dueOf = (inv: Inv) => inv.totalPaisa - inv.creditedPaisa - (inv.paidPaisa - inv.excessPaisa);
 /** Decisions 221 / 233: a pharmacy / OTC bill that still has a due and no payment under way — medicine coming back credits
     the due first; what is left of its value is refunded from confirmed money. */
 async function canReturnOn(tx: Tx, inv: Inv) {
@@ -189,7 +194,7 @@ function refuse(code: string, field?: string): never {
 
 export async function requestRefund(tx: Tx, s: SessionData, invoiceId: string, req: RefundRequest, now: Date): Promise<{ r: Rf; audit: AuditEntry[] }> {
   if (!WRITERS.includes(s.role)) throw notWriter();
-  const inv = await invoiceHere(tx, s, invoiceId, true);
+  const inv = await invoiceHere(tx, s, invoiceId, true, { ipd: true });
   const [lines, pays, open, live] = await Promise.all([lineFacts(tx, inv), paymentFacts(tx, inv), openRefundOf(tx, inv.id), liveBillRefunds(tx, inv.id)]);
   if (new Set(req.lines.map((l) => l.chargeItemId)).size !== req.lines.length) refuse("line_over", "lines");
   if (new Set(req.allocations.map((a) => a.paymentId)).size !== req.allocations.length) refuse("allocation_mismatch", "allocations");
@@ -211,7 +216,7 @@ export async function requestRefund(tx: Tx, s: SessionData, invoiceId: string, r
     source: "bill", kind: req.kind, duePaisa: dueOf(inv), pendingPayments,
     category: req.category, reason: req.reason, billStatus: dash<InvoiceState>(inv.status), openRefund: Boolean(open),
     lines: chosen.map(({ f, part }) => ({ source: f.l.source as LineSource, lock: f.lock, part })),
-    confirmedLeftPaisa: inv.paidPaisa - live,
+    confirmedLeftPaisa: inv.paidPaisa - inv.excessPaisa - live,
     allocations: allocs.map(({ p, a }) => ({ method: p.method, leftPaisa: p.leftPaisa, amountPaisa: a.amountPaisa, way: a.way, gatewayRefunds: p.gw, cashReason: a.cashReason ?? null })),
   });
   if (blockers.length) refuse(blockers[0]!);
@@ -321,6 +326,7 @@ const DECIDE_MSG: Record<string, [number, string, string, object?]> = {
   note_required: [400, "আপনিই এখানকার একমাত্র অনুমোদনকারী — নিজের অনুরোধে সিদ্ধান্তের কারণ লিখুন (অন্তত ১০ অক্ষর)", "You are the only approver here — write why you decide your own request (at least 10 characters)", { field: "note" }],
   owner_only: [403, "এই রিফান্ড (নিয়ন্ত্রিত ওষুধ, বা কার্ড / ব্যাংকের টাকা নগদে) শুধু মালিক অনুমোদন করেন", "Only the owner approves this refund (a controlled drug, or card / bank money paid back in cash)", { reason: "owner-only", canRequest: false }],
   note_too_short: [400, "নোট লিখুন (অন্তত ১০ অক্ষর)", "Write a note (at least 10 characters)", { field: "note" }],
+  excess_note: [400, "আপনিই এই বিল করেছেন — নিজের অনুরোধ অনুমোদনের কারণ লিখুন (অন্তত ১০ অক্ষর)", "You issued this bill — write why you approve your own request (at least 10 characters)", { field: "note" }],
   deposit_excess: [409, "জমার বাড়তি টাকার ফেরত কখনো বাতিল বা প্রত্যাহার হয় না — শুধু ফেরতের পথ বদলায়", "The excess deposit's refund is never rejected or withdrawn — only its way back changes"],
   part_paid: [409, "ফেরত দেওয়া শুরু হয়ে গেছে — আর প্রত্যাহার করা যায় না", "The payout has started — it can no longer be withdrawn"],
 };
@@ -359,7 +365,7 @@ export async function decideRefund(tx: Tx, s: SessionData, refundId: string, d: 
   const self = s.userId === r.requestedById;
   if (d.decision === "approve" && excess) {
     const b = excessApprovalBlockers({ approverId: s.userId, approverRole: s.role, requestedById: r.requestedById, onlyApprover, note });
-    if (b.length) refuseDecision(b[0] === "self_approval" ? "own_request" : b[0]!);
+    if (b.length) refuseDecision(b[0] === "note_required" ? "excess_note" : b[0]!);
   } else if (d.decision === "approve") {
     await stillRefundable(tx, r);
     const org = await tx.organization.findFirst({ where: { id: s.organizationId } });
@@ -445,7 +451,9 @@ async function syncRefunded(tx: Tx, invoiceId: string) {
 /** The last allocation was paid: the voucher RF/yy/nnnn and REFUND pay, in the same transaction. */
 /** `by` paid it out (printed on the voucher); `maker` is who settles it now (the signed-in user — or, for the sweep, the
     person who claimed it). */
-async function finishIfPaid(tx: Tx, o: Org, refundId: string, by: string, now: Date, audit: AuditEntry[], maker: string = by) {
+/** `actor`: the signed-in person whose action paid it (null for the sweep — the discharge checklist then catches up on
+    its next view; the database wants a signed-in "done by"). */
+async function finishIfPaid(tx: Tx, o: Org, refundId: string, by: string, now: Date, audit: AuditEntry[], maker: string = by, actor: string | null = maker) {
   const r = (await refundRow(tx, o.organizationId, refundId))!;
   if (r.status !== "approved" || r.allocations.some((a) => a.status !== "paid")) return r;
   const isReturn = r.kind === "return";
@@ -502,7 +510,7 @@ async function finishIfPaid(tx: Tx, o: Org, refundId: string, by: string, now: D
     }
   }
   audit.push({ action: "update", entity: "Refund", entityId: r.id, patientId: r.patientId, detail: { event: "pay", number } });
-  if (r.source === DEPOSIT_EXCESS) audit.push(...await (await import("./discharge.js")).moneySettled(tx, o, r.invoiceId, maker, now));
+  if (r.source === DEPOSIT_EXCESS) audit.push(...await (await import("./discharge.js")).moneySettled(tx, o, r.invoiceId, actor, now));
   return (await refundRow(tx, o.organizationId, r.id))!;
 }
 
@@ -569,11 +577,14 @@ export async function payRefund(tx: Tx, s: SessionData, refundId: string, req: R
   if (way === "cash") {
     const shift = await openShiftOf(tx, s);
     if (!shift) throw err(409, "no_open_shift", "নগদ ফেরতের জন্য আপনার শিফট খোলা থাকতে হবে", "Open your shift first — cash refunds leave your drawer", { field: "shift" });
+    // each allocation keeps its own cash reason (review: an excess split over a bKash and a cash deposit) — only a gateway
+    // allocation switched to cash takes the new one
+    const switched = way !== open[0]!.way;
     for (const a of open) {
       const flag = isCardBankCash(a.method as PaymentMethod, "cash");
-      await tx.refundAllocation.update({ where: { id: a.id }, data: { way, cashReason, status: "paid", shiftId: shift.id, paidById: s.userId, paidAt: now, needsReconciliation: flag } });
+      await tx.refundAllocation.update({ where: { id: a.id }, data: { way, cashReason: switched ? cashReason : a.cashReason, status: "paid", shiftId: shift.id, paidById: s.userId, paidAt: now, needsReconciliation: flag } });
       if (flag) await tx.refundAllocation.update({ where: { id: a.id }, data: { reconcileTaskId: await openRefundCheck(tx, s, r, { ...a, way: "cash" }, now) } });
-      audit.push({ action: "update", entity: "RefundAllocation", entityId: a.id, patientId: r.patientId, detail: { event: "paid", way, cashReason, amountPaisa: a.amountPaisa, shiftId: shift.id } });
+      audit.push({ action: "update", entity: "RefundAllocation", entityId: a.id, patientId: r.patientId, detail: { event: "paid", way, cashReason: switched ? cashReason : a.cashReason, amountPaisa: a.amountPaisa, shiftId: shift.id } });
     }
   } else if (way === "manual") {
     if (!req.reference) throw err(400, "reference_required", "হাতে ফেরতের রেফারেন্স লিখুন", "Write the reference of the refund made by hand", { field: "reference" });
@@ -635,7 +646,7 @@ async function applyRefundAnswer(tenantId: string, organizationId: string, alloc
       await tx.refundAllocation.update({ where: { id: a.id }, data: { status: "paid", refundTrxId: answer.refundTrxId, paidById: a.claimedById, paidAt: now } });
       await syncRefunded(tx, a.refund.invoiceId);
       audit.push({ action: "update", entity: "RefundAllocation", entityId: a.id, patientId: a.refund.patientId, detail: { event: "gateway-completed", refundTrxId: answer.refundTrxId, amountPaisa: a.amountPaisa } });
-      await finishIfPaid(tx, { tenantId, organizationId }, a.refundId, a.claimedById!, now, audit, userId ?? a.claimedById!);
+      await finishIfPaid(tx, { tenantId, organizationId }, a.refundId, a.claimedById!, now, audit, userId ?? a.claimedById!, userId ?? null);
     } else if (answer.status === "refused" || giveUp) {
       const why = answer.status === "refused" ? `gateway refused (${answer.code})` : "no refund found at the gateway";
       await tx.refundAllocation.update({ where: { id: a.id }, data: { status: "open", gatewayFailedAt: now, failReason: why } });

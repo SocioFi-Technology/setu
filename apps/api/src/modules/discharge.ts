@@ -20,6 +20,8 @@ import { getPatient, notFound, toSummary } from "./frontdesk.js";
 import { dash, erPatientOf, iso, peopleOf, stale, type Adm } from "./inpatient.js";
 import { syncAdmission } from "./ipdBill.js";
 import { deliverInApp } from "./lab.js";
+import { verifyWitnessPin } from "./mar.js";
+import { escWire } from "./ward.js";
 import { requirePin } from "./pin.js";
 import { devHash } from "./users.js";
 
@@ -58,7 +60,8 @@ const live = (d: Dis) => d.status === "ordered" || d.status === "completed";
 async function eventsOf(tx: Tx, d: Dis): Promise<Partial<Record<DischargeStepKey, boolean>>> {
   const a = (await tx.admission.findFirst({ where: { id: d.admissionId } }))!;
   const inv = a.invoiceId ? await tx.invoice.findFirst({ where: { id: a.invoiceId } }) : null;
-  const summary = await tx.composition.findFirst({ where: { encounterId: d.encounterId, kind: SUMMARY_KIND, status: { in: ["final", "amended"] } }, select: { id: true } });
+  // a summary signed for an earlier, cancelled discharge does not count — the doctor amends it (review)
+  const summary = await tx.composition.findFirst({ where: { encounterId: d.encounterId, kind: SUMMARY_KIND, status: { in: ["final", "amended"] }, signedAt: { gte: d.orderedAt } }, select: { id: true } });
   const excessOpen = inv && inv.excessPaisa > 0 ? await tx.refund.findFirst({ where: { invoiceId: inv.id, source: "deposit-excess", status: { not: "paid" } }, select: { id: true } }) : null;
   return {
     summary: Boolean(summary),
@@ -81,7 +84,7 @@ export async function catchUp(tx: Tx, by: string | null, d0: DisFull, now: Date)
       const next = finishStep(kind, states, def.key);
       const x = d0.steps.find((y) => y.key === def.key)!;
       const n = await tx.dischargeStep.updateMany({ where: { id: x.id, status: "in-progress" }, data: { status: "done", doneById: by, doneAt: now } });
-      if (n.count !== 1) throw stale();
+      if (n.count !== 1) return audit; // another view caught it up at the same moment (review: no 409 on a read)
       for (const y of d0.steps.filter((y) => states[y.key as DischargeStepKey] === "waiting" && next[y.key as DischargeStepKey] === "in-progress"))
         await tx.dischargeStep.update({ where: { id: y.id }, data: { status: "in-progress", startedAt: now } });
       audit.push({ action: "update", entity: "DischargeStep", entityId: x.id, patientId: d0.patientId, detail: { event: "done-by-event", step: def.key } });
@@ -141,12 +144,15 @@ async function viewOf(tx: Tx, s: SessionData, d: DisFull, now: Date): Promise<Di
     };
   });
   const enc = await tx.encounter.findFirst({ where: { id: d.encounterId }, select: { status: true, outcome: true } });
+  const escs = authorize(s.role, s.plan, "ipd", "discharge").allowed ? await tx.escalationEvent.findMany({ where: { encounterId: d.encounterId, status: { not: "resolved" } }, orderBy: { raisedAt: "asc" } }) : [];
+  const escWho = await peopleOf(tx, escs.flatMap((e) => [e.raisedById, e.informedById, e.resolvedById, e.acknowledgedById]));
   return {
     discharge: {
       id: d.id, kind, status: d.status as DischargeView["discharge"]["status"], advice: d.advice, targetAt: d.targetAt.toISOString(), overdue: d.status === "ordered" && overdue(d.targetAt, now),
       orderedBy: who(d.orderedById), orderedAt: d.orderedAt.toISOString(), completedAt: iso(d.completedAt),
       cancel: d.cancelledById && d.cancelledAt ? { by: who(d.cancelledById), at: d.cancelledAt.toISOString(), reason: d.cancelReason ?? "" } : null,
-      record: d.detail ? { ...(d.detail as Record<string, unknown>), ...(detail?.witnessId ? { witness: who(detail.witnessId) } : {}) } : null,
+      // the LAMA / death details are the ward's and the doctor's — not the pharmacy's or the counter's (review)
+      record: d.detail && authorize(s.role, s.plan, "ipd", "discharge").allowed ? { ...(d.detail as Record<string, unknown>), ...(detail?.witnessId ? { witness: who(detail.witnessId) } : {}) } : null,
     },
     admission: { id: a.id, number: a.number ?? "", bed: bed?.name ?? null, ward: ward?.name ?? null, dayNo: bedDaysDue(a.admittedAt!, a.dischargedAt, now), doctor: who(a.admittingDoctorId), encounterId: a.encounterId!, visitFinished: enc?.status === "finished", outcome: (enc?.outcome ?? null) as "lama" | "deceased" | null },
     patient: toSummary(await getPatient(tx, a.patientId)),
@@ -154,6 +160,7 @@ async function viewOf(tx: Tx, s: SessionData, d: DisFull, now: Date): Promise<Di
     header: { done: doneCount(states), total: steps.length, complete: d.status === "completed",
       blockedBy: blocking.map((k) => { const x = d.steps.find((y) => y.key === k)!; return { key: k, department: stepDef(kind, k).department, person: person(x) }; }) },
     can: { cancel: d.status === "ordered" && s.role === "doctor" && kind !== "death" && states["final-bill"] !== "done" && states["bed-release"] !== "done" },
+    escalations: escs.map((e) => escWire(e, escWho)),
   };
 }
 async function dischargeHere(tx: Tx, s: SessionData, id: string, lock = false): Promise<DisFull> {
@@ -222,13 +229,15 @@ async function setBed(tx: Tx, bedId: string, event: "startDischarge" | "cancelDi
   if (n.count !== 1) throw stale();
   return { name: b.name, to };
 }
-async function admittedHere(tx: Tx, s: SessionData, admissionId: string) {
+async function admittedHere(tx: Tx, s: SessionData, admissionId: string, death = false) {
   requireDischarge(s);
   if (s.role !== "doctor") throw err(403, "forbidden", "ছুটি / LAMA / মৃত্যুর রেকর্ড দেন ডাক্তার", "A doctor records the discharge, LAMA or a death", { reason: "role", canRequest: false });
   const a = await tx.admission.findFirst({ where: { id: admissionId, organizationId: s.organizationId } });
   if (!a || !a.encounterId) throw notFound();
   if (a.status !== "admitted") throw err(409, "not_admitted", "রোগী ভর্তি নেই", "The patient is not admitted");
-  if (await tx.discharge.findFirst({ where: { admissionId: a.id, status: { in: ["ordered", "completed"] } }, select: { id: true } })) throw err(409, "discharge_exists", "ছুটির আদেশ আগেই হয়েছে", "A discharge is already recorded");
+  // review (B10–B12): a death on the ward replaces a discharge or LAMA already ordered (even after the final bill)
+  const existing = await tx.discharge.findFirst({ where: { admissionId: a.id, status: { in: ["ordered", "completed"] } }, select: { id: true, kind: true } });
+  if (existing && !(death && existing.kind !== "death")) throw err(409, "discharge_exists", "ছুটির আদেশ আগেই হয়েছে", "A discharge is already recorded");
   if (await tx.bedAssignment.findFirst({ where: { encounterId: a.encounterId, status: "reserved" }, select: { id: true } })) throw err(409, "move_pending", "একটি শয্যা বদল অপেক্ষায় — আগে শেষ বা বাতিল করুন", "A bed move is waiting — finish or cancel it first");
   return a;
 }
@@ -266,7 +275,7 @@ export async function orderDischarge(tx: Tx, s: SessionData, admissionId: string
   return createDischarge(tx, s, a, "normal", body.advice, targetAt, null, now);
 }
 /** LAMA (decision 14): reason, risks explained, the form signed by the patient or guardian, a witness (nurse / doctor). */
-export async function recordLama(tx: Tx, s: SessionData, admissionId: string, body: { reason: string; risksExplained: boolean; formSigned: boolean; witnessId: string | null; pin: string }, now: Date) {
+export async function recordLama(tx: Tx, s: SessionData, admissionId: string, body: { reason: string; risksExplained: boolean; formSigned: boolean; witnessId: string | null; witnessPin: string; pin: string }, now: Date) {
   const a = await admittedHere(tx, s, admissionId);
   const b = lamaBlockers({ reason: body.reason, risksExplained: body.risksExplained, formSigned: body.formSigned, witnessId: body.witnessId }, s.userId);
   const MSG: Record<string, [string, string, string]> = {
@@ -280,15 +289,33 @@ export async function recordLama(tx: Tx, s: SessionData, admissionId: string, bo
   const witness = await tx.practitionerRole.findFirst({ where: { userId: body.witnessId!, organizationId: s.organizationId, role: { in: ["nurse", "doctor"] }, user: { active: true } }, select: { userId: true } });
   if (!witness) throw err(400, "lama_witness", "সাক্ষী এই প্রতিষ্ঠানের নার্স বা ডাক্তার নন", "The witness is not a nurse or doctor of this facility", { field: "witnessId" });
   await checkPin(tx, s, body.pin);
+  // the witness confirms with their own PIN (review: a witness named, never present)
+  await verifyWitnessPin(tx, body.witnessId!, body.witnessPin);
   return createDischarge(tx, s, a, "lama", body.reason, now, { risksExplained: true, formSigned: true, witnessId: body.witnessId }, now);
 }
 /** A death on the ward (decision 15): the ER's checks; the visit's outcome "deceased"; no summary. */
 export async function recordDeath(tx: Tx, s: SessionData, admissionId: string, body: { timeOfDeath: string; cause: string; medicoLegal: boolean; checks: string[]; pin: string }, now: Date) {
-  const a = await admittedHere(tx, s, admissionId);
+  const a = await admittedHere(tx, s, admissionId, true);
   const b = deathRecordBlockers({ timeOfDeath: body.timeOfDeath, cause: body.cause, medicoLegal: body.medicoLegal, checks: body.checks }, a.admittedAt!, now);
   if (b.length) throw err(400, `death_${b[0]!.code}`, "মৃত্যুর রেকর্ডে যা লাগে তা পূরণ করুন", "Complete the death record", { field: b[0]!.field, blockers: b as unknown as Record<string, unknown>[] });
+  // review: a dose charted as given after the time of death contradicts the record
+  const after = await tx.medicationAdministration.count({ where: { encounterId: a.encounterId!, status: "given", administeredAt: { gt: new Date(body.timeOfDeath) } } });
+  if (after > 0) throw err(409, "doses_after_death", "মৃত্যুর সময়ের পরে ওষুধ দেওয়া লেখা আছে — সময় বা চার্ট মিলিয়ে দেখুন", "A dose is charted as given after this time of death — check the time or the chart", { field: "timeOfDeath" });
   await checkPin(tx, s, body.pin);
-  return createDischarge(tx, s, a, "death", body.cause, new Date(body.timeOfDeath), { timeOfDeath: new Date(body.timeOfDeath).toISOString(), medicoLegal: body.medicoLegal, checks: body.checks }, now);
+  // a discharge or LAMA ordered before is replaced (its bill, if issued, stays as it is)
+  const prev = await tx.discharge.findFirst({ where: { admissionId: a.id, status: "ordered", kind: { not: "death" } } });
+  const replaced: AuditEntry[] = [];
+  if (prev) {
+    const n = await tx.discharge.updateMany({ where: { id: prev.id, status: "ordered" }, data: { status: transition("discharge", DISCHARGE, "ordered", "cancel"), cancelledById: s.userId, cancelledAt: now, cancelReason: "replaced-by-death" } });
+    if (n.count !== 1) throw stale();
+    await setBed(tx, a.bedId, "cancelDischarge");
+    replaced.push({ action: "update", entity: "Discharge", entityId: prev.id, patientId: a.patientId, detail: { event: "cancel", kind: prev.kind, reason: "replaced-by-death" } });
+  }
+  const r = await createDischarge(tx, s, a, "death", body.cause, new Date(body.timeOfDeath), { timeOfDeath: new Date(body.timeOfDeath).toISOString(), medicoLegal: body.medicoLegal, checks: body.checks }, now);
+  // an already issued bill finishes the death record's final-bill step at once
+  const d = await liveOf(tx, a.id);
+  const caught = d ? await catchUp(tx, s.userId, d, now) : [];
+  return { view: caught.length ? await viewOf(tx, s, (await liveOf(tx, a.id))!, now) : r.view, audit: [...replaced, ...r.audit, ...caught] };
 }
 export async function cancelDischarge(tx: Tx, s: SessionData, id: string, body: { reason: string; pin: string }, now: Date): Promise<{ view: DischargeView; audit: AuditEntry[] }> {
   requireDischarge(s);
@@ -361,6 +388,11 @@ export async function doneStep(tx: Tx, s: SessionData, id: string, key: string, 
   if (x.status !== "in-progress") throw err(409, "step_waiting", "এই ধাপের আগের ধাপগুলো শেষ হয়নি", "The steps before this one are not done");
   if (k === "pharmacy" && pharmacyClearanceBlockers({ ownMedicines: body.ownMedicines ?? null }).length)
     throw err(400, "own_medicines", "রোগীর নিজের ওষুধ ফেরত দেওয়া হয়েছে কি না বাছুন", "Say whether the patient's own medicines were handed back", { field: "ownMedicines" });
+  // review (Kamrul, 12): a critical result released or an escalation opened after the summary still stops a normal discharge
+  if (k === "bed-release" && kind === "normal") {
+    const f = await (await import("./summary.js")).safetyFacts(tx, d.encounterId);
+    if (f.criticalUnacked > 0 || f.openEscalations > 0) throw err(409, "safety_open", "একটি জরুরি ফল বা এসকেলেশন এখনো খোলা — ডাক্তার দেখে নিন, তারপর ছুটি", "A critical result or an escalation is still open — the doctor must see it before the patient leaves");
+  }
   const leftAt = k === "bed-release" && body.at ? new Date(body.at) : now;
   if (k === "bed-release" && (Number.isNaN(leftAt.getTime()) || leftAt.getTime() > now.getTime() + 60_000 || leftAt.getTime() < d.orderedAt.getTime()))
     throw err(400, "left_at", "সময় ছুটির আদেশ আর এখনের মধ্যে দিন", "The time is between the order and now", { field: "at" });

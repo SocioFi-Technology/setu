@@ -685,5 +685,6 @@
   "ib_col_bill": ["বিল", "Bill"],
   "ib_bill_running": ["চলমান", "Running"],
   "ib_bill_due": ["বাকি {amount}", "Due {amount}"],
-  "ib_bill_excess": ["ফেরত বাকি {amount}", "To return {amount}"]
+  "ib_bill_excess": ["ফেরত বাকি {amount}", "To return {amount}"],
+  "fb_refund": ["একটি লাইন ফেরত (রিফান্ড)", "Refund a line"]
 }

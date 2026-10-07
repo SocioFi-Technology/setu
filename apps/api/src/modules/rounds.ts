@@ -28,6 +28,8 @@ const CURRENT = ["final", "amended"];
 const rule = () => ({ threshold: NEWS2_THRESHOLD_SAMPLE, sample: true as const, note: { ...NEWS2_SAMPLE_NOTE } });
 type Comp = NonNullable<Awaited<ReturnType<Tx["composition"]["findFirst"]>>>;
 type Med = NonNullable<Awaited<ReturnType<Tx["medicine"]["findFirst"]>>>;
+/** ADR 0018 (review): a death recorded on the ward stops the round — no new orders on a deceased patient. */
+const refuseDeceased = (e: { outcome: string | null }) => { if (e.outcome === "deceased") throw err(409, "deceased", "মৃত্যুর রেকর্ড হয়েছে — রাউন্ড নোট আর লেখা হয় না", "A death is recorded — no round note is written"); };
 const requireDoctor = (s: SessionData) => { if (s.role !== "doctor") throw err(403, "forbidden", "রাউন্ড নোট লেখেন ডাক্তার", "A doctor writes the round note", { reason: "role", canRequest: false }); };
 const asWard = (m: Med): WardMedicine => ({ key: m.key, brand: m.brand, brandBn: m.brandBn, generic: m.generic, strength: m.strength, form: m.form, ingredients: m.ingredients, classes: m.classes, issueUnit: m.issueUnit as WardMedicine["issueUnit"], routes: m.routes as WardMedicine["routes"], multiDose: m.multiDose, highAlert: m.highAlert, controlled: m.controlled, inpatientOnly: m.inpatientOnly, mrpPaisa: 0, sample: true });
 
@@ -71,7 +73,9 @@ export async function roundWorklist(tx: Tx, s: SessionData, now: Date): Promise<
     tx.nursingNote.findMany({ where: { encounterId: { in: ids }, status: "active" }, select: { encounterId: true, effectiveAt: true } }),
   ]);
   const who = await peopleOf(tx, escs.flatMap((e) => [e.raisedById, e.informedById, e.resolvedById, e.acknowledgedById]));
-  const items = encs.map((e) => {
+  // only patients still admitted (review: the visit now finishes when the patient left and the bill is issued — someone
+  // who left stays "in progress" until then, and is not on the round); a deceased patient is not rounded on either
+  const items = encs.filter((e) => adms.some((x) => x.encounterId === e.id) && e.outcome !== "deceased").map((e) => {
     const sc = scores.get(e.id), esc = escs.find((x) => x.encounterId === e.id), bed = live.find((x) => x.encounterId === e.id), adm = adms.find((x) => x.encounterId === e.id);
     const last = signed.find((x) => x.encounterId === e.id)?.signedAt ?? null;
     return {
@@ -82,7 +86,7 @@ export async function roundWorklist(tx: Tx, s: SessionData, now: Date): Promise<
   });
   // by risk: open escalation, then NEWS2, then missed doses
   items.sort((a, b) => Number(Boolean(b.escalation)) - Number(Boolean(a.escalation)) || (b.news2?.total ?? -1) - (a.news2?.total ?? -1) || b.missedLast24h - a.missedLast24h || (a.bed ?? "").localeCompare(b.bed ?? ""));
-  return { list: { items, rule: rule() }, patientIds: encs.map((e) => e.patientId) };
+  return { list: { items, rule: rule() }, patientIds: items.map((x) => x.patient.id) };
 }
 
 export async function roundView(tx: Tx, s: SessionData, encounterId: string, now: Date): Promise<{ view: RoundView; patientId: string }> {
@@ -128,6 +132,7 @@ export async function openRound(tx: Tx, s: SessionData, encounterId: string, now
   requireDoctor(s);
   const ip = await inpatientHere(tx, s, encounterId);
   if (!ip.open) throw closedVisit();
+  refuseDeceased(ip.e);
   const existing = await tx.composition.findFirst({ where: { encounterId: ip.e.id, kind: KIND, status: "draft", authorId: s.userId } });
   const audit: AuditEntry[] = [];
   if (!existing) {
@@ -145,6 +150,7 @@ async function draftHere(tx: Tx, s: SessionData, id: string) {
   if (c.authorId !== s.userId) throw err(403, "forbidden", "এটি অন্য ডাক্তারের খসড়া", "This is another doctor's draft", { reason: "role", canRequest: false });
   const ip = await inpatientHere(tx, s, c.encounterId);
   if (!ip.open) throw closedVisit();
+  refuseDeceased(ip.e);
   return { c, ip };
 }
 type FieldErr = { field: string; code: string };
@@ -237,6 +243,7 @@ export async function amendRound(tx: Tx, s: SessionData, id: string, reason: str
   if (!CURRENT.includes(v1.status) || v1.supersededById) throw err(409, "not_current", "শুধু বর্তমান স্বাক্ষরিত সংস্করণ সংশোধন হয়", "Only the current signed version is amended");
   const ip = await inpatientHere(tx, s, v1.encounterId);
   if (!ip.open) throw closedVisit();
+  refuseDeceased(ip.e);
   if (await tx.composition.findFirst({ where: { threadId: v1.threadId, status: "draft" } })) throw err(409, "draft_exists", "এই নোটের একটি সংশোধন খসড়া আগেই খোলা", "An amendment draft of this note is already open");
   const v2id = `cmp_${randomUUID()}`;
   await tx.composition.create({ data: { id: v2id, threadId: v1.threadId, tenantId: s.tenantId, organizationId: s.organizationId, branchId: v1.branchId, patientId: v1.patientId, encounterId: v1.encounterId, kind: KIND, version: v1.version + 1, status: "draft", amendsId: v1.id, amendReason: reason.trim(), sections: v1.sections as object, sectionSources: {}, authorId: s.userId } });

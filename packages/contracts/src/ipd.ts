@@ -4,6 +4,7 @@ import { z } from "zod";
 import { BedStateWire, ErPatient } from "./er.js";
 import { PatientSummary } from "./frontdesk.js";
 import { AllergyView, DiagnosisView, DocStatus, Meal, MedicationView } from "./consultation.js";
+import { Escalation } from "./ward.js";
 
 const Person = z.object({ id: z.string(), nameBn: z.string(), nameEn: z.string() });
 export const AdmissionSource = z.enum(["opd", "er", "direct"]);
@@ -227,6 +228,9 @@ export const DischargeView = z.object({
   steps: z.array(DischargeStepView),
   header: z.object({ done: z.number().int(), total: z.number().int(), blockedBy: z.array(z.object({ key: DischargeStepKey, department: z.enum(["doctor", "pharmacy", "billing", "ward"]), person: Person.nullable() })), complete: z.boolean() }),
   can: z.object({ cancel: z.boolean() }),
+  /** review (B10–B12): the visit's escalations still open — they stop the summary's signature and a normal "patient left";
+      shown here so the ward can close them even after a LAMA patient or a body has left */
+  escalations: z.array(Escalation),
 });
 export type DischargeView = z.infer<typeof DischargeView>;
 /* GET /v1/ipd/discharges — the live discharges of this facility (each department's list) */
@@ -252,7 +256,8 @@ export const DischargeStepDoneRequest = z.object({ pin: z.string().regex(/^\d{4}
   at: z.string().datetime({ offset: true }).optional() });
 export type DischargeStepDoneRequest = z.infer<typeof DischargeStepDoneRequest>;
 /* POST /v1/ipd/admissions/:id/lama — the doctor's LAMA record (PIN; decision 14) */
-export const LamaRequest = z.object({ reason: z.string().trim().min(10).max(1000), risksExplained: z.boolean(), formSigned: z.boolean(), witnessId: z.string().nullable(), pin: z.string().regex(/^\d{4}$/) });
+export const LamaRequest = z.object({ reason: z.string().trim().min(10).max(1000), risksExplained: z.boolean(), formSigned: z.boolean(), witnessId: z.string().nullable(),
+  /** review (B10–B12): the witness confirms with their own PIN, never stored */ witnessPin: z.string().regex(/^\d{4}$/), pin: z.string().regex(/^\d{4}$/) });
 export type LamaRequest = z.infer<typeof LamaRequest>;
 /* POST /v1/ipd/admissions/:id/death — a death on the ward (PIN; decision 15; the ER's checks) */
 export const DeathRecordRequest = z.object({ timeOfDeath: z.string().datetime({ offset: true }), cause: z.string().trim().min(3).max(500), medicoLegal: z.boolean(),
@@ -283,6 +288,10 @@ export const SummaryView = z.object({
   /** a death on the ward has no summary (decision 15) */
   needed: z.boolean(),
   draft: SummaryDoc.nullable(), current: SummaryDoc.nullable(),
+  /** review: the current version was signed before this discharge (an earlier one was cancelled) — amend it to confirm */
+  stale: z.boolean(),
+  /** another doctor's draft is open (only its author edits and signs it) */
+  draftBy: Person.nullable(),
   history: z.array(z.object({ id: z.string(), version: z.number().int(), status: DocStatus, signedAt: z.string().nullable(), amendReason: z.string().nullable() })),
   /** what stops signing the draft now (Kamrul, 12: a critical result unacknowledged, an escalation open) */
   blockers: z.array(SummaryBlocker),

@@ -279,7 +279,8 @@ export async function billingRoutes(app: FastifyInstance) {
           if (!refundId) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
           const r = await decideRefund(tx, s, refundId, { decision, note }, new Date());
           const item = (await refundApprovalItems(tx, s, decision === "approve" ? "approved" : "rejected")).find((i) => i.taskId === id)!;
-          return { body: { approval: item, view: await invoiceView(tx, s, await invoiceHere(tx, s, r.r.invoiceId)) }, audit: r.audit };
+          // the excess deposit's refund belongs to an IPD final bill (review B10–B12)
+          return { body: { approval: item, view: await invoiceView(tx, s, await invoiceHere(tx, s, r.r.invoiceId, false, { ipd: r.r.source === "deposit-excess" })) }, audit: r.audit };
         }
         const r = await decideApproval(tx, s, id, decision, note, new Date());
         return { body: { approval: r.item, view: await invoiceView(tx, s, r.inv) }, audit: [

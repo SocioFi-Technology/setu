@@ -6,7 +6,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
 import { config } from "../src/config.js";
-import { RUN, T, TICKS, client, dhakaHHMM, line, setup } from "./ward-helpers.js";
+import { RUN, T, TICKS, client, dhakaHHMM, line, setup, slotAt, withScans } from "./ward-helpers.js";
 
 const db = config.dbEnabled ? await import("@setu/db") : null;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -93,7 +93,7 @@ describe.runIf(db)("B10: the final bill", () => {
     expect(p1.final).toMatchObject({ status: "partially-paid", duePaisa: due - 100_000 });
     expect(p1.deposits.items.find((d: { amountPaisa: number }) => d.amountPaisa === 100_000).atCounter).toBe(true);
     const rc1 = ok(await c.post(`/v1/ipd/bills/${a.admissionId}/receipt`, {}, "cashier"), 201).receipt;
-    expect(rc1.snapshot).toMatchObject({ paidPaisa: 100_000, duePaisa: due - 100_000, ipd: { depositsPaisa: 100_000, excessPaisa: 0 } });
+    expect(rc1.snapshot).toMatchObject({ paidPaisa: 100_000, duePaisa: due - 100_000, ipd: { depositsPaisa: 0, excessPaisa: 0 } }); // paid at the counter, not a deposit
     expect(rc1.snapshot.lines.map((l: { nameEn: string }) => l.nameEn)).toEqual(["Bed days", "Services"]);
     const p2 = ok(await c.post(`/v1/ipd/bills/${a.admissionId}/payments`, { method: "bank", amountPaisa: due - 100_000, reference: "EFT 77" }, "cashier"), 201);
     expect(p2.final.status).toBe("balanced");
@@ -184,7 +184,7 @@ describe.runIf(db)("B11: the discharge summary", () => {
 describe.runIf(db)("B12: LAMA and a death on the ward", () => {
   it("LAMA: the doctor's record with a witness; the patient leaves once the pharmacy has cleared; the visit finishes when the bill is issued", async () => {
     const a = await admit();
-    const base = { reason: "Family taking her to Dhaka Medical College", risksExplained: true, formSigned: true, witnessId: "u_e2l_nurse", pin: "1234" };
+    const base = { reason: "Family taking her to Dhaka Medical College", risksExplained: true, formSigned: true, witnessId: "u_e2l_nurse", witnessPin: "1234", pin: "1234" };
     expect(ok(await c.post(`/v1/ipd/admissions/${a.admissionId}/lama`, { ...base, witnessId: "u_e2l_surgeon" }, "surgeon"), 400).code).toBe("lama_witness_self");
     expect(ok(await c.post(`/v1/ipd/admissions/${a.admissionId}/lama`, { ...base, formSigned: false }, "surgeon"), 400).code).toBe("lama_form");
     expect(ok(await c.post(`/v1/ipd/admissions/${a.admissionId}/lama`, { ...base, witnessId: "u_e2l_cashier" }, "surgeon"), 400).code).toBe("lama_witness");
@@ -234,4 +234,109 @@ describe.runIf(db)("B12: LAMA and a death on the ward", () => {
     ok(await c.post(`/v1/ipd/bills/${a.admissionId}/issue`, {}, "cashier"));
     expect(ok(await c.post(`/v1/ipd/discharges/${o.discharge.id}/cancel`, { reason: "Spiked a fever this morning", pin: "1234" }, "surgeon"), 409).code).toBe("bill_issued");
   });
+});
+
+describe.runIf(db)("the reviews (B10–B12 session 2)", () => {
+  it("money: an excess split over a bKash and a card deposit is paid back in cash, each part keeping its own reason; the owner who issued approves with a note", async () => {
+    const a = await admit({ deposit: { method: "card", amountPaisa: 500_000, reference: "APPR 61" } });
+    const link = ok(await c.post(`/v1/ipd/bills/${a.admissionId}/deposits`, { method: "bkash", amountPaisa: 300_000 }, "cashier"), 201);
+    const dep = link.deposits.items.find((d: { method: string }) => d.method === "bkash");
+    expect((await c.post(`/v1/dev/fake-payments/${dep.id}/confirmed`, {}, "cashier", null)).statusCode).toBe(200);
+    await order(a.admissionId);
+    // the owner issues the bill (the owner is a bill writer too) — then approves the refund they asked for, with a note
+    const b = ok(await c.post(`/v1/ipd/bills/${a.admissionId}/issue`, {}, "owner"));
+    const rid = b.final.excessRefund.id as string;
+    expect(ok(await c.post(`/v1/refunds/${rid}/decision`, { decision: "approve" }, "owner"), 400).code).toBe("excess_note");
+    const ap = ok(await c.post(`/v1/refunds/${rid}/decision`, { decision: "approve", note: "I issued this bill myself at the counter" }, "owner"));
+    expect(ap.refund).toMatchObject({ status: "approved", selfApproved: true });
+    expect(ap.allocations.map((x: { method: string; way: string; cashReason: string | null }) => `${x.method}:${x.way}:${x.cashReason}`).sort()).toEqual(["bkash:cash:deposit-excess", "card:cash:null"]);
+    await openShift();
+    const paid = ok(await c.post(`/v1/refunds/${rid}/pay`, { rev: ap.refund.rev, recipient: { name: "রাশেদ চৌধুরী", phone: "01711908812", relation: "spouse" } }, "cashier"));
+    expect(paid.view.refund.status).toBe("paid");
+    expect(paid.view.allocations.map((x: { cashReason: string | null }) => x.cashReason).sort()).toEqual(["deposit-excess", null]);
+    expect(step(await view(a.admissionId), "payment")).toBe("done");
+  }, 60_000);
+  it("money: after the final bill a charge is refunded, never edited — the issued IPD bill's live lines are refundable from net paid", async () => {
+    const a = await admit({ deposit: { method: "card", amountPaisa: 2_000_000, reference: "APPR 62" } });
+    ok(await c.post(`/v1/ipd/bills/${a.admissionId}/charges`, { code: "desk:transfusion", qty: 1 }, "cashier"), 201);
+    await order(a.admissionId);
+    const b = ok(await c.post(`/v1/ipd/bills/${a.admissionId}/issue`, {}, "cashier"));
+    const v = ok(await c.get(`/v1/invoices/${b.invoice.id}/refundable`, "cashier"));
+    expect(v.blockers).toEqual([]); // the excess refund does not count as "a refund open"
+    expect(v.confirmedLeftPaisa).toBe(b.final.netPaidPaisa);
+    expect(v.lines.every((l: { totalPaisa: number }) => l.totalPaisa >= 0)).toBe(true); // no credit pair, nothing superseded
+    const line = v.lines.find((l: { nameEn: string }) => /transfusion/i.test(l.nameEn));
+    const pay = v.payments[0];
+    const r = ok(await c.post(`/v1/invoices/${b.invoice.id}/refunds`, { kind: "refund", category: "other", reason: "Transfusion charged but not given — found after the bill",
+      lines: [{ chargeItemId: line.id, amountPaisa: line.totalPaisa }], allocations: [{ paymentId: pay.id, amountPaisa: line.totalPaisa, way: "cash" }] }, "cashier"), 201);
+    expect(r.refund).toMatchObject({ status: "requested", source: "bill" });
+  }, 60_000);
+  it("clinical: a death on the ward replaces a discharge whose bill is already issued; a dose charted after the time of death is refused", async () => {
+    const a = await admit();
+    const o = await order(a.admissionId);
+    ok(await c.post(`/v1/ipd/bills/${a.admissionId}/issue`, {}, "cashier"));
+    const v = ok(await c.post(`/v1/ipd/admissions/${a.admissionId}/death`, { timeOfDeath: new Date().toISOString(), cause: "Cardiac arrest", medicoLegal: false, checks: ["certificate", "family"], pin: "1234" }, "surgeon"), 201);
+    expect(v.discharge.kind).toBe("death");
+    expect(v.steps.map((x: { key: string; status: string }) => `${x.key}:${x.status}`)).toEqual(["order:done", "final-bill:done", "payment:in-progress", "bed-release:in-progress"]);
+    expect(v.admission.outcome).toBe("deceased");
+    const old = await tenant((tx) => tx.discharge.findFirst({ where: { id: o.discharge.id } }));
+    expect(old).toMatchObject({ status: "cancelled", cancelReason: "replaced-by-death" });
+    // a second death record is refused; the database refuses a "replaced" cancel with no death record behind it
+    expect(ok(await c.post(`/v1/ipd/admissions/${a.admissionId}/death`, { timeOfDeath: new Date().toISOString(), cause: "Cardiac arrest", medicoLegal: false, checks: ["certificate", "family"], pin: "1234" }, "surgeon"), 409).code).toBe("discharge_exists");
+    const b2 = await admit();
+    const o2 = await order(b2.admissionId);
+    await expect(tenant((tx) => tx.discharge.update({ where: { id: o2.discharge.id }, data: { status: "cancelled", cancelledById: "u_e2l_surgeon", cancelledAt: new Date(), cancelReason: "replaced-by-death" } }), "u_e2l_surgeon")).rejects.toThrow(/death record that does not exist/);
+    const b3 = await admit();
+    const rnd = await h.signRound(b3.encounterId, [line("ceftriaxone", { times: [dhakaHHMM(2)] })]);
+    const req = rnd.activeOrders[0];
+    await new Promise((r) => setTimeout(r, 1500));
+    const givenAt = new Date();
+    const given = await c.post(`/v1/nursing/encounters/${b3.encounterId}/doses`, await withScans(c, b3.encounterId, { requestId: req.id, scheduledFor: slotAt(req.times[0]), outcome: "given", administeredAt: givenAt.toISOString(), checks: TICKS, source: "patient-supplied" }), "nurse");
+    expect(given.statusCode, given.body).toBe(201);
+    const admittedAt = new Date(ok(await c.get(`/v1/ipd/bills/${b3.admissionId}`, "cashier")).admission.admittedAt).getTime();
+    const tod = new Date(Math.floor((admittedAt + givenAt.getTime()) / 2)).toISOString(); // within the stay, before the dose
+    expect(ok(await c.post(`/v1/ipd/admissions/${b3.admissionId}/death`, { timeOfDeath: tod, cause: "Cardiac arrest", medicoLegal: false, checks: ["certificate", "family"], pin: "1234" }, "surgeon"), 409).code).toBe("doses_after_death");
+  }, 60_000);
+  it("clinical: a summary signed for a cancelled discharge does not count for the next; the take-home queue needs a live discharge; leaving waits for an open critical result", async () => {
+    const a = await admit();
+    const o = await order(a.admissionId);
+    ok(await sign(await draftSummary(a.admissionId)));
+    ok(await c.post(`/v1/ipd/discharges/${o.discharge.id}/cancel`, { reason: "Spiked a fever this morning", pin: "1234" }, "surgeon"));
+    const q = ok(await c.get("/v1/pharmacy/queue", "pharm"));
+    expect(q.items.some((x: { encounter: { id: string } }) => x.encounter.id === a.encounterId)).toBe(false);
+    const o2 = await order(a.admissionId);
+    let v = await view(a.admissionId);
+    expect(step(v, "summary")).toBe("in-progress");
+    const sv = ok(await c.get(`/v1/ipd/admissions/${a.admissionId}/summary`, "surgeon"));
+    expect(sv).toMatchObject({ stale: true, can: { amend: true } });
+    const am = ok(await c.post(`/v1/ipd/summaries/${sv.current.id}/amend`, { reason: "Re-signed for this discharge" }, "surgeon"), 201);
+    ok(await sign(am.draft));
+    ok(await c.post(`/v1/ipd/discharges/${o2.discharge.id}/steps/pharmacy/done`, { pin: "1234", ownMedicines: "none" }, "pharm"));
+    ok(await c.post(`/v1/ipd/bills/${a.admissionId}/issue`, {}, "cashier"));
+    const due = ok(await c.get(`/v1/ipd/bills/${a.admissionId}`, "cashier")).final.duePaisa;
+    ok(await c.post(`/v1/ipd/bills/${a.admissionId}/payments`, { method: "card", amountPaisa: due, reference: "APPR 63" }, "cashier"), 201);
+    v = await view(a.admissionId);
+    expect(step(v, "bed-release")).toBe("in-progress");
+    // a critical result arrives after the summary: the nurse cannot mark the patient left until a doctor sees it
+    const com = await tenant((tx) => tx.communication.create({ data: { id: `com_${RUN}_l${Date.now()}`, tenantId: T, organizationId: "o_e2e_lite", patientId: a.patientId, encounterId: a.encounterId, kind: "critical-vital", channel: "doctor_inbox", recipientUserId: "u_e2l_surgeon", createdById: "u_e2l_nurse" } }), "u_e2l_nurse");
+    expect(ok(await c.post(`/v1/ipd/discharges/${o2.discharge.id}/steps/bed-release/done`, { pin: "1234" }, "nurse"), 409).code).toBe("safety_open");
+    ok(await c.post(`/v1/doctor/inbox/${com.id}/ack`, { notifyPatient: false }, "surgeon"));
+    expect(ok(await c.post(`/v1/ipd/discharges/${o2.discharge.id}/steps/bed-release/done`, { pin: "1234" }, "nurse")).discharge.status).toBe("completed");
+  }, 90_000);
+  it("security: only the draft's author saves or signs it; LAMA needs the witness's own PIN; the death / LAMA record is not shown to the pharmacy", async () => {
+    const a = await admit();
+    await order(a.admissionId);
+    const d = await draftSummary(a.admissionId);
+    expect((await c.put(`/v1/ipd/summaries/${d.id}`, { rev: d.rev, sections: SECTIONS, diagnoses: [], medicines: [] }, "doctor")).statusCode).toBe(403);
+    expect((await c.post(`/v1/ipd/summaries/${d.id}/sign`, { rev: d.rev, pin: "1234" }, "doctor")).statusCode).toBe(403);
+    const other = ok(await c.get(`/v1/ipd/admissions/${a.admissionId}/summary`, "doctor"));
+    expect(other.draft).toBeNull(); expect(other.draftBy.id).toBe("u_e2l_surgeon");
+    const b = await admit();
+    const base = { reason: "Family taking her to Dhaka Medical College", risksExplained: true, formSigned: true, witnessId: "u_e2l_nurse", pin: "1234" };
+    expect(ok(await c.post(`/v1/ipd/admissions/${b.admissionId}/lama`, { ...base, witnessPin: "0000" }, "surgeon"), 401).code).toBe("witness_pin_wrong");
+    const v = ok(await c.post(`/v1/ipd/admissions/${b.admissionId}/lama`, { ...base, witnessPin: "1234" }, "surgeon"), 201);
+    expect(v.discharge.record).not.toBeNull();
+    expect(ok(await c.get(`/v1/ipd/admissions/${b.admissionId}/discharge`, "pharm")).discharge.record).toBeNull();
+    expect((await c.get("/v1/nursing/witnesses", "desk")).statusCode).toBe(403);
+  }, 60_000);
 });

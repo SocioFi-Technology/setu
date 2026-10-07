@@ -65,6 +65,13 @@ const pickable = (tx: Tx, s: SessionData, keys: string[]) =>
 /** What the pharmacy dispenses from: the OPD consultation note, or the IPD discharge summary's medicines on discharge
     (ADR 0018: the take-home medicines are a normal dispense, billed on the visit's pharmacy bill). */
 const RX_KINDS = ["consultation-note", "discharge-summary"];
+/** ADR 0018 (review): the visits whose take-home medicines may be given — a live discharge (ordered or completed) that
+    is not a death. A summary left from a cancelled discharge, or a death recorded since, gives nothing. */
+export async function takeHomeEncounters(tx: Tx, encounterIds: string[]): Promise<string[]> {
+  if (!encounterIds.length) return [];
+  const d = await tx.discharge.findMany({ where: { encounterId: { in: encounterIds }, status: { in: ["ordered", "completed"] }, kind: { not: "death" } }, select: { encounterId: true } });
+  return [...new Set(d.map((x) => x.encounterId))];
+}
 /** The visit's signed, current note (final or amended) with its prescription lines, or null. */
 async function currentNote(tx: Tx, encounterId: string) {
   return tx.composition.findFirst({
@@ -86,7 +93,7 @@ function progress(r: Req, rows: Disp[]) {
     lines of the same medicine never count each other's). A row of an earlier version: the current line of the same
     medicine — the one prescribed then or the substitute given (the doctor may amend to it) — at the same position if
     there are two. So nothing given is counted twice and nothing is given twice after an amendment (clinical review). */
-async function progressAll(tx: Tx, lines: Req[], rows: Disp[]) {
+export async function progressAll(tx: Tx, lines: Req[], rows: Disp[]) {
   const here = new Set(lines.map((l) => l.id));
   const oldIds = [...new Set(rows.filter((d) => !here.has(d.requestId)).map((d) => d.requestId))];
   const old = new Map((oldIds.length ? await tx.medicationRequest.findMany({ where: { id: { in: oldIds } } }) : []).map((x) => [x.id, x]));
@@ -115,9 +122,11 @@ export async function dispenseQueue(tx: Tx, s: SessionData, now: Date): Promise<
   const branch = await branchOf(tx, s);
   // a cancelled or voided visit is not dispensed against (its note stays on record)
   const opd = await tx.encounter.findMany({ where: { organizationId: s.organizationId, branchId: branch.id, tokenDay: dhakaDay(now), class: { not: "ipd" }, status: { notIn: ["cancelled", "entered_in_error"] } }, include: { patient: true }, orderBy: { tokenNo: "asc" } });
-  // ADR 0018: an inpatient's take-home medicines, from a discharge summary signed in the last few days
-  const summaries = await tx.composition.findMany({ where: { organizationId: s.organizationId, branchId: branch.id, kind: "discharge-summary", status: { in: CURRENT }, signedAt: { gte: new Date(now.getTime() - TAKE_HOME_DAYS * 864e5) } }, select: { encounterId: true } });
-  const ipd = summaries.length ? await tx.encounter.findMany({ where: { id: { in: summaries.map((x) => x.encounterId) }, status: { notIn: ["cancelled", "entered_in_error"] } }, include: { patient: true } }) : [];
+  // ADR 0018: an inpatient's take-home medicines, for the days after the summary was first signed (an amendment does not
+  // restart the clock — review), while the discharge is live and not a death
+  const firsts = await tx.composition.findMany({ where: { organizationId: s.organizationId, branchId: branch.id, kind: "discharge-summary", version: 1, signedAt: { gte: new Date(now.getTime() - TAKE_HOME_DAYS * 864e5) } }, select: { encounterId: true } });
+  const live = await takeHomeEncounters(tx, firsts.map((x) => x.encounterId));
+  const ipd = live.length ? await tx.encounter.findMany({ where: { id: { in: live }, status: { notIn: ["cancelled", "entered_in_error"] } }, include: { patient: true } }) : [];
   const encs = [...opd, ...ipd];
   const notes = await tx.composition.findMany({
     where: { encounterId: { in: encs.map((e) => e.id) }, kind: { in: RX_KINDS }, status: { in: CURRENT } }, orderBy: { version: "desc" },
@@ -208,6 +217,8 @@ const lockVisit = (tx: Tx, encounterId: string) => tx.$executeRaw`SELECT pg_advi
 async function noteFor(tx: Tx, encounterId: string, compositionId: string) {
   const note = await currentNote(tx, encounterId);
   if (!note) throw err(404, "no_prescription", "এই ভিজিটে স্বাক্ষরিত প্রেসক্রিপশন নেই", "This visit has no signed prescription");
+  if (note.kind === "discharge-summary" && !(await takeHomeEncounters(tx, [encounterId])).length)
+    throw err(409, "no_live_discharge", "এই রোগীর ছুটি বাতিল হয়েছে বা মৃত্যু রেকর্ড হয়েছে — বাড়ির ওষুধ দেওয়া হয় না", "This patient's discharge was cancelled or a death is recorded — no take-home medicines are given");
   if (note.id !== compositionId) throw err(409, "prescription_changed", "ডাক্তার প্রেসক্রিপশন সংশোধন করেছেন — নতুন সংস্করণ দেখে দিন", "The doctor amended the prescription — dispense from the new version", { field: "compositionId" });
   return note;
 }

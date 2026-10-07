@@ -16,6 +16,7 @@ import { ApiFailure, discharge, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { toBanner, useLabels } from "../fd/common";
 import { PinSheet } from "../nur/common";
+import { EscalationCard } from "../nur/Vitals";
 import { useI } from "./BedPicker";
 
 const STEP_TONE: Record<string, Tone> = { done: "ok", "in-progress": "pend", blocking: "bad", waiting: "neu" };
@@ -186,6 +187,13 @@ export function IpdDischarge() {
         <RecordLine v={v} />
         <span className="t-small t-muted">{I("ds_ordered_by", { name: T.who(v.discharge.orderedBy), at: T.dateTime(v.discharge.orderedAt) })}</span>
       </Card>
+      {v.escalations.length > 0 && (
+        <Card style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8 }} data-testid="discharge-escalations">
+          <b>{I("ds_esc_title")}</b>
+          <span className="t-small t-muted">{I("ds_esc_hint")}</span>
+          {v.escalations.map((x) => <EscalationCard key={x.id} esc={x} onChanged={async () => { setV(await discharge.view(v.admission.id)); }} />)}
+        </Card>
+      )}
       <DischargeSteps v={v} onChange={setV} />
       {v.can.cancel && <CancelDischarge v={v} onDone={(nv) => { setV(nv); toast(I("ds_cancelled_msg"), "undo-2"); }} />}
     </div>
@@ -247,12 +255,12 @@ function OrderForm({ admissionId, label, onDone }: { admissionId: string; label:
   const s = useSession(); const I = useI();
   const [kind, setKind] = useState<"normal" | "lama" | "death">("normal");
   const [advice, setAdvice] = useState(""); const [target, setTarget] = useState(local(new Date(Date.now() + 3 * 3600_000))); const [pin, setPin] = useState(false);
-  const [risks, setRisks] = useState(false); const [form, setForm] = useState(false); const [witness, setWitness] = useState(""); const [people, setPeople] = useState<WitnessList["items"]>([]);
+  const [risks, setRisks] = useState(false); const [form, setForm] = useState(false); const [witness, setWitness] = useState(""); const [witnessPin, setWitnessPin] = useState(""); const [people, setPeople] = useState<WitnessList["items"]>([]);
   const [tod, setTod] = useState(local(new Date())); const [ml, setMl] = useState(false); const [checks, setChecks] = useState<string[]>([]);
   const key = useRef(crypto.randomUUID());
   useEffect(() => { if (kind === "lama" && !people.length) ward.witnesses().then((x) => setPeople(x.items)).catch(() => setPeople([])); }, [kind]); // eslint-disable-line react-hooks/exhaustive-deps
   const ok = s.online && (kind === "normal" ? advice.trim().length >= 10
-    : kind === "lama" ? advice.trim().length >= 10 && risks && form && witness !== ""
+    : kind === "lama" ? advice.trim().length >= 10 && risks && form && witness !== "" && /^\d{4}$/.test(format.toEn(witnessPin))
     : advice.trim().length >= 3 && tod !== "" && checks.includes("certificate") && checks.includes("family") && (!ml || checks.includes("police")));
   const title = I(kind === "normal" ? "ds_order" : kind === "lama" ? "ds_lama_record" : "ds_death_record");
   return (
@@ -276,6 +284,7 @@ function OrderForm({ admissionId, label, onDone }: { admissionId: string; label:
               {people.map((p) => <option key={p.id} value={p.id}>{s.lang === "bn" ? p.nameBn : p.nameEn || p.nameBn} · {s.t("nurApp", `role_${p.role}`)}</option>)}
             </select>
           </label>
+          <TextField label={I("ds_lama_witness_pin")} hint={I("ds_lama_witness_pin_hint")} type="password" inputMode="numeric" autoComplete="off" value={witnessPin} onChange={(e) => setWitnessPin(e.target.value)} name="witnessPin" data-testid="lama-witness-pin" />
         </>)}
         {kind === "death" && (<>
           <TextField label={I("ds_death_time")} type="datetime-local" value={tod} onChange={(e) => setTod(e.target.value)} name="timeOfDeath" data-testid="death-time" />
@@ -295,7 +304,7 @@ function OrderForm({ admissionId, label, onDone }: { admissionId: string; label:
         submit={async (p) => {
           try {
             const v = kind === "normal" ? await discharge.order(admissionId, { advice: advice.trim(), targetAt: target ? fromLocal(target) : undefined, pin: p }, key.current)
-              : kind === "lama" ? await discharge.lama(admissionId, { reason: advice.trim(), risksExplained: risks, formSigned: form, witnessId: witness || null, pin: p }, key.current)
+              : kind === "lama" ? await discharge.lama(admissionId, { reason: advice.trim(), risksExplained: risks, formSigned: form, witnessId: witness || null, witnessPin: format.toEn(witnessPin), pin: p }, key.current)
               : await discharge.death(admissionId, { timeOfDeath: fromLocal(tod), cause: advice.trim(), medicoLegal: ml, checks, pin: p }, key.current);
             setPin(false); onDone(v);
           } catch (e) { if (e instanceof ApiFailure && e.body.code !== "pin_wrong") { key.current = crypto.randomUUID(); } throw e; }

@@ -118,7 +118,9 @@ export async function createReceipt(tx: Tx, s: SessionData, invoiceId: string, n
     discount: v.invoice.discount ? { category: v.invoice.discount.category, reason: v.invoice.discount.reason, approvedBy: v.invoice.discount.approvedBy ? { nameBn: v.invoice.discount.approvedBy.nameBn, nameEn: v.invoice.discount.approvedBy.nameEn } : null } : null,
     paidBy: v.paidBy,
     cashier: { nameBn: me?.nameBn ?? "—", nameEn: me?.nameEn ?? "—" },
-    ...(inv.kind === "ipd" ? { ipd: { admissionNumber: (await tx.admission.findFirst({ where: { invoiceId: inv.id }, select: { number: true } }))?.number ?? "", depositsPaisa: inv.paidPaisa, excessPaisa: inv.excessPaisa } } : {}),
+    // the deposits are what was paid before the bill was issued (review: a payment at the counter is not a deposit)
+    ...(inv.kind === "ipd" ? { ipd: { admissionNumber: (await tx.admission.findFirst({ where: { invoiceId: inv.id }, select: { number: true } }))?.number ?? "",
+      depositsPaisa: (await tx.payment.aggregate({ where: { invoiceId: inv.id, status: "confirmed", createdAt: { lt: inv.issuedAt! } }, _sum: { amountPaisa: true } }))._sum.amountPaisa ?? 0, excessPaisa: inv.excessPaisa } } : {}),
   };
   const yy = dhakaDay(now).slice(2, 4);
   const name = `receipt:${s.organizationId}:${yy}`;

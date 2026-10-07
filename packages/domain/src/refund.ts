@@ -181,10 +181,8 @@ export const DEPOSIT_EXCESS = "deposit-excess";
 export type ExcessApprovalBlocker = "owner_only" | "self_approval" | "note_required";
 export function excessApprovalBlockers(a: { approverId: string; approverRole: string; requestedById: string; onlyApprover?: boolean; note?: string }): ExcessApprovalBlocker[] {
   if (a.approverRole !== "owner") return ["owner_only"];
-  if (a.approverId === a.requestedById) {
-    if (!a.onlyApprover) return ["self_approval"];
-    if ((a.note ?? "").trim().length < REFUND_REASON_MIN) return ["note_required"];
-  }
+  // review (B10–B12): only the owner approves it, so an owner who issued the bill approves their own — with a note
+  if (a.approverId === a.requestedById && (a.note ?? "").trim().length < REFUND_REASON_MIN) return ["note_required"];
   return [];
 }
 /** The excess is never rejected or withdrawn (it would be unassigned money on an issued bill). */

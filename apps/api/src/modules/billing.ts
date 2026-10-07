@@ -852,6 +852,8 @@ async function walletPaymentHere(tx: Tx, s: SessionData, paymentId: string) {
 export async function retryPayment(tx: Tx, s: SessionData, paymentId: string, now: Date): Promise<{ inv: Inv; payment: Pay }> {
   const { p, inv } = await walletPaymentHere(tx, s, paymentId);
   if (!takesPayment(inv)) throw err(409, "not_payable", "এই বিলে আর টাকা নেওয়া যায় না", "This bill takes no more payments");
+  // ADR 0018 (review): a deposit link made before the final bill is not retried after it — take a new payment
+  if (inv.kind === "ipd" && inv.issuedAt && p.createdAt < inv.issuedAt) throw err(409, "deposit_link_closed", "চূড়ান্ত বিলের আগের জমার লিংক আর চালু করা যায় না — নতুন পেমেন্ট নিন", "A deposit link from before the final bill is not retried — take a new payment");
   await refuseWhileReturnOpen(tx, inv.id);
   // a new link only for a method the facility still takes (controls review); checking or cancelling a pending one still works
   const methods = (await tx.organization.findFirst({ where: { id: s.organizationId }, select: { paymentMethods: true } }))?.paymentMethods ?? [];

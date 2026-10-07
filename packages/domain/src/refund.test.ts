@@ -256,12 +256,12 @@ describe("pharmacy returns (ADR 0009 addendum)", () => {
 });
 
 describe("the deposit-excess refund (ADR 0018, Kamrul 3)", () => {
-  it("the owner approves, no cap; alone with a note; never rejected or withdrawn", async () => {
+  it("the owner approves, no cap; the owner who issued the bill with a note, even with an admin beside them (review); never rejected or withdrawn", async () => {
     const { excessApprovalBlockers, excessCloseBlockers } = await import("./refund.js");
     expect(excessApprovalBlockers({ approverId: "u_owner", approverRole: "owner", requestedById: "u_cash" })).toEqual([]);
     expect(excessApprovalBlockers({ approverId: "u_admin", approverRole: "admin", requestedById: "u_cash" })).toEqual(["owner_only"]);
-    expect(excessApprovalBlockers({ approverId: "u_owner", approverRole: "owner", requestedById: "u_owner" })).toEqual(["self_approval"]);
-    expect(excessApprovalBlockers({ approverId: "u_owner", approverRole: "owner", requestedById: "u_owner", onlyApprover: true })).toEqual(["note_required"]);
+    expect(excessApprovalBlockers({ approverId: "u_owner", approverRole: "owner", requestedById: "u_owner" })).toEqual(["note_required"]);
+    expect(excessApprovalBlockers({ approverId: "u_owner", approverRole: "owner", requestedById: "u_owner", onlyApprover: false, note: "I issued it myself at the counter" })).toEqual([]);
     expect(excessApprovalBlockers({ approverId: "u_owner", approverRole: "owner", requestedById: "u_owner", onlyApprover: true, note: "I issued it myself, alone today" })).toEqual([]);
     expect(excessCloseBlockers()).toEqual(["deposit_excess"]);
   });

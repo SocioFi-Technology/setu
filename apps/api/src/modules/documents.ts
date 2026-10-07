@@ -104,11 +104,13 @@ async function lrInput(tx: Tx, s: SessionData, id: string, mode: Mode, paper: Pa
   });
 }
 
-/* ADR 0018 (B11): the discharge summary — A4 only; a doctor, nurse or admin of this facility */
+/* ADR 0018 (B11): the discharge summary — A4 only; a doctor or admin (ipd/summary) or a nurse (ipd/discharge) of this facility */
 async function dsHere(tx: Tx, s: SessionData, id: string) {
   const c = await tx.composition.findFirst({ where: { id, organizationId: s.organizationId, kind: "discharge-summary" },
     include: { conditions: { orderBy: { position: "asc" } }, medications: { orderBy: { position: "asc" } }, patient: true } });
   if (!c) throw notFound();
+  // a draft is previewed by its author only (review)
+  if (c.status === "draft" && c.authorId !== s.userId) throw notFound();
   return c;
 }
 async function dsInput(tx: Tx, s: SessionData, id: string, mode: Mode, lang: Lang, verify: { url: string; code: string } | null, print: PrintLine | null) {

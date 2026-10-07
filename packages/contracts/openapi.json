@@ -40906,6 +40906,17 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "summary": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "waiting",
+                              "in-progress",
+                              "done"
+                            ]
                           }
                         },
                         "required": [
@@ -40924,7 +40935,8 @@
                           "blockedBy",
                           "mine",
                           "orderedAt",
-                          "completedAt"
+                          "completedAt",
+                          "summary"
                         ]
                       }
                     },
@@ -41808,6 +41820,194 @@
                       "required": [
                         "cancel"
                       ]
+                    },
+                    "escalations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "raised",
+                              "doctor-informed",
+                              "resolved"
+                            ]
+                          },
+                          "score": {
+                            "type": "integer"
+                          },
+                          "peakScore": {
+                            "type": "integer"
+                          },
+                          "red": {
+                            "type": "boolean"
+                          },
+                          "raisedAt": {
+                            "type": "string"
+                          },
+                          "raisedBy": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "informedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "informedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "spokeTo": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "instruction": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "resolvedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "resolvedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "resolveNote": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ackDueAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "acknowledgedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "acknowledgedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "widenedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "unacknowledged": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "status",
+                          "score",
+                          "peakScore",
+                          "red",
+                          "raisedAt",
+                          "raisedBy",
+                          "informedAt",
+                          "informedBy",
+                          "spokeTo",
+                          "instruction",
+                          "resolvedAt",
+                          "resolvedBy",
+                          "resolveNote",
+                          "ackDueAt",
+                          "acknowledgedAt",
+                          "acknowledgedBy",
+                          "widenedAt",
+                          "unacknowledged"
+                        ]
+                      }
                     }
                   },
                   "required": [
@@ -41816,7 +42016,8 @@
                     "patient",
                     "steps",
                     "header",
-                    "can"
+                    "can",
+                    "escalations"
                   ]
                 }
               }
@@ -42676,6 +42877,194 @@
                       "required": [
                         "cancel"
                       ]
+                    },
+                    "escalations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "raised",
+                              "doctor-informed",
+                              "resolved"
+                            ]
+                          },
+                          "score": {
+                            "type": "integer"
+                          },
+                          "peakScore": {
+                            "type": "integer"
+                          },
+                          "red": {
+                            "type": "boolean"
+                          },
+                          "raisedAt": {
+                            "type": "string"
+                          },
+                          "raisedBy": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "informedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "informedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "spokeTo": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "instruction": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "resolvedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "resolvedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "resolveNote": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ackDueAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "acknowledgedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "acknowledgedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "widenedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "unacknowledged": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "status",
+                          "score",
+                          "peakScore",
+                          "red",
+                          "raisedAt",
+                          "raisedBy",
+                          "informedAt",
+                          "informedBy",
+                          "spokeTo",
+                          "instruction",
+                          "resolvedAt",
+                          "resolvedBy",
+                          "resolveNote",
+                          "ackDueAt",
+                          "acknowledgedAt",
+                          "acknowledgedBy",
+                          "widenedAt",
+                          "unacknowledged"
+                        ]
+                      }
                     }
                   },
                   "required": [
@@ -42684,7 +43073,8 @@
                     "patient",
                     "steps",
                     "header",
-                    "can"
+                    "can",
+                    "escalations"
                   ]
                 }
               }
@@ -43700,6 +44090,194 @@
                       "required": [
                         "cancel"
                       ]
+                    },
+                    "escalations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "raised",
+                              "doctor-informed",
+                              "resolved"
+                            ]
+                          },
+                          "score": {
+                            "type": "integer"
+                          },
+                          "peakScore": {
+                            "type": "integer"
+                          },
+                          "red": {
+                            "type": "boolean"
+                          },
+                          "raisedAt": {
+                            "type": "string"
+                          },
+                          "raisedBy": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "informedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "informedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "spokeTo": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "instruction": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "resolvedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "resolvedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "resolveNote": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ackDueAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "acknowledgedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "acknowledgedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "widenedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "unacknowledged": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "status",
+                          "score",
+                          "peakScore",
+                          "red",
+                          "raisedAt",
+                          "raisedBy",
+                          "informedAt",
+                          "informedBy",
+                          "spokeTo",
+                          "instruction",
+                          "resolvedAt",
+                          "resolvedBy",
+                          "resolveNote",
+                          "ackDueAt",
+                          "acknowledgedAt",
+                          "acknowledgedBy",
+                          "widenedAt",
+                          "unacknowledged"
+                        ]
+                      }
                     }
                   },
                   "required": [
@@ -43708,7 +44286,8 @@
                     "patient",
                     "steps",
                     "header",
-                    "can"
+                    "can",
+                    "escalations"
                   ]
                 }
               }
@@ -44637,6 +45216,194 @@
                       "required": [
                         "cancel"
                       ]
+                    },
+                    "escalations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "raised",
+                              "doctor-informed",
+                              "resolved"
+                            ]
+                          },
+                          "score": {
+                            "type": "integer"
+                          },
+                          "peakScore": {
+                            "type": "integer"
+                          },
+                          "red": {
+                            "type": "boolean"
+                          },
+                          "raisedAt": {
+                            "type": "string"
+                          },
+                          "raisedBy": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "informedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "informedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "spokeTo": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "instruction": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "resolvedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "resolvedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "resolveNote": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ackDueAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "acknowledgedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "acknowledgedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "widenedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "unacknowledged": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "status",
+                          "score",
+                          "peakScore",
+                          "red",
+                          "raisedAt",
+                          "raisedBy",
+                          "informedAt",
+                          "informedBy",
+                          "spokeTo",
+                          "instruction",
+                          "resolvedAt",
+                          "resolvedBy",
+                          "resolveNote",
+                          "ackDueAt",
+                          "acknowledgedAt",
+                          "acknowledgedBy",
+                          "widenedAt",
+                          "unacknowledged"
+                        ]
+                      }
                     }
                   },
                   "required": [
@@ -44645,7 +45412,8 @@
                     "patient",
                     "steps",
                     "header",
-                    "can"
+                    "can",
+                    "escalations"
                   ]
                 }
               }
@@ -45528,6 +46296,194 @@
                       "required": [
                         "cancel"
                       ]
+                    },
+                    "escalations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "raised",
+                              "doctor-informed",
+                              "resolved"
+                            ]
+                          },
+                          "score": {
+                            "type": "integer"
+                          },
+                          "peakScore": {
+                            "type": "integer"
+                          },
+                          "red": {
+                            "type": "boolean"
+                          },
+                          "raisedAt": {
+                            "type": "string"
+                          },
+                          "raisedBy": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "informedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "informedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "spokeTo": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "instruction": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "resolvedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "resolvedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "resolveNote": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ackDueAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "acknowledgedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "acknowledgedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "widenedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "unacknowledged": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "status",
+                          "score",
+                          "peakScore",
+                          "red",
+                          "raisedAt",
+                          "raisedBy",
+                          "informedAt",
+                          "informedBy",
+                          "spokeTo",
+                          "instruction",
+                          "resolvedAt",
+                          "resolvedBy",
+                          "resolveNote",
+                          "ackDueAt",
+                          "acknowledgedAt",
+                          "acknowledgedBy",
+                          "widenedAt",
+                          "unacknowledged"
+                        ]
+                      }
                     }
                   },
                   "required": [
@@ -45536,7 +46492,8 @@
                     "patient",
                     "steps",
                     "header",
-                    "can"
+                    "can",
+                    "escalations"
                   ]
                 }
               }
@@ -46544,6 +47501,194 @@
                       "required": [
                         "cancel"
                       ]
+                    },
+                    "escalations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "raised",
+                              "doctor-informed",
+                              "resolved"
+                            ]
+                          },
+                          "score": {
+                            "type": "integer"
+                          },
+                          "peakScore": {
+                            "type": "integer"
+                          },
+                          "red": {
+                            "type": "boolean"
+                          },
+                          "raisedAt": {
+                            "type": "string"
+                          },
+                          "raisedBy": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "informedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "informedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "spokeTo": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "instruction": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "resolvedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "resolvedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "resolveNote": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ackDueAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "acknowledgedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "acknowledgedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "widenedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "unacknowledged": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "status",
+                          "score",
+                          "peakScore",
+                          "red",
+                          "raisedAt",
+                          "raisedBy",
+                          "informedAt",
+                          "informedBy",
+                          "spokeTo",
+                          "instruction",
+                          "resolvedAt",
+                          "resolvedBy",
+                          "resolveNote",
+                          "ackDueAt",
+                          "acknowledgedAt",
+                          "acknowledgedBy",
+                          "widenedAt",
+                          "unacknowledged"
+                        ]
+                      }
                     }
                   },
                   "required": [
@@ -46552,7 +47697,8 @@
                     "patient",
                     "steps",
                     "header",
-                    "can"
+                    "can",
+                    "escalations"
                   ]
                 }
               }
@@ -50922,6 +52068,10 @@
                       "null"
                     ]
                   },
+                  "witnessPin": {
+                    "type": "string",
+                    "pattern": "^\\d{4}$"
+                  },
                   "pin": {
                     "type": "string",
                     "pattern": "^\\d{4}$"
@@ -50932,6 +52082,7 @@
                   "risksExplained",
                   "formSigned",
                   "witnessId",
+                  "witnessPin",
                   "pin"
                 ]
               }
@@ -51585,6 +52736,194 @@
                       "required": [
                         "cancel"
                       ]
+                    },
+                    "escalations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "raised",
+                              "doctor-informed",
+                              "resolved"
+                            ]
+                          },
+                          "score": {
+                            "type": "integer"
+                          },
+                          "peakScore": {
+                            "type": "integer"
+                          },
+                          "red": {
+                            "type": "boolean"
+                          },
+                          "raisedAt": {
+                            "type": "string"
+                          },
+                          "raisedBy": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "informedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "informedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "spokeTo": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "instruction": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "resolvedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "resolvedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "resolveNote": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ackDueAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "acknowledgedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "acknowledgedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "widenedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "unacknowledged": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "status",
+                          "score",
+                          "peakScore",
+                          "red",
+                          "raisedAt",
+                          "raisedBy",
+                          "informedAt",
+                          "informedBy",
+                          "spokeTo",
+                          "instruction",
+                          "resolvedAt",
+                          "resolvedBy",
+                          "resolveNote",
+                          "ackDueAt",
+                          "acknowledgedAt",
+                          "acknowledgedBy",
+                          "widenedAt",
+                          "unacknowledged"
+                        ]
+                      }
                     }
                   },
                   "required": [
@@ -51593,7 +52932,8 @@
                     "patient",
                     "steps",
                     "header",
-                    "can"
+                    "can",
+                    "escalations"
                   ]
                 }
               }
@@ -52627,6 +53967,194 @@
                       "required": [
                         "cancel"
                       ]
+                    },
+                    "escalations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "raised",
+                              "doctor-informed",
+                              "resolved"
+                            ]
+                          },
+                          "score": {
+                            "type": "integer"
+                          },
+                          "peakScore": {
+                            "type": "integer"
+                          },
+                          "red": {
+                            "type": "boolean"
+                          },
+                          "raisedAt": {
+                            "type": "string"
+                          },
+                          "raisedBy": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "informedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "informedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "spokeTo": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "instruction": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "resolvedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "resolvedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "resolveNote": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ackDueAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "acknowledgedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "acknowledgedBy": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "nameBn": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "nameBn",
+                              "nameEn"
+                            ]
+                          },
+                          "widenedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "unacknowledged": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "status",
+                          "score",
+                          "peakScore",
+                          "red",
+                          "raisedAt",
+                          "raisedBy",
+                          "informedAt",
+                          "informedBy",
+                          "spokeTo",
+                          "instruction",
+                          "resolvedAt",
+                          "resolvedBy",
+                          "resolveNote",
+                          "ackDueAt",
+                          "acknowledgedAt",
+                          "acknowledgedBy",
+                          "widenedAt",
+                          "unacknowledged"
+                        ]
+                      }
                     }
                   },
                   "required": [
@@ -52635,7 +54163,8 @@
                     "patient",
                     "steps",
                     "header",
-                    "can"
+                    "can",
+                    "escalations"
                   ]
                 }
               }
@@ -54012,6 +55541,31 @@
                         "createdAt"
                       ]
                     },
+                    "stale": {
+                      "type": "boolean"
+                    },
+                    "draftBy": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "nameBn": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "nameBn",
+                        "nameEn"
+                      ]
+                    },
                     "history": {
                       "type": "array",
                       "items": {
@@ -54253,6 +55807,8 @@
                     "needed",
                     "draft",
                     "current",
+                    "stale",
+                    "draftBy",
                     "history",
                     "blockers",
                     "facts",
@@ -55485,6 +57041,31 @@
                         "createdAt"
                       ]
                     },
+                    "stale": {
+                      "type": "boolean"
+                    },
+                    "draftBy": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "nameBn": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "nameBn",
+                        "nameEn"
+                      ]
+                    },
                     "history": {
                       "type": "array",
                       "items": {
@@ -55726,6 +57307,8 @@
                     "needed",
                     "draft",
                     "current",
+                    "stale",
+                    "draftBy",
                     "history",
                     "blockers",
                     "facts",
@@ -57126,6 +58709,31 @@
                         "createdAt"
                       ]
                     },
+                    "stale": {
+                      "type": "boolean"
+                    },
+                    "draftBy": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "nameBn": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "nameBn",
+                        "nameEn"
+                      ]
+                    },
                     "history": {
                       "type": "array",
                       "items": {
@@ -57367,6 +58975,8 @@
                     "needed",
                     "draft",
                     "current",
+                    "stale",
+                    "draftBy",
                     "history",
                     "blockers",
                     "facts",
@@ -58701,6 +60311,31 @@
                         "createdAt"
                       ]
                     },
+                    "stale": {
+                      "type": "boolean"
+                    },
+                    "draftBy": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "nameBn": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "nameBn",
+                        "nameEn"
+                      ]
+                    },
                     "history": {
                       "type": "array",
                       "items": {
@@ -58942,6 +60577,8 @@
                     "needed",
                     "draft",
                     "current",
+                    "stale",
+                    "draftBy",
                     "history",
                     "blockers",
                     "facts",
@@ -60430,6 +62067,31 @@
                         "createdAt"
                       ]
                     },
+                    "stale": {
+                      "type": "boolean"
+                    },
+                    "draftBy": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "nameBn": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "nameBn",
+                        "nameEn"
+                      ]
+                    },
                     "history": {
                       "type": "array",
                       "items": {
@@ -60671,6 +62333,8 @@
                     "needed",
                     "draft",
                     "current",
+                    "stale",
+                    "draftBy",
                     "history",
                     "blockers",
                     "facts",
@@ -172656,7 +174320,9 @@
                                   "shift",
                                   "visit",
                                   "refund",
-                                  "count"
+                                  "count",
+                                  "ipd-bill",
+                                  "ipd-summary"
                                 ]
                               },
                               "id": {

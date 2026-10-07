@@ -15,9 +15,15 @@ import { requireSession } from "../plugins/session.js";
 import { clientKey } from "./billing.js";
 
 /** rx: the doctor's note screens; lr: the lab report screen or the doctor's inbox. */
-const SCREENS: Record<Kind, [string, string][]> = { rx: [["cons", "signed"], ["doc", "consult"]], lr: [["lab", "report"], ["doc", "inbox"]], ds: [["ipd", "summary"], ["ipd", "discharge"]] };
+const SCREENS: Record<Kind, [string, string][]> = { rx: [["cons", "signed"], ["doc", "consult"]], lr: [["lab", "report"], ["doc", "inbox"]], ds: [["ipd", "summary"]] };
 function requireKind(req: FastifyRequest, kind: Kind) {
   const s = requireSession(req);
+  // the discharge summary: the doctors' screen, or a nurse handing it over at discharge — never the desk (review)
+  if (kind === "ds") {
+    const a = authorize(s.role, s.plan, "ipd", "summary"), b = authorize(s.role, s.plan, "ipd", "discharge");
+    if (a.allowed || (s.role === "nurse" && b.allowed)) return s;
+    throw forbidden(a.reason === "plan" ? "plan" : "role");
+  }
   const d = SCREENS[kind].map(([m, x]) => authorize(s.role, s.plan, m, x));
   if (d.some((x) => x.allowed)) return s;
   throw forbidden(d.some((x) => x.reason === "role") ? "role" : (d[0]?.reason ?? "unknown"));

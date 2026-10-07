@@ -374,6 +374,8 @@ export async function issueFinal(tx: Tx, s: SessionData, admissionId: string, no
   requireIpdBill(s);
   if (!BILL_WRITERS.includes(s.role)) throw forbiddenRole();
   const a0 = await admissionHere(tx, s, admissionId);
+  // the discharge first (review: a cancel committing beside the issue would leave a frozen bill on a cancelled discharge)
+  await tx.$queryRaw`SELECT 1 FROM "Discharge" WHERE "admissionId" = ${a0.id} AND "status" IN ('ordered', 'completed') FOR UPDATE`;
   const audit: AuditEntry[] = [...await syncAdmission(tx, a0, s.userId, now, "final")];
   await tx.$queryRaw`SELECT 1 FROM "Invoice" WHERE "id" = ${a0.invoiceId} FOR UPDATE`;
   const a = (await tx.admission.findFirst({ where: { id: a0.id } }))!;
@@ -521,9 +523,14 @@ export async function packageList(tx: Tx, s: SessionData): Promise<PackageList> 
 /* ───── the list of running bills ───── */
 export async function billList(tx: Tx, s: SessionData, now: Date): Promise<{ list: IpdBillList; patientIds: string[] }> {
   requireIpdBill(s);
-  const adms = await tx.admission.findMany({ where: { organizationId: s.organizationId, status: { in: ["admitted", "discharged"] }, invoiceId: { not: null } }, orderBy: { admittedAt: "desc" }, take: 300 });
-  // the running drafts, and the issued final bills still owing money either way (a shortfall, the excess deposit unpaid)
-  const all = await tx.invoice.findMany({ where: { id: { in: adms.map((a) => a.invoiceId!) }, status: { in: ["draft", "issued", "partially_paid", "balanced"] } } });
+  // the running drafts, and the issued final bills still owing money either way (a shortfall, the excess deposit unpaid) —
+  // chosen from the open bills themselves, however old (review: not the latest 300 admissions)
+  const [owing, drafts] = await Promise.all([
+    tx.invoice.findMany({ where: { organizationId: s.organizationId, kind: "ipd", OR: [{ status: { in: ["issued", "partially_paid"] } }, { status: "balanced", excessPaisa: { gt: 0 } }] }, orderBy: { issuedAt: "asc" }, take: 500 }),
+    tx.invoice.findMany({ where: { organizationId: s.organizationId, kind: "ipd", status: "draft" }, orderBy: { createdAt: "desc" }, take: 300 }),
+  ]);
+  const all = [...owing, ...drafts];
+  const adms = await tx.admission.findMany({ where: { organizationId: s.organizationId, status: { in: ["admitted", "discharged"] }, invoiceId: { in: all.map((i) => i.id) } }, orderBy: { admittedAt: "desc" } });
   const excessOpen = new Map((await tx.refund.findMany({ where: { invoiceId: { in: all.filter((i) => i.excessPaisa > 0).map((i) => i.id) }, source: "deposit-excess", status: { not: "paid" } }, include: { allocations: { select: { amountPaisa: true, status: true } } } }))
     .map((r) => [r.invoiceId, r.amountPaisa - r.allocations.filter((x) => x.status === "paid").reduce((t, x) => t + x.amountPaisa, 0)]));
   const invs = new Map(all.filter((i) => i.status === "draft" || i.status !== "balanced" || excessOpen.has(i.id)).map((i) => [i.id, i]));

@@ -139,7 +139,7 @@ function RequestForm({ invoiceId }: { invoiceId: string }) {
         <h1 className="t-h2" style={{ margin: 0 }}>{B("rf_new_for", { number: v.invoice.number ?? "—" })}</h1>
         <Pill tone={INVOICE_TONE[v.invoice.status]}>{B(`st_${v.invoice.status}`)}</Pill>
         <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="arrow-left" onClick={() => router.push(`/m/${mod}/pay?inv=${encodeURIComponent(invoiceId)}`)}>{B("rf_back_to_pay")}</Button>
+        <Button size="sm" icon="arrow-left" onClick={() => router.push(v.invoice.kind === "ipd" ? "/m/bill/ipd" : `/m/${mod}/pay?inv=${encodeURIComponent(invoiceId)}`)}>{B("rf_back_to_pay")}</Button>
       </div>
       <span>{v.patient ? <>{M.name(v.patient)} · <span className="num">{v.patient.facilityNo}</span></> : v.buyer?.name ?? B("walk_in")}</span>
       {!s.online && <Callout tone="warn" icon="cloud-off">{B("rf_online_only")}</Callout>}
@@ -274,7 +274,7 @@ function RefundScreen({ id }: { id: string }) {
         {r.selfApproved && <Pill tone="warn" icon="user-check">{B("rf_self_flag")}</Pill>}
         <span style={{ marginLeft: "auto" }} />
         {/* ADR 0018: the excess deposit's refund belongs to the IPD final bill */}
-        <Button size="sm" icon="arrow-left" onClick={() => router.push(r.source === "deposit-excess" ? "/m/bill/ipd" : `/m/${mod}/pay?inv=${encodeURIComponent(v.invoice.id)}`)}>{B("rf_bill")} {v.invoice.number ?? "—"}</Button>
+        <Button size="sm" icon="arrow-left" onClick={() => router.push(r.source === "deposit-excess" || v.invoice.kind === "ipd" ? "/m/bill/ipd" : `/m/${mod}/pay?inv=${encodeURIComponent(v.invoice.id)}`)}>{B("rf_bill")} {v.invoice.number ?? "—"}</Button>
       </div>
       {r.source === "deposit-excess" && <Callout icon="info" data-testid="rf-deposit-excess">{B("fb_ex_never")}</Callout>}
       <span>{v.patient ? <>{M.name(v.patient)} · <span className="num">{v.patient.facilityNo}</span></> : v.buyer?.name ?? B("walk_in")} · {B(`rf_cat_${r.category}`)} — {r.reason}</span>

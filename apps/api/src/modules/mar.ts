@@ -153,7 +153,7 @@ async function witnessRole(tx: Tx, s: SessionData, userId: string): Promise<"nur
   const roles = await tx.practitionerRole.findMany({ where: { userId, organizationId: s.organizationId, role: { in: ["nurse", "doctor"] }, user: { active: true } }, select: { role: true } });
   return roles.some((r) => r.role === "nurse") ? "nurse" : roles.some((r) => r.role === "doctor") ? "doctor" : null;
 }
-async function verifyWitnessPin(tx: Tx, userId: string, pin: string) {
+export async function verifyWitnessPin(tx: Tx, userId: string, pin: string) {
   const u = await tx.user.findFirst({ where: { id: userId }, select: { pinHash: true } });
   try { await requirePin(userId, () => Boolean(u?.pinHash) && u!.pinHash === devHash(pin)); }
   catch (e) {

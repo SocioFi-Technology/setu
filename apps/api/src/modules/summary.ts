@@ -21,6 +21,7 @@ import { getPatient, notFound, toSummary } from "./frontdesk.js";
 import { iso, peopleOf, stale } from "./inpatient.js";
 import { deliverInApp } from "./lab.js";
 import { isActive, ordersOf } from "./mar.js";
+import { progressAll } from "./pharmacy.js";
 import { requirePin } from "./pin.js";
 import { devHash } from "./users.js";
 
@@ -98,21 +99,27 @@ async function blockersOf(tx: Tx, c: Comp, encounterId: string, patientId: strin
   };
 }
 
-/** The current version's medicines on discharge as the pharmacy gave them: a dispense (less returns) or a decline counts
-    for the line it was written against, or for this version's line of the same medicine (an earlier version's). */
-async function takeHomeOf(tx: Tx, current: Comp | null, lines: SummaryDoc["medicines"], now: Date): Promise<SummaryView["takeHome"]> {
+/** The current version's medicines on discharge as the pharmacy gave them — the pharmacy's own line assignment
+    (progressAll: two lines of the same medicine never count each other's dispenses — review); the 3 days run from the
+    first signed version (an amendment does not restart them). */
+async function takeHomeOf(tx: Tx, current: Comp | null, now: Date): Promise<SummaryView["takeHome"]> {
   if (!current || !current.signedAt) return { dispensed: false, at: null, until: null, notCollected: 0, lines: [] };
-  const rows = await tx.medicationDispense.findMany({ where: { encounterId: current.encounterId }, orderBy: { at: "asc" } });
-  const own = (l: SummaryDoc["medicines"][number]) => rows.filter((r) => r.requestId === l.id || r.prescribedKey === l.medicineKey);
-  const out = lines.map((l) => {
-    const rs = own(l);
-    const given = rs.filter((r) => r.action === "dispense").reduce((t, r) => t + r.qty, 0) - rs.filter((r) => r.action === "return").reduce((t, r) => t + r.qty, 0);
-    const status = takeHomeStatus({ prescribed: l.quantity, given, declined: rs.some((r) => r.action === "decline"), signedAt: current.signedAt!, now });
-    return { requestId: l.id, medicineKey: l.medicineKey, brand: l.brand, quantity: l.quantity, givenQty: Math.max(0, given), status };
+  const first = await tx.composition.findFirst({ where: { threadId: current.threadId, version: 1 }, select: { signedAt: true } });
+  const since = first?.signedAt ?? current.signedAt;
+  const [reqs, rows] = await Promise.all([
+    tx.medicationRequest.findMany({ where: { compositionId: current.id }, orderBy: { position: "asc" } }),
+    tx.medicationDispense.findMany({ where: { encounterId: current.encounterId }, orderBy: { at: "asc" } }),
+  ]);
+  const P = await progressAll(tx, reqs, rows);
+  const out = reqs.map((r) => {
+    const p = P(r);
+    const given = p.dispensedQty - p.returnedQty;
+    const status = takeHomeStatus({ prescribed: r.quantity, given, declined: Boolean(p.declinedRow), signedAt: since, now });
+    return { requestId: r.id, medicineKey: r.medicineKey, brand: r.brand, quantity: r.quantity, givenQty: Math.max(0, given), status };
   });
-  const first = rows.find((r) => r.action === "dispense");
-  return { dispensed: out.length > 0 && out.every((l) => l.status === "dispensed" || l.status === "declined"), at: iso(first?.at ?? null),
-    until: new Date(current.signedAt.getTime() + TAKE_HOME_DAYS * 864e5).toISOString(), notCollected: out.filter((l) => l.status === "not-collected").length, lines: out };
+  const first0 = rows.find((r) => r.action === "dispense");
+  return { dispensed: out.length > 0 && out.every((l) => l.status === "dispensed" || l.status === "declined"), at: iso(first0?.at ?? null),
+    until: new Date(since.getTime() + TAKE_HOME_DAYS * 864e5).toISOString(), notCollected: out.filter((l) => l.status === "not-collected").length, lines: out };
 }
 
 export async function summaryView(tx: Tx, s: SessionData, admissionId: string, now: Date): Promise<{ view: SummaryView; patientId: string }> {
@@ -121,7 +128,7 @@ export async function summaryView(tx: Tx, s: SessionData, admissionId: string, n
   const e = a.encounterId!;
   const [d, draft, current, history, bed, allergies, orders, round, facts] = await Promise.all([
     liveDischarge(tx, a.id),
-    s.role === "doctor" ? tx.composition.findFirst({ where: { encounterId: e, kind: SUMMARY_KIND, status: "draft" } }) : null,
+    tx.composition.findFirst({ where: { encounterId: e, kind: SUMMARY_KIND, status: "draft" } }),
     tx.composition.findFirst({ where: { encounterId: e, kind: SUMMARY_KIND, status: { in: ["final", "amended"] } } }),
     tx.composition.findMany({ where: { encounterId: e, kind: SUMMARY_KIND, status: { not: "draft" } }, orderBy: { version: "desc" } }),
     tx.location.findFirst({ where: { id: a.bedId }, include: { parent: { select: { name: true } } } }),
@@ -130,11 +137,13 @@ export async function summaryView(tx: Tx, s: SessionData, admissionId: string, n
     tx.composition.findFirst({ where: { encounterId: e, kind: "progress-note", status: { in: ["final", "amended"] } }, orderBy: { signedAt: "desc" } }),
     safetyFacts(tx, e),
   ]);
-  const who = await peopleOf(tx, [a.admittingDoctorId]);
+  const who = await peopleOf(tx, [a.admittingDoctorId, draft?.authorId]);
   const needed = Boolean(d && d.kind !== "death");
-  const [draftW] = draft ? await docWires(tx, [draft]) : [null];
+  const mineDraft = draft && draft.authorId === s.userId ? draft : null;
+  const [draftW] = mineDraft ? await docWires(tx, [mineDraft]) : [null];
+  const stale = Boolean(d && current?.signedAt && current.signedAt < d.orderedAt);
   const [curW] = current ? await docWires(tx, [current]) : [null];
-  const takeHome = await takeHomeOf(tx, current, curW?.medicines ?? [], now);
+  const takeHome = await takeHomeOf(tx, current, now);
   return {
     patientId: a.patientId,
     view: {
@@ -142,9 +151,9 @@ export async function summaryView(tx: Tx, s: SessionData, admissionId: string, n
         bed: bed?.name ?? null, ward: bed?.parent?.name ?? null, dayNo: bedDaysDue(a.admittedAt!, a.dischargedAt, now) },
       patient: toSummary(await getPatient(tx, a.patientId)), allergies: await toAllergyView(tx, allergies),
       discharge: d ? { id: d.id, kind: d.kind as "normal", status: d.status as "ordered", advice: d.advice, orderedAt: d.orderedAt.toISOString() } : null,
-      needed, draft: draftW ?? null, current: curW ?? null,
+      needed, draft: draftW ?? null, current: curW ?? null, stale, draftBy: draft && !mineDraft ? who(draft.authorId) : null,
       history: history.map((c) => ({ id: c.id, version: c.version, status: dash(c.status), signedAt: iso(c.signedAt), amendReason: c.amendReason })),
-      blockers: draft ? (await blockersOf(tx, draft, e, a.patientId, now)).blockers : [],
+      blockers: mineDraft ? (await blockersOf(tx, mineDraft, e, a.patientId, now)).blockers : [],
       facts: { ...facts,
         activeOrders: orders.filter(isActive).map((o) => ({ medicineKey: o.medicineKey, brand: o.brand, generic: o.generic, strength: o.strength, form: o.form, doseText: o.doseText ?? "", route: o.route ?? "" })),
         lastRoundAssessment: round ? ((round.sections as { a?: string }).a ?? null) : null },
@@ -178,6 +187,8 @@ async function draftHere(tx: Tx, s: SessionData, id: string) {
   const c = await tx.composition.findFirst({ where: { id, kind: SUMMARY_KIND, organizationId: s.organizationId } });
   if (!c) throw notFound();
   if (c.status !== "draft") throw err(409, "not_draft", "স্বাক্ষরিত সারাংশ বদলানো যায় না — সংশোধন করুন", "A signed summary cannot be changed — amend it");
+  // the draft is its author's (review: another doctor neither rewrites nor signs it — they amend once it is signed)
+  if (c.authorId !== s.userId) throw err(403, "forbidden", "এটি অন্য ডাক্তারের খসড়া", "This is another doctor's draft", { reason: "role", canRequest: false });
   const a = await tx.admission.findFirst({ where: { encounterId: c.encounterId, organizationId: s.organizationId } });
   if (!a) throw notFound();
   return { c, a };

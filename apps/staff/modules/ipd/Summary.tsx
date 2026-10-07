@@ -97,6 +97,8 @@ function SummaryScreen({ admissionId }: { admissionId: string }) {
         <span style={{ flex: 1 }} />
         <Button size="sm" icon="clipboard-check" onClick={() => router.push(`/m/ipd/discharge?adm=${encodeURIComponent(admissionId)}`)}>{I("sm_checklist")}</Button>
       </div>
+      {v.stale && <Callout tone="warn" icon="history" data-testid="summary-stale">{I("sm_stale")}</Callout>}
+      {v.draftBy && <Callout icon="pen-line" data-testid="summary-draft-by">{I("sm_draft_by", { name: s.lang === "bn" ? v.draftBy.nameBn : v.draftBy.nameEn })}</Callout>}
       {!v.needed && <Callout icon="info" data-testid="summary-not-needed">{v.discharge ? I("sm_none_death") : I("sm_no_discharge")}</Callout>}
       {v.draft && doctor ? <Editor v={v} draft={v.draft} onView={setV} />
         : v.current ? <SignedView v={v} doc={v.current} onView={setV} />

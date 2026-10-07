@@ -1279,3 +1279,24 @@ Built on the cautious reading; Kamrul to confirm or change.
 301–308 accepted on the cautious reading. **304 with an addition:** after 3 days uncollected, the take-home lines are
 marked "not collected" on the summary (visible to the doctor), never silently dropped — `takeHomeStatus` (@setu/domain),
 the summary view's `takeHome.lines` (waiting / partial / dispensed / declined / not collected).
+
+## Slice B10–B12, session 2 (screens, journey, reviews, hands-on) — 07/10/2026
+Built on the cautious reading from the reviews; Kamrul to confirm or change.
+309. **A death on the ward replaces a discharge or LAMA already ordered — even after the final bill is issued** (the bill
+     stays as issued; the death record's bill step is done at once). Never after the patient left. The replaced discharge
+     is cancelled with the reason "replaced-by-death" (the database checks the death record exists).
+310. **The owner who issued a final bill approves its excess refund with a note** (the excess is the owner's alone to
+     approve, so an admin beside them could not; the approval is flagged self-approved).
+311. **A summary signed for an earlier, cancelled discharge does not count for the next one** — the doctor amends and
+     signs it again; the take-home medicines are given only while a discharge is live and not a death.
+312. **"Patient left" (normal discharge) is refused while a critical result of the stay waits for a doctor or an
+     escalation is open** — the same rule as the summary's signature, checked again at the door. A LAMA patient leaves
+     regardless; the discharge screen lists the open escalations so the ward can log the doctor's contact and resolve them.
+313. **A death record is refused when a dose is charted as given after the time of death** (check the time or the chart).
+314. **Only the draft's author edits and signs a summary draft**; another doctor sees "Dr. X is writing a draft", and may
+     amend once it is signed. The draft's preview prints for its author only.
+315. **The LAMA witness confirms with their own PIN** (like the MAR's high-alert witness).
+316. **The discharge summary prints for doctors and admins (ipd/summary) and nurses** — not the desk; the LAMA / death
+     details on the checklist are not shown to the pharmacy or the counter.
+317. **A step finished by its event is recorded "done by" whoever's action or view caught it up** (the database wants a
+     signed-in person); the event itself is audited by its own actor. A system actor is a later change.

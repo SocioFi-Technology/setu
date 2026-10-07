@@ -534,6 +534,8 @@ function FinalCard({ v, writer, onChange }: { v: IpdBillView; writer: boolean; o
       <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {writer && v.can.pay && !pay && <Button variant="primary" icon="wallet" onClick={() => setPay(true)} disabled={!s.online} data-testid="final-pay">{B("fb_pay")}</Button>}
         {writer && v.can.receipt && <Button icon="receipt-text" onClick={() => setReceipt(true)} disabled={!s.online} data-testid="final-receipt">{B("fb_receipt_make")}</Button>}
+        {/* Kamrul, 2: a charge found wrong after the bill (an errored dose) is settled by a refund, never by editing the bill */}
+        {writer && f.netPaidPaisa > 0 && <Button icon="undo-2" onClick={() => router.push(`/m/bill/refund?inv=${encodeURIComponent(v.invoice.id)}`)} data-testid="final-refund">{B("fb_refund")}</Button>}
       </span>
       {f.receipts.length > 0 && <span className="t-small t-muted" data-testid="final-receipts">{B("fb_receipts")}: {f.receipts.map((r) => `${r.number} (${M.tk(r.paidPaisa)})`).join(" · ")}</span>}
       {f.duePaisa > 0 && <span className="t-small t-muted">{B("fb_receipt_mushak")}</span>}
