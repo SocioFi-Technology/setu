@@ -1322,3 +1322,6 @@ Built on the cautious reading from the reviews; Kamrul to confirm or change.
 320. **A count is ended only when its own counter's shift closes**, and only counts that person started (the shift
      holder's); a ward nurse's count is not tied to a shift. A submitted count is not ended (it waits for the owner).
 
+
+### Decided by Kamrul (07/10/2026) — track 1 week 1
+318–320 accepted as recorded.
