@@ -99,6 +99,16 @@ jobs:
           pnpm db:seed
       - name: Typecheck
         run: pnpm typecheck
+      - name: Production builds (staging, week 2) — the API bundle starts with plain node and answers /health
+        run: |
+          set -euo pipefail
+          pnpm --filter @setu/api build
+          cd apps/api; API_PORT=4198 node dist/server.js > /tmp/api-bundle.log 2>&1 & API_PID=$!; cd ../..
+          for i in $(seq 1 30); do curl -sf http://localhost:4198/health > /tmp/health.json && break; sleep 1; done
+          cat /tmp/health.json; grep -q '"db":"up"' /tmp/health.json || { cat /tmp/api-bundle.log; exit 1; }
+          kill "$API_PID"
+          (cd apps/staff && NODE_OPTIONS=--max-old-space-size=3072 NEXT_DIST_DIR=.next-build API_URL=http://localhost:4100 pnpm exec next build)
+          test -f apps/staff/.next-build/standalone/apps/staff/server.js
       - name: Unit and contract tests (the API suite needs DATABASE_URL_APP or it skips itself)
         run: |
           set -euo pipefail

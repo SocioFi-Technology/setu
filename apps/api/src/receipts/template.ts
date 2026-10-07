@@ -18,7 +18,8 @@ export const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => ({
 
 /* Fonts: the self-hosted Noto Sans Bengali (Bangla subset) and IBM Plex Sans (Latin subset) from packages/ui, inlined
    so the renderer never fetches anything. */
-const FONT_DIR = resolve(process.cwd().replace(/[\\/]apps[\\/]api$/, ""), "packages", "ui", "fonts");
+/** FONT_DIR (the container sets it); in the repo, packages/ui/fonts */
+const FONT_DIR = process.env.FONT_DIR ?? resolve(process.cwd().replace(/[\\/]apps[\\/]api$/, ""), "packages", "ui", "fonts");
 let fontCss: string | null = null;
 export function fonts(): string {
   if (fontCss !== null) return fontCss;

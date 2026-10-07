@@ -1,11 +1,11 @@
 "use client";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, TextField, Segmented } from "@setu/ui";
 import { api, ApiFailure } from "../../lib/api";
 import { useSession } from "../../lib/session";
 
-export default function Login() {
+function LoginInner() {
   const s = useSession(); const router = useRouter(); const q = useSearchParams();
   const [id, setId] = useState(""); const [pw, setPw] = useState(""); const [err, setErr] = useState<string | null>(null); const [busy, setBusy] = useState(false);
   const [demo, setDemo] = useState(false); const [plan, setPlan] = useState<"clinic" | "lite" | "pro">("pro");
@@ -38,4 +38,9 @@ export default function Login() {
       </form>
     </main>
   );
+}
+
+/* A production build pre-renders the page: useSearchParams() needs a Suspense boundary (staging build, week 2). */
+export default function Login() {
+  return <Suspense fallback={null}><LoginInner /></Suspense>;
 }
