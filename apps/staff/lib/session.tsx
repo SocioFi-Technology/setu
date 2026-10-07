@@ -15,6 +15,8 @@ interface Session {
   lang: Lang; setLang: (l: Lang) => void;
   numerals: Numerals; setNumerals: (n: Numerals) => void;
   online: boolean; queued: number; refused: number;
+  /** gap 10: this user's entries from an earlier sign-in that can no longer be read (not sent) */
+  unreadable: number;
   patient: BannerPatient | null; setPatient: (p: BannerPatient | null) => void;
   L: (bn: string, en: string) => string;
   /** digits in the chosen numerals (never applied to identifiers like GLC-240117 or INV/25/0938) */
@@ -51,9 +53,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [patient, setPatient] = useState<BannerPatient | null>(null);
   const [queued, setQueued] = useState(0);
   const [refused, setRefused] = useState(0);
-  useEffect(() => { setQueued(pendingCount()); setRefused(refusedItems().length); return onOutbox((p, r) => { setQueued(p); setRefused(r); }); }, []);
+  const [unreadable, setUnreadable] = useState(0);
+  useEffect(() => { setQueued(pendingCount()); setRefused(refusedItems().length); return onOutbox((p, r, u) => { setQueued(p); setRefused(r); setUnreadable(u); }); }, []);
   // The outbox only replays writes made by the signed-in user at this tenant and facility.
-  useEffect(() => { setOutboxOwner(me ? { userId: me.userId, tenantId: me.tenantId, organizationId: me.organizationId } : null); setQueued(pendingCount()); setRefused(refusedItems().length); }, [me?.userId, me?.tenantId, me?.organizationId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // gap 10: the device keys come with the session and are held in memory only
+  useEffect(() => { setOutboxOwner(me ? { userId: me.userId, tenantId: me.tenantId, organizationId: me.organizationId, deviceKeys: me.deviceKeys } : null); setQueued(pendingCount()); setRefused(refusedItems().length); }, [me?.userId, me?.tenantId, me?.organizationId, me?.deviceKeys?.draft]); // eslint-disable-line react-hooks/exhaustive-deps
   const refresh = useCallback(async () => {
     try { const [m, c] = await Promise.all([api.me(), api.capabilities()]); setMe(m); setCaps(c); }
     catch { setMe(null); setCaps(null); }
@@ -67,7 +71,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
   const value = useMemo<Session>(() => ({
-    me, caps, loading, lang, numerals, online, queued, refused, patient, setPatient,
+    me, caps, loading, lang, numerals, online, queued, refused, unreadable, patient, setPatient,
     setLang: (l) => { setLangS(l); try { localStorage.setItem("setu.lang", l); } catch {} },
     setNumerals: (v) => { setNumS(v); try { localStorage.setItem("setu.num", v); } catch {} },
     L: (bn, en) => (lang === "bn" ? bn : en),
@@ -79,7 +83,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       clearRefusedForOwner(); clearDraftsForOwner(); setOutboxOwner(null); await api.logout(); setMe(null); setCaps(null); location.href = "/login";
       return true;
     },
-  }), [me, caps, loading, lang, numerals, online, queued, refused, patient, refresh]);
+  }), [me, caps, loading, lang, numerals, online, queued, refused, unreadable, patient, refresh]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 export const useSession = () => useContext(Ctx);

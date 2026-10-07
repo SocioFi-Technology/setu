@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { Capabilities, FirstSignInRequest, LoginRequest, Me, PinVerifyRequest } from "@setu/contracts";
+import { Capabilities, DeviceDropped, FirstSignInRequest, LoginRequest, Me, PinVerifyRequest } from "@setu/contracts";
 import { capabilities, passwordProblems, pinProblems } from "@setu/domain";
 import { aiEnabled } from "../adapters/ai.js";
 import { command } from "../command.js";
@@ -8,6 +8,7 @@ import { err, unauthorized } from "../errors.js";
 import { checkPassword, checkPin, findLoginCandidates, findUserById } from "../modules/users.js";
 import { decoyVerify, hashSecret } from "../modules/secrets.js";
 import { checkPinAttempt } from "../modules/pin.js";
+import { deviceIdOf, deviceKeys, newSignInId } from "../modules/devicekeys.js";
 import { counters } from "../adapters/counters.js";
 import { COOKIE, encodeSession, requireSession, type SessionData } from "../plugins/session.js";
 
@@ -90,9 +91,10 @@ export async function authRoutes(app: FastifyInstance) {
       if (u.mustChangePassword) generation += 1;
     }
     const session: SessionData = { userId: u.id, tenantId: u.tenantId, organizationId: r.organizationId, organizationName: r.organizationName, role: r.role, plan, nameBn: u.nameBn, nameEn: u.nameEn,
-      generation, ...(u.mustChangePassword ? { setup: true } : {}) };
+      generation, ...(u.mustChangePassword ? { setup: true } : {}), sid: newSignInId(), device: deviceIdOf(req.headers["x-setu-device"]) };
     reply.setCookie(COOKIE, encodeSession(session), COOKIE_OPTIONS);
-    return Me.parse({ ...session, roles: u.roles.map(({ organizationId, role }) => ({ organizationId, role })), mustSetCredentials: Boolean(session.setup), ai: aiEnabled() });
+    reply.header("cache-control", "no-store");
+    return Me.parse({ ...session, roles: u.roles.map(({ organizationId, role }) => ({ organizationId, role })), mustSetCredentials: Boolean(session.setup), ai: aiEnabled(), deviceKeys: deviceKeys(session) });
   });
 
   app.post("/v1/auth/logout", async (req, reply) => { reply.clearCookie(COOKIE, { path: "/" }); return { ok: true }; });
@@ -105,7 +107,8 @@ export async function authRoutes(app: FastifyInstance) {
       reply.clearCookie(COOKIE, { path: "/" });
       throw err(401, "session_ended", "আপনার সেশন শেষ — আবার লগইন করুন", "Your session has ended — sign in again");
     }
-    return Me.parse({ ...s, roles: u?.roles.map(({ organizationId, role }) => ({ organizationId, role })) ?? [{ organizationId: s.organizationId, role: s.role }], mustSetCredentials: Boolean(s.setup), ai: aiEnabled() });
+    reply.header("cache-control", "no-store");
+    return Me.parse({ ...s, roles: u?.roles.map(({ organizationId, role }) => ({ organizationId, role })) ?? [{ organizationId: s.organizationId, role: s.role }], mustSetCredentials: Boolean(s.setup), ai: aiEnabled(), deviceKeys: deviceKeys(s) });
   });
 
   /* ADR 0010: the first sign-in with a one-time password — the user sets their own password and PIN; the session is
@@ -132,14 +135,26 @@ export async function authRoutes(app: FastifyInstance) {
       if (n.count !== 1) throw err(401, "session_ended", "আপনার সেশন শেষ — আবার লগইন করুন", "Your session has ended — sign in again");
       const session: SessionData = { ...s, generation: u.sessionGeneration + 1, setup: undefined };
       delete session.setup;
-      return { body: Me.parse({ ...session, roles: [{ organizationId: s.organizationId, role: s.role }], mustSetCredentials: false, ai: aiEnabled() }),
+      return { body: Me.parse({ ...session, roles: [{ organizationId: s.organizationId, role: s.role }], mustSetCredentials: false, ai: aiEnabled(), deviceKeys: deviceKeys(session) }),
         audit: [{ action: "first-sign-in", entity: "User", entityId: u.id, detail: { event: "credentials-set" } }] };
-    }, { hashOmit: ["password", "pin"] });
+    }, { hashOmit: ["password", "pin"], redact: (b) => ({ ...b, deviceKeys: undefined }) }); // gap 10: keys never stored
     // a fresh request replaces the one-time session (a replay cannot reach here: the old session has ended)
     const session: SessionData = { ...s, generation: (s.generation ?? 0) + 1, setup: undefined };
     delete session.setup;
     reply.setCookie(COOKIE, encodeSession(session), COOKIE_OPTIONS);
     return me;
+  });
+
+  // gap 10: the device dropped stored entries it could not trust (tampered, or from another device) — audited, flagged
+  app.post("/v1/device/dropped", async (req) => {
+    const s = requireSession(req);
+    const b = DeviceDropped.parse(req.body ?? {});
+    if (config.dbEnabled) {
+      const { forTenant } = await import("@setu/db");
+      await forTenant(s.tenantId, (tx) => tx.auditEvent.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, userId: s.userId, role: s.role, action: "device-entry-dropped", entity: "Device", entityId: s.device ?? null, ip: req.ip,
+        detail: { count: b.count, reason: b.reason, kinds: b.kinds, flag: "device-entry-dropped" } as object } }), { userId: s.userId });
+    }
+    return { ok: true };
   });
 
   app.get("/v1/me/capabilities", async (req) => {

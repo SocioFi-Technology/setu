@@ -176,6 +176,25 @@
                       "type": "boolean",
                       "default": false
                     },
+                    "deviceKeys": {
+                      "type": "object",
+                      "properties": {
+                        "draft": {
+                          "type": "string"
+                        },
+                        "outbox": {
+                          "type": "string"
+                        },
+                        "queue": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "draft",
+                        "outbox",
+                        "queue"
+                      ]
+                    },
                     "ai": {
                       "type": "boolean",
                       "default": true
@@ -360,6 +379,25 @@
                     "mustSetCredentials": {
                       "type": "boolean",
                       "default": false
+                    },
+                    "deviceKeys": {
+                      "type": "object",
+                      "properties": {
+                        "draft": {
+                          "type": "string"
+                        },
+                        "outbox": {
+                          "type": "string"
+                        },
+                        "queue": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "draft",
+                        "outbox",
+                        "queue"
+                      ]
                     },
                     "ai": {
                       "type": "boolean",

@@ -14,10 +14,13 @@ export function RefusedSync() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<OutboxItem[]>([]);
   useEffect(() => { setItems(refusedItems()); if (s.refused === 0) setOpen(false); }, [s.refused]);
-  if (s.refused === 0) return null;
+  // gap 10: this user's entries from an earlier sign-in, sealed with a key that is gone — counted, never shown or sent
+  const lost = s.unreadable > 0 ? <span className="sync-pill off" data-testid="unreadable-sync" title={T("unreadable_title")}><Icon name="lock" size={14} />{T("unreadable_pill", { n: s.unreadable })}</span> : null;
+  if (s.refused === 0) return lost;
   const label = (l: string) => { const k = `label_${l}`; const v = s.t("shellApp", k); return v === k ? l : v; };
   return (
     <>
+      {lost}
       <button type="button" className="sync-pill off" data-testid="refused-sync" onClick={() => setOpen(true)} style={{ cursor: "pointer", border: 0 }}>
         <Icon name="triangle-alert" size={14} />{T("refused_pill", { n: s.refused })}
       </button>

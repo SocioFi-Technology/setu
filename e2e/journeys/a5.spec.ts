@@ -37,6 +37,9 @@ async function newPatientVisit(request: APIRequestContext, tag: string): Promise
   return { ...b.encounter, patientId: b.patient.id };
 }
 const sync = (page: Page) => page.getByTestId("sync-status");
+/** gap 10: what the device stores — sealed envelopes only (k: "d" = a consultation draft) */
+const envelopes = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem("setu.device.v2") ?? "[]") as { k: string; o: string; kid: string; iv: string; ct: string; at: string }[]);
+const deviceDrafts = async (page: Page) => (await envelopes(page)).filter((e) => e.k === "d").length;
 const synced = (page: Page) => expect(sync(page)).toHaveAttribute("data-sync", "saved", { timeout: 10_000 });
 async function addComplaint(page: Page, text: string) {
   const box = page.getByRole("textbox", { name: "Chief complaints" });
@@ -221,15 +224,16 @@ test("A5 offline: the draft stays on this device, signing waits for the connecti
   await expect(page.getByTestId("sign-open")).toContainText("Sign when back online");
   await expect(page.getByRole("button", { name: "Record allergy" })).toBeDisabled();
   await expect(page.getByTestId("ai-panel").getByRole("button", { name: "Draft note from the record" })).toBeDisabled();
-  // Kept per user (owner = tenant:facility:user), never as a pending sign.
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("setu.cons.drafts") ?? "[]") as { owner: string }[]);
-  expect(stored).toHaveLength(1);
-  expect(stored[0]!.owner).toMatch(/:u_e2e_doctor$/);
+  // Kept per user, never as a pending sign — and sealed (gap 10): neither the text nor whose it is can be read
+  await expect.poll(() => deviceDrafts(page)).toBe(1);
+  const raw = await page.evaluate(() => Object.values({ ...localStorage }).join("\n"));
+  expect(raw).not.toContain(`Headache ${RUN}`);
+  expect(raw).not.toContain("u_e2e_doctor");
   await page.context().setOffline(false);
   await synced(page);
   const v = await (await page.request.get(`/api/v1/encounters/${visit.id}/consultation`)).json();
   expect(JSON.stringify(v.draft.sections.complaints)).toContain(`Headache ${RUN}`);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("setu.cons.drafts") ?? "[]").length)).toBe(0);
+  await expect.poll(() => deviceDrafts(page)).toBe(0);
 });
 
 test("A5: device drafts are cleared at sign-out (shared PC)", async ({ page, request }) => {
@@ -241,7 +245,7 @@ test("A5: device drafts are cleared at sign-out (shared PC)", async ({ page, req
   await page.route("**/api/v1/compositions/*", (route) => (route.request().method() === "PUT" ? route.abort("internetdisconnected") : route.continue()));
   await addComplaint(page, "Back pain 1w");
   await expect(sync(page)).toHaveAttribute("data-sync", "device", { timeout: 5_000 });
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("setu.cons.drafts") ?? "[]").length)).toBe(1);
+  await expect.poll(() => deviceDrafts(page)).toBe(1);
   // Clinical review A5: sign-out tries to send it first, then asks before deleting what could not be sent.
   await page.getByRole("button", { name: "Sign out" }).click();
   const ask = page.getByTestId("unsent-drafts");
@@ -251,7 +255,51 @@ test("A5: device drafts are cleared at sign-out (shared PC)", async ({ page, req
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByTestId("unsent-drafts").getByRole("button", { name: "Sign out and delete them" }).click();
   await page.waitForURL("**/login**");
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("setu.cons.drafts") ?? "[]").length)).toBe(0);
+  expect(await deviceDrafts(page)).toBe(0);
+});
+
+test("gap 10: a session that ends leaves its draft sealed and unreadable — the next sign-in shows it as 'not sent, unreadable'", async ({ page, request }) => {
+  const visit = await newPatientVisit(request, "ended");
+  await login(page, DOCTOR);
+  await page.goto(`/m/cons/draft?enc=${visit.id}`);
+  await synced(page);
+  await page.route("**/api/v1/compositions/*", (route) => (route.request().method() === "PUT" ? route.abort("internetdisconnected") : route.continue()));
+  await addComplaint(page, `Ended session ${RUN} 3d`);
+  await expect(sync(page)).toHaveAttribute("data-sync", "device", { timeout: 5_000 });
+  await expect.poll(() => deviceDrafts(page)).toBe(1);
+  await page.unroute("**/api/v1/compositions/*");
+  // the session ends without a sign-out (the cookie goes — as when the admin resets the user); the key goes with it
+  await page.context().clearCookies();
+  await login(page, DOCTOR);
+  await expect(page.getByTestId("unreadable-sync")).toContainText("1 not sent — unreadable");
+  expect(await deviceDrafts(page)).toBe(1); // still there, sealed, until 24 h
+  await page.goto(`/m/cons/draft?enc=${visit.id}`);
+  await synced(page);
+  expect(JSON.stringify((await (await page.request.get(`/api/v1/encounters/${visit.id}/consultation`)).json()).draft.sections.complaints)).not.toContain(`Ended session ${RUN}`);
+});
+
+test("gap 10: an entry changed on the device is dropped at the next sign-in, and the drop is audited (flagged)", async ({ page, request }) => {
+  const visit = await newPatientVisit(request, "tamper");
+  await login(page, DOCTOR);
+  await page.goto(`/m/cons/draft?enc=${visit.id}`);
+  await synced(page);
+  await page.route("**/api/v1/compositions/*", (route) => (route.request().method() === "PUT" ? route.abort("internetdisconnected") : route.continue()));
+  await addComplaint(page, `Tampered ${RUN} 1d`);
+  await expect.poll(() => deviceDrafts(page)).toBe(1);
+  await page.unroute("**/api/v1/compositions/*");
+  // someone edits the stored ciphertext (one character of the sealed draft)
+  await page.evaluate(() => {
+    const all = JSON.parse(localStorage.getItem("setu.device.v2") ?? "[]") as { k: string; ct: string }[];
+    const d = all.find((e) => e.k === "d")!;
+    d.ct = (d.ct[0] === "A" ? "B" : "A") + d.ct.slice(1);
+    localStorage.setItem("setu.device.v2", JSON.stringify(all));
+  });
+  await page.reload();
+  await expect.poll(() => deviceDrafts(page)).toBe(0);
+  await expect(page.getByTestId("sync-status")).not.toHaveAttribute("data-sync", "device");
+  const admin = await request.post("/api/v1/auth/login", { data: { identifier: "01799000010", password: "setu1234" } });
+  expect(admin.ok()).toBe(true);
+  await expect.poll(async () => (await (await request.get("/api/v1/admin/audit?action=device-entry-dropped&flagged=1")).json()).items.some((x: { action: string; detail?: { reason?: string } }) => x.action === "device-entry-dropped"), { timeout: 10_000 }).toBe(true);
 });
 
 test("A5 conflict: typing over a newer server version is kept as a device copy; loading it asks first and replaces the server's", async ({ page, request }) => {
@@ -277,7 +325,7 @@ test("A5 conflict: typing over a newer server version is kept as a device copy; 
     .toContain("Typed on this screen");
   await synced(page);
   // The device copy went only after the server accepted it.
-  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("setu.cons.drafts") ?? "[]").length)).toBe(0);
+  await expect.poll(() => deviceDrafts(page)).toBe(0);
 });
 
 test("A5 / clinical review: a 0+0+0 dose blocks signing", async ({ page, request }) => {

@@ -5,7 +5,9 @@ import { err, unauthorized } from "../errors.js";
 
 /** `generation`: the user's session generation when signed in (ADR 0010 — a bump signs them out everywhere);
     `setup`: signed in with a one-time password — only the first-sign-in routes answer until a password and PIN are set. */
-export interface SessionData { userId: string; tenantId: string; organizationId: string; role: Role; plan: Plan; nameBn: string; nameEn: string; organizationName: string; generation?: number; setup?: boolean }
+export interface SessionData { userId: string; tenantId: string; organizationId: string; role: Role; plan: Plan; nameBn: string; nameEn: string; organizationName: string; generation?: number; setup?: boolean;
+  /** gap 10: this sign-in's random id and the device's id (the device keys are derived from them) */
+  sid?: string; device?: string }
 declare module "fastify" { interface FastifyRequest { session: SessionData | null } }
 
 export const COOKIE = "setu_session";

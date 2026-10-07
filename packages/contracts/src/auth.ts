@@ -20,6 +20,8 @@ export const Me = z.object({
   roles: z.array(z.object({ organizationId: z.string(), role: Role })),
   /** ADR 0010: signed in with a one-time password — set your own password and PIN before anything else */
   mustSetCredentials: z.boolean().default(false),
+  /** gap 10: the keys this device keeps its drafts and queued writes with — held in memory only, never stored */
+  deviceKeys: z.object({ draft: z.string(), outbox: z.string(), queue: z.string() }).optional(),
   /** external review A1: AI drafting is switched on (AI_PROVIDER ≠ off) — the consultation shows its AI panel */
   ai: z.boolean().default(true),
 });
@@ -36,3 +38,7 @@ export const Capabilities = z.object({ modules: z.array(CapabilityModule) });
 export type Capabilities = z.infer<typeof Capabilities>;
 export type CapabilityModule = z.infer<typeof CapabilityModule>;
 export type CapabilityScreen = z.infer<typeof CapabilityScreen>;
+
+/** gap 10: entries the device dropped — tampered (its own key, failed the check) or foreign (another device's) */
+export const DeviceDropped = z.object({ count: z.number().int().min(1).max(10_000), reason: z.enum(["tampered", "foreign"]), kinds: z.array(z.enum(["write", "draft"])).max(2) });
+

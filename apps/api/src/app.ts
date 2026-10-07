@@ -28,6 +28,7 @@ import { erRoutes } from "./routes/er.js";
 import { ipdRoutes } from "./routes/ipd.js";
 import { ipdBillRoutes } from "./routes/ipdBill.js";
 import { nursingRoutes } from "./routes/nursing.js";
+import { queuedPlugin } from "./plugins/queued.js";
 
 export async function buildApp() {
   /* Request logs never carry the query string: search terms are phone numbers and names (security review A1–A3). */
@@ -40,6 +41,9 @@ export async function buildApp() {
   app.addHook("onClose", async () => { await closeCounters(); });
   sessionPlugin(app);
   auditPlugin(app);
+  // gap 10: a queued write goes on only for the user it was queued under, signed by this device — checked before any
+  // stored answer is replayed
+  queuedPlugin(app);
   idempotencyPlugin(app);
 
   app.setErrorHandler((e, req, reply) => {

@@ -104,7 +104,7 @@ export function priceChangeProblems(x: { oldUnitPaisa: number | null; oldVatBp: 
 /* ───── the audit log (prototype Admin › Audit log) ───── */
 /** Events the owner should see first (the "Flags" filter): who opened what in an emergency, duplicates, voids, money
     settings, who was switched off, prices, exports of the log itself, going live. */
-export const FLAGGED_ACTIONS = ["break-glass", "reprint", "void", "export", "deactivate", "reactivate", "role-change", "reset-password", "price-change", "settings-change", "go-live", /** external review A3 */ "login-failed", /** external review A6 */ "count-abandoned", /** external review B2 */ "duty-list-missing"] as const;
+export const FLAGGED_ACTIONS = ["break-glass", "reprint", "void", "export", "deactivate", "reactivate", "role-change", "reset-password", "price-change", "settings-change", "go-live", /** external review A3 */ "login-failed", /** external review A6 */ "count-abandoned", /** external review B2 */ "duty-list-missing", /** gap 10 */ "device-entry-dropped", "device-queue-refused"] as const;
 export type FlaggedAction = (typeof FLAGGED_ACTIONS)[number];
 export const isFlagged = (action: string) => (FLAGGED_ACTIONS as readonly string[]).includes(action);
 

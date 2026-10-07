@@ -1220,8 +1220,12 @@ The review is now in the repo (`docs/reviews/2026-10-04-external-review.md`). On
   (commit order); a refused last-unit take is 409 `stock_short`. **B10** drill-down paging (cursor), "Show more".
   **B11** the shift gate: a payment is in the count or after its window.
 - **Gap 10:** the setu_app password sent as a SCRAM-SHA-256 verifier (`pnpm db:set-app-password`, CI too); composite
-  tenant foreign keys + tenant-match triggers for Task / Provenance targets. **Not built yet: encrypted device drafts
-  and outbox** (waiting on Kamrul — see Next).
+  tenant foreign keys + tenant-match triggers for Task / Provenance targets; **encrypted device drafts and outbox**
+  (Kamrul's option b): the server derives a draft key per user + device + sign-in and an outbox / queue key per user +
+  device (`/v1/me` `deviceKeys`, memory only on the client); localStorage holds AES-GCM envelopes only; an earlier
+  session's drafts show as "not sent, unreadable" (count, gone at 24 h); a tampered or foreign entry is dropped and
+  audited (`device-entry-dropped`); a queued write carries who queued it and the device's signature, and the server
+  sends it on only for that user (409 `queued_by_other`) with a valid signature (400 `queued_forged`, audited).
 - **Decision 317:** the tenant's system actor (`sys_<tenant>`, no password / role, inactive) is "done by" for the
   discharge steps an event finishes; the audit keeps who caught it up; a sweep catches up too.
 - **Tests:** typecheck 13/13; domain 451; api 404/408 then the four fixed (the known lab load timeout, three PIN /
@@ -1247,8 +1251,8 @@ The review is now in the repo (`docs/reviews/2026-10-04-external-review.md`). On
     - ~~composite `(tenantId, id)` foreign keys for Patient.linkedToId, Task.focusId/candidateId, Provenance.targetId and Encounter.patientId~~ — done 07/10/2026 (keys + tenant-match triggers);
     - ~~`pnpm db:migrate` must stop sending the `setu_app` password in plain text~~ — done 07/10/2026 (SCRAM verifier);
     - together with gap 3 (argon2id) and gap 4 (PIN tries in Redis);
-    - device drafts and queued outbox writes encrypted (or signed) with a key bound to the server session, so a copy
-      left in a browser is unreadable and a planted copy is never sent (security review A5, open question 79).
+    - ~~device drafts and queued outbox writes encrypted with a key bound to the server session~~ — done 07/10/2026
+      (option b: drafts per sign-in, queued writes per user + device, the server checks the queued user and signature).
 12. **Pre-pilot clinical content (decisions D2, D3 of 02/10/2026):**
     - **Lab (slice A8–A11, D1/D2):** a clinician signs off the sample analytes, adult ranges, critical thresholds and the
       20% delta rule in `packages/domain/src/lab.ts`, adds men's ranges for Hb and creatinine, children's ranges, the
@@ -1302,8 +1306,8 @@ The review is now in the repo (`docs/reviews/2026-10-04-external-review.md`). On
    confirm open questions 309–317.
 8. **The pilot-readiness sprint** (`docs/plans/2026-10-07-pilot-readiness-sprint.md`): ~~track 1 week 1, A1–A6~~,
    ~~week 1–2: the A6 follow-up, review section B (B1–B11), gap 10 (SCRAM, tenant keys), decision 317~~ — done
-   07/10/2026. **Next:** the encrypted device drafts / outbox (gap 10's last part — Kamrul's answer on queued writes
-   first), then review section C and the staging prerequisites. Kamrul to confirm open question 321.
+   07/10/2026, and gap 10's encrypted device drafts / outbox (option b). **Next:** review section C and the staging
+   prerequisites. Kamrul to confirm open question 321.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

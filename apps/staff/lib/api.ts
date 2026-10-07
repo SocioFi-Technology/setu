@@ -13,7 +13,8 @@ import type {
   AiDraftResponse, AllergyOptions, AllergyView, CompositionView, ConsultationView, ConsultWorklist, Icd11Search, MedicineSearch, RecordAllergyRequest, SaveDraftRequest, SignRequest, TestList,
   ApiError, Capabilities, VitalsBatchRequest, VitalsBatchResponse, VitalsView, VitalsWorklist, CreateVisitResponse, MatchDecisionResponse, MatchPreviewResponse, Me, PatientMatches, PatientSearchResponse, QueueItem, QueueResponse, RegisterResponse, RegistrationInput, ReviewOutcomeResponse, ReviewQueueResponse,
 } from "@setu/contracts";
-import { clearDraftsForOwner, clearRefusedForOwner, enqueue, flush } from "./outbox";
+import { clearRefusedForOwner, enqueue, flush, setOutboxOwner } from "./outbox";
+import { deviceId } from "./devicekeys";
 export class ApiFailure extends Error { constructor(public status: number, public body: ApiError) { super(body.message_en); } }
 /** ADR 0010: the server said this session has ended (switched off, role or password changed) — the sign-in page says why. */
 let sessionEnded = false;
@@ -23,7 +24,8 @@ async function call<T>(method: string, path: string, body?: unknown, idemKey?: s
   const r = await fetch("/api" + path, {
     method, credentials: "include",
     // Only a request with a body says it is JSON: an empty JSON body is refused by the API (hands-on test 02/10/2026: sign-out).
-    headers: { ...(body === undefined ? {} : { "content-type": "application/json" }), ...(idemKey ? { "idempotency-key": idemKey } : {}) },
+    // gap 10: the device's id goes with every request (the sign-in binds the device keys to it)
+    headers: { ...(body === undefined ? {} : { "content-type": "application/json" }), ...(idemKey ? { "idempotency-key": idemKey } : {}), "x-setu-device": deviceId() },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!r.ok) {
@@ -31,8 +33,9 @@ async function call<T>(method: string, path: string, body?: unknown, idemKey?: s
     // ADR 0010: switched off, the role changed or the password reset — this session has ended: back to sign-in, saying why
     if (r.status === 401 && e.code === "session_ended") sessionEnded = true;
     if (r.status === 401 && e.code === "session_ended" && typeof location !== "undefined" && location.pathname !== "/login") {
-      // the same clean-up as signing out: nothing of this user's left on a shared device (screen review)
-      clearRefusedForOwner(); clearDraftsForOwner();
+      // the refused list goes as at sign-out; drafts stay sealed and become unreadable with the key gone (gap 10, Kamrul
+      // 07/10/2026: listed as a count at the next sign-in, gone at 24 h)
+      clearRefusedForOwner(); setOutboxOwner(null);
       fetch("/api/v1/auth/logout", { method: "POST", credentials: "include" }).catch(() => {}).finally(() => { location.href = "/login?ended=1"; });
     }
     throw new ApiFailure(r.status, e);

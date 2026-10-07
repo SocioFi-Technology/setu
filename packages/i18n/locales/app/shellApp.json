@@ -78,5 +78,13 @@
   "label_note_draft": [
     "পরামর্শ নোটের খসড়া",
     "Consultation note draft"
+  ],
+  "unreadable_pill": [
+    "{n}টি পাঠানো হয়নি — আর পড়া যায় না",
+    "{n} not sent — unreadable"
+  ],
+  "unreadable_title": [
+    "আগের সেশনে এই ডিভাইসে রাখা লেখা, সেশন শেষ হওয়ায় চাবিও গেছে — পাঠানো হয়নি, পড়া যায় না; ২৪ ঘণ্টা পরে মুছে যায়। কাজটি আবার করুন।",
+    "Kept on this device in an earlier session whose key ended with it — not sent and cannot be read; removed after 24 hours. Redo the work."
   ]
 }
