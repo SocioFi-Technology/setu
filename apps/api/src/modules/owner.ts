@@ -1,20 +1,23 @@
 /* The owner dashboard (journey C1–C2, ADR 0008). One facility's metrics per Dhaka day, computed from the source tables;
-   past days are kept in DailyRollup (nightly job, last 7 days recomputed), today is always live. Nothing here is a
+   past days are kept in DailyRollup (nightly job, last 35 days recomputed), today is always live. Nothing here is a
    sample: tiles whose data comes with a later module say so (@setu/domain KPIS). Every list behind a number is audited
    with the patients it reveals. */
 import type { DashboardView, DrillView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
-import { KPIS, MEDICINES_SAMPLE, NEAR_EXPIRY_DAYS, dhakaDay, kpiChange, periodDays, sumUpToHour, type KpiKey, type OpsKey, type Period } from "@setu/domain";
+import { KPIS, MEDICINES_SAMPLE, NEAR_EXPIRY_DAYS, dhakaDay, kpiChange, medianMinutes, periodDays, sumUpToHour, type KpiKey, type OpsKey, type Period } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
 import { pendingPharmacyApprovals } from "./purchasing.js";
 import type { SessionData } from "../plugins/session.js";
 
 /** 2: the cash variance is stored as short and over separately (money-controls review H3); 3: refunds (ADR 0013) —
-    older rows are recomputed; 7: dues count an IPD bill's excess deposit as going back (ADR 0018). */
-export const ROLLUP_VERSION = 7;
+    older rows are recomputed; 7: dues count an IPD bill's excess deposit as going back (ADR 0018); 8: each released
+    test's turnaround minutes, for the median (external review B7). */
+export const ROLLUP_VERSION = 8;
 export interface DayMetrics {
   revenuePaisa: number; revenueByHour: number[]; collectionsPaisa: number; collectionsByHour: number[]; byMethod: Record<string, number>;
   discountsPaisa: number; duesPaisa: number; opdVisits: number; noShows: number; labTests: number; labTatMinutesSum: number;
+  /** v8: each test released that day, minutes from order to first release (sorted) — the period's median comes from these */
+  labTatMinutes?: number[];
   cashVariancePaisa: number; cashShortPaisa: number; cashOverPaisa: number; shiftsWithVariance: number; reprints: number;
   discountAbovePolicy: { count: number; paisa: number }; notBilledHere: { count: number; paisa: number }; cashOutsideShift: { count: number; paisa: number };
   /** ADR 0013: money paid back that day (allocations paid), refunds completed that day, wrong-dispense returns that day */
@@ -68,14 +71,15 @@ export async function computeDay(tx: Tx, organizationId: string, day: string, un
     SELECT count(*) FILTER (WHERE "createdAt" >= ${from} AND "createdAt" < ${to} AND "status" <> 'entered-in-error') AS opd,
            count(*) FILTER (WHERE "cancelReason" = 'no-show' AND "statusAt" >= ${from} AND "statusAt" < ${to}) AS noshow
     FROM "Encounter" WHERE "organizationId" = ${org} AND ("createdAt" >= ${from} - interval '2 days')`;
-  const [lab] = await tx.$queryRaw<{ tests: bigint; minutes: number | null }[]>`
+  const [lab] = await tx.$queryRaw<{ tests: bigint; minutes: number | null; each: number[] | null }[]>`
     WITH today AS (
       SELECT DISTINCT x."serviceRequestId" AS sr FROM "DiagnosticReportResult" x JOIN "DiagnosticReport" r ON r."id" = x."reportId"
       WHERE r."organizationId" = ${org} AND r."releasedAt" >= ${from} AND r."releasedAt" < ${to}),
     first AS (
       SELECT x."serviceRequestId" AS sr, min(r."releasedAt") AS released FROM "DiagnosticReportResult" x JOIN "DiagnosticReport" r ON r."id" = x."reportId"
       WHERE x."serviceRequestId" IN (SELECT sr FROM today) GROUP BY 1)
-    SELECT count(*) AS tests, sum(extract(epoch from (f.released - coalesce(s."orderedAt", s."createdAt"))) / 60)::float AS minutes
+    SELECT count(*) AS tests, sum(extract(epoch from (f.released - coalesce(s."orderedAt", s."createdAt"))) / 60)::float AS minutes,
+           array_agg(round(extract(epoch from (f.released - coalesce(s."orderedAt", s."createdAt"))) / 60)::int) AS each
     FROM first f JOIN "ServiceRequest" s ON s."id" = f.sr WHERE f.released >= ${from} AND f.released < ${to}`;
   const [shifts] = await tx.$queryRaw<{ paisa: bigint; short: bigint; over: bigint; n: bigint }[]>`
     SELECT coalesce(sum(c."variancePaisa"), 0) AS paisa, count(*) FILTER (WHERE c."variancePaisa" <> 0) AS n,
@@ -122,7 +126,7 @@ export async function computeDay(tx: Tx, organizationId: string, day: string, un
     collectionsPaisa: hours(col).reduce((a, b) => a + b, 0), collectionsByHour: hours(col),
     byMethod: Object.fromEntries(methods.map((m) => [m.method, n(m.paisa)])),
     discountsPaisa: n(disc?.all), duesPaisa: n(dues?.paisa), opdVisits: n(visits?.opd), noShows: n(visits?.noshow),
-    labTests: n(lab?.tests), labTatMinutesSum: Math.round(n(lab?.minutes)),
+    labTests: n(lab?.tests), labTatMinutesSum: Math.round(n(lab?.minutes)), labTatMinutes: (lab?.each ?? []).filter((x) => x !== null).sort((a, b) => a - b),
     cashVariancePaisa: n(shifts?.paisa), cashShortPaisa: -n(shifts?.short), cashOverPaisa: n(shifts?.over), shiftsWithVariance: n(shifts?.n), reprints: n(reprints?.n),
     discountAbovePolicy: { count: n(disc?.above), paisa: n(disc?.abovePaisa) },
     notBilledHere: { count: n(nb?.n), paisa: n(nb?.paisa) },
@@ -159,7 +163,17 @@ export async function upsertRollup(tx: Tx, tenantId: string, organizationId: str
 }
 
 /** The nightly job (ADR 0008): every facility, the last `back` finished days, recomputed (late voids and confirmations). */
-export async function runNightlyRollup(now = new Date(), back = 35, onlyTenant?: string): Promise<{ facilities: number; days: number; failed: number }> {
+export async function runNightlyRollup(now = new Date(), back = 35, onlyTenant?: string): Promise<{ facilities: number; days: number; failed: number; skipped?: boolean }> {
+  const { prisma } = await import("@setu/db");
+  // external review B7: one run at a time across every API instance — a transaction-scoped advisory lock held for the
+  // run; an instance that finds it taken skips (the rows are upserts, so a second run would only repeat the work)
+  return prisma.$transaction(async (lockTx) => {
+    const [{ got }] = await lockTx.$queryRaw<{ got: boolean }[]>`SELECT pg_try_advisory_xact_lock(hashtext('nightly-rollup')) AS got`;
+    if (!got) return { facilities: 0, days: 0, failed: 0, skipped: true };
+    return rollupDays(now, back, onlyTenant);
+  }, { timeout: 3_600_000, maxWait: 15_000 });
+}
+async function rollupDays(now: Date, back: number, onlyTenant?: string): Promise<{ facilities: number; days: number; failed: number }> {
   const { prisma, forTenant } = await import("@setu/db");
   const all = await prisma.$queryRaw<{ tenant_id: string; organization_id: string }[]>`SELECT * FROM rollup_targets()`;
   const targets = onlyTenant ? all.filter((t) => t.tenant_id === onlyTenant) : all;
@@ -213,7 +227,8 @@ export async function dashboard(tx: Tx, s: SessionData, period: Period, now: Dat
   for (const k of ["stockValue", "nearExpiry", "supplierDues"] as const) values[k] = { cur: stNow[k], prev: stThen[k] };
   const opsVals: Record<OpsKey, { cur: number | null; prev: number | null }> = {
     opdVisits: plain((x) => x.opdVisits), labTests: plain((x) => x.labTests), noShows: plain((x) => x.noShows),
-    labTat: (() => { const t = plain((x) => x.labTests), mins = plain((x) => x.labTatMinutesSum); return { cur: t.cur ? Math.round(mins.cur / t.cur) : null, prev: t.prev ? Math.round(mins.prev / t.prev) : null }; })(),
+    // external review B7: the median over every test of the period (ADR 0008), not the mean
+    labTat: { cur: medianMinutes(p.days.map((d) => m.get(d)?.labTatMinutes)), prev: medianMinutes(p.previous.map((d) => m.get(d)?.labTatMinutes)) },
     // short and over never cancel out (money-controls review H3): the size of every variance, added up
     cashVariance: plain((x) => (x.cashShortPaisa ?? 0) + (x.cashOverPaisa ?? 0)), reprints: plain((x) => x.reprints),
   };

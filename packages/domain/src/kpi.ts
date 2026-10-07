@@ -27,6 +27,15 @@ export function kpiChange(key: KpiKey | OpsKey, current: number, previous: numbe
   return { pct, judgement: (better === "up") === up ? "better" : "worse" };
 }
 
+/** External review B7 (ADR 0008 says median): the median lab turnaround over a period, from each day's list of
+    per-test minutes — never an average of days or of daily medians. null = no test released. */
+export function medianMinutes(perDay: readonly (readonly number[] | undefined)[]): number | null {
+  const all = perDay.flatMap((d) => d ?? []).slice().sort((a, b) => a - b);
+  if (!all.length) return null;
+  const mid = all.length >> 1;
+  return all.length % 2 ? all[mid]! : Math.round((all[mid - 1]! + all[mid]!) / 2);
+}
+
 const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
 const range = (last: string, n: number) => Array.from({ length: n }, (_, i) => addDays(last, i - n + 1));
 

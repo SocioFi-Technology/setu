@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { KPIS, kpiChange, periodDays, sumUpToHour } from "./kpi.js";
+import { KPIS, kpiChange, medianMinutes, periodDays, sumUpToHour } from "./kpi.js";
 
 describe("periods and what they are compared with (Dhaka days)", () => {
   // 03/10/2026 14:30 Dhaka = 08:30 UTC, a Saturday
@@ -49,3 +49,14 @@ describe("KPI change and its judgement (issue #23: real, varied changes)", () =>
     expect(KPIS.filter((k) => !k.comesWith).map((k) => k.key)).toEqual(["revenue", "collections", "dues", "discounts", "refunds", "supplierDues", "stockValue", "nearExpiry"]);
   });
 });
+
+describe("lab turnaround (external review B7: the median ADR 0008 names)", () => {
+  it("the median of every test in the period, not the mean and not the median of daily medians", () => {
+    // day 1: 30, 40, 400 (a mean of 157); day 2: 50
+    expect(medianMinutes([[30, 40, 400], [50]])).toBe(45);
+    expect(medianMinutes([[400, 30, 40]])).toBe(40);
+    expect(medianMinutes([[30, 40, 400], [50], [60]])).toBe(50);
+    expect(medianMinutes([[], undefined])).toBeNull();
+  });
+});
+

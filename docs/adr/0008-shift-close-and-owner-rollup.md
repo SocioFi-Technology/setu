@@ -73,3 +73,14 @@ match. Now:
   longer asks the count for a reason.
 - The `variance_changed` / `varianceSeenPaisa` handshake (M2) is gone: the variance a reason answers is the stored one.
 - The owner's review is unchanged (closed → approved | open), and so are the dashboard's variance list and drill.
+
+## Addendum 2 (2026-10-07, external review B7): the nightly job — 35 days, once across instances; the median TAT
+- **35 days, not 7.** The nightly job recomputes the last **35** finished days (as built): the 30-day view and its
+  comparison must reflect late voids, confirmations and refunds across the month the owner looks at. The Decision
+  above ("the last 7 days are recomputed") is amended to 35; older days are still computed on demand when missing.
+- **One run at a time.** Each API process keeps its own 00:30 timer, but a run first takes a transaction-scoped
+  advisory lock (`pg_try_advisory_xact_lock(hashtext('nightly-rollup'))`) held for the run; an instance that finds it
+  taken skips (`skipped: true`). The rows stay upserts.
+- **Lab turnaround is the median**, as the Decision says (it was a mean). Each day's row stores every released test's
+  minutes from order to first release (`labTatMinutes`, rollup version 8 — older rows are recomputed); the tile is the
+  median over all tests in the period (`@setu/domain medianMinutes`), never an average of days or of daily medians.

@@ -213,6 +213,22 @@ describe.runIf(db)("C1–C2 owner dashboard", () => {
     expect(d.pending.staleShifts).toBeGreaterThanOrEqual(0);
     expect(d.byMethod.find((m) => m.method === "cash")!.paisa).toBeGreaterThan(0);
   });
+  it("external review B7: two nightly runs at once — one runs, the other skips; the lab turnaround is the period's median", async () => {
+    const { runNightlyRollup, ROLLUP_VERSION, computeDay } = await import("../src/modules/owner.js");
+    const both = await Promise.all([runNightlyRollup(new Date(), 2, T), runNightlyRollup(new Date(), 2, T)]);
+    expect(both.filter((r) => r.skipped)).toHaveLength(1);
+    expect(both.find((r) => !r.skipped)).toMatchObject({ days: 2, failed: 0 });
+    // the 7-day tile is the median over every test released in those days (stored per test), never a mean
+    const d = ok<Dash & { ops: { key: string; value: number | null }[] }>(await get("/v1/owner/dashboard?period=7d"));
+    const rows = await db!.forTenant(T, (tx) => tx.dailyRollup.findMany({ where: { organizationId: "o_e2e", version: ROLLUP_VERSION } }));
+    const { medianMinutes, periodDays } = await import("@setu/domain");
+    const days = periodDays("7d", new Date()).days;
+    const today = new Date(Date.now() + 6 * 3600_000).toISOString().slice(0, 10);
+    const lists = days.filter((x) => x !== today).map((x) => (rows.find((r) => r.day === x)?.metrics as { labTatMinutes?: number[] } | undefined)?.labTatMinutes);
+    expect(rows.every((r) => Array.isArray((r.metrics as { labTatMinutes?: unknown }).labTatMinutes))).toBe(true);
+    const live = await db!.forTenant(T, (tx) => computeDay(tx, "o_e2e", today)); // today is live, never stored
+    expect(d.ops.find((o) => o.key === "labTat")!.value).toBe(medianMinutes([...lists, live.labTatMinutes]));
+  });
   it("7 and 30 days: one point per day; the nightly job stores finished days (never today)", async () => {
     const r = ok<{ days: number; failed: number }>(await post("/v1/dev/rollup/run", {}, "owner", null));
     expect(r).toMatchObject({ days: 35, failed: 0 });
