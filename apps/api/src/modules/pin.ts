@@ -1,23 +1,24 @@
 /* Signing PIN: 5 tries then a 15-minute lock, per user, shared by /v1/auth/pin/verify and every sign route (a wrong PIN
-   while signing counts the same). In memory for now; Redis in the auth hardening pass (HANDOVER known gap 4). */
+   while signing counts the same). Counted in Redis (external review A3 — HANDOVER known gap 4). */
 import type { Tx } from "@setu/db";
 import { err } from "../errors.js";
+import { counters } from "../adapters/counters.js";
 import { hashSecret, verifySecret } from "./secrets.js";
 
-const tries = new Map<string, { n: number; lockedUntil?: number }>();
 export const PIN_MAX = 5, PIN_LOCK_MS = 15 * 60_000;
 
 export type PinResult = { ok: true } | { ok: false; triesLeft: number; lockedUntil?: string };
 
-/** Checks a PIN with `matches` (which compares against the stored hash) and counts the attempt. */
+/** Checks a PIN with `matches` (which compares against the stored hash) and counts the attempt — in Redis, so every API
+    instance sees the same tries (external review A3, gap 4). */
 export async function checkPinAttempt(userId: string, matches: () => Promise<boolean> | boolean): Promise<PinResult> {
-  const st = tries.get(userId) ?? { n: 0 };
-  if (st.lockedUntil && st.lockedUntil > Date.now()) return { ok: false, triesLeft: 0, lockedUntil: new Date(st.lockedUntil).toISOString() };
-  if (await matches()) { tries.delete(userId); return { ok: true }; }
-  st.n += 1;
-  if (st.n >= PIN_MAX) { st.lockedUntil = Date.now() + PIN_LOCK_MS; st.n = 0; tries.set(userId, st); return { ok: false, triesLeft: 0, lockedUntil: new Date(st.lockedUntil).toISOString() }; }
-  tries.set(userId, st);
-  return { ok: false, triesLeft: PIN_MAX - st.n };
+  const c = counters(), lockKey = `pin:lock:${userId}`, triesKey = `pin:tries:${userId}`;
+  const locked = await c.ttlMs(lockKey);
+  if (locked > 0) return { ok: false, triesLeft: 0, lockedUntil: new Date(Date.now() + locked).toISOString() };
+  if (await matches()) { await c.del(triesKey); return { ok: true }; }
+  const n = await c.incr(triesKey, PIN_LOCK_MS);
+  if (n >= PIN_MAX) { await c.set(lockKey, 1, PIN_LOCK_MS); await c.del(triesKey); return { ok: false, triesLeft: 0, lockedUntil: new Date(Date.now() + PIN_LOCK_MS).toISOString() }; }
+  return { ok: false, triesLeft: PIN_MAX - n };
 }
 
 /** For sign routes: throws 401 pin_wrong / 423 pin_locked, so the whole transaction is refused. */

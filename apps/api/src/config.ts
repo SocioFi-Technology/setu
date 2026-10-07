@@ -11,6 +11,8 @@ export const config = {
   wristbandSecret: process.env.WRISTBAND_SECRET ?? process.env.SESSION_SECRET ?? "dev-only-secret-change-me-in-env-file",
   /** The API connects as setu_app (RLS applies). DATABASE_URL is the owner and is only for migrations and the seed. */
   databaseUrl: process.env.DATABASE_URL_APP,
+  /** external review A3: login failures, account locks and PIN tries are shared through Redis (in memory without it) */
+  redisUrl: process.env.REDIS_URL,
   /** When no database URL is set (first run, CI without Docker) the API serves /health and the demo login from memory. */
   dbEnabled: Boolean(process.env.DATABASE_URL_APP),
   version: process.env.npm_package_version ?? "0.0.1",
@@ -53,4 +55,6 @@ if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL_APP) thro
 // external review A1: the fake AI writes deterministic sample drafts — production runs a real provider, or AI_PROVIDER=off
 // (no drafts; the consultation's AI panel is hidden). The Claude adapter is a later change.
 if (process.env.NODE_ENV === "production" && config.adapters.ai === "fake") throw new Error("AI_PROVIDER=fake is not allowed in production (set AI_PROVIDER=off until a real provider is configured)");
+// external review A3 (gap 4): with several API instances, login and PIN tries must be counted in one place
+if (process.env.NODE_ENV === "production" && !process.env.REDIS_URL) throw new Error("REDIS_URL is required in production (login and PIN tries are counted there)");
 if (!["fake", "off"].includes(config.adapters.ai)) throw new Error(`AI_PROVIDER=${config.adapters.ai} is not available (fake, off)`);

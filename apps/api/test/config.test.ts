@@ -15,6 +15,7 @@ const S32 = "x".repeat(32);
 const good = {
   NODE_ENV: "production", PUBLIC_APP_URL: "https://clinic.example", PAYMENTS_PROVIDER: "bkash", SMS_PROVIDER: "bulksmsbd",
   SESSION_SECRET: S32, WRISTBAND_SECRET: S32, DATABASE_URL_APP: "postgresql://setu_app:pw@localhost:5432/setu", AI_PROVIDER: "off",
+  REDIS_URL: "redis://localhost:6379",
 };
 /** the startup error, or "" when the config loads */
 function start(env: Record<string, string | undefined>): string {
@@ -39,6 +40,9 @@ describe("production refuses to start without its secrets (external review A1)",
     expect(start({ ...good, AI_PROVIDER: "fake" })).toContain("AI_PROVIDER=fake is not allowed in production");
     expect(start({ ...good, AI_PROVIDER: undefined })).toContain("AI_PROVIDER=fake is not allowed in production");
     expect(start({ ...good, AI_PROVIDER: "claude" })).toContain("AI_PROVIDER=claude is not available");
+  });
+  it("REDIS_URL missing — login and PIN tries must be counted in one place (review A3)", () => {
+    expect(start({ ...good, REDIS_URL: undefined })).toContain("REDIS_URL is required in production");
   });
   it("development is unchanged: no secrets, no database, the demo login", () => { expect(start({ NODE_ENV: "development" })).toBe(""); });
 });

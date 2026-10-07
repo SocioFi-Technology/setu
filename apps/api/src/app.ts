@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
+import { closeCounters } from "./adapters/counters.js";
 import { ZodError } from "zod";
 import { TransitionError } from "@setu/domain";
 import { config } from "./config.js";
@@ -35,6 +36,8 @@ export async function buildApp() {
   await app.register(cookie, { secret: config.sessionSecret });
   /* Only routes that opt in are limited (the public receipt check). */
   await app.register(rateLimit, { global: false });
+  // external review A3: the shared counters (Redis) close with the app
+  app.addHook("onClose", async () => { await closeCounters(); });
   sessionPlugin(app);
   auditPlugin(app);
   idempotencyPlugin(app);
