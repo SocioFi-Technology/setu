@@ -185,6 +185,46 @@ describe.runIf(db)("ADR 0011 bKash tokenized checkout", () => {
     expect((await row(payment.id))!.status).toBe("confirmed");
   });
 
+  it("review A4: bKash refuses the execute and the query cannot reach bKash — the payment stays pending, claimed; the sweep decides it once bKash answers", async () => {
+    const { payment } = await bkashPayment();
+    const p = (await row(payment.id))!;
+    standIn.authorise(p.providerRef!);
+    standIn.failNextExecute = "2056"; standIn.queryDownNext = 1;
+    const r = await returnWith(payment.id, "success");
+    expect(r.o).toBe("pending");
+    const after = (await row(payment.id))!;
+    expect(after.status).not.toBe("failed"); expect(after.executeClaimedAt).not.toBeNull();
+    // a claim younger than the execute bound is left alone by the sweep (even asked with no "stuck" window at all)
+    await sweepPayments(new Date(), 0);
+    expect((await row(payment.id))!.status).not.toBe("failed");
+    // past the bound, bKash answers the query (never executed → Initiated): now it is decided
+    await inTenant((tx) => tx.payment.update({ where: { id: p.id }, data: { executeClaimedAt: new Date(Date.now() - 6 * 60_000) } }));
+    await sweepPayments(new Date());
+    expect((await row(payment.id))!).toMatchObject({ status: "failed", failReason: "not-paid" });
+    expect(executes(p.providerRef!)).toBe(1);
+  });
+  it("review A4: Completed without a TrxID goes to the owner's reconciliation — never failed", async () => {
+    const { payment } = await bkashPayment();
+    const p = (await row(payment.id))!;
+    standIn.authorise(p.providerRef!);
+    standIn.noTrxIdNext = true;
+    const r = await returnWith(payment.id, "success");
+    expect(r.o).toBe("pending");
+    const after = (await row(payment.id))!;
+    expect(after.status).not.toBe("failed"); expect(after.executeClaimedAt).toBeNull();
+    const task = await inTenant((tx) => tx.task.findFirst({ where: { kind: "payment-reconciliation", focusId: p.id } }));
+    expect(task).toMatchObject({ status: "requested", reason: "completed by the provider without a transaction ID" });
+  });
+  it("review A4: two returns at the same moment execute once", async () => {
+    const { payment } = await bkashPayment();
+    const p = (await row(payment.id))!;
+    standIn.authorise(p.providerRef!);
+    const q = new URLSearchParams({ paymentID: p.providerRef!, status: "success", signature: p.providerSignature! });
+    const [a, b] = await Promise.all([get(`/v1/payments/return/bkash?${q}`, null), get(`/v1/payments/return/bkash?${q}`, null)]);
+    expect([a.statusCode, b.statusCode]).toEqual([303, 303]);
+    expect(executes(p.providerRef!)).toBe(1);
+    expect((await row(payment.id))!.status).toBe("confirmed");
+  });
   it("while an execute is under way the cashier cannot cancel; one never answered is settled by the sweep", async () => {
     const { payment } = await bkashPayment();
     const p = (await row(payment.id))!;

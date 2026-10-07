@@ -29,6 +29,11 @@ export class BkashSandboxStandIn {
   slowNextExecuteMs = 0;
   /** test hook: the next create answers with this error code (e.g. "2003" process failed, "503" maintenance) */
   failNextCreate: string | null = null;
+  /** external review A4 (tests): refuse the next execute with this code; answer the next n queries with HTTP 503 (bKash
+      unreachable); complete the next execute without a TrxID */
+  failNextExecute: string | null = null;
+  queryDownNext = 0;
+  noTrxIdNext = false;
   /** test hooks (refunds): the next refund hangs this long but is still made at bKash; the next refund is refused with this code */
   slowNextRefundMs = 0;
   failNextRefund: string | null = null;
@@ -120,13 +125,16 @@ export class BkashSandboxStandIn {
     const p = this.payments.get(String(b.paymentId ?? b.paymentID ?? ""));
     if (op === "payment/execute") {
       if (!p) return this.fail(res, "2002", "Invalid Payment ID");
+      if (this.failNextExecute) { const c = this.failNextExecute; this.failNextExecute = null; return this.fail(res, c, "Process failed"); }
       if (p.state === "completed" || p.state === "spent") return this.fail(res, "2062", "The payment has already been completed", "payment_already_completed");
       if (p.state !== "authorised") { p.state = "spent"; return this.fail(res, "2056", "Invalid Payment State"); }
       p.state = "completed"; p.trxId = "TRX" + tok(7);
+      if (this.noTrxIdNext) { this.noTrxIdNext = false; return this.json(res, { paymentId: p.paymentId, transactionStatus: "Completed", amount: p.amount, currency: "BDT", intent: "sale", merchantInvoiceNumber: p.merchantInvoiceNumber }); }
       if (this.slowNextExecuteMs) { const ms = this.slowNextExecuteMs; this.slowNextExecuteMs = 0; await new Promise((ok) => setTimeout(ok, ms)); }
       return this.json(res, { paymentId: p.paymentId, trxId: p.trxId, transactionStatus: "Completed", amount: p.amount, currency: "BDT", intent: "sale", paymentExecuteTime: new Date().toISOString(), merchantInvoiceNumber: p.merchantInvoiceNumber, payerType: "Customer", payerReference: p.payerReference, payerAccount: p.payerAccount, maxRefundableAmount: p.amount });
     }
     if (op === "query/payment") {
+      if (this.queryDownNext > 0) { this.queryDownNext -= 1; res.statusCode = 503; return res.end("Service Unavailable"); }
       if (!p) return this.fail(res, "2002", "Invalid Payment ID");
       const done = p.state === "completed";
       return this.json(res, { paymentId: p.paymentId, verificationStatus: done ? "Complete" : "Incomplete", payerReference: p.payerReference, payerAccount: p.payerAccount, trxId: p.trxId ?? "", amount: p.amount, currency: "BDT", intent: "sale", merchantInvoice: p.merchantInvoiceNumber, transactionStatus: done ? "Completed" : "Initiated" });

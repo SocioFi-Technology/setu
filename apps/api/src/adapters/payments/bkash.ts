@@ -139,6 +139,12 @@ export class BkashProvider implements PaymentProvider {
     return BkashProvider.status(j, q.providerRef);
   }
 
+  /** The query after an execute: bKash's answer, "unknown" (no such payment / no answer we can read) or "unreachable"
+      (timeout, network) — external review A4: only the first is an answer. */
+  async ask(providerRef: string): Promise<ProviderStatus | "unknown" | "unreachable"> {
+    try { return (await this.verify({ providerRef })) ?? "unknown"; }
+    catch (e) { return e instanceof GatewayError && (e.code === "unreachable" || e.code.startsWith("http-")) ? "unreachable" : "unknown"; }
+  }
   /** Money moves here, once. `settled`: bKash's own answer decides it — Completed, or a refusal of this execute (the
       paymentId is spent). A timeout, a broken answer, "already completed" or an unreachable query is not settled: the
       claim stays and the sweep asks again later (money review: never fail a payment bKash may have completed). */
@@ -148,11 +154,13 @@ export class BkashProvider implements PaymentProvider {
     catch (e) { if (!(e instanceof GatewayError) || e.code === "token") throw e; } // a timeout: ask, never execute again
     const e = j ? BkashProvider.errorOf(j) : null;
     if (j && !e) { const st = BkashProvider.status(j, providerRef); return { status: st, settled: st.status === "confirmed" }; }
-    const ask = async () => { try { return await this.verify({ providerRef }); } catch { return null; } };
-    // bKash refused this execute outright (not authorised, insufficient balance, …): spent, unless it says Completed
-    if (e && !["2062", "2117", "503", "9999"].includes(e.code)) return { status: await ask(), settled: true };
-    const st = await ask();
-    return { status: st, settled: st?.status === "confirmed" };
+    const q = await this.ask(providerRef);
+    // external review A4: settled only on a definite answer from bKash's query — an unreachable or unknown query never
+    // fails a payment (the claim stays; the sweep asks again)
+    if (typeof q === "string") return { status: null, settled: false };
+    // bKash refused this execute outright (not authorised, insufficient balance, …): spent — the query decides it
+    if (e && !["2062", "2117", "503", "9999"].includes(e.code)) return { status: q, settled: true };
+    return { status: q, settled: q.status === "confirmed" };
   }
 
   /** bKash has no cancel for a payment that was never executed: it expires; we simply never execute it. */

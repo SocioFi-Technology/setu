@@ -67,16 +67,20 @@ export type AnswerOutcome =
   | { outcome: "confirm"; trxId: string }
   /** money arrived but not the amount asked: never applied silently (the owner reconciles) */
   | { outcome: "mismatch" }
+  /** external review A4: Completed without a TrxID — money may have moved; the owner reconciles, never a failure */
+  | { outcome: "reconcile" }
   | { outcome: "fail" }
-  /** query only: the patient may still pay */
+  /** no definite answer (or a query alone): the patient may still pay, or the sweep asks again */
   | { outcome: "pending" };
 
-/** After an execute attempt the paymentId is spent: anything but Completed is a failed payment. After a query alone
-    (`afterExecute` false) Initiated means the patient has not finished yet. */
-export function answerOutcome(a: GatewayAnswer | null, amountPaisa: Paisa, afterExecute: boolean): AnswerOutcome {
-  if (a?.transactionStatus === "Completed") {
-    if (!a.trxId) return afterExecute ? { outcome: "fail" } : { outcome: "pending" };
+/** `settled`: the gateway gave a definite answer about a spent paymentId (external review A4) — then anything but
+    Completed is a failed payment. No answer (unreachable, unknown) is never a failure: the payment stays pending and the
+    sweep asks again. Completed without a TrxID goes to the owner, never to failed. */
+export function answerOutcome(a: GatewayAnswer | null, amountPaisa: Paisa, settled: boolean): AnswerOutcome {
+  if (!a) return { outcome: "pending" };
+  if (a.transactionStatus === "Completed") {
+    if (!a.trxId) return { outcome: "reconcile" };
     return a.amountPaisa === amountPaisa ? { outcome: "confirm", trxId: a.trxId } : { outcome: "mismatch" };
   }
-  return afterExecute ? { outcome: "fail" } : { outcome: "pending" };
+  return settled ? { outcome: "fail" } : { outcome: "pending" };
 }

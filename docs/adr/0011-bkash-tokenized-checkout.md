@@ -80,3 +80,16 @@ production. `PAYMENTS_PROVIDER=bkash` selects bKash for the bKash method; Nagad 
 - Refunds (bKash `refund/payment/transaction`) come with the refunds slice.
 - Open: per-facility merchant accounts (or bKash aggregator / sub-merchant) before a second clinic; the live hostname,
   the `signature` algorithm and the `Bearer` question are checked with sandbox credentials.
+
+## Addendum (07/10/2026) — external review A4: when PAYMENT `fail` may follow an execute
+The PAYMENT machine is unchanged; the rule for taking its `fail` step after an execute is narrowed.
+- The query after an execute answers with bKash's status, `unknown` (no such payment / an answer we cannot read) or
+  `unreachable` (timeout, network, an HTTP error page). Only bKash's status is an answer.
+- A payment fails only on a definite answer about a spent paymentId (bKash refused the execute **and** its query says
+  the payment did not complete). A refused execute with an unreachable or unknown query leaves the payment pending with
+  its claim; the sweep asks again.
+- `Completed` without a TrxID opens the owner's reconciliation (reason "completed by the provider without a transaction
+  ID"); the payment stays pending, never failed.
+- The sweep leaves alone any claim younger than one execute's worst case (`EXECUTE_BOUND_MS` = 120 s: the execute, the
+  query and a token renewal); it already only looks at claims older than 5 minutes.
+- Every write of `failed` goes through `transition("PAYMENT", …)`.

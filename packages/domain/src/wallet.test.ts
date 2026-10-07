@@ -50,11 +50,13 @@ describe("an execute or query answer (ADR 0011)", () => {
   it("confirms only Completed, in full, with a TrxID", () => {
     expect(answerOutcome(done, 50_000, true)).toEqual({ outcome: "confirm", trxId: "TRX123" });
     expect(answerOutcome({ ...done, amountPaisa: 40_000 }, 50_000, true)).toEqual({ outcome: "mismatch" });
-    expect(answerOutcome({ ...done, trxId: null }, 50_000, true)).toEqual({ outcome: "fail" });
+    // external review A4: Completed without a TrxID is the owner's to reconcile, never failed
+    expect(answerOutcome({ ...done, trxId: null }, 50_000, true)).toEqual({ outcome: "reconcile" });
+    expect(answerOutcome({ ...done, trxId: null }, 50_000, false)).toEqual({ outcome: "reconcile" });
   });
-  it("after an execute attempt anything else is a failed payment; a query alone may still be pending", () => {
+  it("a definite answer about a spent paymentId fails anything but Completed; no answer is never a failure (review A4)", () => {
     expect(answerOutcome({ transactionStatus: "Initiated", amountPaisa: 50_000, trxId: null }, 50_000, true)).toEqual({ outcome: "fail" });
-    expect(answerOutcome(null, 50_000, true)).toEqual({ outcome: "fail" });
+    expect(answerOutcome(null, 50_000, true)).toEqual({ outcome: "pending" });
     expect(answerOutcome({ transactionStatus: "Initiated", amountPaisa: 50_000, trxId: null }, 50_000, false)).toEqual({ outcome: "pending" });
     expect(answerOutcome(null, 50_000, false)).toEqual({ outcome: "pending" });
   });

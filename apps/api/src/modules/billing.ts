@@ -780,7 +780,7 @@ export async function attachLink(tenantId: string, paymentId: string, now: Date,
     const cur = await tx.payment.findFirst({ where: { id: p.id } });
     if (!cur || cur.status !== "initiated" || cur.attempt !== p.attempt || cur.providerRef) return "gone" as const;
     if (!link) {
-      await tx.payment.updateMany({ where: { id: p.id, status: "initiated", attempt: p.attempt }, data: { status: "failed", failReason: "gateway-error", statusAt: now } });
+      await tx.payment.updateMany({ where: { id: p.id, status: "initiated", attempt: p.attempt }, data: { status: undash<"failed">(transition("PAYMENT", PAYMENT, "initiated", "fail")), failReason: "gateway-error", statusAt: now } });
       await tx.auditEvent.create({ data: { tenantId, organizationId: cur.organizationId, userId: null, role: null, action: "provider-event", entity: "Payment", entityId: p.id, patientId: cur.patientId, detail: { actor: `provider:${provider.name}`, kind: "create-link", outcome: "gateway-error", error: why.slice(0, 200) } } });
       return "gateway-error" as const;
     }
@@ -1007,6 +1007,8 @@ function audit(tx: Tx, tenantId: string, p: Pay, provider: PaymentProvider, deta
   return tx.auditEvent.create({ data: { tenantId, organizationId: p.organizationId, userId: null, role: null, action, entity: "Payment", entityId: p.id, patientId: p.patientId, ip, detail: { actor: `provider:${provider.name}`, ...detail } as object } });
 }
 
+/** The longest one execute can take: the execute call, the query after it and a token renewal (30 s each, plus margin). */
+export const EXECUTE_BOUND_MS = 120_000;
 /** Apply what the gateway said to a claimed payment, once (ProviderEvent `execute:<ref>`). `settled`: the answer decides
     it — anything but Completed fails the payment; unsettled (a timeout, no answer), only Completed is applied and the
     claim stays for the sweep (money review: never fail a payment the gateway may have completed). */
@@ -1051,6 +1053,16 @@ async function applyAnswer(tenantId: string, provider: PaymentProvider, paymentI
       await tx.providerEvent.create({ data: { ...event, outcome: "applied" } });
       await audit(tx, tenantId, p, provider, { kind, outcome: "applied", trxId: a.trxId, to: "confirmed" }, ip, "update");
       return result("paid", a.trxId);
+    }
+    if (a.outcome === "reconcile") {
+      // external review A4: bKash says Completed without a TrxID — money may have moved: the owner reconciles it; the
+      // payment stays pending (its amount reserved), never failed
+      await tx.task.create({ data: { tenantId, kind: RECONCILE_TASK, status: "requested", focusId: p.id, reason: "completed by the provider without a transaction ID", requestedById: `provider:${provider.name}`, requestedAt: now,
+        detail: { providerRef: ref, trxId: null, amountPaisa: st?.amountPaisa ?? null, paymentAmountPaisa: p.amountPaisa, invoiceId: inv.id } as object } });
+      await tx.payment.update({ where: { id: p.id }, data: { executeClaimedAt: null } });
+      await tx.providerEvent.create({ data: { ...event, outcome: "refused", reason: "no-trxid" } });
+      await audit(tx, tenantId, p, provider, { kind, outcome: "refused", reason: "no-trxid", trxId: null }, ip);
+      return result("pending");
     }
     if (a.outcome === "mismatch") {
       // money moved, but not the amount asked: the payment stays pending (its amount reserved) and the owner reconciles
@@ -1162,13 +1174,16 @@ export async function sweepPayments(now: Date, stuckMinutes = STUCK_MINUTES): Pr
         const p0 = await tx.payment.findFirst({ where: { id: t.paymentId } });
         if (!p0) return null;
         if (p0.status === "initiated" && !p0.providerRef) {
-          const n = await tx.payment.updateMany({ where: { id: p0.id, status: "initiated", providerRef: null, attempt: p0.attempt }, data: { status: "failed", failReason: "gateway-error", statusAt: now } });
+          const n = await tx.payment.updateMany({ where: { id: p0.id, status: "initiated", providerRef: null, attempt: p0.attempt }, data: { status: undash<"failed">(transition("PAYMENT", PAYMENT, "initiated", "fail")), failReason: "gateway-error", statusAt: now } });
           if (n.count) { failed++; await audit(tx, t.tenantId, p0, providerOf(p0), { kind: "sweep", outcome: "no-link", to: "failed" }, null, "update"); }
           return null;
         }
         return p0;
       });
       if (!p?.executeClaimedAt || !p.providerRef) continue;
+      // external review A4: an execute claimed less than its worst case ago (execute + query + a token renewal) may still
+      // be answering — the sweep leaves it alone
+      if (now.getTime() - p.executeClaimedAt.getTime() < EXECUTE_BOUND_MS) continue;
       const provider = providerOf(p);
       // past the worst case of one execute: Completed confirms; bKash's Initiated means it was never executed (docs);
       // no answer decides nothing
