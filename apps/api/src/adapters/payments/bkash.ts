@@ -27,6 +27,8 @@ export type TokenStore = <R extends TokenState>(renew: (current: TokenState) => 
 export const RENEWALS_PER_HOUR = 2;
 
 const RENEW_AT_MS = 5 * 60_000;
+/** a grant / refresh call inside the token lock is cut off after this (external review B6) */
+const TOKEN_CALL_MS = 10_000;
 type Json = Record<string | symbol, unknown>;
 const HTTP = Symbol("http status");
 const str = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
@@ -48,7 +50,8 @@ export class BkashProvider implements PaymentProvider {
       if (cur.token && this.fresh(cur.token) && cur.token.idToken !== rejected) return null; // another process renewed it
       const renewals = cur.renewals.filter((d) => this.now() - d.getTime() < 3600_000);
       const budget = () => RENEWALS_PER_HOUR - renewals.length;
-      const call = async (path: string, body: Json) => { renewals.push(new Date(this.now())); try { return await this.post(path, body, this.authHeaders()); } catch { return {} as Json; } };
+      // external review B6: the token calls are short (they run inside the token lock) — at most 10 s each
+      const call = async (path: string, body: Json) => { renewals.push(new Date(this.now())); try { return await this.post(path, body, this.authHeaders(), TOKEN_CALL_MS); } catch { return {} as Json; } };
       const ok = (r: Json) => r.statusCode === "0000" && !!str(r.id_token);
       if (budget() <= 0) return { token: cur.token, renewals, error: "bKash token: the hourly renewal limit is reached — wait before trying again" };
       const keys = { app_key: this.cfg.appKey, app_secret: this.cfg.appSecret };
@@ -79,12 +82,12 @@ export class BkashProvider implements PaymentProvider {
     if (j[HTTP] === 401 || j[HTTP] === 403) return this.post(path, body, { authorization: await this.token(id), "x-app-key": this.cfg.appKey });
     return j;
   }
-  private async post(path: string, body: Json, headers: Record<string, string>): Promise<Json> {
+  private async post(path: string, body: Json, headers: Record<string, string>, capMs?: number): Promise<Json> {
     let res: Response;
     try {
       res = await fetch(`${this.cfg.baseUrl.replace(/\/+$/, "")}/${path}`, {
         method: "POST", headers: { "content-type": "application/json", accept: "application/json", ...headers }, body: JSON.stringify(body),
-        signal: AbortSignal.timeout(this.cfg.timeoutMs ?? 30_000),
+        signal: AbortSignal.timeout(Math.min(this.cfg.timeoutMs ?? 30_000, capMs ?? Infinity)),
       });
     } catch (e) {
       throw new GatewayError("unreachable", `bKash ${path}: ${(e as Error).name === "TimeoutError" ? "timed out" : "unreachable"}`);

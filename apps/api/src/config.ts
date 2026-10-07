@@ -57,4 +57,6 @@ if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL_APP) thro
 if (process.env.NODE_ENV === "production" && config.adapters.ai === "fake") throw new Error("AI_PROVIDER=fake is not allowed in production (set AI_PROVIDER=off until a real provider is configured)");
 // external review A3 (gap 4): with several API instances, login and PIN tries must be counted in one place
 if (process.env.NODE_ENV === "production" && !process.env.REDIS_URL) throw new Error("REDIS_URL is required in production (login and PIN tries are counted there)");
+// external review B6: the stored bKash tokens are encrypted with this key (a refresh token lives 30 days)
+if (process.env.NODE_ENV === "production" && (!process.env.GATEWAY_TOKEN_KEY || process.env.GATEWAY_TOKEN_KEY.length < 32)) throw new Error("GATEWAY_TOKEN_KEY (at least 32 characters) is required in production (the payment gateway's tokens are stored encrypted with it)");
 if (!["fake", "off"].includes(config.adapters.ai)) throw new Error(`AI_PROVIDER=${config.adapters.ai} is not available (fake, off)`);

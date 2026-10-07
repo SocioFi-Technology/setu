@@ -1,3 +1,4 @@
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 export * from "@prisma/client";
 
@@ -68,20 +69,50 @@ const toState = (h: RawToken): GatewayTokenState => ({
   renewals: (h?.renewals ?? []).map(utc),
 });
 
+/* External review B6: the tokens are stored encrypted (AES-256-GCM, key GATEWAY_TOKEN_KEY — the API refuses to start
+   in production without it; development uses a fixed dev key). A token stored in clear before this is still read and
+   is encrypted on its next write. */
+const SEALED = "enc:v1:";
+const tokenKey = () => createHash("sha256").update(process.env.GATEWAY_TOKEN_KEY || "dev-only-gateway-token-key").digest();
+export function sealToken(plain: string): string {
+  const iv = randomBytes(12), c = createCipheriv("aes-256-gcm", tokenKey(), iv);
+  const ct = Buffer.concat([c.update(plain, "utf8"), c.final()]);
+  return `${SEALED}${iv.toString("base64url")}:${c.getAuthTag().toString("base64url")}:${ct.toString("base64url")}`;
+}
+export function openToken(stored: string): string {
+  if (!stored.startsWith(SEALED)) return stored; // stored in clear before B6
+  const [iv, tag, ct] = stored.slice(SEALED.length).split(":");
+  const d = createDecipheriv("aes-256-gcm", tokenKey(), Buffer.from(iv!, "base64url"));
+  d.setAuthTag(Buffer.from(tag!, "base64url"));
+  return Buffer.concat([d.update(Buffer.from(ct!, "base64url")), d.final()]).toString("utf8");
+}
+const opened = (st: GatewayTokenState): GatewayTokenState => (st.token ? { ...st, token: { ...st.token, idToken: openToken(st.token.idToken), refreshToken: openToken(st.token.refreshToken) } } : st);
+
 /** The gateway's shared token, renewed by at most one API process at a time: under a transaction-scoped advisory lock
     `renew` sees the stored state and returns the state to store (or null to keep it). What it returns is stored even
-    when it carries an error, so a failed renewal still counts against the gateway's limit. */
-export async function withGatewayToken<R extends GatewayTokenState>(provider: string, renew: (current: GatewayTokenState) => Promise<R | null>): Promise<GatewayTokenState | R> {
-  return prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"gateway-token:" + provider}::text))`;
-    const rows = await tx.$queryRaw<{ hit: RawToken }[]>`SELECT gateway_token_get(${provider}::text) AS hit`;
-    const current = toState(rows[0]?.hit ?? null);
-    const next = await renew(current);
-    if (!next) return current;
-    const t = next.token;
-    await tx.$executeRaw`SELECT gateway_token_put(${provider}::text, ${t?.idToken ?? null}::text, ${t?.idExpiresAt ?? null}::timestamptz, ${t?.refreshToken ?? null}::text, ${t?.refreshExpiresAt ?? null}::timestamptz, ${next.renewals}::timestamptz[])`;
-    return next;
-  }, { timeout: 150_000, maxWait: 150_000 }); // a refused refresh, then a grant: two 30 s calls, with room (review)
+    when it carries an error, so a failed renewal still counts against the gateway's limit.
+    External review B6: a caller waits at most `lockMs` for the lock (another process is renewing) and then gets the
+    stored token without renewing; the renewal's own calls are short (the gateway adapter bounds them), so the
+    transaction is bounded too. */
+export async function withGatewayToken<R extends GatewayTokenState>(provider: string, renew: (current: GatewayTokenState) => Promise<R | null>, opts: { lockMs?: number } = {}): Promise<GatewayTokenState | R> {
+  const lockMs = Math.max(100, Math.round(opts.lockMs ?? Number(process.env.GATEWAY_TOKEN_LOCK_MS ?? 15_000)));
+  try {
+    return await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`SET LOCAL lock_timeout = ${lockMs}`);
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"gateway-token:" + provider}::text))`;
+      const rows = await tx.$queryRaw<{ hit: RawToken }[]>`SELECT gateway_token_get(${provider}::text) AS hit`;
+      const current = opened(toState(rows[0]?.hit ?? null));
+      const next = await renew(current);
+      if (!next) return current;
+      const t = next.token;
+      await tx.$executeRaw`SELECT gateway_token_put(${provider}::text, ${t ? sealToken(t.idToken) : null}::text, ${t?.idExpiresAt ?? null}::timestamptz, ${t ? sealToken(t.refreshToken) : null}::text, ${t?.refreshExpiresAt ?? null}::timestamptz, ${next.renewals}::timestamptz[])`;
+      return next;
+    }, { timeout: 60_000, maxWait: 15_000 });
+  } catch (e) {
+    if (!/lock timeout/i.test(String((e as Error).message))) throw e;
+    const rows = await prisma.$queryRaw<{ hit: RawToken }[]>`SELECT gateway_token_get(${provider}::text) AS hit`;
+    return opened(toState(rows[0]?.hit ?? null));
+  }
 }
 
 /** The public short link: which tenant and payment a link code belongs to. SECURITY DEFINER; nothing else. */

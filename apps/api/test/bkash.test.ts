@@ -498,3 +498,57 @@ describe.runIf(db)("ADR 0013 bKash refund through the routes", () => {
     expect(standIn.payments.get(b.providerRef)!.refunds.length).toBe(1);
   });
 });
+
+describe.runIf(db)("external review B6: the gateway's tokens are stored encrypted; the token lock is bounded", () => {
+  const owner = () => new db!.PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+  it("the stored bKash token is ciphertext (AES-GCM) and opens to the token bKash accepts", async () => {
+    await bkashPayment(); // a payment needs the token: granted (or refreshed) and stored
+    const o = owner();
+    try {
+      const raw = (await o.gatewayToken.findUnique({ where: { provider: "bkash" } }))!;
+      expect(raw.idToken).toMatch(/^enc:v1:/);
+      expect(raw.refreshToken).toMatch(/^enc:v1:/);
+      expect(db!.openToken(raw.idToken!)).not.toMatch(/^enc:v1:/);
+      // tampered ciphertext is refused, never used
+      const bad = raw.idToken!.slice(0, -2) + (raw.idToken!.endsWith("A") ? "BB" : "AA");
+      expect(() => db!.openToken(bad)).toThrow();
+    } finally { await o.$disconnect(); }
+  });
+  it("a token stored in clear before B6 is still read, and is encrypted on its next write", async () => {
+    const o = owner();
+    const provider = `b6-${randomUUID().slice(0, 6)}`;
+    try {
+      const exp = new Date(Date.now() + 3600_000);
+      await o.gatewayToken.create({ data: { provider, idToken: "plain-id-token", idExpiresAt: exp, refreshToken: "plain-refresh", refreshExpiresAt: exp, updatedAt: new Date() } });
+      const read = await db!.withGatewayToken(provider, async () => null);
+      expect(read.token).toMatchObject({ idToken: "plain-id-token", refreshToken: "plain-refresh" });
+      await db!.withGatewayToken(provider, async (cur) => ({ ...cur, token: { ...cur.token!, idToken: "next-id-token" } }));
+      const raw = (await o.gatewayToken.findUnique({ where: { provider } }))!;
+      expect(raw.idToken).toMatch(/^enc:v1:/);
+      expect(raw.refreshToken).toMatch(/^enc:v1:/);
+      expect((await db!.withGatewayToken(provider, async () => null)).token).toMatchObject({ idToken: "next-id-token", refreshToken: "plain-refresh" });
+    } finally { await o.gatewayToken.deleteMany({ where: { provider } }); await o.$disconnect(); }
+  });
+  it("while another process holds the token lock, a caller waits at most lockMs and gets the stored token without renewing", async () => {
+    const o = owner();
+    const provider = `b6-${randomUUID().slice(0, 6)}`;
+    try {
+      const exp = new Date(Date.now() + 3600_000);
+      await db!.withGatewayToken(provider, async (cur) => ({ ...cur, token: { idToken: "held-id", idExpiresAt: exp, refreshToken: "held-refresh", refreshExpiresAt: exp } }));
+      let release!: () => void;
+      const held = o.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"gateway-token:" + provider}::text))`;
+        await new Promise<void>((r) => { release = r; });
+      }, { timeout: 20_000 });
+      await new Promise((r) => setTimeout(r, 200));
+      let renewed = false;
+      const t0 = Date.now();
+      const got = await db!.withGatewayToken(provider, async () => { renewed = true; return null; }, { lockMs: 300 });
+      expect(Date.now() - t0).toBeLessThan(3_000);
+      expect(renewed).toBe(false);
+      expect(got.token).toMatchObject({ idToken: "held-id" });
+      release(); await held;
+    } finally { await o.gatewayToken.deleteMany({ where: { provider } }); await o.$disconnect(); }
+  });
+});
+
