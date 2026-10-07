@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); next: see Next)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); week 2 staging session 1 done (08/10/2026); next: see Next)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -1236,9 +1236,43 @@ The review is now in the repo (`docs/reviews/2026-10-04-external-review.md`). On
   intermittent (R1 failed twice, passed twice and alone 5/5; R2 once, a checkbox click that did not take). Not a clean
   full run yet: rerun the full suite before the next push.
 
+## Done (pilot-readiness sprint, week 2 staging, session 1 of 2, 08/10/2026) — production builds, images, compose, deploy ✅
+ADR 0019 (staging and hosting). One commit per item; `HOSTING_REGION` is chosen with the host before session 2.
+- **Decision 321:** VAT billed on top is owed to the supplier — a `supplier-vat` ledger entry posted with the receipt,
+  counted in owed and the owner's dues (ADR 0009 addendum).
+- **Production builds:** the API is one esbuild bundle (`apps/api/build.mjs` → `dist/server.js`, run with plain node);
+  the staff app is a Next standalone server. CI builds both and checks the bundle's `/health`.
+- **Images** (`infra/Dockerfile`, targets `api` / `staff` / `tools`): `/ready` (db, redis, the PDF browser warmed at
+  start); the API handles SIGTERM (no new sweeps, in-flight requests finish). `.github/workflows/images.yml` pushes
+  `ghcr.io/sociofi-technology/setu-<target>:<full sha>` after `ci` passes on main — never `latest`.
+- **S3Storage** (aws4fetch, 72 KB): S3 / R2 / MinIO, private bucket, write-once; files streamed only by the API, never a
+  signed URL; production refuses any other storage. CI runs `test/storage.test.ts` against MinIO.
+- **Config:** `TRUST_PROXY` (hops; 1 behind Caddy), `CORS_ORIGINS`, https `PUBLIC_APP_URL` / `VERIFY_BASE_URL` /
+  `VERIFY_DOC_ROOT_URL` in production; `.env.example` lists every variable.
+- **Jobs:** every sweep and the nightly rollup run through `singleRun` (advisory lock `job:<name>`, one replica at a
+  time), each run in `JobRun`; `GET /health/jobs` gives each job's age for monitoring.
+- **Staging stack** (`infra/docker-compose.staging.yml`): Caddy (TLS, JSON logs, `/api/*` and `/p/*` straight to the
+  API replicas with retries) → api ×2, staff; JSON logs everywhere, cookies / keys / PINs redacted; a `local` profile
+  with postgres / redis / minio for a rehearsal on one machine.
+- **Deploy** (`infra/deploy.sh <full sha>` | `--rollback`): green `ci` + images present → pull → `migrate:deploy` once →
+  Caddyfile reload → rolling restart (new beside old, old stopped once new are healthy). Rollback = the previous image,
+  no database step (migrations stay additive).
+- **Tested:** `infra/staging-smoke.sh` OK (ready, login through Caddy, an Rx printed into MinIO and served back, the
+  object 403 anonymously, JSON logs with no secrets, `/health/jobs`); `deploy.sh --local` three times (deploy, deploy,
+  rollback) under a request loop — no failed request (only `/ready` 503 from a replica still warming, by design);
+  refusals of `latest`, a short SHA, a SHA without a green `ci` run. Typecheck 13/13; tests: domain 451, api 432
+  (storage against MinIO and jobs included), contracts 2, i18n 3 — all green.
+
+### Staging rehearsal on this PC
+- `infra/staging-smoke.sh` (builds the three images as `setu-local/setu-*:local-<sha>`, ~3 min for the api), or
+  `SETU_TAG=<tag> infra/staging-smoke.sh --no-build`; `--down` removes the stack and its volumes. It serves on
+  http://127.0.0.1:8088 (project `setu-staging`, its own postgres / redis / minio — not the dev ones).
+- `SETU_REGISTRY=setu-local SETU_ENV_FILE=staging.local.env infra/deploy.sh --local <tag>` to rehearse a deploy;
+  `--rollback` to go back. The tag files `.current-tag` / `.previous-tag` are written into `infra/` (git-ignored).
+
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
-2. ~~MinIO image cannot be pulled~~ — dev and tests store receipts with `LocalFolderStorage` (A6–A7). Before staging: an S3-compatible adapter behind the same `Storage` interface.
+2. ~~MinIO image cannot be pulled~~ — dev and tests store receipts with `LocalFolderStorage` (A6–A7); ~~an S3-compatible adapter before staging~~ — `S3Storage` (ADR 0019, 08/10/2026). `minio/minio` still cannot be pulled here: use `cgr.dev/chainguard/minio`.
 3. ~~Password and PIN hashing is dev-only SHA-256~~ — argon2id since external review A2 (07/10/2026), old hashes re-hashed on the next success.
 4. ~~PIN tries should move to Redis~~ — done in external review A3 (07/10/2026) with the login limits (`adapters/counters.ts`; in-memory only without `REDIS_URL`, refused in production). Idempotency keys stay in `IdempotencyKey`.
 5. Home-page figures are sample data; each slice swaps its tiles/rows for live queries.
@@ -1306,8 +1340,13 @@ The review is now in the repo (`docs/reviews/2026-10-04-external-review.md`). On
    confirm open questions 309–317.
 8. **The pilot-readiness sprint** (`docs/plans/2026-10-07-pilot-readiness-sprint.md`): ~~track 1 week 1, A1–A6~~,
    ~~week 1–2: the A6 follow-up, review section B (B1–B11), gap 10 (SCRAM, tenant keys), decision 317~~ — done
-   07/10/2026, and gap 10's encrypted device drafts / outbox (option b). **Next:** review section C and the staging
-   prerequisites. Kamrul to confirm open question 321.
+   07/10/2026, and gap 10's encrypted device drafts / outbox (option b). ~~Decision 321~~ (08/10/2026).
+   **Week 2 staging:** ~~session 1~~ (08/10/2026, ADR 0019: builds, images, compose, S3, config, jobs, deploy).
+   **Next — session 2**, once Kamrul has chosen the host and `HOSTING_REGION`: bring staging up there (managed
+   Postgres 16 with PITR, Redis, a private bucket, secrets in the host's store → `infra/staging.env`, GHCR read token,
+   DNS + `SETU_SITE_ADDRESS`); a backup / restore drill; a 20-user load check through journey A (p95 < 1 s for
+   queue / bill / MAR); uptime (`/ready`) and job-age (`/health/jobs`) monitoring; on-call notes here. Then review
+   section C. Follow-ups: smaller api / tools images; error tracking.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating
