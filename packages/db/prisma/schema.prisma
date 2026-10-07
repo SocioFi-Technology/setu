@@ -1622,15 +1622,15 @@ enum ShiftStatus {
 /// Expected cash is computed from the cashier's confirmed payments when counting; every count and every decision is an
 /// append-only row (ShiftCount, ShiftReview).
 model Shift {
-  id                String        @id @default(cuid())
+  id                String          @id @default(cuid())
   tenantId          String
   organizationId    String
   cashierId         String
-  status            ShiftStatus   @default(open)
+  status            ShiftStatus     @default(open)
   openingFloatPaisa Int
-  openedAt          DateTime      @default(now())
+  openedAt          DateTime        @default(now())
   latestCountId     String?
-  statusAt          DateTime      @default(now())
+  statusAt          DateTime        @default(now())
   counts            ShiftCount[]
   reviews           ShiftReview[]
   handovers         ShiftHandover[]
@@ -1664,7 +1664,7 @@ model ShiftCount {
   countedById       String
   countedAt         DateTime @default(now())
 
-  handover          ShiftHandover?
+  handover ShiftHandover?
 
   @@unique([shiftId, countNo])
   @@index([tenantId, shiftId])
@@ -1732,6 +1732,8 @@ model StockBatch {
   mrpPaisa       Int
   vatRateBp      Int         @default(0)
   qtyOnHand      Int         @default(0)
+  /// external review B9: the number of moves so far (assigned under the batch lock, in commit order)
+  moveSeq        Int         @default(0)
   sample         Boolean     @default(false)
   createdAt      DateTime    @default(now())
   moves          StockMove[]
@@ -1756,7 +1758,10 @@ model StockMove {
   reason         String?
   byId           String
   at             DateTime   @default(now())
+  /// external review B9: this move's number on its batch (1, 2, …), set by the database
+  batchSeq       Int?
 
+  @@unique([batchId, batchSeq])
   @@index([tenantId, batchId])
   @@index([tenantId, organizationId, at])
 }
@@ -1866,30 +1871,30 @@ enum GoodsReceiptStatus {
 }
 
 model GoodsReceipt {
-  id                String             @id @default(cuid())
-  tenantId          String
-  organizationId    String
-  orderId           String
-  supplierId        String
+  id                   String             @id @default(cuid())
+  tenantId             String
+  organizationId       String
+  orderId              String
+  supplierId           String
   /// GRN/26/0001 once posted
-  number            String?
-  supplierInvoiceNo String?
-  status            GoodsReceiptStatus @default(checking)
-  rev               Int                @default(1)
-  invoicedPaisa     Int                @default(0)
-  debitNotePaisa    Int                @default(0)
+  number               String?
+  supplierInvoiceNo    String?
+  status               GoodsReceiptStatus @default(checking)
+  rev                  Int                @default(1)
+  invoicedPaisa        Int                @default(0)
+  debitNotePaisa       Int                @default(0)
   /// decision 181 (external review A6): the supplier's VAT and AIT as on their bill — data only, not in what is owed
-  supplierVatPaisa  Int                @default(0)
-  supplierAitPaisa  Int                @default(0)
+  supplierVatPaisa     Int                @default(0)
+  supplierAitPaisa     Int                @default(0)
   /// the supplier's VAT treatment as it was when this receipt was posted
   supplierVatTreatment String?
-  note              String?
-  createdById       String
-  createdAt         DateTime           @default(now())
-  postedById        String?
-  postedAt          DateTime?
-  statusAt          DateTime           @default(now())
-  lines             GoodsReceiptLine[]
+  note                 String?
+  createdById          String
+  createdAt            DateTime           @default(now())
+  postedById           String?
+  postedAt             DateTime?
+  statusAt             DateTime           @default(now())
+  lines                GoodsReceiptLine[]
 
   @@index([tenantId, orderId])
 }
@@ -1976,6 +1981,9 @@ model StockCountLine {
   batchId    String
   /// the batch's quantity when the count started
   systemQty  Int
+  /// external review B9: the batch\'s move number at the snapshot, and when this line was entered
+  sinceSeq   Int?
+  countedSeq Int?
   countedQty Int?
   reason     String?
   /// when this batch was counted — the adjustment allows for stock that moved between the start and this moment

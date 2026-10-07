@@ -406,12 +406,17 @@ async function countHere(tx: Tx, s: SessionData, id: string, locked = false): Pr
 }
 type CountLineRow = Awaited<ReturnType<Tx["stockCountLine"]["findMany"]>>[number];
 /** What should have been on the shelf when each batch was counted (or now, if not yet): the system quantity at the start
-    plus the stock that moved since (sales, dispensing, transfers). The variance and the adjustment are against this. */
+    plus the stock that moved since (sales, dispensing, transfers). The variance and the adjustment are against this.
+    External review B9: "since" and "until" are the batch's move numbers (assigned in commit order under the batch lock),
+    not wall-clock times — a move that committed after the snapshot with an earlier time is still counted as since.
+    Lines from before B9 (no move number) keep the time window. */
 async function expectedQty(tx: Tx, c: Count, lines: CountLineRow[], now: Date) {
   const out = new Map<string, number>();
   for (const l of lines) {
-    const until = l.countedAt ?? now;
-    const moved = (await tx.stockMove.aggregate({ where: { batchId: l.batchId, at: { gt: c.createdAt, lte: until } }, _sum: { qty: true } }))._sum.qty ?? 0;
+    const where = l.sinceSeq !== null
+      ? { batchId: l.batchId, batchSeq: { gt: l.sinceSeq, ...(l.countedSeq !== null ? { lte: l.countedSeq } : {}) } }
+      : { batchId: l.batchId, at: { gt: c.createdAt, lte: l.countedAt ?? now } };
+    const moved = (await tx.stockMove.aggregate({ where, _sum: { qty: true } }))._sum.qty ?? 0;
     out.set(l.id, l.systemQty + moved);
   }
   return out;
@@ -463,7 +468,8 @@ export async function createCount(tx: Tx, s: SessionData, location: string, now:
   const batches = await tx.stockBatch.findMany({ where: { organizationId: s.organizationId, location, qtyOnHand: { gt: 0 } } });
   if (!batches.length) throw err(422, "nothing_to_count", "এই জায়গায় কোনো স্টক নেই", "There is no stock at this location");
   const c = await tx.stockCount.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, location, createdById: s.userId, createdAt: now, statusAt: now } });
-  await tx.stockCountLine.createMany({ data: batches.map((b) => ({ tenantId: s.tenantId, countId: c.id, batchId: b.id, systemQty: b.qtyOnHand })) });
+  // the quantity and the move number come from the same committed row version: a consistent snapshot (B9)
+  await tx.stockCountLine.createMany({ data: batches.map((b) => ({ tenantId: s.tenantId, countId: c.id, batchId: b.id, systemQty: b.qtyOnHand, sinceSeq: b.moveSeq })) });
   return c;
 }
 async function countingCount(tx: Tx, s: SessionData, id: string, rev: number): Promise<Count> {
@@ -480,7 +486,11 @@ async function bumpCount(tx: Tx, c: Count, data: Record<string, unknown> = {}): 
 }
 export async function setCountLine(tx: Tx, s: SessionData, id: string, req: CountLineRequest): Promise<Count> {
   const c = await countingCount(tx, s, id, req.rev);
-  const n = await tx.stockCountLine.updateMany({ where: { id: req.lineId, countId: c.id }, data: { countedQty: req.countedQty, reason: req.reason?.trim() || null, countedAt: new Date() } });
+  const line = await tx.stockCountLine.findFirst({ where: { id: req.lineId, countId: c.id }, select: { batchId: true } });
+  if (!line) throw notFound();
+  // B9: what had moved on the batch when this line was entered (its move number then)
+  const seq = (await tx.stockBatch.findFirst({ where: { id: line.batchId }, select: { moveSeq: true } }))!.moveSeq;
+  const n = await tx.stockCountLine.updateMany({ where: { id: req.lineId, countId: c.id }, data: { countedQty: req.countedQty, reason: req.reason?.trim() || null, countedAt: new Date(), countedSeq: seq } });
   if (n.count !== 1) throw notFound();
   return bumpCount(tx, c);
 }
@@ -514,7 +524,8 @@ export async function decideCount(tx: Tx, s: SessionData, id: string, req: Appro
       if (delta === 0) continue;
       const batch = (await tx.stockBatch.findFirst({ where: { id: l.batchId } }))!;
       if (batch.qtyOnHand + delta < 0) throw err(409, "stock_changed", "গণনার পর স্টক বদলেছে — আবার গণনা করুন", "Stock changed since the count — count again", { field: l.id });
-      const mv = await tx.stockMove.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, batchId: l.batchId, kind: "adjust", qty: delta, refType: "count", refId: c.id, reason: `count: ${l.reason ?? ""}`.slice(0, 500), byId: s.userId, at: now } });
+      // B9: a line counted equal to the system but moved since has no reason of its own — a fixed text, never "count: "
+      const mv = await tx.stockMove.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, batchId: l.batchId, kind: "adjust", qty: delta, refType: "count", refId: c.id, reason: `count: ${l.reason?.trim() || "stock moved while the count was open"}`.slice(0, 500), byId: s.userId, at: now } });
       // a controlled drug's variance goes on its register (any location)
       if ((await tx.medicine.findFirst({ where: { key: batch.medicineKey }, select: { controlled: true } }))?.controlled)
         await tx.controlledDrugRegister.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, medicineKey: batch.medicineKey, kind: "count-adjust", stockMoveId: mv.id, batchId: batch.id, qty: delta, location: batch.location, balanceAfter: batch.qtyOnHand + delta, byId: s.userId, note: `count ${c.id}: ${l.reason ?? ""}`.slice(0, 500), at: now } });

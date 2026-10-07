@@ -53,6 +53,10 @@ export async function buildApp() {
     const sc = (e as { statusCode?: number }).statusCode;
     if (typeof sc === "number" && sc >= 400 && sc < 500)
       return reply.code(sc).send({ code: "bad_request", message_bn: "অনুরোধটি ঠিক নেই", message_en: "The request could not be read" });
+    // external review B9: the stock ledger refused a take (two people took the last units at once) — a conflict the
+    // caller can act on (409 stock_short), never a 500
+    if (/StockMove: batch .* holds .* cannot take/.test(String((e as Error).message ?? "")))
+      return reply.code(409).send({ code: "stock_short", message_bn: "স্টকে এত নেই — এইমাত্র অন্য কেউ নিয়েছেন; আবার দেখুন", message_en: "Not enough stock — someone else just took it; refresh and try again" });
     req.log.error(e); if (process.env.SETU_TEST_ERRORS) console.error(e);
     return reply.code(500).send({ code: "internal", message_bn: "সার্ভারে সমস্যা হয়েছে", message_en: "Something went wrong" });
   });

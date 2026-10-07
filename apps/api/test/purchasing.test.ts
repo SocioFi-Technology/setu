@@ -388,3 +388,77 @@ describe.runIf(db)("external review A6: purchasing decisions 179–186", () => {
     await ok(post(`/v1/shifts/${sh2.id}/review`, { decision: "approve" }, "owner"));
   });
 });
+
+describe.runIf(db)("external review B9: the count snapshot and the last units", () => {
+  /** On the owner's connection: a transfer pair (fridge → store) left uncommitted until `release` — another session's
+      move in flight, holding the fridge batch's row lock. `at` may be set earlier than now (a clock that ran behind). */
+  function inFlight(from: { id: string; batchNo: string; medicineKey: string; organizationId: string }, to: { id: string }, qty: number, at = new Date()) {
+    const o = new db!.PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+    let release!: () => void; let started!: () => void;
+    const begun = new Promise<void>((r) => { started = r; });
+    const done = o.$transaction(async (tx) => {
+      const ref = `tr_b9_${randomUUID()}`;
+      await tx.stockMove.create({ data: { tenantId: T, organizationId: from.organizationId, batchId: from.id, kind: "transfer", qty: -qty, refType: "transfer", refId: ref, byId: "u_e2e_pharm", at } });
+      await tx.stockMove.create({ data: { tenantId: T, organizationId: from.organizationId, batchId: to.id, kind: "transfer", qty, refType: "transfer", refId: ref, byId: "u_e2e_pharm", at } });
+      started();
+      await new Promise<void>((r) => { release = r; });
+    }, { timeout: 20_000 }).finally(() => o.$disconnect());
+    return { begun, done, release: () => release() };
+  }
+  /** A fridge batch holding `n` (moved from the store through the API), and its store twin. */
+  async function fridgeBatch(n: number) {
+    const store = (await inTenant((tx) => tx.stockBatch.findFirst({ where: { medicineKey: "pantonix", location: "store", qtyOnHand: { gte: n + 5 } } })))!;
+    const r = await ok(post("/v1/pharmacy/transfers", { batchId: store.id, qty: n, to: "fridge" }), 201);
+    return { fridge: (await inTenant((tx) => tx.stockBatch.findFirst({ where: { id: r.to } })))!, store };
+  }
+
+  it("two takes of the last units at once: the database refuses one and the caller gets 409 stock_short, never a 500", { timeout: 30_000 }, async () => {
+    const { fridge, store } = await fridgeBatch(3);
+    const all = fridge.qtyOnHand;
+    const other = inFlight(fridge, store, all); // someone else is taking every unit
+    await other.begun;
+    const mine = post("/v1/pharmacy/transfers", { batchId: fridge.id, qty: all, to: "counter" }); // read the old quantity, waits on the lock
+    await new Promise((r) => setTimeout(r, 400));
+    other.release(); await other.done;
+    const r = await mine;
+    expect([r.statusCode, r.json().code]).toEqual([409, "stock_short"]);
+    expect((await inTenant((tx) => tx.stockBatch.findFirst({ where: { id: fridge.id } })))!.qtyOnHand).toBe(0);
+  });
+
+  it("a count started while a move is in flight (stamped earlier): the move is counted as since the snapshot — no false variance", { timeout: 40_000 }, async () => {
+    // the fridge is free: open counts left by earlier runs are rejected on the owner's connection
+    const o = new db!.PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+    try {
+      for (const c of await o.stockCount.findMany({ where: { tenantId: T, location: "fridge", status: { in: ["counting", "submitted"] } } })) {
+        if (c.status === "counting") await o.stockCount.update({ where: { id: c.id }, data: { status: "submitted", submittedAt: new Date(), rev: { increment: 1 } } });
+        await o.stockCount.update({ where: { id: c.id }, data: { status: "rejected", decidedById: "u_e2e_admin", decidedAt: new Date(), decisionNote: "leftover from an earlier test run", rev: { increment: 1 } } });
+      }
+    } finally { await o.$disconnect(); }
+    const { fridge, store } = await fridgeBatch(4);
+    const before = fridge.qtyOnHand;
+    const move = inFlight(fridge, store, 1, new Date(Date.now() - 60_000)); // committed after the snapshot, stamped a minute earlier
+    await move.begun;
+    let c = await ok(post("/v1/pharmacy/counts", { location: "fridge" }), 201);
+    move.release(); await move.done;
+    c = await ok(get(`/v1/pharmacy/counts/${c.id}`));
+    const line = c.lines.find((l: { batch: { id: string } }) => l.batch.id === fridge.id);
+    expect(line.systemQty).toBe(before - 1); // the snapshot's quantity plus what moved since
+    // the shelf really holds one less: counted so, no variance (by wall-clock it looked like one missing)
+    c = await ok(post(`/v1/pharmacy/counts/${c.id}/lines`, { rev: c.rev, lineId: line.id, countedQty: before - 1 }));
+    expect(c.lines.find((l: { id: string }) => l.id === line.id).variance).toBe(0);
+    const row = await inTenant((tx) => tx.stockCountLine.findFirst({ where: { id: line.id } }));
+    expect(row).toMatchObject({ systemQty: before, sinceSeq: fridge.moveSeq, countedSeq: fridge.moveSeq + 1 }); // + the in-flight move
+    // the move numbers follow the batch: 1, 2, … without gaps, the database's own
+    const seqs = (await inTenant((tx) => tx.stockMove.findMany({ where: { batchId: fridge.id }, orderBy: { batchSeq: "asc" }, select: { batchSeq: true } }))).map((m) => m.batchSeq);
+    expect(seqs).toEqual(seqs.map((_, i) => i + 1));
+    // the rest counted as the system says; approved — the in-flight move is not adjusted a second time
+    const movesBefore = await inTenant((tx) => tx.stockMove.count({ where: { refType: "count", refId: c.id } }));
+    for (const l of c.lines.filter((x: { countedQty: number | null }) => x.countedQty === null)) c = await ok(post(`/v1/pharmacy/counts/${c.id}/lines`, { rev: c.rev, lineId: l.id, countedQty: l.systemQty }));
+    c = await ok(post(`/v1/pharmacy/counts/${c.id}/submit`, { rev: c.rev }));
+    const done = await ok(post(`/v1/pharmacy/counts/${c.id}/decision`, { decision: "approve" }, "owner"));
+    expect(done.status).toBe("approved");
+    expect(await inTenant((tx) => tx.stockMove.count({ where: { refType: "count", refId: c.id } }))).toBe(movesBefore); // nothing to adjust
+    expect((await inTenant((tx) => tx.stockBatch.findFirst({ where: { id: fridge.id } })))!.qtyOnHand).toBe(before - 1);
+  });
+});
+
