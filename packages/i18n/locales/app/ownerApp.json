@@ -598,5 +598,17 @@
   "l_noDutyList": [
     "ডিউটি তালিকা নেই — জরুরি সতর্কতা সব ডাক্তারকে গেছে (অ্যাডমিন সেটিংসে তালিকা দিন)",
     "No duty list set — urgent alerts went to every doctor (set the list in the admin settings)"
+  ],
+  "drill_shown": [
+    "{total}টির মধ্যে {n}টি দেখানো হচ্ছে — মোট সব সারির",
+    "Showing {n} of {total} — the total covers every row"
+  ],
+  "drill_more": [
+    "আরও দেখুন",
+    "Show more"
+  ],
+  "rs_abandoned": [
+    "শিফট শেষে বন্ধ",
+    "Ended at shift close"
   ]
 }

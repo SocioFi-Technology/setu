@@ -165331,6 +165331,9 @@
                                     },
                                     "underCorrection": {
                                       "type": "boolean"
+                                    },
+                                    "withdrawn": {
+                                      "type": "boolean"
                                     }
                                   },
                                   "required": [
@@ -165344,7 +165347,8 @@
                                     "refLow",
                                     "refHigh",
                                     "refLabel",
-                                    "underCorrection"
+                                    "underCorrection",
+                                    "withdrawn"
                                   ]
                                 }
                               }
@@ -165984,6 +165988,9 @@
                                   },
                                   "underCorrection": {
                                     "type": "boolean"
+                                  },
+                                  "withdrawn": {
+                                    "type": "boolean"
                                   }
                                 },
                                 "required": [
@@ -165997,7 +166004,8 @@
                                   "refLow",
                                   "refHigh",
                                   "refLabel",
-                                  "underCorrection"
+                                  "underCorrection",
+                                  "withdrawn"
                                 ]
                               }
                             }
@@ -168426,11 +168434,11 @@
                           "underCorrection": {
                             "type": "boolean"
                           },
-                          "test": {
-                            "type": "string"
-                          },
                           "withdrawn": {
                             "type": "boolean"
+                          },
+                          "test": {
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -168445,8 +168453,8 @@
                           "refHigh",
                           "refLabel",
                           "underCorrection",
-                          "test",
-                          "withdrawn"
+                          "withdrawn",
+                          "test"
                         ]
                       }
                     }
@@ -173857,6 +173865,7 @@
                               "scanOverride",
                               "ownSupply",
                               "countAbandoned",
+                              "noDutyList",
                               "excessUnpaid",
                               "ipdOutcomeDues",
                               "lamaSummaryOverdue",
@@ -174080,6 +174089,7 @@
                 "scanOverride",
                 "ownSupply",
                 "countAbandoned",
+                "noDutyList",
                 "excessUnpaid",
                 "ipdOutcomeDues",
                 "lamaSummaryOverdue",
@@ -174088,6 +174098,25 @@
             },
             "required": true,
             "name": "what",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "required": false,
+            "name": "limit",
             "in": "query"
           }
         ],
@@ -174126,6 +174155,7 @@
                         "scanOverride",
                         "ownSupply",
                         "countAbandoned",
+                        "noDutyList",
                         "excessUnpaid",
                         "ipdOutcomeDues",
                         "lamaSummaryOverdue",
@@ -174151,6 +174181,12 @@
                     },
                     "truncated": {
                       "type": "boolean"
+                    },
+                    "nextCursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "rows": {
                       "type": "array",
@@ -174309,6 +174345,7 @@
                     "totalPaisa",
                     "count",
                     "truncated",
+                    "nextCursor",
                     "rows"
                   ]
                 }

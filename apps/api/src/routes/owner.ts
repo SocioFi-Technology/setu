@@ -83,7 +83,7 @@ export async function ownerRoutes(app: FastifyInstance) {
   app.get("/v1/owner/drill", async (req): Promise<DrillView> => {
     requireScreen(req, "own", "dash");
     const q = DrillQuery.parse(req.query);
-    return query(req, async (tx, s) => { const r = await drill(tx, s, q.period, q.what, new Date()); return { body: r.view, audit: r.audit }; });
+    return query(req, async (tx, s) => { const r = await drill(tx, s, q.period, q.what, new Date(), { cursor: q.cursor, limit: q.limit }); return { body: r.view, audit: r.audit }; });
   });
 
   /* ── dev and tests only (ROLLUP_DEV_ROUTE=1, never in production): run the nightly rollup now for the caller's

@@ -224,8 +224,14 @@ function RevenueChart({ v }: { v: DashboardView }) {
 
 function DrillDialog({ period, what, onClose }: { period: Period; what: DrillView["what"]; onClose: () => void }) {
   const O = useO(); const F = useFmt(); const router = useRouter();
-  const [d, setD] = useState<DrillView | null>(null); const [failed, setFailed] = useState(false);
+  const [d, setD] = useState<DrillView | null>(null); const [failed, setFailed] = useState(false); const [more, setMore] = useState(false);
   useEffect(() => { owner.drill(period, what).then(setD).catch(() => setFailed(true)); }, [period, what]);
+  // external review B10: the next page is appended (each page is audited with the patients it shows)
+  const next = async () => {
+    if (!d?.nextCursor) return;
+    setMore(true);
+    try { const n = await owner.drill(period, what, d.nextCursor); setD({ ...n, rows: [...d.rows, ...n.rows] }); } catch { setFailed(true); } finally { setMore(false); }
+  };
   const title = (["revenue", "collections", "dues", "discounts", "stockValue", "nearExpiry", "supplierDues"].includes(what) ? O(`k_${what}`) : ["opdVisits", "labTests", "noShows"].includes(what) ? O(`o_${what}`) : O(`l_${what}`));
   const href = (l: NonNullable<DrillView["rows"][number]["link"]>) => l.kind === "invoice" ? `/m/bill/opd?inv=${encodeURIComponent(l.id)}` : l.kind === "receipt" ? `/m/bill/receipt?id=${encodeURIComponent(l.id)}` : l.kind === "shift" ? "/m/bill/shift" : l.kind === "refund" ? `/m/bill/refund?rf=${encodeURIComponent(l.id)}` : l.kind === "count" ? `/m/ph/count?id=${encodeURIComponent(l.id)}`
     : l.kind === "ipd-bill" ? `/m/bill/ipd?adm=${encodeURIComponent(l.id)}` : l.kind === "ipd-summary" ? `/m/ipd/summary?adm=${encodeURIComponent(l.id)}` : null;
@@ -239,7 +245,7 @@ function DrillDialog({ period, what, onClose }: { period: Period; what: DrillVie
         {d && (d.rows.length === 0 ? <PageState icon="inbox" title={O("drill_empty")} /> : (
           <>
             <span className="t-small" data-testid="drill-total">{O("drill_total", { total: d.totalPaisa === null ? "—" : F.tk(d.totalPaisa), n: d.count })}</span>
-            {d.truncated && <span className="t-small t-muted" data-testid="drill-truncated">{O("drill_truncated", { n: d.rows.length })}</span>}
+            {d.truncated && <span className="t-small t-muted" data-testid="drill-truncated">{O("drill_shown", { n: d.rows.length, total: d.count })}</span>}
             {d.rows.map((r) => {
               const to = r.link ? href(r.link) : null;
               return (
@@ -257,6 +263,7 @@ function DrillDialog({ period, what, onClose }: { period: Period; what: DrillVie
                 </div>
               );
             })}
+            {d.nextCursor && <span><Button size="sm" icon="chevrons-down" data-testid="drill-more" disabled={more} onClick={() => void next()}>{O("drill_more")}</Button></span>}
           </>
         ))}
       </div>

@@ -88,11 +88,14 @@ export type DashboardView = z.infer<typeof DashboardView>;
 export const DashboardQuery = z.object({ period: Period.default("today") });
 export const DrillWhat = z.enum(["revenue", "collections", "dues", "discounts", "opdVisits", "labTests", "noShows", "reprints", "shiftVariance", "discountAbovePolicy", "notBilledHere", "cashOutsideShift", "stockValue", "nearExpiry", "supplierDues", "refunds", "refundsPaid", "manualRefundUnchecked", "medicationIncident", "selfApproved", "creditReturns", "scanOverride", "ownSupply", "countAbandoned", "noDutyList",
   "excessUnpaid", "ipdOutcomeDues", "lamaSummaryOverdue", "afterFinalBill"]);
-export const DrillQuery = z.object({ period: Period.default("today"), what: DrillWhat });
+/** external review B10: `cursor` = the previous page's nextCursor (opaque); `limit` rows a page (default 100, at most 200) */
+export const DrillQuery = z.object({ period: Period.default("today"), what: DrillWhat, cursor: z.string().max(400).optional(), limit: z.coerce.number().int().min(1).max(200).optional() });
 export const DrillView = z.object({
   what: DrillWhat, period: Period,
   /** totals are computed over every matching row (not only the rows listed); `truncated` = more rows than listed */
   totalPaisa: Paisa.nullable(), count: z.number().int(), truncated: z.boolean(),
+  /** external review B10: pass back as `cursor` for the next page; null = this was the last page */
+  nextCursor: z.string().nullable(),
   rows: z.array(z.object({
     id: z.string(), at: z.string(), number: z.string().nullable(),
     patient: z.object({ id: z.string(), nameBn: z.string(), nameEn: z.string().nullable(), facilityNo: z.string() }).nullable(),

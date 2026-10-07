@@ -255,6 +255,37 @@ describe.runIf(db)("C1–C2 owner dashboard", () => {
     // external review A5: the reason is the hand-over's (the count itself no longer carries one)
     expect(sv.rows.find((r) => (r as { id?: string }).id === varianceShiftId)).toMatchObject({ amountPaisa: -50_000, by: { id: "u_e2e_cashier" }, detail: expect.stringMatching(/^the ৳500 note was not found on recount — accepted, cashier to repay/) });
   });
+  it("external review B10: the list behind a number pages — no row twice or missed, the total over every row; another facility sees none of it", { timeout: 60_000 }, async () => {
+    type DV = { count: number; totalPaisa: number | null; truncated: boolean; nextCursor: string | null; rows: { id: string; at: string }[] };
+    const first = ok<DV>(await get("/v1/owner/drill?period=7d&what=collections"));
+    expect(first.count).toBeGreaterThan(2);
+    const size = Math.min(200, Math.max(2, Math.ceil(first.count / 5))); // about five pages (pages of at most 200)
+    const seen: string[] = []; let cursor: string | null = null; let pages = 0;
+    do {
+      const pg: DV = ok<DV>(await get(`/v1/owner/drill?period=7d&what=collections&limit=${size}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`));
+      expect(pg).toMatchObject({ count: first.count, totalPaisa: first.totalPaisa }); // totals never change with the page
+      expect(pg.rows.length).toBeLessThanOrEqual(size);
+      expect(pg.truncated).toBe(pg.nextCursor !== null);
+      seen.push(...pg.rows.map((r) => r.id)); cursor = pg.nextCursor; pages++;
+    } while (cursor && pages < 200);
+    expect(new Set(seen).size).toBe(seen.length);
+    expect(seen.length).toBe(first.count);
+    expect(pages).toBeGreaterThan(1);
+    if (first.count <= 200) expect(seen).toEqual(ok<DV>(await get("/v1/owner/drill?period=7d&what=collections&limit=200")).rows.map((r) => r.id)); // the order of one big page
+    // a list built here (ranked by amount) pages by position
+    const sup = ok<DV>(await get("/v1/owner/drill?period=7d&what=stockValue&limit=1"));
+    if (sup.count > 1) {
+      const p2 = ok<DV>(await get(`/v1/owner/drill?period=7d&what=stockValue&limit=1&cursor=${encodeURIComponent(sup.nextCursor!)}`));
+      expect(p2.rows[0]!.id).not.toBe(sup.rows[0]!.id);
+    }
+    expect((await get("/v1/owner/drill?period=7d&what=collections&cursor=not-a-cursor")).json().code).toBe("bad_cursor");
+    expect((await get("/v1/owner/drill?period=7d&what=collections&limit=500")).statusCode).toBe(400);
+    // the owner of another facility (the Lite hospital) sees none of these rows
+    const lite = await app.inject({ method: "POST", url: "/v1/auth/login", payload: { identifier: "01798000009", password: "setu1234" } });
+    const lc = [lite.headers["set-cookie"]].flat()[0] as string;
+    const theirs = ok<DV>(await app.inject({ method: "GET", url: "/v1/owner/drill?period=7d&what=collections&limit=200", headers: { cookie: lc } }));
+    expect(theirs.rows.some((r) => seen.includes(r.id))).toBe(false);
+  });
   it("cash taken outside a shift is on the leakage list", async () => {
     await finishOpenShifts();
     const before = ok<Dash>(await get("/v1/owner/dashboard?period=today")).leakage.find((l) => l.kind === "cashOutsideShift")!;

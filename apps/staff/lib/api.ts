@@ -216,7 +216,7 @@ export const shifts = {
 };
 export const owner = {
   dashboard: (period: "today" | "7d" | "30d") => call<DashboardView>("GET", `/v1/owner/dashboard?period=${period}`),
-  drill: (period: "today" | "7d" | "30d", what: DrillView["what"]) => call<DrillView>("GET", `/v1/owner/drill?period=${period}&what=${what}`),
+  drill: (period: "today" | "7d" | "30d", what: DrillView["what"], cursor?: string | null) => call<DrillView>("GET", `/v1/owner/drill?period=${period}&what=${what}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`),
 };
 
 export const api = {

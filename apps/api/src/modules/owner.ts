@@ -6,6 +6,7 @@ import type { DashboardView, DrillView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import { KPIS, MEDICINES_SAMPLE, NEAR_EXPIRY_DAYS, dhakaDay, kpiChange, medianMinutes, periodDays, sumUpToHour, type KpiKey, type OpsKey, type Period } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
+import { err } from "../errors.js";
 import { pendingPharmacyApprovals } from "./purchasing.js";
 import type { SessionData } from "../plugins/session.js";
 
@@ -339,7 +340,38 @@ async function uncheckedRefunds(tx: Tx, organizationId: string) {
 type Row = DrillView["rows"][number];
 /** Rows listed per drill; the total and the count are always over every matching row (money-controls review M4). */
 export const DRILL_ROWS = 200;
-export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillView["what"], now: Date): Promise<{ view: DrillView; audit: AuditEntry[] }> {
+/* External review B10: the lists behind a number page. A list read straight from a table pages in the database on
+   (time, id) — "keyset", stable while rows arrive; a list the server builds (grouped, ranked by value) pages by
+   position. The count and the total always come from every matching row. The cursor is opaque to the client. */
+type Cursor = { at: string; id: string } | { o: number };
+const encCursor = (c: Cursor) => Buffer.from(JSON.stringify(c)).toString("base64url");
+function decCursor(raw: string | undefined): Cursor | null {
+  if (!raw) return null;
+  try {
+    const c = JSON.parse(Buffer.from(raw, "base64url").toString("utf8")) as Cursor;
+    if ("o" in c ? Number.isInteger(c.o) && c.o >= 0 : typeof c.at === "string" && !Number.isNaN(Date.parse(c.at)) && typeof c.id === "string") return c;
+  } catch { /* fall through */ }
+  throw err(400, "bad_cursor", "তালিকার পরের পাতা খোলা যায়নি — আবার শুরু করুন", "The next page could not be opened — start the list again", { field: "cursor" });
+}
+export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillView["what"], now: Date, pg: { cursor?: string; limit?: number } = {}): Promise<{ view: DrillView; audit: AuditEntry[] }> {
+  const lim = Math.min(Math.max(pg.limit ?? 100, 1), DRILL_ROWS);
+  const cur = decCursor(pg.cursor);
+  const atCur = cur && "at" in cur ? { at: new Date(cur.at), id: cur.id } : null;
+  // rows after the cursor for a list ordered by `field` desc, id desc
+  const ks = (field: string) => (atCur ? { OR: [{ [field]: { lt: atCur.at } }, { [field]: atCur.at, id: { lt: atCur.id } }] } : {});
+  const order = (field: string) => [{ [field]: "desc" as const }, { id: "desc" as const }];
+  let nextCursor: string | null = null;
+  /** a database page fetched with take: lim + 1 */
+  const dbPage = <T>(list: T[], key: (t: T) => { at: Date; id: string }) => {
+    if (list.length > lim) { const k = key(list[lim - 1]!); nextCursor = encCursor({ at: k.at.toISOString(), id: k.id }); }
+    return list.slice(0, lim);
+  };
+  /** a page of a list built here (every row in hand, in its own order) */
+  const memPage = <T>(list: T[]) => {
+    const start = cur && "o" in cur ? cur.o : 0;
+    if (start + lim < list.length) nextCursor = encCursor({ o: start + lim });
+    return list.slice(start, start + lim);
+  };
   const p = periodDays(period, now);
   const from = dayBounds(p.days[0]!).from;
   const to = period === "today" ? now : dayBounds(p.days[p.days.length - 1]!).to;
@@ -366,10 +398,11 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
   if (what === "revenue" || what === "discounts" || what === "discountAbovePolicy" || what === "dues") {
     const where = what === "dues" ? { organizationId: org, issuedAt: { lt: to }, status: { in: ["issued" as const, "partially_paid" as const] } }
       : what === "discounts" ? { ...invoiceWhere, discountPaisa: { gt: 0 } } : what === "discountAbovePolicy" ? { ...invoiceWhere, discountPaisa: { gt: 0 }, discountTaskId: { not: null } } : invoiceWhere;
-    const [inv, agg] = await Promise.all([
-      tx.invoice.findMany({ where, orderBy: { issuedAt: "desc" }, take: DRILL_ROWS }),
+    const [invAll, agg] = await Promise.all([
+      tx.invoice.findMany({ where: { AND: [where, ks("issuedAt")] }, orderBy: order("issuedAt"), take: lim + 1 }),
       tx.invoice.aggregate({ where, _count: { _all: true }, _sum: { totalPaisa: true, discountPaisa: true, paidPaisa: true, creditedPaisa: true } }),
     ]);
+    const inv = dbPage(invAll, (i) => ({ at: i.issuedAt ?? i.createdAt, id: i.id }));
     count = agg._count._all;
     totalPaisa = what === "revenue" ? agg._sum.totalPaisa ?? 0 : what === "dues" ? (agg._sum.totalPaisa ?? 0) - (agg._sum.paidPaisa ?? 0) - (agg._sum.creditedPaisa ?? 0) : agg._sum.discountPaisa ?? 0;
     const tasks = await tx.task.findMany({ where: { id: { in: inv.map((i) => i.discountTaskId!).filter(Boolean) } } });
@@ -385,32 +418,42 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
         detail: i.discountReason ?? null, link: { kind: "invoice" as const, id: i.id } };
     });
   } else if (what === "collections" || what === "cashOutsideShift") {
-    let payIds: string[];
+    let pageIds: { id: string; confirmedAt: Date }[];
     if (what === "cashOutsideShift") {
-      // the same rule as the dashboard's count, in SQL (money-controls review M4)
-      const list = await tx.$queryRaw<{ id: string }[]>`
-        SELECT p."id" FROM "Payment" p WHERE p."organizationId" = ${org} AND p."method" = 'cash' AND p."status" = 'confirmed' AND p."confirmedAt" >= ${from} AND p."confirmedAt" < ${to}
+      // the same rule as the dashboard's count, in SQL (money-controls review M4); B10: totals over all, one page listed
+      const cAt = atCur?.at ?? new Date("9999-12-31T00:00:00Z"), cId = atCur?.id ?? "\uffff";
+      const [t] = await tx.$queryRaw<{ n: bigint; paisa: bigint | null }[]>`
+        SELECT count(*) AS n, sum(p."amountPaisa") AS paisa FROM "Payment" p WHERE p."organizationId" = ${org} AND p."method" = 'cash' AND p."status" = 'confirmed' AND p."confirmedAt" >= ${from} AND p."confirmedAt" < ${to}
+          AND NOT EXISTS (SELECT 1 FROM "Shift" s LEFT JOIN "ShiftCount" c ON c."id" = s."latestCountId" WHERE s."organizationId" = p."organizationId" AND s."cashierId" = p."createdById" AND s."openedAt" <= p."confirmedAt" AND (s."status" = 'open' OR c."windowTo" >= p."confirmedAt"))`;
+      count = Number(t?.n ?? 0); totalPaisa = Number(t?.paisa ?? 0);
+      pageIds = dbPage(await tx.$queryRaw<{ id: string; confirmedAt: Date }[]>`
+        SELECT p."id", p."confirmedAt" FROM "Payment" p WHERE p."organizationId" = ${org} AND p."method" = 'cash' AND p."status" = 'confirmed' AND p."confirmedAt" >= ${from} AND p."confirmedAt" < ${to}
           AND NOT EXISTS (SELECT 1 FROM "Shift" s LEFT JOIN "ShiftCount" c ON c."id" = s."latestCountId" WHERE s."organizationId" = p."organizationId" AND s."cashierId" = p."createdById" AND s."openedAt" <= p."confirmedAt" AND (s."status" = 'open' OR c."windowTo" >= p."confirmedAt"))
-        ORDER BY p."confirmedAt" DESC`;
-      payIds = list.map((x) => x.id);
+          AND (p."confirmedAt", p."id") < (${cAt}, ${cId})
+        ORDER BY p."confirmedAt" DESC, p."id" DESC LIMIT ${lim + 1}`, (x) => ({ at: x.confirmedAt, id: x.id }));
     } else {
-      payIds = (await tx.payment.findMany({ where: { organizationId: org, status: "confirmed", confirmedAt: { gte: from, lt: to } }, select: { id: true }, orderBy: { confirmedAt: "desc" } })).map((x) => x.id);
+      // B10: the total from the aggregate, one page of rows — never every payment id
+      const where = { organizationId: org, status: "confirmed" as const, confirmedAt: { gte: from, lt: to } };
+      const agg = await tx.payment.aggregate({ where, _count: { _all: true }, _sum: { amountPaisa: true } });
+      count = agg._count._all; totalPaisa = agg._sum.amountPaisa ?? 0;
+      pageIds = dbPage(await tx.payment.findMany({ where: { AND: [where, ks("confirmedAt")] }, select: { id: true, confirmedAt: true }, orderBy: order("confirmedAt"), take: lim + 1 }), (x) => ({ at: x.confirmedAt!, id: x.id })) as { id: string; confirmedAt: Date }[];
     }
-    const agg = await tx.payment.aggregate({ where: { id: { in: payIds } }, _sum: { amountPaisa: true } });
-    count = payIds.length; totalPaisa = agg._sum.amountPaisa ?? 0;
-    const list = await tx.payment.findMany({ where: { id: { in: payIds.slice(0, DRILL_ROWS) } }, orderBy: { confirmedAt: "desc" }, include: { invoice: { select: { number: true, patientId: true } } } });
+    const list = await tx.payment.findMany({ where: { id: { in: pageIds.map((x) => x.id) } }, orderBy: order("confirmedAt"), include: { invoice: { select: { number: true, patientId: true } } } });
     const P = await patients(list.map((x) => x.invoice.patientId));
     const W = await people(list.map((x) => x.createdById));
     rows = list.map((x) => ({ id: x.id, at: x.confirmedAt!.toISOString(), number: x.invoice.number, patient: P(x.invoice.patientId), amountPaisa: x.amountPaisa, by: W(x.createdById), approvedBy: null, detail: x.method, link: { kind: "invoice" as const, id: x.invoiceId } }));
   } else if (what === "opdVisits" || what === "noShows") {
     const where = what === "opdVisits" ? { organizationId: org, createdAt: { gte: from, lt: to }, status: { not: "entered_in_error" as const } } : { organizationId: org, cancelReason: "no-show", statusAt: { gte: from, lt: to } };
-    const [enc, n] = await Promise.all([tx.encounter.findMany({ where, orderBy: { createdAt: "desc" }, take: DRILL_ROWS }), tx.encounter.count({ where })]);
+    const f = what === "noShows" ? "statusAt" : "createdAt";
+    const [encAll, n] = await Promise.all([tx.encounter.findMany({ where: { AND: [where, ks(f)] }, orderBy: order(f), take: lim + 1 }), tx.encounter.count({ where })]);
+    const enc = dbPage(encAll, (e) => ({ at: what === "noShows" ? e.statusAt : e.createdAt, id: e.id }));
     count = n;
     const P = await patients(enc.map((e) => e.patientId));
     rows = enc.map((e) => ({ id: e.id, at: (what === "noShows" ? e.statusAt : e.createdAt).toISOString(), number: e.token, patient: P(e.patientId), amountPaisa: null, by: null, approvedBy: null, detail: e.status.replace(/_/g, "-"), link: { kind: "visit" as const, id: e.id } }));
   } else if (what === "reprints") {
     const where = { copy: { gt: 0 }, printedAt: { gte: from, lt: to }, receipt: { organizationId: org } };
-    const [rp, n] = await Promise.all([tx.receiptPrint.findMany({ where, include: { receipt: { select: { number: true, patientId: true, id: true } } }, orderBy: { printedAt: "desc" }, take: DRILL_ROWS }), tx.receiptPrint.count({ where })]);
+    const [rpAll, n] = await Promise.all([tx.receiptPrint.findMany({ where: { AND: [where, ks("printedAt")] }, include: { receipt: { select: { number: true, patientId: true, id: true } } }, orderBy: order("printedAt"), take: lim + 1 }), tx.receiptPrint.count({ where })]);
+    const rp = dbPage(rpAll, (x) => ({ at: x.printedAt, id: x.id }));
     count = n;
     const P = await patients(rp.map((x) => x.receipt.patientId));
     const W = await people(rp.map((x) => x.printedById));
@@ -424,12 +467,13 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
     count = withVar.length;
     // the size of every variance, added up: short and over never cancel out (money-controls review H3)
     totalPaisa = withVar.reduce((a, r) => a + Math.abs(C.get(r.countId)!.variancePaisa), 0);
-    const shown = withVar.slice(0, DRILL_ROWS);
+    const shown = memPage(withVar);
     const W = await people([...shown.map((r) => r.byId), ...shown.map((r) => r.shift.cashierId)]);
     rows = shown.map((r) => ({ id: r.shiftId, at: r.at.toISOString(), number: null, patient: null, amountPaisa: C.get(r.countId)!.variancePaisa, by: W(r.shift.cashierId), approvedBy: W(r.byId), detail: `${C.get(r.countId)!.reason ?? C.get(r.countId)!.handover?.reason ?? ""} — ${r.note ?? ""}`, link: { kind: "shift" as const, id: r.shiftId } }));
   } else if (what === "notBilledHere") {
     const where = { notBilledAt: { gte: from, lt: to }, invoice: { organizationId: org } };
-    const [ci, agg] = await Promise.all([tx.chargeItem.findMany({ where, include: { invoice: { select: { number: true, patientId: true } } }, orderBy: { notBilledAt: "desc" }, take: DRILL_ROWS }), tx.chargeItem.aggregate({ where, _count: { _all: true }, _sum: { grossPaisa: true } })]);
+    const [ciAll, agg] = await Promise.all([tx.chargeItem.findMany({ where: { AND: [where, ks("notBilledAt")] }, include: { invoice: { select: { number: true, patientId: true } } }, orderBy: order("notBilledAt"), take: lim + 1 }), tx.chargeItem.aggregate({ where, _count: { _all: true }, _sum: { grossPaisa: true } })]);
+    const ci = dbPage(ciAll, (x) => ({ at: x.notBilledAt!, id: x.id }));
     count = agg._count._all; totalPaisa = agg._sum.grossPaisa ?? 0;
     const P = await patients(ci.map((x) => x.invoice.patientId));
     rows = ci.map((x) => ({ id: x.id, at: x.notBilledAt!.toISOString(), number: x.invoice.number, patient: P(x.invoice.patientId), amountPaisa: x.grossPaisa, by: null, approvedBy: null, detail: `${x.nameEn} — ${x.notBilledReason ?? ""}`, link: { kind: "invoice" as const, id: x.invoiceId } }));
@@ -440,28 +484,29 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
     const valued = batches.map((b) => ({ b, v: b.qtyOnHand * b.costPaisa })).sort((a, b) => b.v - a.v || a.b.expiry.localeCompare(b.b.expiry));
     count = valued.length; totalPaisa = valued.reduce((a, x) => a + x.v, 0);
     const name = (k: string) => { const md = MEDICINES_SAMPLE.find((x) => x.id === k); return md ? `${md.brand} ${md.strength}` : k; };
-    rows = valued.slice(0, DRILL_ROWS).map(({ b, v }) => ({ id: b.id, at: b.createdAt.toISOString(), number: b.batchNo, patient: null, amountPaisa: v, by: null, approvedBy: null, detail: `${name(b.medicineKey)} · ${b.location} · exp ${b.expiry} · ${b.qtyOnHand}`, link: null }));
+    rows = memPage(valued).map(({ b, v }) => ({ id: b.id, at: b.createdAt.toISOString(), number: b.batchNo, patient: null, amountPaisa: v, by: null, approvedBy: null, detail: `${name(b.medicineKey)} · ${b.location} · exp ${b.expiry} · ${b.qtyOnHand}`, link: null }));
   } else if (what === "supplierDues") {
     const owed = await tx.$queryRaw<{ id: string; name: string; owed: bigint; last: Date }[]>`
       SELECT s."id", s."name", sum(CASE WHEN e."kind" = 'goods-received' THEN e."amountPaisa" ELSE -e."amountPaisa" END)::bigint AS owed, max(e."at") AS last
       FROM "SupplierEntry" e JOIN "Supplier" s ON s."id" = e."supplierId" WHERE e."organizationId" = ${org} GROUP BY s."id", s."name"
       HAVING sum(CASE WHEN e."kind" = 'goods-received' THEN e."amountPaisa" ELSE -e."amountPaisa" END) <> 0 ORDER BY 3 DESC`;
     count = owed.length; totalPaisa = owed.reduce((a, x) => a + Number(x.owed), 0);
-    rows = owed.slice(0, DRILL_ROWS).map((x) => ({ id: x.id, at: x.last.toISOString(), number: x.name, patient: null, amountPaisa: Number(x.owed), by: null, approvedBy: null, detail: null, link: null }));
+    rows = memPage(owed).map((x) => ({ id: x.id, at: x.last.toISOString(), number: x.name, patient: null, amountPaisa: Number(x.owed), by: null, approvedBy: null, detail: null, link: null }));
   } else if (what === "selfApproved") {
     // refunds (decision 223) and stock counts (decision 234) decided by the person who asked / counted, as the only approver
     const list = await tx.refund.findMany({ where: { organizationId: org, selfApproved: true, decidedAt: { gte: from, lt: to } }, include: { invoice: { select: { number: true } } }, orderBy: { decidedAt: "desc" } });
     const counts = await tx.stockCount.findMany({ where: { organizationId: org, selfApproved: true, decidedAt: { gte: from, lt: to } }, orderBy: { decidedAt: "desc" } });
     count = list.length + counts.length; totalPaisa = list.reduce((x, r) => x + r.amountPaisa, 0);
-    const shown = list.slice(0, DRILL_ROWS);
-    const P = await patients(shown.map((r) => r.patientId));
-    const W = await people([...shown.flatMap((r) => [r.requestedById, r.decidedById]), ...counts.flatMap((c) => [c.createdById, c.decidedById])]);
-    rows = [
-      ...shown.map((r) => ({ id: r.id, at: r.decidedAt!.toISOString(), number: r.invoice.number, patient: P(r.patientId), amountPaisa: r.amountPaisa, by: W(r.requestedById), approvedBy: W(r.decidedById),
-        detail: `${r.category} — ${r.reason} · ${r.decisionNote ?? ""}`, link: { kind: "refund" as const, id: r.id }, status: r.status })),
-      ...counts.slice(0, Math.max(0, DRILL_ROWS - shown.length)).map((c) => ({ id: c.id, at: c.decidedAt!.toISOString(), number: null, patient: null, amountPaisa: null, by: W(c.createdById), approvedBy: W(c.decidedById),
-        detail: `stock count · ${c.location} · ${c.decisionNote ?? ""}`, link: { kind: "count" as const, id: c.id }, status: c.status })),
-    ].sort((a, b) => b.at.localeCompare(a.at));
+    // refunds and counts in one list, newest first, then the page
+    const both = [...list.map((r) => ({ r, c: null, at: r.decidedAt! })), ...counts.map((c) => ({ r: null, c, at: c.decidedAt! }))].sort((a, b) => b.at.getTime() - a.at.getTime());
+    const shown = memPage(both);
+    const P = await patients(shown.flatMap((x) => (x.r ? [x.r.patientId] : [])));
+    const W = await people(shown.flatMap((x) => (x.r ? [x.r.requestedById, x.r.decidedById] : [x.c!.createdById, x.c!.decidedById])));
+    rows = shown.map(({ r, c }) => r
+      ? { id: r.id, at: r.decidedAt!.toISOString(), number: r.invoice.number, patient: P(r.patientId), amountPaisa: r.amountPaisa, by: W(r.requestedById), approvedBy: W(r.decidedById),
+        detail: `${r.category} — ${r.reason} · ${r.decisionNote ?? ""}`, link: { kind: "refund" as const, id: r.id }, status: r.status }
+      : { id: c!.id, at: c!.decidedAt!.toISOString(), number: null, patient: null, amountPaisa: null, by: W(c!.createdById), approvedBy: W(c!.decidedById),
+        detail: `stock count · ${c!.location} · ${c!.decisionNote ?? ""}`, link: { kind: "count" as const, id: c!.id }, status: c!.status });
   } else if (what === "refunds" || what === "refundsPaid" || what === "creditReturns") {
     // ADR 0013: refunds — money paid back in the period (by the day each part was paid) / refunds completed in the period;
     // every row with its reason, who asked and who approved; withdrawn is its own state, never "rejected"
@@ -471,7 +516,7 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
     const list = await tx.refund.findMany({ where, include: { invoice: { select: { number: true, id: true } }, voucher: { select: { number: true } } }, orderBy: { requestedAt: "desc" } });
     const amount = (r: (typeof list)[number]) => (what === "refunds" ? allocs.filter((a) => a.refundId === r.id).reduce((x, a) => x + a.amountPaisa, 0) : r.amountPaisa);
     count = list.length; totalPaisa = list.reduce((x, r) => x + amount(r), 0);
-    const shown = list.slice(0, DRILL_ROWS);
+    const shown = memPage(list);
     const P = await patients(shown.map((r) => r.patientId));
     const W = await people(shown.flatMap((r) => [r.requestedById, r.decidedById]));
     rows = shown.map((r) => ({ id: r.id, at: (r.paidAt ?? r.requestedAt).toISOString(), number: r.voucher?.number ?? r.invoice.number, patient: P(r.patientId), amountPaisa: amount(r), by: W(r.requestedById), approvedBy: W(r.decidedById),
@@ -479,7 +524,7 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
   } else if ((IPD_EXCEPTIONS as readonly string[]).includes(what)) {
     const x = await ipdException(tx, org, what as IpdException, now);
     count = x.count; totalPaisa = what === "lamaSummaryOverdue" || what === "afterFinalBill" ? null : x.paisa;
-    const shown = x.rows.slice(0, DRILL_ROWS);
+    const shown = memPage(x.rows);
     const P = await patients(shown.map((r) => r.patientId));
     const W = await people(shown.map((r) => r.byId));
     rows = shown.map((r) => ({ id: r.id, at: r.at.toISOString(), number: r.number, patient: P(r.patientId), amountPaisa: r.amountPaisa, by: W(r.byId), approvedBy: null, detail: r.detail, link: r.link, status: r.status }));
@@ -487,7 +532,7 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
     const tasks = await tx.task.findMany({ where: { kind: "refund-reconciliation", status: "requested" }, orderBy: { requestedAt: "desc" } });
     const allocs = await tx.refundAllocation.findMany({ where: { id: { in: tasks.flatMap((t) => (t.focusId ? [t.focusId] : [])) }, refund: { organizationId: org } }, include: { refund: { include: { voucher: { select: { number: true } } } } } });
     count = allocs.length; totalPaisa = allocs.reduce((x, a) => x + a.amountPaisa, 0);
-    const shown = allocs.slice(0, DRILL_ROWS);
+    const shown = memPage(allocs);
     const P = await patients(shown.map((a) => a.refund.patientId));
     const W = await people(shown.flatMap((a) => [a.paidById, a.refund.decidedById]));
     rows = shown.map((a) => ({ id: a.id, at: (a.paidAt ?? a.refund.requestedAt).toISOString(), number: a.refund.voucher?.number ?? null, patient: P(a.refund.patientId), amountPaisa: a.amountPaisa, by: W(a.paidById), approvedBy: W(a.refund.decidedById),
@@ -496,7 +541,7 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
     // external review B2: each alert that went to every active doctor because no duty list is set — fix the roster
     const list = await tx.auditEvent.findMany({ where: { organizationId: org, action: "duty-list-missing", at: { gte: from, lt: to } }, orderBy: { at: "desc" } });
     count = list.length; totalPaisa = null;
-    const shown = list.slice(0, DRILL_ROWS);
+    const shown = memPage(list);
     const P = await patients(shown.flatMap((a) => (a.patientId ? [a.patientId] : [])));
     rows = shown.map((a) => { const d = a.detail as { kind?: string; doctors?: number } | null; return { id: a.id, at: a.at.toISOString(), number: null, patient: a.patientId ? P(a.patientId) : null, amountPaisa: null, by: null, approvedBy: null,
       detail: `${d?.kind ?? ""} · ${d?.doctors ?? 0} doctors`, link: null, status: null }; });
@@ -504,8 +549,9 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
     // external review A6: counts ended at their counter's shift close — who was counting, where, how far they got
     const list = await tx.stockCount.findMany({ where: { organizationId: org, status: "abandoned", decidedAt: { gte: from, lt: to } }, include: { lines: { select: { countedQty: true } } }, orderBy: { decidedAt: "desc" } });
     count = list.length; totalPaisa = null;
-    const W = await people(list.slice(0, DRILL_ROWS).map((c) => c.createdById));
-    rows = list.slice(0, DRILL_ROWS).map((c) => ({ id: c.id, at: c.decidedAt!.toISOString(), number: null, patient: null, amountPaisa: null, by: W(c.createdById), approvedBy: null,
+    const shownCounts = memPage(list);
+    const W = await people(shownCounts.map((c) => c.createdById));
+    rows = shownCounts.map((c) => ({ id: c.id, at: c.decidedAt!.toISOString(), number: null, patient: null, amountPaisa: null, by: W(c.createdById), approvedBy: null,
       detail: `stock count · ${c.location} · ${c.lines.filter((l) => l.countedQty !== null).length}/${c.lines.length} · ${c.decisionNote ?? ""}`, link: { kind: "count" as const, id: c.id }, status: c.status }));
   } else if (what === "scanOverride" || what === "ownSupply") {
     // ADR 0016: one row per nurse — doses given with "scanner not working" (the latest reason), or from the patient's own supply
@@ -513,7 +559,7 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
     count = list.length; totalPaisa = null;
     const byNurse = [...new Set(list.map((a) => a.administeredById))].map((id) => ({ id, rows: list.filter((a) => a.administeredById === id) })).sort((a, b) => b.rows.length - a.rows.length);
     const W = await people(byNurse.map((x) => x.id));
-    rows = byNurse.slice(0, DRILL_ROWS).map((x) => ({ id: x.id, at: x.rows[0]!.administeredAt.toISOString(), number: String(x.rows.length), patient: null, amountPaisa: null, by: W(x.id), approvedBy: null,
+    rows = memPage(byNurse).map((x) => ({ id: x.id, at: x.rows[0]!.administeredAt.toISOString(), number: String(x.rows.length), patient: null, amountPaisa: null, by: W(x.id), approvedBy: null,
       detail: `${x.rows.length} × — ${what === "scanOverride" ? x.rows[0]!.scanOverrideReason : x.rows[0]!.medicineKey}`, link: null, status: null }));
   } else if (what === "medicationIncident") {
     // every wrong-dispense medicine line that came back — a dispense or an OTC sale (review)
@@ -521,7 +567,7 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
     const lines = await tx.refundLine.findMany({ where: { id: { in: moves.flatMap((m) => (m.refId ? [m.refId] : [])) }, refund: { category: "wrong-dispense" } }, include: { refund: true } });
     const wrong = moves.filter((m) => lines.some((l) => l.id === m.refId));
     count = wrong.length; totalPaisa = wrong.reduce((x, m) => x + (lines.find((l) => l.id === m.refId)?.totalPaisa ?? 0), 0);
-    const shown = wrong.slice(0, DRILL_ROWS);
+    const shown = memPage(wrong);
     const P = await patients(shown.map((m) => lines.find((l) => l.id === m.refId)!.refund.patientId));
     const W = await people(shown.flatMap((m) => [m.byId, lines.find((l) => l.id === m.refId)!.refund.decidedById]));
     const name = (k: string) => { const md = MEDICINES_SAMPLE.find((x) => x.id === k); return md ? `${md.brand} ${md.strength}` : k; };
@@ -534,14 +580,14 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
       SELECT x."serviceRequestId" AS sr, min(r."releasedAt") AS released FROM "DiagnosticReportResult" x JOIN "DiagnosticReport" r ON r."id" = x."reportId"
       WHERE x."serviceRequestId" IN (SELECT sr FROM day) GROUP BY 1 HAVING min(r."releasedAt") >= ${from} AND min(r."releasedAt") < ${to} ORDER BY 2 DESC`;
     count = rel.length;
-    const shown = rel.slice(0, DRILL_ROWS);
+    const shown = memPage(rel);
     const srs = await tx.serviceRequest.findMany({ where: { id: { in: shown.map((r) => r.sr) } } });
     const S = new Map(srs.map((x) => [x.id, x]));
     const P = await patients(srs.map((x) => x.patientId));
     rows = shown.map((r) => { const x = S.get(r.sr)!; const mins = Math.round((r.released.getTime() - (x.orderedAt ?? x.createdAt).getTime()) / 60000); return { id: x.id, at: r.released.toISOString(), number: null, patient: P(x.patientId), amountPaisa: null, by: null, approvedBy: null, detail: `${x.nameEn} · ${mins} min`, link: { kind: "visit" as const, id: x.encounterId } }; });
   }
   return {
-    view: { what, period, totalPaisa, count, truncated: count > rows.length, rows },
-    audit: [{ action: "view", entity: "OwnerDrill", detail: { purpose: `owner-drill-${what}`, period, count, listed: rows.length, patientIds: [...ids] } }],
+    view: { what, period, totalPaisa, count, truncated: nextCursor !== null, nextCursor, rows },
+    audit: [{ action: "view", entity: "OwnerDrill", detail: { purpose: `owner-drill-${what}`, period, count, listed: rows.length, page: cur ? "next" : "first", patientIds: [...ids] } }],
   };
 }
