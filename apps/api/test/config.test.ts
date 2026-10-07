@@ -14,7 +14,7 @@ const bare = mkdtempSync(join(tmpdir(), "setu-config-"));
 const S32 = "x".repeat(32);
 const good = {
   NODE_ENV: "production", PUBLIC_APP_URL: "https://clinic.example", PAYMENTS_PROVIDER: "bkash", SMS_PROVIDER: "bulksmsbd",
-  SESSION_SECRET: S32, WRISTBAND_SECRET: S32, DATABASE_URL_APP: "postgresql://setu_app:pw@localhost:5432/setu",
+  SESSION_SECRET: S32, WRISTBAND_SECRET: S32, DATABASE_URL_APP: "postgresql://setu_app:pw@localhost:5432/setu", AI_PROVIDER: "off",
 };
 /** the startup error, or "" when the config loads */
 function start(env: Record<string, string | undefined>): string {
@@ -35,5 +35,24 @@ describe("production refuses to start without its secrets (external review A1)",
     expect(start({ ...good, DATABASE_URL_APP: undefined })).toContain("DATABASE_URL_APP is required in production");
   });
   it("WRISTBAND_SECRET still required", () => { expect(start({ ...good, WRISTBAND_SECRET: undefined })).toContain("WRISTBAND_SECRET"); });
+  it("AI_PROVIDER=fake (or unset, which means fake) — the sample drafter never serves in production; off is allowed", () => {
+    expect(start({ ...good, AI_PROVIDER: "fake" })).toContain("AI_PROVIDER=fake is not allowed in production");
+    expect(start({ ...good, AI_PROVIDER: undefined })).toContain("AI_PROVIDER=fake is not allowed in production");
+    expect(start({ ...good, AI_PROVIDER: "claude" })).toContain("AI_PROVIDER=claude is not available");
+  });
   it("development is unchanged: no secrets, no database, the demo login", () => { expect(start({ NODE_ENV: "development" })).toBe(""); });
+});
+
+describe("AI_PROVIDER=off (external review A1)", () => {
+  it("no drafter: the AI-draft route answers ai_off and the profile says ai: false", async () => {
+    const { config } = await import("../src/config.js");
+    const { aiDrafter, aiEnabled } = await import("../src/adapters/ai.js");
+    const was = config.adapters.ai;
+    try {
+      config.adapters.ai = "off";
+      expect(aiDrafter()).toBeNull(); expect(aiEnabled()).toBe(false);
+      config.adapters.ai = "fake";
+      expect(aiDrafter()?.model).toBe("fake-ai-v1");
+    } finally { config.adapters.ai = was; }
+  });
 });

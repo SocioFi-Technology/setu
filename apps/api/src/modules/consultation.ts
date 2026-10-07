@@ -389,6 +389,7 @@ export async function aiDraft(tx: Tx, s: SessionData, id: string, kind: "previsi
     vitals: vitals.map((o) => ({ code: o.code, value: o.value, unit: o.unit })),
   };
   const ai = aiDrafter();
+  if (!ai) throw err(404, "ai_off", "এই প্রতিষ্ঠানে এআই খসড়া চালু নেই", "AI drafting is not switched on here");
   const out = await ai.draft(kind, ctx);
   await tx.provenance.create({ data: { tenantId: s.tenantId, targetType: "Composition", targetId: c.id, activity: "ai-draft-generated", agentId: s.userId, onBehalfOf: s.organizationId, recorded: now, source: "ai_draft", detail: { kind, model: ai.model } } });
   return { e, c, model: ai.model, out };

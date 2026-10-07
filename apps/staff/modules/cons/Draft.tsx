@@ -311,7 +311,7 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
           </Section>
         </div>
         <aside style={{ flex: "1 1 260px", maxWidth: 420, minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>
-          <AiPanel compositionId={id} editable={editable} onInsert={insertAi} />
+          {s.me?.ai !== false && <AiPanel compositionId={id} editable={editable} onInsert={insertAi} />}
           <Context view={view} />
         </aside>
       </div>

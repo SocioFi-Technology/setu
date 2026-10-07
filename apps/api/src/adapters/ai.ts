@@ -4,6 +4,8 @@
    No audio is recorded or stored (decision 34): the scribe's "Patient agreed to recording" tick is shown disabled,
    "not available yet", and no consent is stored until the lawyer's wording exists (Kamrul, 02/10/2026). */
 
+import { config } from "../config.js";
+
 export interface AiContext {
   complaints: { text: string; duration: { n: number; unit: string } | null }[];
   allergies: { labelBn: string; labelEn: string; reaction: string | null }[];
@@ -45,4 +47,7 @@ export const FakeAi: AiDrafter = {
   },
 };
 
-export const aiDrafter = (): AiDrafter => FakeAi; // AI_PROVIDER=claude comes with the real adapter (not in A5)
+/** The configured drafter, or null with AI_PROVIDER=off (external review A1: production never runs the fake). The Claude
+    adapter (AI_PROVIDER=claude) is a later change. */
+export const aiDrafter = (): AiDrafter | null => (config.adapters.ai === "off" ? null : FakeAi);
+export const aiEnabled = () => aiDrafter() !== null;

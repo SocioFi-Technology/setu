@@ -50,3 +50,7 @@ if (process.env.NODE_ENV === "production" && (!process.env.WRISTBAND_SECRET || p
 // in-memory demo login — neither may ever run in production
 if (process.env.NODE_ENV === "production" && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32)) throw new Error("SESSION_SECRET (at least 32 characters) is required in production");
 if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL_APP) throw new Error("DATABASE_URL_APP is required in production (without it the API would serve the in-memory demo login)");
+// external review A1: the fake AI writes deterministic sample drafts — production runs a real provider, or AI_PROVIDER=off
+// (no drafts; the consultation's AI panel is hidden). The Claude adapter is a later change.
+if (process.env.NODE_ENV === "production" && config.adapters.ai === "fake") throw new Error("AI_PROVIDER=fake is not allowed in production (set AI_PROVIDER=off until a real provider is configured)");
+if (!["fake", "off"].includes(config.adapters.ai)) throw new Error(`AI_PROVIDER=${config.adapters.ai} is not available (fake, off)`);

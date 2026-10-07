@@ -20,6 +20,8 @@ export const Me = z.object({
   roles: z.array(z.object({ organizationId: z.string(), role: Role })),
   /** ADR 0010: signed in with a one-time password — set your own password and PIN before anything else */
   mustSetCredentials: z.boolean().default(false),
+  /** external review A1: AI drafting is switched on (AI_PROVIDER ≠ off) — the consultation shows its AI panel */
+  ai: z.boolean().default(true),
 });
 export type Me = z.infer<typeof Me>;
 

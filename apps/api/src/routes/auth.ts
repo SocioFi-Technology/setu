@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { Capabilities, FirstSignInRequest, LoginRequest, Me, PinVerifyRequest } from "@setu/contracts";
 import { capabilities, passwordProblems, pinProblems } from "@setu/domain";
+import { aiEnabled } from "../adapters/ai.js";
 import { config } from "../config.js";
 import { err, unauthorized } from "../errors.js";
 import { checkPassword, checkPin, devHash, findLoginCandidates, findUserById } from "../modules/users.js";
@@ -39,7 +40,7 @@ export async function authRoutes(app: FastifyInstance) {
     const session: SessionData = { userId: u.id, tenantId: u.tenantId, organizationId: r.organizationId, organizationName: r.organizationName, role: r.role, plan, nameBn: u.nameBn, nameEn: u.nameEn,
       generation, ...(u.mustChangePassword ? { setup: true } : {}) };
     reply.setCookie(COOKIE, encodeSession(session), { path: "/", httpOnly: true, sameSite: "lax", signed: true, maxAge: 12 * 3600 });
-    return Me.parse({ ...session, roles: u.roles.map(({ organizationId, role }) => ({ organizationId, role })), mustSetCredentials: Boolean(session.setup) });
+    return Me.parse({ ...session, roles: u.roles.map(({ organizationId, role }) => ({ organizationId, role })), mustSetCredentials: Boolean(session.setup), ai: aiEnabled() });
   });
 
   app.post("/v1/auth/logout", async (req, reply) => { reply.clearCookie(COOKIE, { path: "/" }); return { ok: true }; });
@@ -52,7 +53,7 @@ export async function authRoutes(app: FastifyInstance) {
       reply.clearCookie(COOKIE, { path: "/" });
       throw err(401, "session_ended", "আপনার সেশন শেষ — আবার লগইন করুন", "Your session has ended — sign in again");
     }
-    return Me.parse({ ...s, roles: u?.roles.map(({ organizationId, role }) => ({ organizationId, role })) ?? [{ organizationId: s.organizationId, role: s.role }], mustSetCredentials: Boolean(s.setup) });
+    return Me.parse({ ...s, roles: u?.roles.map(({ organizationId, role }) => ({ organizationId, role })) ?? [{ organizationId: s.organizationId, role: s.role }], mustSetCredentials: Boolean(s.setup), ai: aiEnabled() });
   });
 
   /* ADR 0010: the first sign-in with a one-time password — the user sets their own password and PIN; the session is
@@ -76,7 +77,7 @@ export async function authRoutes(app: FastifyInstance) {
     const session: SessionData = { ...s, generation, setup: undefined };
     delete session.setup;
     reply.setCookie(COOKIE, encodeSession(session), { path: "/", httpOnly: true, sameSite: "lax", signed: true, maxAge: 12 * 3600 });
-    return Me.parse({ ...session, roles: [{ organizationId: s.organizationId, role: s.role }], mustSetCredentials: false });
+    return Me.parse({ ...session, roles: [{ organizationId: s.organizationId, role: s.role }], mustSetCredentials: false, ai: aiEnabled() });
   });
 
   app.get("/v1/me/capabilities", async (req) => {
