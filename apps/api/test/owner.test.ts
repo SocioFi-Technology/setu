@@ -190,6 +190,70 @@ describe.runIf(db)("C4 shift close", () => {
   });
 });
 
+describe.runIf(db)("external review B11: every confirmed taka is in the count or after its window", () => {
+  /** On the owner's connection: hold the cashier's shift gate (as a count or a confirmation in flight would) until released;
+      `heldUntil` is the database clock just before letting go. */
+  function holdGate(mode: "shared" | "exclusive") {
+    const o = new db!.PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+    let release!: () => void; let started!: () => void; let heldUntil = new Date(0);
+    const begun = new Promise<void>((r) => { started = r; });
+    const done = o.$transaction(async (tx) => {
+      if (mode === "shared") await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(7020, hashtext(${"u_e2e_cashier"}))`;
+      else await tx.$executeRaw`SELECT pg_advisory_xact_lock(7020, hashtext(${"u_e2e_cashier"}))`;
+      started();
+      await new Promise<void>((r) => { release = r; });
+      heldUntil = (await tx.$queryRaw<{ t: Date }[]>`SELECT clock_timestamp() AS t`)[0]!.t;
+    }, { timeout: 60_000 }).finally(() => o.$disconnect());
+    return { begun, done, release: () => release(), heldUntil: () => heldUntil };
+  }
+  it("a cash payment waits for a count in progress and is stamped after it; a count waits for a confirmation in flight", { timeout: 90_000 }, async () => {
+    await finishOpenShifts();
+    const sh = ok<Shift>(await post("/v1/shifts", { openingFloatPaisa: 0 }), 201);
+    // a count in progress (the exclusive gate): the payment's confirmation waits, then is stamped after it
+    const count = holdGate("exclusive"); await count.begun;
+    const paying = paidVisit("cash");
+    await new Promise((r) => setTimeout(r, 1500));
+    count.release(); await count.done;
+    const paid = await paying;
+    const pay = await db!.forTenant(T, (tx) => tx.payment.findFirst({ where: { id: paid.paymentId } }));
+    expect(pay!.confirmedAt!.getTime()).toBeGreaterThan(count.heldUntil().getTime());
+    // a confirmation in flight (the shared gate): the count waits, and its window ends after it
+    const confirming = holdGate("shared"); await confirming.begun;
+    const counting = post(`/v1/shifts/${sh.id}/count`, { counts: {} });
+    await new Promise((r) => setTimeout(r, 800));
+    confirming.release(); await confirming.done;
+    const c = ok<Shift>(await counting);
+    const row = await db!.forTenant(T, (tx) => tx.shiftCount.findFirst({ where: { shiftId: sh.id } }));
+    expect(row!.windowTo.getTime()).toBeGreaterThanOrEqual(confirming.heldUntil().getTime());
+    // the payment taken before the count is in its sum
+    expect(row!.cashInPaisa).toBe(paid.totalPaisa);
+    expect(c.status).toBe("counted");
+    // cash taken now, with the shift counted (no longer open), is outside every window: on the leakage list
+    const before = ok<Dash>(await get("/v1/owner/dashboard?period=today")).leakage.find((l) => l.kind === "cashOutsideShift")!;
+    const late = await paidVisit("cash");
+    const after = ok<Dash>(await get("/v1/owner/dashboard?period=today")).leakage.find((l) => l.kind === "cashOutsideShift")!;
+    expect(after.count).toBe(before.count + 1);
+    expect(ok<{ rows: { id: string }[] }>(await get("/v1/owner/drill?period=today&what=cashOutsideShift")).rows.map((r) => r.id)).toContain(late.paymentId);
+    await finishOpenShifts();
+  });
+  it("a shift opened before midnight: the money taken after midnight is in its count, not 'outside a shift'", { timeout: 60_000 }, async () => {
+    await finishOpenShifts();
+    const o = new db!.PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+    // opened yesterday at 23:30 Dhaka (the guard lets a shift start in the past; who opens it is the cashier)
+    const today = new Date(Date.now() + 6 * 3600_000).toISOString().slice(0, 10);
+    const openedAt = new Date(Date.parse(`${today}T00:00:00+06:00`) - 30 * 60_000);
+    let shId = "";
+    try { shId = (await o.shift.create({ data: { tenantId: T, organizationId: "o_e2e", cashierId: "u_e2e_cashier", openingFloatPaisa: 0, openedAt, statusAt: openedAt } })).id; } finally { await o.$disconnect(); }
+    const before = ok<Dash>(await get("/v1/owner/dashboard?period=today")).leakage.find((l) => l.kind === "cashOutsideShift")!;
+    const paid = await paidVisit("cash");
+    expect(ok<Dash>(await get("/v1/owner/dashboard?period=today")).leakage.find((l) => l.kind === "cashOutsideShift")!.count).toBe(before.count);
+    expect(ok<Shift>(await get(`/v1/shifts/${shId}`, "owner")).live).toMatchObject({ cashInPaisa: expect.any(Number) });
+    const c = ok<Shift>(await post(`/v1/shifts/${shId}/count`, { counts: {} }));
+    expect(c.latestCount!.variancePaisa).toBeLessThanOrEqual(-paid.totalPaisa); // the after-midnight cash is expected in the drawer
+    await finishOpenShifts();
+  });
+});
+
 describe.runIf(db)("C1–C2 owner dashboard", () => {
   type Dash = { kpis: { key: string; value: number | null; comesWith: string | null; pct: number | null; judgement: string | null }[]; ops: { key: string; value: number | null }[];
     series: { unit: string; points: { label: string }[] }; leakage: { kind: string; count: number; paisa: number }[]; pending: { shifts: number; staleShifts: number }; uptoHour: number | null; byMethod: { method: string; paisa: number }[];

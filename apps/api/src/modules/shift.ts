@@ -11,6 +11,7 @@ import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
 import { notFound } from "./frontdesk.js";
 import { abandonCountsAtShiftClose } from "./purchasing.js";
+import { shiftGate } from "./billing.js";
 
 type Shift = NonNullable<Awaited<ReturnType<typeof shiftRow>>>;
 const shiftRow = (tx: Tx, s: SessionData, id: string) => tx.shift.findFirst({ where: { id, organizationId: s.organizationId }, include: { counts: { orderBy: { countNo: "asc" } }, reviews: { orderBy: { at: "asc" } }, handovers: true } });
@@ -96,7 +97,10 @@ export async function countShift(tx: Tx, s: SessionData, id: string, req: CountS
   const counts = Object.fromEntries(Object.entries(req.counts).map(([k, v]) => [Number(k), v])) as Counts;
   const c = countCheck(counts);
   if (!c.ok) throw err(400, c.error, c.error === "count_too_large" ? "গণনা অস্বাভাবিক বড় — আবার দেখুন" : "নোটের সংখ্যা ঠিক নেই", c.error === "count_too_large" ? "The count is implausibly large — check it" : "A note count is not valid", { field: `counts.${c.denomination}` });
-  const t = await takings(tx, s, sh.cashierId, sh.openedAt, now);
+  // external review B11: confirmations in flight finish first; later ones wait for this count and are stamped after
+  // its window — the window ends at the database clock read once the gate is held
+  const windowTo = await shiftGate(tx, sh.cashierId, "exclusive");
+  const t = await takings(tx, s, sh.cashierId, sh.openedAt, windowTo);
   const expected = expectedCashPaisa({ openingFloatPaisa: sh.openingFloatPaisa, cashInPaisa: t.cashInPaisa, cashRefundPaisa: t.cashRefundPaisa });
   const variance = c.countedPaisa - expected;
   const countNo = sh.counts.length + 1;
@@ -104,7 +108,7 @@ export async function countShift(tx: Tx, s: SessionData, id: string, req: CountS
     tenantId: s.tenantId, shiftId: sh.id, countNo, counts: Object.fromEntries(Object.entries(counts).filter(([, n]) => (n ?? 0) > 0)) as object,
     countedPaisa: c.countedPaisa, openingFloatPaisa: sh.openingFloatPaisa, cashInPaisa: t.cashInPaisa, cashRefundPaisa: t.cashRefundPaisa, expectedCashPaisa: expected, variancePaisa: variance,
     digitalSystem: t.digital as object, digitalSettlement: req.settlement as object, reason: null,
-    windowFrom: sh.openedAt, windowTo: now, countedById: s.userId, countedAt: now,
+    windowFrom: sh.openedAt, windowTo, countedById: s.userId, countedAt: now,
   } });
   const counted = transition("SHIFT", SHIFT, "open", "count");
   const n = await tx.shift.updateMany({ where: { id: sh.id, status: "open" }, data: { status: counted, latestCountId: row.id, statusAt: now } });

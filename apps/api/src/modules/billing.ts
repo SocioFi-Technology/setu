@@ -726,6 +726,16 @@ export async function decideReconcile(tx: Tx, s: SessionData, taskId: string, ac
   return { item: (await reconcileItem(tx, s, (await tx.task.findFirst({ where: { id: t.id } }))!))!, patientId: inv.patientId, invoiceId: inv.id };
 }
 
+/** External review B11: the cashier's shift gate — an advisory lock per cashier (exclusive for a count, shared for a
+    confirmation), then the database clock, read after the lock is held. */
+export async function shiftGate(tx: Tx, cashierId: string, mode: "shared" | "exclusive"): Promise<Date> {
+  if (mode === "shared") await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(7020, hashtext(${cashierId}))`;
+  else await tx.$executeRaw`SELECT pg_advisory_xact_lock(7020, hashtext(${cashierId}))`;
+  const [{ t }] = await tx.$queryRaw<{ t: Date }[]>`SELECT clock_timestamp() AS t`;
+  // stored to the millisecond: a confirmation is stamped 1 ms on, so one read after a count's window end never ties it
+  return mode === "shared" ? new Date(t.getTime() + 1) : t;
+}
+
 /* ───── payments ───── */
 /** A bill that takes money: issued or partly paid — or (ADR 0017, IPD only) the running IPD bill's draft, for deposits. */
 export const takesPayment = (inv: { status: string; kind: string }) => inv.status === "issued" || inv.status === "partially_paid" || (inv.kind === "ipd" && inv.status === "draft");
@@ -733,7 +743,11 @@ export const takesPayment = (inv: { status: string; kind: string }) => inv.statu
     paid amount is the sum of its confirmed payments. */
 async function confirmPayment(tx: Tx, p: Pay, inv: Inv, by: string | null, trxId: string | null, now: Date) {
   const status = undash<"confirmed">(transition("PAYMENT", PAYMENT, dash<PaymentState>(p.status), "confirm"));
-  const n = await tx.payment.updateMany({ where: { id: p.id, status: p.status }, data: { status, confirmedAt: now, confirmedById: by, trxId: trxId ?? p.trxId, statusAt: now } });
+  // external review B11: a cashier's money is either in their shift count's sum or after its window — never between.
+  // Confirming takes the cashier's shift gate shared and only then reads the time (the database clock); a count takes
+  // it exclusively and reads its window end after (shift.ts shiftGate).
+  const at = await shiftGate(tx, p.createdById, "shared");
+  const n = await tx.payment.updateMany({ where: { id: p.id, status: p.status }, data: { status, confirmedAt: at, confirmedById: by, trxId: trxId ?? p.trxId, statusAt: now } });
   if (n.count !== 1) throw stale();
   const rows = (await tx.payment.findMany({ where: { invoiceId: inv.id } })).map(toRow);
   const s = paymentSummary(dueBase(inv), rows);
