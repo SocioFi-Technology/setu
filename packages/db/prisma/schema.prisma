@@ -2685,3 +2685,15 @@ model InterimBillPrint {
 
   @@unique([invoiceId, copy])
 }
+
+/// Staging (week 2): a background job's last run (monitoring: job age). No tenant, no patient data.
+model JobRun {
+  name           String   @id
+  lastStartedAt  DateTime
+  lastFinishedAt DateTime
+  lastOk         Boolean
+  lastError      String?
+  lastDetail     Json?
+  runs           Int      @default(0)
+  skips          Int      @default(0)
+}

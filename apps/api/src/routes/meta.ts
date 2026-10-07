@@ -12,6 +12,13 @@ export async function metaRoutes(app: FastifyInstance) {
     }
     return { ok: true, version: config.version, db, time: new Date().toISOString() };
   });
+  /* Staging (week 2): monitoring — each background job's last run and its age (no patient data). */
+  app.get("/health/jobs", async (_req, reply) => {
+    reply.header("cache-control", "no-store");
+    if (!config.dbEnabled) return { jobs: [] };
+    const { jobAges } = await import("../modules/jobs.js");
+    return { jobs: await jobAges() };
+  });
   /* Staging (week 2): ready to take traffic — the database and the counter store (Redis) both answer. 503 otherwise, so
      the orchestrator holds traffic (and a rolling restart waits) until it is. Says nothing else. */
   app.get("/ready", async (_req, reply) => {

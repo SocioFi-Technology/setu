@@ -165,14 +165,11 @@ export async function upsertRollup(tx: Tx, tenantId: string, organizationId: str
 
 /** The nightly job (ADR 0008): every facility, the last `back` finished days, recomputed (late voids and confirmations). */
 export async function runNightlyRollup(now = new Date(), back = 35, onlyTenant?: string): Promise<{ facilities: number; days: number; failed: number; skipped?: boolean }> {
-  const { prisma } = await import("@setu/db");
-  // external review B7: one run at a time across every API instance — a transaction-scoped advisory lock held for the
-  // run; an instance that finds it taken skips (the rows are upserts, so a second run would only repeat the work)
-  return prisma.$transaction(async (lockTx) => {
-    const [{ got }] = await lockTx.$queryRaw<{ got: boolean }[]>`SELECT pg_try_advisory_xact_lock(hashtext('nightly-rollup')) AS got`;
-    if (!got) return { facilities: 0, days: 0, failed: 0, skipped: true };
-    return rollupDays(now, back, onlyTenant);
-  }, { timeout: 3_600_000, maxWait: 15_000 });
+  // external review B7 / staging: one run at a time across every API instance (modules/jobs.ts singleRun — the advisory
+  // lock held for the run, the run recorded for monitoring); an instance that finds it taken skips
+  const { singleRun } = await import("./jobs.js");
+  const r = await singleRun("nightly-rollup", () => rollupDays(now, back, onlyTenant), { timeoutMs: 3_600_000, summary: (x) => x });
+  return r.ran ? r.result : { facilities: 0, days: 0, failed: 0, skipped: true };
 }
 async function rollupDays(now: Date, back: number, onlyTenant?: string): Promise<{ facilities: number; days: number; failed: number }> {
   const { prisma, forTenant } = await import("@setu/db");

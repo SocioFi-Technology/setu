@@ -17,13 +17,17 @@ if (config.dbEnabled) {
   const { sweepRefunds } = await import("./modules/refunds.js");
   const { sweepEscalations } = await import("./modules/ward.js");
   const { sweepBedDays } = await import("./modules/ipdBill.js");
+  // staging (week 2): each sweep in one instance at a time (advisory lock), its run recorded for monitoring
+  const { singleRun } = await import("./modules/jobs.js");
+  const job = <T extends object>(name: string, run: () => Promise<T>, worth: (r: T) => unknown) =>
+    singleRun(name, run, { summary: (r) => r }).then((x) => { if (x.ran && worth(x.result)) app.log.info({ job: name, result: x.result as object }, `${name} sweep`); }).catch((e) => app.log.error({ err: e, job: name }, `${name} sweep failed`));
   const t = setInterval(() => {
-    sweepPayments(new Date()).then((r) => { if (r.failed || r.settled) app.log.info(r, "payments sweep"); }).catch((e) => app.log.error({ err: e }, "payments sweep failed"));
-    sweepSms(new Date()).then((r) => { if (r.sent || r.interrupted) app.log.info(r, "sms sweep"); }).catch((e) => app.log.error({ err: e }, "sms sweep failed"));
-    sweepRefunds(new Date()).then((r) => { if (r.checked) app.log.info(r, "refunds sweep"); }).catch((e) => app.log.error({ err: e }, "refunds sweep failed"));
+    void job("payments", () => sweepPayments(new Date()), (r) => r.failed || r.settled);
+    void job("sms", () => sweepSms(new Date()), (r) => r.sent || r.interrupted);
+    void job("refunds", () => sweepRefunds(new Date()), (r) => r.checked);
     // ADR 0017: the bed-day census (00:01 Dhaka), caught up every minute
-    sweepBedDays(new Date()).then((r) => { if (r.posted) app.log.info(r, "bed-day sweep"); }).catch((e) => app.log.error({ err: e }, "bed-day sweep failed"));
-    sweepEscalations(new Date()).then((r) => { if (r.widened) app.log.info(r, "escalation sweep"); }).catch((e) => app.log.error({ err: e }, "escalation sweep failed"));
+    void job("bed-days", () => sweepBedDays(new Date()), (r) => r.posted);
+    void job("escalations", () => sweepEscalations(new Date()), (r) => r.widened);
   }, 60_000);
   t.unref?.();
 }
