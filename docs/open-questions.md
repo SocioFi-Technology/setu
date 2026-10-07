@@ -1303,3 +1303,22 @@ Built on the cautious reading from the reviews; Kamrul to confirm or change.
 
 ### Decided by Kamrul (07/10/2026) — B10–B12 session 2
 309–317 accepted as recorded.
+
+## Track 1, week 1 — external review fixes A1–A6 (07/10/2026)
+### Decided by Kamrul (07/10/2026) — pilot-readiness sprint, A6
+- **179–186 decided** (ADR 0009 addendum): 179 → one supplier's orders of the Dhaka day sent without an approver count
+  together toward the limit; 180 → receipt tolerance min(2 %, ৳50) per line, stored per facility; 181 → the supplier's
+  VAT / AIT recorded on the goods receipt as data (not in what is owed); 182–184 as recorded; 185 → counting does not
+  stop the counter, and a count still being entered when its counter's shift closes is ended with the reason and
+  flagged for the owner; 186 → the one self-approval rule (234), confirmed on the owner's exceptions list.
+
+### Chosen in the session (Kamrul to confirm)
+318. **The day's total (179) leaves out orders the owner / admin approved or sent themselves.** Otherwise one approved
+     ৳60,000 order would make every later small order to that supplier that day ask again. Splitting into unapproved
+     orders still asks.
+319. **The tolerance (180) is on the line's money, either direction**: |bill cost − order cost| × billed quantity against
+     min(2 % of the line at the order's cost, ৳50). A cheaper bill is a variance too. It is edited through the facility
+     settings API with a reason; the admin settings screen does not show it yet.
+320. **A count is ended only when its own counter's shift closes**, and only counts that person started (the shift
+     holder's); a ward nurse's count is not tied to a shift. A submitted count is not ended (it waits for the owner).
+

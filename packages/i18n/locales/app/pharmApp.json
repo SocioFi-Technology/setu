@@ -800,8 +800,8 @@
     "A batch expires within 6 months — the owner or an admin posts it"
   ],
   "post_b_price_variance_needs_owner": [
-    "চালানের দাম অর্ডার থেকে আলাদা — মালিক বা অ্যাডমিন পোস্ট করবেন",
-    "The bill's price differs from the order — the owner or an admin posts it"
+    "চালানের দাম অর্ডার থেকে সীমার বেশি আলাদা — মালিক বা অ্যাডমিন পোস্ট করবেন",
+    "The bill's price differs from the order beyond the tolerance — the owner or an admin posts it"
   ],
   "post_note": [
     "নোট",
@@ -1082,5 +1082,37 @@
   "take_home": [
     "বাড়ির ওষুধ (ছুটি)",
     "Take-home (discharge)"
+  ],
+  "supplier_day": [
+    "আজ এই সরবরাহকারীকে আগেই পাঠানো {t} — সীমা দুটো মিলিয়ে ধরা হয়",
+    "{t} already sent to this supplier today — the limit counts both"
+  ],
+  "within_tolerance": [
+    "সীমার মধ্যে ({t} পর্যন্ত)",
+    "within the tolerance (up to {t})"
+  ],
+  "supplier_vat_tk": [
+    "চালানে ভ্যাট (৳)",
+    "VAT on the bill (৳)"
+  ],
+  "supplier_ait_tk": [
+    "চালানে এআইটি (৳)",
+    "AIT on the bill (৳)"
+  ],
+  "supplier_tax_hint": [
+    "শুধু রেকর্ড — পাওনায় যোগ হয় না",
+    "Recorded only — not added to what is owed"
+  ],
+  "supplier_tax": [
+    "চালানে ভ্যাট {vat} · এআইটি {ait} (শুধু রেকর্ড)",
+    "VAT {vat} · AIT {ait} on the bill (recorded only)"
+  ],
+  "cs_abandoned": [
+    "শিফট শেষে বন্ধ",
+    "Ended at shift close"
+  ],
+  "decided_abandoned": [
+    "গণনা শেষ হওয়ার আগে {name}-এর শিফট হস্তান্তর হয়েছে · {at} — মালিককে জানানো হয়েছে; আবার গণনা করা যায়",
+    "{name}'s shift was handed over before the count was finished · {at} — the owner is told; the location can be counted again"
   ]
 }

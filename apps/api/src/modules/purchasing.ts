@@ -16,9 +16,9 @@ import type {
 } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
-  APPROVAL, GOODS_RECEIPT, PO_APPROVAL_PAISA_SAMPLE, PURCHASE_ORDER, STOCK_COUNT, MEDICINES_SAMPLE, batchState, countDecisionBlockers, countSubmitBlockers, dhakaDay,
-  grnLineBlockers, grnMoney, grnPostBlockers, isStockApprover, isCountApprover, countApproverRoles, isWardLocation, poEventAfterReceipt, poSendBlockers, poTotalPaisa, priceVariance, shortExpiry, supplierOwedPaisa, transition, withinMoneyRange,
-  type GrnLine, type PurchaseOrderState, type Role, type SupplierEntryKind,
+  APPROVAL, GOODS_RECEIPT, PO_APPROVAL_PAISA_SAMPLE, PURCHASE_ORDER, STOCK_COUNT, MEDICINES_SAMPLE, batchState, countDecisionBlockers, countSubmitBlockers, dhakaDay, dhakaMidnight,
+  grnLineBlockers, grnMoney, grnPostBlockers, isStockApprover, isCountApprover, countApproverRoles, isWardLocation, lineTolerancePaisa, poEventAfterReceipt, poSendBlockers, poTotalPaisa, priceBeyondTolerance, priceVariance, shortExpiry, supplierOwedPaisa, transition, withinMoneyRange,
+  type GrnLine, type GrnTolerance, type PurchaseOrderState, type Role, type SupplierEntryKind,
 } from "@setu/domain";
 import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
@@ -116,25 +116,43 @@ const openApproval = (tx: Tx, id: string) => tx.task.findFirst({ where: { kind: 
 async function approvalFor(tx: Tx, po: Po) {
   return tx.task.findFirst({ where: { kind: PO_APPROVAL_TASK, focusId: po.id }, orderBy: { requestedAt: "desc" } });
 }
+/** Decision 179 (external review A6): what this facility already sent to the supplier today (Dhaka) without an
+    approver's eye — other orders, not cancelled, neither approved by the owner / admin nor sent by one. Splitting one
+    need into several orders under the limit therefore still asks; an order the owner already approved does not make
+    every later small order of the day ask again. */
+async function supplierDayPaisa(tx: Tx, s: SessionData, po: Po, now: Date) {
+  const day = dhakaDay(now), from = dhakaMidnight(day), to = new Date(from.getTime() + 864e5);
+  const sent = await tx.purchaseOrder.findMany({ where: { organizationId: s.organizationId, supplierId: po.supplierId, id: { not: po.id }, status: { in: ["sent", "partially_received", "received"] }, sentAt: { gte: from, lt: to } }, select: { id: true, totalPaisa: true, sentById: true } });
+  if (!sent.length) return 0;
+  const approved = new Set((await tx.task.findMany({ where: { kind: PO_APPROVAL_TASK, status: "approved", focusId: { in: sent.map((x) => x.id) } }, select: { focusId: true } })).map((t) => t.focusId));
+  const approvers = new Set((await tx.practitionerRole.findMany({ where: { organizationId: s.organizationId, role: { in: ["owner", "admin"] }, userId: { in: sent.flatMap((x) => (x.sentById ? [x.sentById] : [])) } }, select: { userId: true } })).map((r) => r.userId));
+  return sent.filter((x) => !approved.has(x.id) && !(x.sentById && approvers.has(x.sentById))).reduce((a, x) => a + x.totalPaisa, 0);
+}
+/** Decision 180: the facility's receipt price tolerance. */
+async function toleranceOf(tx: Tx, s: SessionData): Promise<GrnTolerance> {
+  const o = await tx.organization.findFirst({ where: { id: s.organizationId }, select: { grnToleranceBp: true, grnTolerancePaisa: true } });
+  return { bp: o?.grnToleranceBp ?? 0, paisa: o?.grnTolerancePaisa ?? 0 };
+}
 
-export async function poView(tx: Tx, s: SessionData, po: Po): Promise<PurchaseOrderView> {
-  const [lines, supplier, task, receipts] = await Promise.all([
+export async function poView(tx: Tx, s: SessionData, po: Po, now = new Date()): Promise<PurchaseOrderView> {
+  const [lines, supplier, task, receipts, dayPaisa] = await Promise.all([
     tx.purchaseOrderLine.findMany({ where: { orderId: po.id }, orderBy: { position: "asc" } }),
     tx.supplier.findFirst({ where: { id: po.supplierId } }),
     approvalFor(tx, po),
     tx.goodsReceipt.findMany({ where: { orderId: po.id }, orderBy: { createdAt: "asc" } }),
+    supplierDayPaisa(tx, s, po, po.sentAt ?? now),
   ]);
   const who = await people(tx, [po.createdById, po.sentById, task?.requestedById, task?.decidedById]);
   const approvedForRev = task?.status === "approved" && (task.detail as { rev?: number } | null)?.rev === po.rev;
   const sendBlockers = po.status !== "draft" ? [] : task?.status === "requested" ? ["approval_pending" as const]
-    : poSendBlockers({ lines, role: s.role as Role, approved: approvedForRev });
+    : poSendBlockers({ lines, role: s.role as Role, approved: approvedForRev, supplierDayPaisa: dayPaisa });
   return {
     id: po.id, number: po.number, status: dash<PurchaseOrderState>(po.status), rev: po.rev,
     supplier: { id: po.supplierId, name: supplier?.name ?? "—" }, totalPaisa: po.totalPaisa, note: po.note, endReason: po.cancelReason,
     lines: lines.map((l) => ({ id: l.id, position: l.position, medicine: medRef(l.medicineKey), qty: l.qty, costPaisa: l.costPaisa, receivedQty: l.receivedQty })),
     approval: task ? { taskId: task.id, status: task.status as "requested" | "approved" | "rejected", requestedBy: who(task.requestedById), requestedAt: task.requestedAt.toISOString(),
       decidedBy: task.decidedById ? who(task.decidedById) : null, decidedAt: iso(task.decidedAt), note: task.decisionNote } : null,
-    sendBlockers, approvalThresholdPaisa: PO_APPROVAL_PAISA_SAMPLE,
+    sendBlockers, approvalThresholdPaisa: PO_APPROVAL_PAISA_SAMPLE, supplierDayPaisa: dayPaisa,
     receipts: receipts.map((r) => ({ id: r.id, number: r.number, status: r.status, postedAt: iso(r.postedAt) })),
     createdBy: who(po.createdById), createdAt: po.createdAt.toISOString(), sentBy: po.sentById ? who(po.sentById) : null, sentAt: iso(po.sentAt),
   };
@@ -179,14 +197,17 @@ async function doSend(tx: Tx, s: SessionData, po: Po, now: Date) {
 /** Send, or — above the threshold, for the pharmacist — ask the owner / admin (an APPROVAL Task; the order waits). */
 export async function sendPo(tx: Tx, s: SessionData, id: string, rev: number, now: Date): Promise<{ po: Po; outcome: "sent" | "approval-requested"; audit: AuditEntry[] }> {
   const po = await draftPo(tx, s, id, rev);
+  // decision 179: one supplier's orders of the day are judged together — two sends to the same supplier wait for each other
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(7012, hashtext(${`${s.organizationId}:${po.supplierId}`}))`;
   const lines = await tx.purchaseOrderLine.findMany({ where: { orderId: po.id } });
   const task = await approvalFor(tx, po);
   const approved = task?.status === "approved" && (task.detail as { rev?: number } | null)?.rev === po.rev;
-  const b = poSendBlockers({ lines, role: s.role as Role, approved });
+  const dayPaisa = await supplierDayPaisa(tx, s, po, now);
+  const b = poSendBlockers({ lines, role: s.role as Role, approved, supplierDayPaisa: dayPaisa });
   if (b.includes("no_lines")) throw err(422, "no_lines", "অর্ডারে কোনো লাইন নেই", "The order has no lines");
   if (b.includes("approval_required")) {
-    const t = await tx.task.create({ data: { tenantId: s.tenantId, kind: PO_APPROVAL_TASK, status: "requested", focusId: po.id, reason: `Purchase order ${po.totalPaisa} paisa above ${PO_APPROVAL_PAISA_SAMPLE}`, detail: { rev: po.rev, totalPaisa: po.totalPaisa } as object, requestedById: s.userId, requestedAt: now } });
-    return { po, outcome: "approval-requested", audit: [{ action: "create", entity: "Task", entityId: t.id, detail: { kind: PO_APPROVAL_TASK, orderId: po.id, totalPaisa: po.totalPaisa } }] };
+    const t = await tx.task.create({ data: { tenantId: s.tenantId, kind: PO_APPROVAL_TASK, status: "requested", focusId: po.id, reason: `Purchase order ${po.totalPaisa} paisa (${dayPaisa} paisa already sent to this supplier today) above ${PO_APPROVAL_PAISA_SAMPLE}`, detail: { rev: po.rev, totalPaisa: po.totalPaisa, supplierDayPaisa: dayPaisa } as object, requestedById: s.userId, requestedAt: now } });
+    return { po, outcome: "approval-requested", audit: [{ action: "create", entity: "Task", entityId: t.id, detail: { kind: PO_APPROVAL_TASK, orderId: po.id, totalPaisa: po.totalPaisa, supplierDayPaisa: dayPaisa } }] };
   }
   await doSend(tx, s, po, now);
   return { po: (await tx.purchaseOrder.findFirst({ where: { id: po.id } }))!, outcome: "sent", audit: [{ action: "update", entity: "PurchaseOrder", entityId: po.id, detail: { event: "send", totalPaisa: po.totalPaisa, approvedBy: approved ? task!.decidedById : null } }] };
@@ -221,8 +242,8 @@ export async function endPo(tx: Tx, s: SessionData, id: string, how: "cancel" | 
   const to = undash<"cancelled" | "received">(transition("PURCHASE_ORDER", PURCHASE_ORDER, dash<PurchaseOrderState>(po.status), how));
   const n = await tx.purchaseOrder.updateMany({ where: { id: po.id, rev: po.rev, status: po.status }, data: { status: to, cancelReason: reason.trim(), rev: po.rev + 1, statusAt: now } });
   if (n.count !== 1) throw stale();
-  // a cancelled order's open approval request is closed with it (audited by the route with the cancel)
-  await tx.task.updateMany({ where: { kind: PO_APPROVAL_TASK, focusId: po.id, status: "requested" }, data: { status: "rejected", decidedById: s.userId, decidedAt: now, decisionNote: "order cancelled" } });
+  // a cancelled order's open approval request is closed with it through the APPROVAL machine (audited by the route with the cancel)
+  await tx.task.updateMany({ where: { kind: PO_APPROVAL_TASK, focusId: po.id, status: "requested" }, data: { status: transition("APPROVAL", APPROVAL, "requested", "reject"), decidedById: s.userId, decidedAt: now, decisionNote: "order cancelled" } });
   return (await tx.purchaseOrder.findFirst({ where: { id: po.id } }))!;
 }
 
@@ -253,7 +274,7 @@ async function grnLines(tx: Tx, g: Grn) {
 }
 export async function grnView(tx: Tx, s: SessionData, g: Grn, now: Date): Promise<GoodsReceiptView> {
   const today = dhakaDay(now);
-  const [lines, po, supplier] = await Promise.all([grnLines(tx, g), tx.purchaseOrder.findFirst({ where: { id: g.orderId } }), tx.supplier.findFirst({ where: { id: g.supplierId } })]);
+  const [lines, po, supplier, tolerance] = await Promise.all([grnLines(tx, g), tx.purchaseOrder.findFirst({ where: { id: g.orderId } }), tx.supplier.findFirst({ where: { id: g.supplierId } }), toleranceOf(tx, s)]);
   const who = await people(tx, [g.createdById, g.postedById]);
   return {
     id: g.id, number: g.number, status: g.status, rev: g.rev,
@@ -263,10 +284,11 @@ export async function grnView(tx: Tx, s: SessionData, g: Grn, now: Date): Promis
       id: l.id, orderLineId: l.orderLineId, medicine: medRef(l.medicineKey), batchNo: l.batchNo, expiry: l.expiry, invoicedQty: l.invoicedQty, receivedQty: l.receivedQty,
       costPaisa: l.costPaisa, mrpPaisa: l.mrpPaisa, vatRateBp: l.vatRateBp, location: l.location as "counter" | "store" | "fridge",
       shortExpiry: shortExpiry(l.expiry, today), blockers: g.status === "checking" ? grnLineBlockers(d, today) : [],
-      orderCostPaisa: d.orderCostPaisa, priceVariance: priceVariance(d),
+      orderCostPaisa: d.orderCostPaisa, priceVariance: priceVariance(d), priceBeyondTolerance: priceBeyondTolerance(d, tolerance), tolerancePaisa: lineTolerancePaisa(d, tolerance),
     })),
+    supplierVatPaisa: g.supplierVatPaisa, supplierAitPaisa: g.supplierAitPaisa, tolerance,
     money: g.status === "posted" ? { invoicedPaisa: g.invoicedPaisa, debitNotePaisa: g.debitNotePaisa, owedPaisa: g.invoicedPaisa - g.debitNotePaisa } : grnMoney(lines.map((x) => x.d)),
-    postBlockers: g.status === "checking" ? grnPostBlockers({ lines: lines.map((x) => x.d), role: s.role as Role, today }) : [],
+    postBlockers: g.status === "checking" ? grnPostBlockers({ lines: lines.map((x) => x.d), role: s.role as Role, today, tolerance }) : [],
     createdBy: who(g.createdById), createdAt: g.createdAt.toISOString(), postedBy: g.postedById ? who(g.postedById) : null, postedAt: iso(g.postedAt),
   };
 }
@@ -322,17 +344,18 @@ export async function batchFor(tx: Tx, s: { tenantId: string; organizationId: st
   }
   return tx.stockBatch.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, medicineKey: l.medicineKey, batchNo: l.batchNo, expiry: l.expiry, location: l.location, costPaisa: l.costPaisa, mrpPaisa: l.mrpPaisa, vatRateBp: l.vatRateBp, sample } });
 }
-export async function postGrn(tx: Tx, s: SessionData, id: string, rev: number, note: string | undefined, now: Date): Promise<{ g: Grn; audit: AuditEntry[] }> {
+export async function postGrn(tx: Tx, s: SessionData, id: string, rev: number, note: string | undefined, now: Date, tax: { supplierVatPaisa?: number; supplierAitPaisa?: number } = {}): Promise<{ g: Grn; audit: AuditEntry[] }> {
   const g = await checkingGrn(tx, s, id, rev);
   const po = await poHere(tx, s, g.orderId, true);
   if (po.status !== "sent" && po.status !== "partially_received") throw err(409, "order_not_open", "এই অর্ডারে মাল গ্রহণ করা যায় না", "This order is not open for goods");
   const today = dhakaDay(now);
   const lines = await grnLines(tx, g);
-  const b = grnPostBlockers({ lines: lines.map((x) => x.d), role: s.role as Role, today });
+  const tolerance = await toleranceOf(tx, s);
+  const b = grnPostBlockers({ lines: lines.map((x) => x.d), role: s.role as Role, today, tolerance });
   if (b.length) {
     const owner = b.find((x) => x === "short_expiry_needs_owner" || x === "price_variance_needs_owner");
     const [bn, en] = owner === "short_expiry_needs_owner" ? ["৬ মাসের মধ্যে মেয়াদ শেষ — মালিক বা অ্যাডমিন পোস্ট করবেন", "A batch expires within 6 months — the owner or an admin posts it"]
-      : owner ? ["চালানের দাম অর্ডারের দাম থেকে আলাদা — মালিক বা অ্যাডমিন পোস্ট করবেন", "The bill's unit cost differs from the order — the owner or an admin posts it"]
+      : owner ? ["চালানের দাম অর্ডারের দাম থেকে সীমার বেশি আলাদা — মালিক বা অ্যাডমিন পোস্ট করবেন", "The bill's unit cost differs from the order beyond the tolerance — the owner or an admin posts it"]
       : ["মাল গ্রহণ পোস্ট করা যাচ্ছে না", "The goods receipt cannot be posted yet"];
     throw err(owner && !b.includes("line_invalid") && !b.includes("no_lines") ? 403 : 422, owner && !b.includes("line_invalid") && !b.includes("no_lines") ? owner : "post_blocked", bn, en, { blockers: b.map((code) => ({ code })) });
   }
@@ -344,7 +367,8 @@ export async function postGrn(tx: Tx, s: SessionData, id: string, rev: number, n
     await tx.purchaseOrderLine.update({ where: { id: l.orderLineId }, data: { receivedQty: { increment: l.receivedQty } } });
   }
   const money = grnMoney(lines.map((x) => x.d));
-  const posted = await bumpGrn(tx, g, { status: transition("GOODS_RECEIPT", GOODS_RECEIPT, "checking", "post"), number: await nextNumber(tx, s, "GRN", now), postedById: s.userId, postedAt: now, statusAt: now, invoicedPaisa: money.invoicedPaisa, debitNotePaisa: money.debitNotePaisa, note: note?.trim() || null });
+  const posted = await bumpGrn(tx, g, { status: transition("GOODS_RECEIPT", GOODS_RECEIPT, "checking", "post"), number: await nextNumber(tx, s, "GRN", now), postedById: s.userId, postedAt: now, statusAt: now, invoicedPaisa: money.invoicedPaisa, debitNotePaisa: money.debitNotePaisa, note: note?.trim() || null,
+    supplierVatPaisa: tax.supplierVatPaisa ?? 0, supplierAitPaisa: tax.supplierAitPaisa ?? 0 });
   const entry = (kind: SupplierEntryKind, amountPaisa: number) => tx.supplierEntry.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, supplierId: g.supplierId, kind, amountPaisa, refType: "grn", refId: g.id, note: kind === "debit-note" ? "short delivery" : g.supplierInvoiceNo, byId: s.userId, at: now } });
   if (money.invoicedPaisa > 0) await entry("goods-received", money.invoicedPaisa);
   if (money.debitNotePaisa > 0) await entry("debit-note", money.debitNotePaisa);
@@ -352,7 +376,9 @@ export async function postGrn(tx: Tx, s: SessionData, id: string, rev: number, n
   const to = undash<"received">(transition("PURCHASE_ORDER", PURCHASE_ORDER, dash<PurchaseOrderState>(po.status), poEventAfterReceipt(olines)));
   await tx.purchaseOrder.update({ where: { id: po.id }, data: { status: to, statusAt: now, rev: { increment: 1 } } });
   return { g: posted, audit: [{ action: "update", entity: "GoodsReceipt", entityId: g.id, detail: {
-    event: "post", number: posted.number, orderId: po.id, ...money, lines: lines.map(({ row: l, d }) => ({ medicineKey: l.medicineKey, batchNo: l.batchNo, expiry: l.expiry, receivedQty: l.receivedQty, shortExpiry: shortExpiry(l.expiry, today), costPaisa: l.costPaisa, orderCostPaisa: d.orderCostPaisa })),
+    event: "post", number: posted.number, orderId: po.id, ...money, supplierVatPaisa: posted.supplierVatPaisa, supplierAitPaisa: posted.supplierAitPaisa, tolerance,
+    lines: lines.map(({ row: l, d }) => ({ medicineKey: l.medicineKey, batchNo: l.batchNo, expiry: l.expiry, receivedQty: l.receivedQty, shortExpiry: shortExpiry(l.expiry, today), costPaisa: l.costPaisa, orderCostPaisa: d.orderCostPaisa,
+      ...(priceVariance(d) ? { withinTolerance: !priceBeyondTolerance(d, tolerance) } : {}) })),
   } }] };
 }
 
@@ -484,6 +510,23 @@ export async function decideCount(tx: Tx, s: SessionData, id: string, req: Appro
   return { c: done, audit: [{ action: req.decision, entity: "StockCount", entityId: c.id, detail: { note: note || null, adjustments: moves, ...(self ? { selfApproved: true, flag: "self-approved" } : {}) } }] };
 }
 
+/** External review A6: a count this person is still entering when their shift closes is ended (STOCK_COUNT counting →
+    abandoned) with the reason, in the same transaction as the shift's hand-over; the owner sees it on the exceptions list
+    and as a flagged audit event. Nothing moves — the location can be counted again. */
+export const COUNT_ABANDONED_NOTE = "ended at shift close: still being counted when the counter's shift was handed over";
+export async function abandonCountsAtShiftClose(tx: Tx, s: SessionData, shiftId: string, now: Date): Promise<AuditEntry[]> {
+  const open = await tx.stockCount.findMany({ where: { organizationId: s.organizationId, createdById: s.userId, status: "counting" }, select: { id: true } });
+  const out: AuditEntry[] = [];
+  for (const { id } of open) {
+    const c = await countHere(tx, s, id, true);
+    if (c.status !== "counting") continue;
+    const lines = await tx.stockCountLine.findMany({ where: { countId: c.id } });
+    await bumpCount(tx, c, { status: transition("STOCK_COUNT", STOCK_COUNT, "counting", "abandon"), decidedById: s.userId, decidedAt: now, decisionNote: COUNT_ABANDONED_NOTE, statusAt: now });
+    out.push({ action: "count-abandoned", entity: "StockCount", entityId: c.id, detail: { location: c.location, shiftId, reason: COUNT_ABANDONED_NOTE, linesCounted: lines.filter((l) => l.countedQty !== null).length, lines: lines.length, flag: "count-abandoned" } });
+  }
+  return out;
+}
+
 /* ───── transfers ───── */
 export async function transfer(tx: Tx, s: SessionData, req: TransferRequest, now: Date): Promise<{ from: string; to: string; audit: AuditEntry[] }> {
   const src = await tx.stockBatch.findFirst({ where: { id: req.batchId, organizationId: s.organizationId } });
@@ -507,15 +550,17 @@ async function ownerOnlyReceipts(tx: Tx, s: SessionData, status: ApprStatus, now
   const today = dhakaDay(now);
   const rows = await tx.goodsReceipt.findMany({
     where: { organizationId: s.organizationId, ...(status === "requested" ? { status: "checking" as const } : { status: "posted" as const, postedAt: { gte: new Date(now.getTime() - 30 * 864e5) } }) },
-    include: { lines: { select: { expiry: true, costPaisa: true, orderLineId: true } } }, orderBy: { createdAt: "desc" }, take: 100,
+    include: { lines: { select: { expiry: true, costPaisa: true, orderLineId: true, invoicedQty: true } } }, orderBy: { createdAt: "desc" }, take: 100,
   });
   const orderCost = new Map((await tx.purchaseOrderLine.findMany({ where: { id: { in: rows.flatMap((g) => g.lines.map((l) => l.orderLineId)) } }, select: { id: true, costPaisa: true } })).map((l) => [l.id, l.costPaisa]));
+  const tolerance = await toleranceOf(tx, s);
   // a posted receipt's short expiry is judged on the day it was posted
   return rows.map((g) => {
     const on = g.postedAt ? dhakaDay(g.postedAt) : today;
     const reasons: ("short-expiry" | "price-variance")[] = [];
     if (g.lines.some((l) => shortExpiry(l.expiry, on))) reasons.push("short-expiry");
-    if (g.lines.some((l) => orderCost.get(l.orderLineId) !== l.costPaisa)) reasons.push("price-variance");
+    // decision 180: within the facility's tolerance the pharmacist posts it — only a variance beyond it is the owner's
+    if (g.lines.some((l) => priceBeyondTolerance({ costPaisa: l.costPaisa, orderCostPaisa: orderCost.get(l.orderLineId) ?? l.costPaisa, invoicedQty: l.invoicedQty }, tolerance))) reasons.push("price-variance");
     return { g, reasons };
   }).filter((x) => x.reasons.length > 0);
 }

@@ -270,9 +270,11 @@ export const PURCHASE_ORDER: Table<PurchaseOrderState, PurchaseOrderEvent> = {
 export type GoodsReceiptState = "checking" | "posted" | "discarded";
 export type GoodsReceiptEvent = "post" | "discard";
 export const GOODS_RECEIPT: Table<GoodsReceiptState, GoodsReceiptEvent> = { checking: { post: "posted", discard: "discarded" }, posted: {}, discarded: {} };
-export type StockCountState = "counting" | "submitted" | "approved" | "rejected";
-export type StockCountEvent = "submit" | "approve" | "reject";
-export const STOCK_COUNT: Table<StockCountState, StockCountEvent> = { counting: { submit: "submitted" }, submitted: { approve: "approved", reject: "rejected" }, approved: {}, rejected: {} };
+export type StockCountState = "counting" | "submitted" | "approved" | "rejected" | "abandoned";
+export type StockCountEvent = "submit" | "approve" | "reject" | "abandon";
+/** external review A6: a count still being entered when its counter's shift closes is ended (`abandon`, with the reason,
+    flagged for the owner) — nothing moves; the location can be counted again. */
+export const STOCK_COUNT: Table<StockCountState, StockCountEvent> = { counting: { submit: "submitted", abandon: "abandoned" }, submitted: { approve: "approved", reject: "rejected" }, approved: {}, rejected: {}, abandoned: {} };
 
 export type SyncState = "local" | "pending" | "confirmed" | "conflict" | "failed-retry";
 export type SyncEvent = "queue" | "ack" | "conflict" | "fail" | "retry" | "resolve";

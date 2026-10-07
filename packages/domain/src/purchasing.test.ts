@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GOODS_RECEIPT, PURCHASE_ORDER, STOCK_COUNT, TransitionError, transition } from "./machines.js";
 import {
-  PO_APPROVAL_PAISA_SAMPLE, countDecisionBlockers, isCountApprover, countSubmitBlockers, countVariance, grnLineBlockers, grnMoney, grnPostBlockers, poEventAfterReceipt, poSendBlockers,
+  DEFAULT_GRN_TOLERANCE, PO_APPROVAL_PAISA_SAMPLE, countDecisionBlockers, lineTolerancePaisa, priceBeyondTolerance, toleranceOk, isCountApprover, countSubmitBlockers, countVariance, grnLineBlockers, grnMoney, grnPostBlockers, poEventAfterReceipt, poSendBlockers,
   shortExpiry, supplierOwedPaisa,
 } from "./purchasing.js";
 
@@ -22,6 +22,10 @@ describe("machines (ADR 0009)", () => {
     expect(() => transition("grn", GOODS_RECEIPT, "posted", "discard")).toThrow(TransitionError);
     expect(transition("count", STOCK_COUNT, "submitted", "approve")).toBe("approved");
     expect(() => transition("count", STOCK_COUNT, "counting", "approve")).toThrow(TransitionError);
+    // external review A6: a count left in progress at its counter's shift close is ended, never decided
+    expect(transition("count", STOCK_COUNT, "counting", "abandon")).toBe("abandoned");
+    expect(() => transition("count", STOCK_COUNT, "submitted", "abandon")).toThrow(TransitionError);
+    expect(() => transition("count", STOCK_COUNT, "abandoned", "submit")).toThrow(TransitionError);
   });
 });
 
@@ -35,6 +39,14 @@ describe("purchase orders", () => {
     expect(poSendBlockers({ lines: big, role: "owner", approved: false })).toEqual([]);
     expect(poSendBlockers({ lines: [line(100, 600)], role: "pharmacist", approved: false })).toEqual([]);
     expect(poSendBlockers({ lines: [], role: "owner", approved: false })).toEqual(["no_lines"]);
+  });
+  it("decision 179: the threshold is on the day's total to one supplier — two ৳30,000 orders the same day, the second asks", () => {
+    const half = [line(5_000, 600)]; // ৳30,000
+    expect(poSendBlockers({ lines: half, role: "pharmacist", approved: false, supplierDayPaisa: 0 })).toEqual([]);
+    expect(poSendBlockers({ lines: half, role: "pharmacist", approved: false, supplierDayPaisa: 3_000_000 })).toEqual(["approval_required"]);
+    expect(poSendBlockers({ lines: half, role: "pharmacist", approved: false, supplierDayPaisa: 2_000_000 })).toEqual([]); // exactly ৳50,000
+    expect(poSendBlockers({ lines: half, role: "owner", approved: false, supplierDayPaisa: 3_000_000 })).toEqual([]);
+    expect(poSendBlockers({ lines: half, role: "pharmacist", approved: true, supplierDayPaisa: 3_000_000 })).toEqual([]);
   });
   it("after a posting: all lines in full → received, otherwise partially received", () => {
     expect(poEventAfterReceipt([{ qty: 100, receivedQty: 100 }, { qty: 50, receivedQty: 50 }])).toBe("receiveAll");
@@ -65,6 +77,26 @@ describe("goods received (prototype Purchase › Goods received)", () => {
   it("a bill at another unit cost than the order is posted only by the owner / admin (it changes what is owed)", () => {
     expect(grnPostBlockers({ lines: [{ ...L, costPaisa: 3400, mrpPaisa: 4000 }], role: "pharmacist", today })).toEqual(["price_variance_needs_owner"]);
     expect(grnPostBlockers({ lines: [{ ...L, costPaisa: 3400, mrpPaisa: 4000 }], role: "owner", today })).toEqual([]);
+  });
+  it("decision 180: within min(2 %, ৳50) per line the pharmacist posts it; beyond, the owner / admin", () => {
+    const T = DEFAULT_GRN_TOLERANCE;
+    expect(T).toEqual({ bp: 200, paisa: 5_000 });
+    // 100 × ৳3.40 = ৳340 at the order's cost: 2 % = ৳6.80 < ৳50 → ৳6.80 allowed
+    expect(lineTolerancePaisa(L, T)).toBe(680);
+    expect(priceBeyondTolerance({ ...L, costPaisa: 346 }, T)).toBe(false); // ৳6.00 over
+    expect(priceBeyondTolerance({ ...L, costPaisa: 347 }, T)).toBe(true); // ৳7.00 over
+    expect(priceBeyondTolerance({ ...L, costPaisa: 333 }, T)).toBe(true); // ৳7.00 under: a variance either way
+    expect(grnPostBlockers({ lines: [{ ...L, costPaisa: 346 }], role: "pharmacist", today, tolerance: T })).toEqual([]);
+    expect(grnPostBlockers({ lines: [{ ...L, costPaisa: 347 }], role: "pharmacist", today, tolerance: T })).toEqual(["price_variance_needs_owner"]);
+    // a big line: 10,000 × ৳30 = ৳300,000 → 2 % = ৳6,000, capped at ৳50
+    const big = { ...L, orderedQty: 10_000, invoicedQty: 10_000, receivedQty: 10_000, costPaisa: 3_000, orderCostPaisa: 3_000, mrpPaisa: 4_000 };
+    expect(lineTolerancePaisa(big, T)).toBe(5_000);
+    expect(priceBeyondTolerance({ ...big, costPaisa: 3_001 }, T)).toBe(true); // ৳100 over
+    // no tolerance given (a facility set to zero): any difference needs the owner
+    expect(grnPostBlockers({ lines: [{ ...L, costPaisa: 341 }], role: "pharmacist", today })).toEqual(["price_variance_needs_owner"]);
+    expect(toleranceOk(T)).toBe(true);
+    expect(toleranceOk({ bp: 1001, paisa: 0 })).toBe(false);
+    expect(toleranceOk({ bp: 100, paisa: -1 })).toBe(false);
   });
   it("a short delivery becomes a debit note: billed 100 × ৳3.40, received 90 → owed ৳306, debit note ৳34", () => {
     expect(grnMoney([{ invoicedQty: 100, receivedQty: 90, costPaisa: 340 }])).toEqual({ invoicedPaisa: 34_000, debitNotePaisa: 3_400, owedPaisa: 30_600 });

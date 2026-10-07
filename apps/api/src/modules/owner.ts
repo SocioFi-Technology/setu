@@ -27,6 +27,8 @@ export interface DayMetrics {
   scanOverride?: { count: number; paisa: number };
   /** ADR 0016 review: doses given from the patient's own supply (no medicine scan, no ward stock) */
   ownSupply?: { count: number; paisa: number };
+  /** external review A6: stock counts ended because the counter's shift closed while they were being entered (no money) */
+  countAbandoned?: { count: number; paisa: number };
 }
 /** Dhaka day D runs from D 00:00 +06 to D+1 00:00 +06. */
 export const dayBounds = (day: string) => { const from = new Date(Date.parse(`${day}T00:00:00+06:00`)); return { from, to: new Date(from.getTime() + 864e5) }; };
@@ -91,7 +93,7 @@ export async function computeDay(tx: Tx, organizationId: string, day: string, un
         WHERE s."organizationId" = p."organizationId" AND s."cashierId" = p."createdById" AND s."openedAt" <= p."confirmedAt"
           AND (s."status" = 'open' OR c."windowTo" >= p."confirmedAt"))`;
   // ADR 0013: refunds — money out by the day it was paid back; refunds completed; wrong-dispense returns (medication incidents)
-  const [rf] = await tx.$queryRaw<{ out: bigint; n: bigint; paisa: bigint; cr: bigint; crPaisa: bigint; inc: bigint; incPaisa: bigint; self: bigint; selfPaisa: bigint }[]>`
+  const [rf] = await tx.$queryRaw<{ out: bigint; n: bigint; paisa: bigint; cr: bigint; crPaisa: bigint; inc: bigint; incPaisa: bigint; self: bigint; selfPaisa: bigint; abandoned: bigint }[]>`
     SELECT (SELECT coalesce(sum(a."amountPaisa"), 0) FROM "RefundAllocation" a JOIN "Refund" r ON r."id" = a."refundId"
              WHERE r."organizationId" = ${org} AND a."status" = 'paid' AND a."paidAt" >= ${from} AND a."paidAt" < ${to}) AS out,
            (SELECT count(*) FROM "Refund" WHERE "organizationId" = ${org} AND "kind" = 'refund' AND "status" = 'paid' AND "paidAt" >= ${from} AND "paidAt" < ${to}) AS n,
@@ -105,12 +107,13 @@ export async function computeDay(tx: Tx, organizationId: string, day: string, un
              WHERE m."organizationId" = ${org} AND m."kind" = 'return' AND m."refType" = 'refund-line' AND r."category" = 'wrong-dispense' AND m."at" >= ${from} AND m."at" < ${to}) AS "incPaisa",
            (SELECT count(*) FROM "Refund" WHERE "organizationId" = ${org} AND "selfApproved" AND "decidedAt" >= ${from} AND "decidedAt" < ${to})
              + (SELECT count(*) FROM "StockCount" WHERE "organizationId" = ${org} AND "selfApproved" AND "decidedAt" >= ${from} AND "decidedAt" < ${to}) AS self,
-           (SELECT coalesce(sum("amountPaisa"), 0) FROM "Refund" WHERE "organizationId" = ${org} AND "selfApproved" AND "decidedAt" >= ${from} AND "decidedAt" < ${to}) AS "selfPaisa"`;
+           (SELECT coalesce(sum("amountPaisa"), 0) FROM "Refund" WHERE "organizationId" = ${org} AND "selfApproved" AND "decidedAt" >= ${from} AND "decidedAt" < ${to}) AS "selfPaisa",
+           (SELECT count(*) FROM "StockCount" WHERE "organizationId" = ${org} AND "status" = 'abandoned' AND "decidedAt" >= ${from} AND "decidedAt" < ${to}) AS abandoned`;
   const [so] = await tx.$queryRaw<{ n: bigint; own: bigint }[]>`
     SELECT count(*) FILTER (WHERE "scanOverrideReason" IS NOT NULL) AS n, count(*) FILTER (WHERE "source" = 'patient-supplied' AND "status" = 'given') AS own
     FROM "MedicationAdministration" WHERE "organizationId" = ${org} AND "administeredAt" >= ${from} AND "administeredAt" < ${to}`;
   return {
-    scanOverride: { count: n(so?.n), paisa: 0 }, ownSupply: { count: n(so?.own), paisa: 0 },
+    scanOverride: { count: n(so?.n), paisa: 0 }, ownSupply: { count: n(so?.own), paisa: 0 }, countAbandoned: { count: n(rf?.abandoned), paisa: 0 },
     refundsPaisa: n(rf?.out), refundsPaid: { count: n(rf?.n), paisa: n(rf?.paisa) }, medicationIncident: { count: n(rf?.inc), paisa: n(rf?.incPaisa) }, selfApproved: { count: n(rf?.self), paisa: n(rf?.selfPaisa) }, creditReturns: { count: n(rf?.cr), paisa: n(rf?.crPaisa) },
     revenuePaisa: hours(rev).reduce((a, b) => a + b, 0), revenueByHour: hours(rev),
     collectionsPaisa: hours(col).reduce((a, b) => a + b, 0), collectionsByHour: hours(col),
@@ -246,6 +249,7 @@ export async function dashboard(tx: Tx, s: SessionData, period: Period, now: Dat
     // ADR 0016: scan overrides — the drill lists them per nurse
     { kind: "scanOverride" as const, ...leak((x) => x.scanOverride ?? { count: 0, paisa: 0 }), severity: "review" as const },
     { kind: "ownSupply" as const, ...leak((x) => x.ownSupply ?? { count: 0, paisa: 0 }), severity: "review" as const },
+    { kind: "countAbandoned" as const, ...leak((x) => x.countAbandoned ?? { count: 0, paisa: 0 }), severity: "review" as const },
     { kind: "manualRefundUnchecked" as const, ...(await uncheckedRefunds(tx, s.organizationId)), severity: "high" as const },
     // ADR 0018: live, whatever the period (each stays until it is settled)
     ...await Promise.all(IPD_EXCEPTIONS.map(async (kind) => { const x = await ipdException(tx, s.organizationId, kind, now); return { kind, count: x.count, paisa: x.paisa, severity: kind === "afterFinalBill" ? "review" as const : "high" as const }; })),
@@ -468,6 +472,13 @@ export async function drill(tx: Tx, s: SessionData, period: Period, what: DrillV
     const W = await people(shown.flatMap((a) => [a.paidById, a.refund.decidedById]));
     rows = shown.map((a) => ({ id: a.id, at: (a.paidAt ?? a.refund.requestedAt).toISOString(), number: a.refund.voucher?.number ?? null, patient: P(a.refund.patientId), amountPaisa: a.amountPaisa, by: W(a.paidById), approvedBy: W(a.refund.decidedById),
       detail: `${a.method} → ${a.way} · ${a.reference ?? ""}`, link: { kind: "refund" as const, id: a.refundId }, status: a.refund.status }));
+  } else if (what === "countAbandoned") {
+    // external review A6: counts ended at their counter's shift close — who was counting, where, how far they got
+    const list = await tx.stockCount.findMany({ where: { organizationId: org, status: "abandoned", decidedAt: { gte: from, lt: to } }, include: { lines: { select: { countedQty: true } } }, orderBy: { decidedAt: "desc" } });
+    count = list.length; totalPaisa = null;
+    const W = await people(list.slice(0, DRILL_ROWS).map((c) => c.createdById));
+    rows = list.slice(0, DRILL_ROWS).map((c) => ({ id: c.id, at: c.decidedAt!.toISOString(), number: null, patient: null, amountPaisa: null, by: W(c.createdById), approvedBy: null,
+      detail: `stock count · ${c.location} · ${c.lines.filter((l) => l.countedQty !== null).length}/${c.lines.length} · ${c.decisionNote ?? ""}`, link: { kind: "count" as const, id: c.id }, status: c.status }));
   } else if (what === "scanOverride" || what === "ownSupply") {
     // ADR 0016: one row per nurse — doses given with "scanner not working" (the latest reason), or from the patient's own supply
     const list = await tx.medicationAdministration.findMany({ where: { organizationId: org, administeredAt: { gte: from, lt: to }, ...(what === "scanOverride" ? { scanOverrideReason: { not: null } } : { source: "patient-supplied", status: "given" }) }, orderBy: { administeredAt: "desc" } });

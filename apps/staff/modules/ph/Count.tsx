@@ -133,6 +133,7 @@ function CountView({ id }: { id: string }) {
           </>
         )}
       </Card>
+      {c.status === "abandoned" && <Callout tone="warn" icon="hourglass" data-testid="count-abandoned">{P("decided_abandoned", { name: F.name(c.createdBy), at: F.dateTime(c.decidedAt) })}</Callout>}
       {(c.status === "approved" || c.status === "rejected") && <Callout tone={c.status === "approved" ? "info" : "warn"} icon="stamp">{P(`decided_${c.status}`, { name: F.name(c.decidedBy), at: F.dateTime(c.decidedAt), note: c.decisionNote ?? "" })}{c.selfApproved && <> <Pill tone="warn" icon="user-check">{P("self_approved")}</Pill></>}</Callout>}
       <Dialog open={rejecting} onClose={() => setRejecting(false)} label={P("reject")}>
         <RejectForm onSubmit={async (note) => { if (await run(() => purch.decideCount(c.id, "reject", note, key))) setRejecting(false); }} />

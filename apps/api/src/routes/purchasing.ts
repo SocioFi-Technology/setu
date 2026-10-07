@@ -135,7 +135,7 @@ export async function purchasingRoutes(app: FastifyInstance) {
     requirePh(req, "purchase");
     const { id } = pid.parse(req.params);
     const body = GrnPostRequest.parse(req.body ?? {});
-    return command(req, reply, async (tx, s) => { const r = await postGrn(tx, s, id, body.rev, body.note, new Date()); return { status: 200, body: await grnView(tx, s, r.g, new Date()), audit: r.audit }; });
+    return command(req, reply, async (tx, s) => { const r = await postGrn(tx, s, id, body.rev, body.note, new Date(), { supplierVatPaisa: body.supplierVatPaisa, supplierAitPaisa: body.supplierAitPaisa }); return { status: 200, body: await grnView(tx, s, r.g, new Date()), audit: r.audit }; });
   });
   app.post("/v1/pharmacy/goods-receipts/:id/discard", { config: { ownTx: true } }, async (req, reply): Promise<GoodsReceiptView> => {
     requirePh(req, "purchase");

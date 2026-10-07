@@ -40,6 +40,8 @@ export const PurchaseOrderView = z.object({
   /** what stops Send now (approval_required: above the threshold — ask the owner / admin) */
   sendBlockers: z.array(z.enum(["no_lines", "approval_required", "approval_pending"])),
   approvalThresholdPaisa: Paisa,
+  /** decision 179: already sent to this supplier from this facility today (Dhaka) without the owner's / admin's approval — the threshold is on that plus this order */
+  supplierDayPaisa: z.number().int(),
   receipts: z.array(z.object({ id: z.string(), number: z.string().nullable(), status: z.enum(["checking", "posted", "discarded"]), postedAt: z.string().nullable() })),
   createdBy: Person, createdAt: z.string(), sentBy: Person.nullable(), sentAt: z.string().nullable(),
 });
@@ -65,6 +67,8 @@ export const GrnLineView = z.object({
   location: z.enum(["counter", "store", "fridge"]), shortExpiry: z.boolean(), blockers: z.array(GrnLineBlocker),
   /** the order's unit cost, and whether the bill differs (then the owner / admin posts it) */
   orderCostPaisa: Paisa, priceVariance: z.boolean(),
+  /** decision 180: the difference is beyond the facility's tolerance (then the owner / admin posts it) */
+  priceBeyondTolerance: z.boolean(), tolerancePaisa: z.number().int(),
 });
 export const GoodsReceiptView = z.object({
   id: z.string(), number: z.string().nullable(), status: z.enum(["checking", "posted", "discarded"]), rev: z.number().int(),
@@ -72,6 +76,10 @@ export const GoodsReceiptView = z.object({
   supplier: z.object({ id: z.string(), name: z.string() }), supplierInvoiceNo: z.string().nullable(), note: z.string().nullable(),
   lines: z.array(GrnLineView),
   money: z.object({ invoicedPaisa: z.number().int(), debitNotePaisa: z.number().int(), owedPaisa: z.number().int() }),
+  /** decision 181: the supplier's VAT and AIT as on their bill — recorded, not added to what is owed */
+  supplierVatPaisa: z.number().int(), supplierAitPaisa: z.number().int(),
+  /** decision 180: the facility's receipt tolerance — min(bp of the line at the order's cost, paisa) */
+  tolerance: z.object({ bp: z.number().int(), paisa: z.number().int() }),
   /** short_expiry_needs_owner: a batch expiring within 6 months — the owner / admin posts it */
   postBlockers: z.array(z.enum(["no_lines", "line_invalid", "short_expiry_needs_owner", "price_variance_needs_owner"])),
   createdBy: Person, createdAt: z.string(), postedBy: Person.nullable(), postedAt: z.string().nullable(),
@@ -84,13 +92,15 @@ export const GrnLineRequest = z.object({
   location: z.enum(["counter", "store", "fridge"]).default("store"),
 });
 export type GrnLineRequest = z.infer<typeof GrnLineRequest>;
-export const GrnPostRequest = z.object({ rev: z.number().int(), note: Reason.optional() });
+export const GrnPostRequest = z.object({ rev: z.number().int(), note: Reason.optional(),
+  /** decision 181: the supplier's VAT / AIT as printed on the bill (data only) */
+  supplierVatPaisa: Paisa.optional(), supplierAitPaisa: Paisa.optional() });
 
 /* ── counts ── */
 /** the counter, the store, the fridge, or a ward's stock (`ward:<id>`, counted by the ward nurse) */
 export const CountLocation = z.union([z.enum(["counter", "store", "fridge"]), z.string().regex(/^ward:[A-Za-z0-9_-]+$/)]);
 export const StockCountView = z.object({
-  id: z.string(), location: CountLocation, status: z.enum(["counting", "submitted", "approved", "rejected"]), rev: z.number().int(),
+  id: z.string(), location: CountLocation, status: z.enum(["counting", "submitted", "approved", "rejected", "abandoned"]), rev: z.number().int(),
   /** a ward count: the ward's name */ wardName: z.string().nullable(),
   lines: z.array(z.object({ id: z.string(), batch: BatchView, medicine: MedicineRef, systemQty: z.number().int(), countedQty: z.number().int().nullable(), variance: z.number().int().nullable(), reason: z.string().nullable(),
     /** a ward count: units put back to this batch from doses marked entered-in-error since the last decided count */

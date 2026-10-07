@@ -58,6 +58,8 @@ export const OpsKey = z.enum(["opdVisits", "labTests", "labTat", "noShows", "cas
 /** ADR 0013: refunds paid (reason, approver), refunds paid by hand not yet matched to a statement, wrong-dispense returns
     (medication incidents) */
 export const LeakageKind = z.enum(["discountAbovePolicy", "reprints", "shiftVariance", "notBilledHere", "cashOutsideShift", "refundsPaid", "manualRefundUnchecked", "medicationIncident", "selfApproved", "creditReturns", "scanOverride", "ownSupply",
+  /** external review A6: stock counts left in progress when the counter's shift closed (ended with the reason) */
+  "countAbandoned",
   /** ADR 0018: an excess deposit not yet paid back (never expires) · LAMA / death bills still owing · a LAMA summary
       not signed within 24 hours · a dose marked in error after the final bill (settled by refund) */
   "excessUnpaid", "ipdOutcomeDues", "lamaSummaryOverdue", "afterFinalBill"]);
@@ -82,7 +84,7 @@ export const DashboardView = z.object({
 });
 export type DashboardView = z.infer<typeof DashboardView>;
 export const DashboardQuery = z.object({ period: Period.default("today") });
-export const DrillWhat = z.enum(["revenue", "collections", "dues", "discounts", "opdVisits", "labTests", "noShows", "reprints", "shiftVariance", "discountAbovePolicy", "notBilledHere", "cashOutsideShift", "stockValue", "nearExpiry", "supplierDues", "refunds", "refundsPaid", "manualRefundUnchecked", "medicationIncident", "selfApproved", "creditReturns", "scanOverride", "ownSupply",
+export const DrillWhat = z.enum(["revenue", "collections", "dues", "discounts", "opdVisits", "labTests", "noShows", "reprints", "shiftVariance", "discountAbovePolicy", "notBilledHere", "cashOutsideShift", "stockValue", "nearExpiry", "supplierDues", "refunds", "refundsPaid", "manualRefundUnchecked", "medicationIncident", "selfApproved", "creditReturns", "scanOverride", "ownSupply", "countAbandoned",
   "excessUnpaid", "ipdOutcomeDues", "lamaSummaryOverdue", "afterFinalBill"]);
 export const DrillQuery = z.object({ period: Period.default("today"), what: DrillWhat });
 export const DrillView = z.object({

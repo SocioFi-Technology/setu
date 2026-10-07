@@ -123,7 +123,7 @@ function Order({ id }: { id: string }) {
               </tr>
             ))}
           </tbody>
-          <tfoot><tr><td colSpan={3}><b>{P("total")}</b> <span className="t-small t-muted">· {P("threshold", { t: F.tk(o.approvalThresholdPaisa) })}</span></td><td className="num"><b data-testid="po-total">{F.tk(o.totalPaisa)}</b></td><td colSpan={2} /></tr></tfoot>
+          <tfoot><tr><td colSpan={3}><b>{P("total")}</b> <span className="t-small t-muted">· {P("threshold", { t: F.tk(o.approvalThresholdPaisa) })}</span>{o.status === "draft" && o.supplierDayPaisa > 0 && <span className="t-small" data-testid="po-supplier-day"> · {P("supplier_day", { t: F.tk(o.supplierDayPaisa) })}</span>}</td><td className="num"><b data-testid="po-total">{F.tk(o.totalPaisa)}</b></td><td colSpan={2} /></tr></tfoot>
         </table>
       </Card>
 
@@ -205,7 +205,8 @@ function Receipt({ id }: { id: string }) {
   const [g, setG] = useState<GoodsReceiptView | null>(null); const [po, setPo] = useState<PurchaseOrderView | null>(null); const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false); const [key, setKey] = useState(() => crypto.randomUUID());
   const [form, setForm] = useState<Record<string, { batchNo: string; expiry: string; invoiced: string; received: string; cost: string; mrp: string; location: "store" | "counter" | "fridge" }>>({});
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState(""); const [tax, setTax] = useState({ vat: "", ait: "" });
+  const taxOk = takaToPaisa(tax.vat || "0") !== null && takaToPaisa(tax.ait || "0") !== null;
   const load = useCallback(async () => {
     try { const x = await purch.receipt(id); setG(x); const o = await purch.order(x.order.id); setPo(o); return o; } catch { setFailed(true); return null; }
   }, [id]);
@@ -266,7 +267,7 @@ function Receipt({ id }: { id: string }) {
                 <td className="num">{F.n(l.invoicedQty)}</td><td className="num">{F.n(l.receivedQty)}</td><td className="num">{F.tk(l.costPaisa)}</td><td className="num">{F.tk(l.mrpPaisa)}</td><td>{P(`loc_${l.location}`)}</td>
                 <td><div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                   {l.shortExpiry && <Pill tone="warn" icon="hourglass">{P("short_expiry")}</Pill>}
-                  {l.priceVariance && <Pill tone="warn" icon="tag">{P("price_variance", { c: F.tk(l.orderCostPaisa) })}</Pill>}
+                  {l.priceVariance && <Pill tone={l.priceBeyondTolerance ? "warn" : "info"} icon="tag" data-testid="grn-price-variance" data-beyond={l.priceBeyondTolerance}>{P("price_variance", { c: F.tk(l.orderCostPaisa) })}{!l.priceBeyondTolerance && <> · {P("within_tolerance", { t: F.tk(l.tolerancePaisa) })}</>}</Pill>}
                   {l.receivedQty < l.invoicedQty && <Pill tone="info" icon="file-minus">{P("short_delivery")}</Pill>}
                   {l.blockers.map((b) => <Pill key={b} tone="bad" icon="ban">{P(`grn_b_${b}`)}</Pill>)}
                 </div></td>
@@ -281,13 +282,17 @@ function Receipt({ id }: { id: string }) {
         <span>{P("billed")}: <b className="num">{F.tk(g.money.invoicedPaisa)}</b></span>
         <span>{P("debit_note")}: <b className="num">{F.tk(g.money.debitNotePaisa)}</b></span>
         <span>{P("owed_for_this")}: <b className="num">{F.tk(g.money.owedPaisa)}</b></span>
+        {g.status === "posted" && (g.supplierVatPaisa > 0 || g.supplierAitPaisa > 0) && <span className="t-small t-muted" data-testid="grn-supplier-tax">{P("supplier_tax", { vat: F.tk(g.supplierVatPaisa), ait: F.tk(g.supplierAitPaisa) })}</span>}
       </Card>
 
       {checking && ownerOnly.map((b) => <Callout key={b} tone="warn" icon="stamp">{P(`post_b_${b}`)}</Callout>)}
       {checking && (
         <Card style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }}>
           <TextField label={P("post_note")} hint={P("optional")} value={note} onChange={(e) => setNote(e.target.value)} data-testid="grn-note" />
-          <Button variant="primary" icon="package-check" data-testid="grn-post" disabled={!s.online || busy || g.postBlockers.length > 0} onClick={() => void run(() => purch.post(g.id, g.rev, note.trim(), key))}>{P("post_grn")}</Button>
+          {/* decision 181: the supplier's VAT / AIT as printed on the bill — recorded, not added to what is owed */}
+          <TextField label={P("supplier_vat_tk")} hint={P("supplier_tax_hint")} inputMode="decimal" style={{ width: 120 }} value={tax.vat} onChange={(e) => setTax((x) => ({ ...x, vat: e.target.value }))} data-testid="grn-vat" />
+          <TextField label={P("supplier_ait_tk")} inputMode="decimal" style={{ width: 120 }} value={tax.ait} onChange={(e) => setTax((x) => ({ ...x, ait: e.target.value }))} data-testid="grn-ait" />
+          <Button variant="primary" icon="package-check" data-testid="grn-post" disabled={!s.online || busy || g.postBlockers.length > 0 || !taxOk} onClick={() => void run(() => purch.post(g.id, g.rev, note.trim(), key, { supplierVatPaisa: takaToPaisa(tax.vat || "0") ?? 0, supplierAitPaisa: takaToPaisa(tax.ait || "0") ?? 0 }))}>{P("post_grn")}</Button>
           <Button icon="trash" data-testid="grn-discard" disabled={!s.online || busy} onClick={() => void run(() => purch.discard(g.id, g.rev, key))}>{P("discard")}</Button>
         </Card>
       )}

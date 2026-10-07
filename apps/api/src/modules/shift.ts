@@ -10,6 +10,7 @@ import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
 import type { SessionData } from "../plugins/session.js";
 import { notFound } from "./frontdesk.js";
+import { abandonCountsAtShiftClose } from "./purchasing.js";
 
 type Shift = NonNullable<Awaited<ReturnType<typeof shiftRow>>>;
 const shiftRow = (tx: Tx, s: SessionData, id: string) => tx.shift.findFirst({ where: { id, organizationId: s.organizationId }, include: { counts: { orderBy: { countNo: "asc" } }, reviews: { orderBy: { at: "asc" } }, handovers: true } });
@@ -112,7 +113,7 @@ export async function countShift(tx: Tx, s: SessionData, id: string, req: CountS
   if (variance === 0) {
     await tx.shiftHandover.create({ data: { tenantId: s.tenantId, shiftId: sh.id, countId: row.id, reason: null, byId: s.userId, at: now } });
     await tx.shift.update({ where: { id: sh.id }, data: { status: transition("SHIFT", SHIFT, counted, "close"), statusAt: now } });
-    audit.push({ action: "update", entity: "Shift", entityId: sh.id, detail: { event: "hand-over", countNo } });
+    audit.push({ action: "update", entity: "Shift", entityId: sh.id, detail: { event: "hand-over", countNo } }, ...await abandonCountsAtShiftClose(tx, s, sh.id, now));
   }
   return { view: await viewOf(tx, s, (await shiftRow(tx, s, sh.id))!, now), audit };
 }
@@ -131,7 +132,8 @@ export async function handOverShift(tx: Tx, s: SessionData, id: string, req: Han
   await tx.shiftHandover.create({ data: { tenantId: s.tenantId, shiftId: sh.id, countId: c.id, reason: reason || null, byId: s.userId, at: now } });
   const n = await tx.shift.updateMany({ where: { id: sh.id, status: "counted" }, data: { status: transition("SHIFT", SHIFT, "counted", "close"), statusAt: now } });
   if (n.count !== 1) throw err(409, "stale", "অন্য কোথাও আগেই বদলেছে — আবার দেখুন", "This changed somewhere else first — refresh");
-  return { view: await viewOf(tx, s, (await shiftRow(tx, s, sh.id))!, now), audit: [{ action: "update", entity: "Shift", entityId: sh.id, detail: { event: "hand-over", countNo: c.countNo, variancePaisa: c.variancePaisa, reason } }] };
+  const abandoned = await abandonCountsAtShiftClose(tx, s, sh.id, now);
+  return { view: await viewOf(tx, s, (await shiftRow(tx, s, sh.id))!, now), audit: [{ action: "update", entity: "Shift", entityId: sh.id, detail: { event: "hand-over", countNo: c.countNo, variancePaisa: c.variancePaisa, reason } }, ...abandoned] };
 }
 
 export async function reviewShift(tx: Tx, s: SessionData, id: string, req: ReviewShiftRequest, now: Date): Promise<{ view: ShiftView; audit: AuditEntry[] }> {

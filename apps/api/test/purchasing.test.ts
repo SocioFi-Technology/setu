@@ -6,7 +6,9 @@
    - supplier payments: owner / admin only, never more than is owed;
    - store → counter transfer as a pair of moves; an expired batch never goes to the counter;
    - P6: a count with a variance needs a reason; the owner (not the counter) approves → an adjust move;
-   - the owner's stock tiles and their drill-downs; the database keeps the ledgers append-only. */
+   - the owner's stock tiles and their drill-downs; the database keeps the ledgers append-only;
+   - external review A6 (decisions 179–186): one supplier's day of orders toward the limit; the receipt price tolerance
+     per facility; the supplier's VAT / AIT as data; a count left open at its counter's shift close; the PO cancel path. */
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
@@ -30,8 +32,9 @@ beforeAll(async () => {
     const r = await app.inject({ method: "POST", url: "/v1/auth/login", payload: { identifier: phone, password: "setu1234" } });
     const c = r.headers["set-cookie"]; cookies[k] = Array.isArray(c) ? c[0]! : (c as string);
   }
-  const list = (await get("/v1/pharmacy/suppliers")).json();
-  supplierId = list.items.find((x: { name: string }) => x.name.startsWith("Square"))!.id;
+  // a supplier of this run's own: decision 179 sums one supplier's orders of the day, so the sample supplier would
+  // collect every run's orders and make a later run ask for approval
+  supplierId = (await ok(post("/v1/pharmacy/suppliers", { name: `Test Supplier ${RUN}` }), 201)).supplier.id;
 });
 afterAll(async () => { await app.close(); });
 
@@ -210,7 +213,7 @@ describe.runIf(db)("owner stock tiles and who may", () => {
     const near = await ok(get("/v1/owner/drill?period=7d&what=nearExpiry", "owner"));
     expect(near.rows.map((r: { number: string }) => r.number)).toContain(`AM${RUN}`);
     const dues = await ok(get("/v1/owner/drill?period=7d&what=supplierDues", "owner"));
-    expect(dues.rows.map((r: { number: string }) => r.number)).toContain("Square Pharma Distribution (sample)");
+    expect(dues.rows.map((r: { number: string }) => r.number)).toContain(`Test Supplier ${RUN}`);
   });
   it("one approval queue: the pharmacy kinds by status, and the dashboard's pending count includes them", async () => {
     const waiting = await ok(get("/v1/pharmacy/approvals?status=requested", "owner"));
@@ -225,5 +228,131 @@ describe.runIf(db)("owner stock tiles and who may", () => {
     expect((await get("/v1/pharmacy/suppliers", "doctor")).statusCode).toBe(403);
     expect((await get(`/v1/pharmacy/suppliers/${supplierId}`, "otherPharm")).statusCode).toBe(404);
     expect((await get("/v1/pharmacy/approvals")).statusCode).toBe(403);
+  });
+});
+
+describe.runIf(db)("external review A6: purchasing decisions 179–186", () => {
+  const order = async (sup: string, lines: { medicineKey: string; qty: number; costPaisa: number }[], who: Who = "pharm") => {
+    let po = await ok(post("/v1/pharmacy/purchase-orders", { supplierId: sup }, who), 201);
+    for (const l of lines) po = await ok(post(`/v1/pharmacy/purchase-orders/${po.id}/lines`, { rev: po.rev, ...l }, who));
+    return po;
+  };
+  it("179: two ৳30,000 orders to one supplier the same day — the second asks the owner; another supplier is not affected; an approved order is not counted again", { timeout: 30_000 }, async () => {
+    const split = (await ok(post("/v1/pharmacy/suppliers", { name: `Split Supplier ${RUN}` }), 201)).supplier.id;
+    const other = (await ok(post("/v1/pharmacy/suppliers", { name: `Other Supplier ${RUN}` }), 201)).supplier.id;
+    const half = [{ medicineKey: "azith", qty: 1000, costPaisa: 3000 }]; // ৳30,000
+    const a = await order(split, half);
+    expect(a).toMatchObject({ sendBlockers: [], supplierDayPaisa: 0 });
+    expect(await ok(post(`/v1/pharmacy/purchase-orders/${a.id}/send`, { rev: a.rev }))).toMatchObject({ status: "sent" });
+    const b = await order(split, half);
+    expect(b).toMatchObject({ sendBlockers: ["approval_required"], supplierDayPaisa: 3_000_000 });
+    const asked = await post(`/v1/pharmacy/purchase-orders/${b.id}/send`, { rev: b.rev });
+    expect(asked.statusCode, asked.body).toBe(202);
+    const task = await inTenant((tx) => tx.task.findFirst({ where: { kind: "purchase-approval", focusId: b.id } }));
+    expect(task!.detail).toMatchObject({ totalPaisa: 3_000_000, supplierDayPaisa: 3_000_000 });
+    // the same ৳30,000 to another supplier goes without asking
+    const c = await order(other, half);
+    expect(await ok(post(`/v1/pharmacy/purchase-orders/${c.id}/send`, { rev: c.rev }))).toMatchObject({ status: "sent" });
+    // the owner approves (and so sends) the second; a later ৳1,000 order counts only the unapproved ৳30,000
+    await ok(post(`/v1/pharmacy/purchase-orders/${b.id}/approval`, { decision: "approve" }, "owner"));
+    const d = await order(split, [{ medicineKey: "napa", qty: 1000, costPaisa: 100 }]);
+    expect(d).toMatchObject({ sendBlockers: [], supplierDayPaisa: 3_000_000 });
+    // ৳25,000 more would make ৳55,000 unapproved today: it asks — and cancelled, its request is rejected through APPROVAL
+    const e = await order(split, [{ medicineKey: "azith", qty: 834, costPaisa: 3000 }]);
+    expect(e.sendBlockers).toEqual(["approval_required"]);
+    expect((await post(`/v1/pharmacy/purchase-orders/${e.id}/send`, { rev: e.rev })).statusCode).toBe(202);
+    const cancelled = await ok(post(`/v1/pharmacy/purchase-orders/${e.id}/cancel`, { rev: e.rev, reason: "Not needed after all, ordered less" }));
+    expect(cancelled).toMatchObject({ status: "cancelled", approval: { status: "rejected", note: "order cancelled", decidedBy: { nameEn: "Test Pharmacist" } } });
+  });
+
+  it("180 / 181: within min(2 %, ৳50) per line the pharmacist posts a price difference; beyond it the owner; the supplier's VAT / AIT recorded, not owed", { timeout: 30_000 }, async () => {
+    const f = await ok(get("/v1/admin/facility", "owner"));
+    expect(f.settings).toMatchObject({ grnToleranceBp: 200, grnTolerancePaisa: 5_000 });
+    const po = await order(supplierId, [{ medicineKey: "comet", qty: 200, costPaisa: 340 }]); // 100 at a time: 2 % of ৳340 = ৳6.80
+    const sent = await ok(post(`/v1/pharmacy/purchase-orders/${po.id}/send`, { rev: po.rev }));
+    const lineId = sent.lines[0].id;
+    const receipt = async (batch: string, costPaisa: number) => {
+      const g = await ok(post("/v1/pharmacy/goods-receipts", { orderId: po.id, supplierInvoiceNo: `TOL-${batch}` }), 201);
+      return ok(post(`/v1/pharmacy/goods-receipts/${g.id}/lines`, { rev: g.rev, orderLineId: lineId, batchNo: batch, expiry: day(700), invoicedQty: 100, receivedQty: 100, costPaisa, mrpPaisa: 400, location: "store" }));
+    };
+    const owedBefore = await owed();
+    // ৳3.46 a tablet: ৳6 over on the line, within ৳6.80 — the pharmacist posts it
+    let g = await receipt(`T1${RUN}`, 346);
+    expect(g.lines[0]).toMatchObject({ priceVariance: true, priceBeyondTolerance: false, tolerancePaisa: 680 });
+    expect(g.postBlockers).toEqual([]);
+    g = await ok(post(`/v1/pharmacy/goods-receipts/${g.id}/post`, { rev: g.rev, supplierVatPaisa: 1_500, supplierAitPaisa: 300 }));
+    expect(g).toMatchObject({ status: "posted", supplierVatPaisa: 1_500, supplierAitPaisa: 300, money: { owedPaisa: 34_600 } });
+    expect(await owed()).toBe(owedBefore + 34_600); // VAT / AIT are data, not owed
+    const audit = (await inTenant((tx) => tx.auditEvent.findMany({ where: { entity: "GoodsReceipt", entityId: g.id, action: "update" } }))).find((x) => (x.detail as { event?: string }).event === "post");
+    expect(audit!.detail).toMatchObject({ supplierVatPaisa: 1_500, supplierAitPaisa: 300, lines: [expect.objectContaining({ withinTolerance: true })] });
+    await expect(inTenant((tx) => tx.goodsReceipt.updateMany({ where: { id: g.id }, data: { supplierVatPaisa: 0 } }))).rejects.toThrow(/never changes/);
+    // ৳3.47: ৳7 over — the owner's
+    let g2 = await receipt(`T2${RUN}`, 347);
+    expect(g2.lines[0]).toMatchObject({ priceBeyondTolerance: true });
+    expect(g2.postBlockers).toEqual(["price_variance_needs_owner"]);
+    const refused = await post(`/v1/pharmacy/goods-receipts/${g2.id}/post`, { rev: g2.rev });
+    expect([refused.statusCode, refused.json().code]).toEqual([403, "price_variance_needs_owner"]);
+    expect((await ok(get("/v1/pharmacy/approvals?status=requested", "owner"))).receipts.map((r: { id: string }) => r.id)).toContain(g2.id);
+    // the facility's tolerance is an approval limit: a change needs the reason; at 0 % the ৳6 difference is the owner's too
+    const noReason = await post("/v1/admin/settings", { ...f.settings, grnToleranceBp: 0 }, "owner");
+    expect([noReason.statusCode, noReason.json().code]).toEqual([400, "reason_required"]);
+    expect((await post("/v1/admin/settings", { ...f.settings, grnToleranceBp: 1001, reason: "testing the range" }, "owner")).statusCode).toBe(400);
+    await ok(post("/v1/admin/settings", { ...f.settings, grnToleranceBp: 0, reason: "no price differences this month" }, "owner"));
+    try {
+      const g3 = await receipt(`T3${RUN}`, 341);
+      expect(g3.postBlockers).toEqual(["price_variance_needs_owner"]);
+      await ok(post(`/v1/pharmacy/goods-receipts/${g3.id}/discard`, { rev: g3.rev }));
+    } finally { await ok(post("/v1/admin/settings", { ...f.settings, reason: "back to the sample tolerance" }, "owner")); }
+    g2 = await ok(post(`/v1/pharmacy/goods-receipts/${g2.id}/post`, { rev: g2.rev }, "owner"));
+    expect(g2.status).toBe("posted");
+  });
+
+  it("a stock count still being entered when the counter's shift closes is ended with the reason, flagged on the owner's exceptions list; nothing moves", { timeout: 40_000 }, async () => {
+    // the counter is free: open counts left by earlier runs are rejected on the owner's connection
+    const owner = new db!.PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+    try {
+      for (const c of await owner.stockCount.findMany({ where: { tenantId: T, location: "counter", status: { in: ["counting", "submitted"] } } })) {
+        if (c.status === "counting") await owner.stockCount.update({ where: { id: c.id }, data: { status: "submitted", submittedAt: new Date(), rev: { increment: 1 } } });
+        await owner.stockCount.update({ where: { id: c.id }, data: { status: "rejected", decidedById: "u_e2e_admin", decidedAt: new Date(), decisionNote: "leftover from an earlier test run", rev: { increment: 1 } } });
+      }
+    } finally { await owner.$disconnect(); }
+    // the pharmacist's drawer: whatever an earlier run left is closed; a fresh shift with no float
+    const mine = await ok(get("/v1/shifts/mine"));
+    let sh = mine.shift;
+    if (sh?.status === "open") sh = await ok(post(`/v1/shifts/${sh.id}/count`, { counts: {} }));
+    if (sh?.status === "counted") sh = await ok(post(`/v1/shifts/${sh.id}/hand-over`, { reason: "closing a shift left by an earlier test run" }));
+    if (sh?.status === "closed") await ok(post(`/v1/shifts/${sh.id}/review`, { decision: "approve", note: "closing a shift left by an earlier test run" }, "owner"));
+    sh = await ok(post("/v1/shifts", { openingFloatPaisa: 0 }), 201);
+    let c = await ok(post("/v1/pharmacy/counts", { location: "counter" }), 201);
+    c = await ok(get(`/v1/pharmacy/counts/${c.id}`));
+    c = await ok(post(`/v1/pharmacy/counts/${c.id}/lines`, { rev: c.rev, lineId: c.lines[0].id, countedQty: c.lines[0].systemQty + 5, reason: "five more found behind the shelf" }));
+    const movesBefore = await inTenant((tx) => tx.stockMove.count({ where: { refType: "count", refId: c.id } }));
+    // the drawer matches (nothing taken): handed over at once — and the open count ends with it
+    const closed = await ok(post(`/v1/shifts/${sh.id}/count`, { counts: {} }));
+    expect(closed.status).toBe("closed");
+    const ended = await ok(get(`/v1/pharmacy/counts/${c.id}`));
+    expect(ended).toMatchObject({ status: "abandoned", decidedBy: { nameEn: "Test Pharmacist" }, decisionNote: expect.stringContaining("shift"), selfApproved: false, canDecide: false });
+    expect(await inTenant((tx) => tx.stockMove.count({ where: { refType: "count", refId: c.id } }))).toBe(movesBefore);
+    const ev = await inTenant((tx) => tx.auditEvent.findFirst({ where: { action: "count-abandoned", entityId: c.id } }));
+    expect(ev!.detail).toMatchObject({ location: "counter", shiftId: sh.id, linesCounted: 1, flag: "count-abandoned" });
+    // the owner: the exceptions list and the drill behind it; the flagged audit log
+    const d = await ok(get("/v1/owner/dashboard?period=today", "owner"));
+    expect(d.leakage.find((l: { kind: string }) => l.kind === "countAbandoned").count).toBeGreaterThanOrEqual(1);
+    const drill = await ok(get("/v1/owner/drill?period=today&what=countAbandoned", "owner"));
+    expect(drill.rows.find((r: { id: string }) => r.id === c.id)).toMatchObject({ link: { kind: "count", id: c.id }, status: "abandoned", by: { nameEn: "Test Pharmacist" } });
+    const flagged = await ok(get("/v1/admin/audit?action=count-abandoned&flagged=1", "owner"));
+    expect(flagged.items.some((x: { entityId: string }) => x.entityId === c.id)).toBe(true);
+    // the counter can be counted again; an ended count never changes, and only its counter ends one (with a reason)
+    expect((await ok(get("/v1/pharmacy/counts?status=counting&location=counter"))).items.map((x: { id: string }) => x.id)).not.toContain(c.id);
+    await expect(inTenant((tx) => tx.stockCount.updateMany({ where: { id: c.id }, data: { decisionNote: "something else entirely" } }))).rejects.toThrow(/never changes/);
+    const other = await ok(post("/v1/pharmacy/counts", { location: "counter" }), 201);
+    await expect(db!.forTenant(T, (tx) => tx.stockCount.updateMany({ where: { id: other.id }, data: { status: "abandoned", decidedById: "u_e2e_owner", decidedAt: new Date(), decisionNote: "ending someone else's count" } }), { userId: "u_e2e_owner" })).rejects.toThrow(/own shift close/);
+    await expect(db!.forTenant(T, (tx) => tx.stockCount.updateMany({ where: { id: other.id }, data: { status: "abandoned", decidedById: "u_e2e_pharm", decidedAt: new Date(), decisionNote: "short" } }), { userId: "u_e2e_pharm" })).rejects.toThrow(/says why/);
+    // and this one ends at the next shift close too (leaves the counter free for the next run)
+    await ok(post(`/v1/shifts/${sh.id}/review`, { decision: "approve" }, "owner"));
+    const sh2 = await ok(post("/v1/shifts", { openingFloatPaisa: 0 }), 201);
+    expect((await ok(post(`/v1/shifts/${sh2.id}/count`, { counts: {} }))).status).toBe("closed");
+    expect((await ok(get(`/v1/pharmacy/counts/${other.id}`))).status).toBe("abandoned");
+    await ok(post(`/v1/shifts/${sh2.id}/review`, { decision: "approve" }, "owner"));
   });
 });

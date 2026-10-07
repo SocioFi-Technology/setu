@@ -73,3 +73,33 @@ pilot clinic names its printer (phase 2). Each print is audited.
 - `@setu/domain` `pharmacy.ts` (FEFO, batch state, near expiry, dispense status, substitution, sale class, dose label);
   the demo list gains one controlled sample (diazepam) and a sample sale class per medicine (pending a licensed drug
   database — gap 12).
+
+## Addendum (2026-10-07, external review A6): purchasing decisions 179–186
+- **179 — one supplier's day toward the limit.** A purchase order is judged against the approval threshold (sample
+  ৳50,000) together with what this facility already sent to the same supplier that Dhaka day **without an approver** —
+  orders not cancelled, neither approved by the owner / admin nor sent by one. Splitting one need into several orders
+  under the limit therefore asks; an order the owner already approved does not make every later small order of the day
+  ask again. Sends to one supplier are serialised (advisory lock); the approval task and its audit carry the day's
+  figure; the order view shows it (`supplierDayPaisa`).
+- **180 — receipt price tolerance, per facility.** A supplier bill's line may differ from the order by
+  min(`grnToleranceBp` of the line at the order's cost, `grnTolerancePaisa`) — defaults 2 % and ৳50 — and still be
+  posted by the pharmacist; beyond it only the owner / admin posts (`price_variance_needs_owner`). The difference is
+  |bill cost − order cost| × billed quantity, either direction. Every variance is still shown on the line and recorded
+  in the posting's audit (`withinTolerance`); the owner's queue lists only receipts beyond the tolerance. The tolerance
+  is stored on the Organization (CHECK 0–10 %, ৳0–1,000), returned with the facility settings and changed through
+  them like an approval limit (a reason, flagged `settings-change`).
+- **181 — the supplier's VAT / AIT are data.** A goods receipt records the VAT and AIT printed on the supplier's bill
+  (`supplierVatPaisa`, `supplierAitPaisa`, entered when posting, frozen with the receipt). What is owed stays
+  received qty × the bill's unit cost; input-VAT accounting is a later change.
+- **182–184** stand as built: a short delivery is a debit note; short expiry is fewer than 180 days; the same batch
+  number at another expiry or price is refused (`batch_conflict`).
+- **185 — a count left open at shift close.** STOCK_COUNT gains `counting → abandoned` (event `abandon`). When a
+  shift holder's shift closes (the hand-over, in the same transaction), every count they are still entering is ended
+  with the reason "ended at shift close…", `decidedById` = the counter, nothing moved. It is audited as the flagged
+  action `count-abandoned` and listed on the owner's exceptions (`countAbandoned`, with a drill to each count). The
+  location can be counted again. The database: `abandoned` is final, only from `counting`, only by the count's own
+  counter (signed in), with a reason of 10+ characters, never self-approved.
+- **186** (= 234, decided 05/10): the one self-approval rule for counts — confirmed to reach the owner's
+  exceptions list (`selfApproved` leakage row) and its drill.
+- **The PO cancel path:** a cancelled order's open approval request is closed through
+  `transition("APPROVAL", …, "requested", "reject")`, not an inline status.

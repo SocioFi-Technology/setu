@@ -15,7 +15,7 @@ import { BED_CLASSES_SAMPLE,
   FLAGGED_ACTIONS, ONE_TIME_PASSWORD_HOURS, REG_BODY, createUserBlockers, deactivateBlockers, goLiveBlockers, goLiveChecklist, isFlagged, labelPageOk, limitProblems,
   priceChangeProblems, roleChangeBlockers, type GoLiveFacts, type Role, type UserAdminBlocker,
   smsSafeName,
-  ackMinutesOk, shiftHoursOk,
+  ackMinutesOk, shiftHoursOk, toleranceOk,
 } from "@setu/domain";
 import { messenger } from "../adapters/messaging/index.js";
 import { registration } from "../adapters/registration.js";
@@ -75,6 +75,7 @@ export async function facilityView(tx: Tx, s: SessionData): Promise<FacilityView
       cashierLimitPaisa: o.cashierDiscountLimitPaisa, cashierLimitBp: o.cashierDiscountLimitBp, approverLimitPaisa: o.approverLimitPaisa,
       labelWidthMm: o.labelWidthMm, labelHeightMm: o.labelHeightMm, receiptFormat: o.receiptFormat as "a5" | "thermal" | null, rxFormat: o.rxFormat as "a5" | "a4" | null,
       paymentMethods: o.paymentMethods as FacilityView["settings"]["paymentMethods"],
+      grnToleranceBp: o.grnToleranceBp, grnTolerancePaisa: o.grnTolerancePaisa,
     },
     escalation: {
       ackMinutes: o.escalationAckMinutes, dutyDoctorIds: o.escalationDutyDoctorIds, sample: true as const,
@@ -112,7 +113,11 @@ export async function updateSettings(tx: Tx, s: SessionData, req: SettingsUpdate
   if (lp.length) throw err(400, lp[0]!, "অনুমোদন সীমা ঠিক নেই — ক্যাশিয়ারের সীমা অনুমোদনকারীর চেয়ে বেশি হতে পারে না, শতাংশ ৫০%-এর বেশি নয়", "Approval limits are not valid — the cashier's limit cannot be above the approver's; the percent at most 50%", { field: lp[0] === "percent_range" ? "cashierLimitBp" : "cashierLimitPaisa" });
   if (!labelPageOk(req.labelWidthMm, req.labelHeightMm)) throw err(400, "label_page", "লেবেলের মাপ ২০–১৫০ × ১৫–১৫০ মিমি", "The label page is 20–150 × 15–150 mm", { field: "labelWidthMm" });
   if (!req.paymentMethods.length) throw err(400, "payment_method_required", "অন্তত একটি পেমেন্ট মাধ্যম চালু রাখুন", "Keep at least one payment method on", { field: "paymentMethods" });
-  const limitsChanged = o.cashierDiscountLimitPaisa !== req.cashierLimitPaisa || o.cashierDiscountLimitBp !== req.cashierLimitBp || o.approverLimitPaisa !== req.approverLimitPaisa;
+  // decision 180: the receipt price tolerance is an approval limit too (a change needs the reason, flagged)
+  const tol = { grnToleranceBp: req.grnToleranceBp ?? o.grnToleranceBp, grnTolerancePaisa: req.grnTolerancePaisa ?? o.grnTolerancePaisa };
+  if (!toleranceOk({ bp: tol.grnToleranceBp, paisa: tol.grnTolerancePaisa })) throw err(400, "tolerance_range", "মাল গ্রহণের দামের সীমা ০–১০% ও ০–৳১,০০০", "The receipt price tolerance is 0–10% and ৳0–1,000", { field: "grnToleranceBp" });
+  const limitsChanged = o.cashierDiscountLimitPaisa !== req.cashierLimitPaisa || o.cashierDiscountLimitBp !== req.cashierLimitBp || o.approverLimitPaisa !== req.approverLimitPaisa
+    || o.grnToleranceBp !== tol.grnToleranceBp || o.grnTolerancePaisa !== tol.grnTolerancePaisa;
   const reason = req.reason?.trim() ?? "";
   // ADR 0015 escalation reach: N minutes 5–120; the duty list only names active doctors of this facility
   if (req.escalationAckMinutes !== undefined && !ackMinutesOk(req.escalationAckMinutes)) throw err(400, "ack_minutes", "স্বীকৃতির সময় ৫–১২০ মিনিট", "The acknowledgement time is 5–120 minutes", { field: "escalationAckMinutes" });
@@ -126,12 +131,12 @@ export async function updateSettings(tx: Tx, s: SessionData, req: SettingsUpdate
   const escBefore = { escalationAckMinutes: o.escalationAckMinutes, escalationDutyDoctorIds: o.escalationDutyDoctorIds, shiftStartHours: o.shiftStartHours, ioDayStartHour: o.ioDayStartHour };
   const escAfter = { escalationAckMinutes: req.escalationAckMinutes ?? o.escalationAckMinutes, escalationDutyDoctorIds: req.escalationDutyDoctorIds ? [...new Set(req.escalationDutyDoctorIds)] : o.escalationDutyDoctorIds,
     shiftStartHours: req.shiftStartHours ? [...req.shiftStartHours].sort((a, b) => a - b) : o.shiftStartHours, ioDayStartHour: req.ioDayStartHour ?? o.ioDayStartHour };
-  const before = { cashierLimitPaisa: o.cashierDiscountLimitPaisa, cashierLimitBp: o.cashierDiscountLimitBp, approverLimitPaisa: o.approverLimitPaisa, labelWidthMm: o.labelWidthMm, labelHeightMm: o.labelHeightMm, receiptFormat: o.receiptFormat, rxFormat: o.rxFormat, paymentMethods: o.paymentMethods };
-  const after = { cashierLimitPaisa: req.cashierLimitPaisa, cashierLimitBp: req.cashierLimitBp, approverLimitPaisa: req.approverLimitPaisa, labelWidthMm: req.labelWidthMm, labelHeightMm: req.labelHeightMm, receiptFormat: req.receiptFormat, rxFormat: req.rxFormat, paymentMethods: [...new Set(req.paymentMethods)] };
+  const before = { grnToleranceBp: o.grnToleranceBp, grnTolerancePaisa: o.grnTolerancePaisa, cashierLimitPaisa: o.cashierDiscountLimitPaisa, cashierLimitBp: o.cashierDiscountLimitBp, approverLimitPaisa: o.approverLimitPaisa, labelWidthMm: o.labelWidthMm, labelHeightMm: o.labelHeightMm, receiptFormat: o.receiptFormat, rxFormat: o.rxFormat, paymentMethods: o.paymentMethods };
+  const after = { ...tol, cashierLimitPaisa: req.cashierLimitPaisa, cashierLimitBp: req.cashierLimitBp, approverLimitPaisa: req.approverLimitPaisa, labelWidthMm: req.labelWidthMm, labelHeightMm: req.labelHeightMm, receiptFormat: req.receiptFormat, rxFormat: req.rxFormat, paymentMethods: [...new Set(req.paymentMethods)] };
   await tx.organization.update({ where: { id: o.id }, data: {
     cashierDiscountLimitPaisa: after.cashierLimitPaisa, cashierDiscountLimitBp: after.cashierLimitBp, approverLimitPaisa: after.approverLimitPaisa,
     labelWidthMm: after.labelWidthMm, labelHeightMm: after.labelHeightMm, receiptFormat: after.receiptFormat, rxFormat: after.rxFormat, paymentMethods: after.paymentMethods,
-    ...escAfter,
+    ...tol, ...escAfter,
   } });
   return [{ action: "settings-change", entity: "Organization", entityId: o.id, detail: { before: { ...before, ...escBefore }, after: { ...after, ...escAfter }, reason: reason || null, limitsChanged } }];
 }

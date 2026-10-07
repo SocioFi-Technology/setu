@@ -96,6 +96,10 @@ model Organization {
   cashierDiscountLimitPaisa Int                @default(50000)
   cashierDiscountLimitBp    Int                @default(500)
   approverLimitPaisa        Int                @default(1000000)
+  /// decision 180 (external review A6): a supplier bill's line may differ from the order by min(bp, paisa) and still be
+  /// posted by the pharmacist; beyond it the owner / admin posts it
+  grnToleranceBp            Int                @default(200)
+  grnTolerancePaisa         Int                @default(5000)
   /// dose label page (ADR 0009): printed through the browser on this page size, so any thermal printer with a driver works
   labelWidthMm              Int                @default(50)
   labelHeightMm             Int                @default(30)
@@ -1870,6 +1874,9 @@ model GoodsReceipt {
   rev               Int                @default(1)
   invoicedPaisa     Int                @default(0)
   debitNotePaisa    Int                @default(0)
+  /// decision 181 (external review A6): the supplier's VAT and AIT as on their bill — data only, not in what is owed
+  supplierVatPaisa  Int                @default(0)
+  supplierAitPaisa  Int                @default(0)
   note              String?
   createdById       String
   createdAt         DateTime           @default(now())
@@ -1929,6 +1936,8 @@ enum StockCountStatus {
   submitted
   approved
   rejected
+  /// external review A6: still being entered when the counter's shift closed — ended with the reason, flagged
+  abandoned
 }
 
 model StockCount {

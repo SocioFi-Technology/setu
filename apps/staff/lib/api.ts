@@ -266,7 +266,7 @@ export const purch = {
   receipt: (id: string) => call<GoodsReceiptView>("GET", `/v1/pharmacy/goods-receipts/${enc(id)}`),
   receiptLine: (id: string, body: GrnLineRequest) => call<GoodsReceiptView>("POST", `/v1/pharmacy/goods-receipts/${enc(id)}/lines`, body, k()),
   receiptRemove: (id: string, lineId: string, rev: number) => call<GoodsReceiptView>("POST", `/v1/pharmacy/goods-receipts/${enc(id)}/lines/${enc(lineId)}/remove`, { rev }, k()),
-  post: (id: string, rev: number, note: string, key: string) => call<GoodsReceiptView>("POST", `/v1/pharmacy/goods-receipts/${enc(id)}/post`, note ? { rev, note } : { rev }, key),
+  post: (id: string, rev: number, note: string, key: string, tax: { supplierVatPaisa?: number; supplierAitPaisa?: number } = {}) => call<GoodsReceiptView>("POST", `/v1/pharmacy/goods-receipts/${enc(id)}/post`, { rev, ...(note ? { note } : {}), ...tax }, key),
   discard: (id: string, rev: number, key: string) => call<GoodsReceiptView>("POST", `/v1/pharmacy/goods-receipts/${enc(id)}/discard`, { rev }, key),
   counts: (status?: string) => call<CountList>("GET", "/v1/pharmacy/counts" + (status ? `?status=${status}` : "")),
   count: (id: string) => call<StockCountView>("GET", `/v1/pharmacy/counts/${enc(id)}`),

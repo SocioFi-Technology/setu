@@ -25,10 +25,13 @@ export interface PoLine { qty: number; costPaisa: number; receivedQty?: number }
 export const poTotalPaisa = (lines: readonly PoLine[]) => lines.reduce((a, l) => a + l.qty * l.costPaisa, 0);
 
 export type PoSendBlocker = "no_lines" | "approval_required";
-/** Sending: at least one line; above the threshold only the owner / admin sends (others ask for approval). */
-export function poSendBlockers(x: { lines: readonly PoLine[]; role: Role; approved: boolean }): PoSendBlocker[] {
+/** Sending: at least one line; above the threshold only the owner / admin sends (others ask for approval). Decision 179
+    (external review A6): the threshold is on the day's total to the supplier — what was already sent to the same
+    supplier from this facility that Dhaka day without an approver (`supplierDayPaisa`) plus this order — so splitting
+    one need into several orders under the limit still needs the approval. */
+export function poSendBlockers(x: { lines: readonly PoLine[]; role: Role; approved: boolean; supplierDayPaisa?: number }): PoSendBlocker[] {
   if (!x.lines.length) return ["no_lines"];
-  if (poTotalPaisa(x.lines) > PO_APPROVAL_PAISA_SAMPLE && !isStockApprover(x.role) && !x.approved) return ["approval_required"];
+  if ((x.supplierDayPaisa ?? 0) + poTotalPaisa(x.lines) > PO_APPROVAL_PAISA_SAMPLE && !isStockApprover(x.role) && !x.approved) return ["approval_required"];
   return [];
 }
 
@@ -56,13 +59,25 @@ export function grnLineBlockers(l: GrnLine, today: string): GrnLineBlocker[] {
 }
 export type GrnPostBlocker = "no_lines" | "line_invalid" | "short_expiry_needs_owner" | "price_variance_needs_owner";
 export const priceVariance = (l: Pick<GrnLine, "costPaisa" | "orderCostPaisa">) => l.costPaisa !== l.orderCostPaisa;
-export function grnPostBlockers(x: { lines: readonly GrnLine[]; role: Role; today: string }): GrnPostBlocker[] {
+/** Decision 180 (external review A6): how far a supplier bill's line may differ from the order and still be posted by
+    the pharmacist — the smaller of a percentage (basis points) of the line at the order's cost and an amount; stored per
+    facility (Organization.grnToleranceBp / grnTolerancePaisa). */
+export interface GrnTolerance { bp: number; paisa: number }
+export const DEFAULT_GRN_TOLERANCE: GrnTolerance = { bp: 200, paisa: 5_000 };
+export const toleranceOk = (t: GrnTolerance) => Number.isInteger(t.bp) && t.bp >= 0 && t.bp <= 1000 && Number.isInteger(t.paisa) && t.paisa >= 0 && t.paisa <= 100_000;
+/** The line's difference in money: |bill cost − order cost| × billed quantity. */
+export const priceVarianceLinePaisa = (l: Pick<GrnLine, "costPaisa" | "orderCostPaisa" | "invoicedQty">) => Math.abs(l.costPaisa - l.orderCostPaisa) * l.invoicedQty;
+/** What the line may differ by: min(bp of the line at the order's cost, the amount). */
+export const lineTolerancePaisa = (l: Pick<GrnLine, "orderCostPaisa" | "invoicedQty">, t: GrnTolerance) => Math.min(Math.floor((l.orderCostPaisa * l.invoicedQty * t.bp) / 10_000), t.paisa);
+/** A price variance beyond the facility's tolerance — only the owner / admin posts it. */
+export const priceBeyondTolerance = (l: Pick<GrnLine, "costPaisa" | "orderCostPaisa" | "invoicedQty">, t: GrnTolerance) => priceVariance(l) && priceVarianceLinePaisa(l) > lineTolerancePaisa(l, t);
+export function grnPostBlockers(x: { lines: readonly GrnLine[]; role: Role; today: string; tolerance?: GrnTolerance }): GrnPostBlocker[] {
   if (!x.lines.length) return ["no_lines"];
   const out: GrnPostBlocker[] = [];
   if (x.lines.some((l) => grnLineBlockers(l, x.today).length)) out.push("line_invalid");
   if (x.lines.some((l) => isDay(l.expiry) && shortExpiry(l.expiry, x.today)) && !isStockApprover(x.role)) out.push("short_expiry_needs_owner");
-  // a supplier bill at another unit cost than the order changes what is owed: the owner / admin posts it (reviews)
-  if (x.lines.some(priceVariance) && !isStockApprover(x.role)) out.push("price_variance_needs_owner");
+  // a supplier bill at another unit cost than the order changes what is owed: beyond the tolerance the owner / admin posts it
+  if (x.lines.some((l) => priceBeyondTolerance(l, x.tolerance ?? { bp: 0, paisa: 0 })) && !isStockApprover(x.role)) out.push("price_variance_needs_owner");
   return out;
 }
 /** What the supplier billed, what arrived short (a debit note against the supplier), and what is owed for it. */

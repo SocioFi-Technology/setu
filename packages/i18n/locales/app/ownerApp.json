@@ -590,5 +590,9 @@
   "sh_submit_count": [
     "গণনা জমা দিন",
     "Submit the count"
+  ],
+  "l_countAbandoned": [
+    "শিফট শেষে অসম্পূর্ণ রয়ে যাওয়া স্টক গণনা",
+    "Stock counts left unfinished at shift close"
   ]
 }

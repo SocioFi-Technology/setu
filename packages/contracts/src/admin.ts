@@ -21,6 +21,8 @@ export const FacilityView = z.object({
     labelWidthMm: z.number().int(), labelHeightMm: z.number().int(),
     receiptFormat: z.enum(["a5", "thermal"]).nullable(), rxFormat: z.enum(["a5", "a4"]).nullable(),
     paymentMethods: z.array(PaymentMethodKey),
+    /** decision 180 (external review A6): a receipt line may differ from the order by min(bp, paisa) — the pharmacist posts it */
+    grnToleranceBp: z.number().int(), grnTolerancePaisa: z.number().int(),
   }),
   /** ADR 0015: escalation reach — an escalation no doctor acknowledges in the app within `ackMinutes` is raised to the
       doctors on duty (the list, or every active doctor when it is empty). Samples: a clinician decides both. */
@@ -48,6 +50,9 @@ export const SettingsUpdate = z.object({
   /** ADR 0016 (left out: unchanged) */
   shiftStartHours: z.array(z.number().int()).max(4).optional(),
   ioDayStartHour: z.number().int().min(0).max(23).optional(),
+  /** decision 180 (left out: unchanged; a change needs the reason, like the approval limits) */
+  grnToleranceBp: z.number().int().min(0).max(1000).optional(),
+  grnTolerancePaisa: z.number().int().min(0).max(100_000).optional(),
 });
 export type SettingsUpdate = z.infer<typeof SettingsUpdate>;
 export const SmsTestRequest = z.object({ phone: Phone });

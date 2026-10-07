@@ -508,6 +508,9 @@ describe.runIf(db)("Kamrul's decisions 220, 221, 223", () => {
     expect(audit?.detail).toMatchObject({ selfApproved: true, flag: "self-approved" });
     const drill = ok(await get("/v1/owner/drill?period=today&what=selfApproved", "owner"));
     expect(drill.rows.find((x: { id: string }) => x.id === c.id)).toMatchObject({ link: { kind: "count" }, status: "approved" });
+    // external review A6 (decision 186): the flag reaches the owner's exceptions list — the row the drill opens from
+    const dash = ok(await get("/v1/owner/dashboard?period=today", "owner"));
+    expect(dash.leakage.find((l: { kind: string }) => l.kind === "selfApproved").count).toBeGreaterThanOrEqual(1);
   });
 
   it("223: the only approver at the facility decides their own request with a note — flagged self-approved, on the exceptions list", { timeout: 40_000 }, async () => {
