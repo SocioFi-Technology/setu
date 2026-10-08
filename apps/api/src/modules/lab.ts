@@ -274,11 +274,14 @@ export async function labWorklist(tx: Tx, s: SessionData, stage: LabWorklist["st
   const branch = await branchOf(tx, s);
   const since = new Date(now.getTime() - WORKLIST_DAYS * 864e5);
   // The most recent visits with lab orders (a busy lab's older open work needs a separate list later).
-  const recent = await tx.serviceRequest.findMany({
+  // the visits, newest order first — grouped by the database (it used to fetch every lab order of the 30 days to pick
+  // them out: thousands of rows a call in a busy lab)
+  const recent = await tx.serviceRequest.groupBy({
+    by: ["encounterId"],
     where: { organizationId: s.organizationId, branchId: branch.id, group: "lab", status: { not: "draft" }, orderedAt: { gte: since } },
-    select: { encounterId: true }, orderBy: { orderedAt: "desc" },
+    _max: { orderedAt: true }, orderBy: { _max: { orderedAt: "desc" } }, take: WORKLIST_MAX,
   });
-  const encIds = [...new Set(recent.map((x) => x.encounterId))].slice(0, WORKLIST_MAX);
+  const encIds = recent.map((x) => x.encounterId);
   const b = await loadBundle(tx, s, encIds, false);
   const items: LabWorklist["items"] = [];
   for (const e of b.encounters) {

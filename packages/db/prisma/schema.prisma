@@ -982,6 +982,8 @@ model ServiceRequest {
   revokeReason      String?
 
   @@index([tenantId, encounterId])
+  /// the lab worklist: a branch's lab orders, newest first (review: it fetched every order of 30 days)
+  @@index([tenantId, branchId, group, orderedAt])
   @@index([tenantId, compositionId])
 }
 
