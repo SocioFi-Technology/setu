@@ -30,10 +30,17 @@ services:
 
   postgres:
     profiles: !override ["bundled"]
-    image: postgres:16
+    # postgres:16 + WAL-G (infra/postgres/Dockerfile). Tagged by the WAL-G version, not the commit: a deploy must not
+    # recreate the database container; it changes only when that Dockerfile does (infra/staging/ship.sh builds it).
+    image: ${SETU_REGISTRY:-setu}/setu-postgres:16-walg-v3.0.9
     restart: unless-stopped
     environment: !override { POSTGRES_USER: setu, POSTGRES_PASSWORD: "${SETU_PG_PASSWORD:?set in the env file}", POSTGRES_DB: setu }
-    command: ["postgres", "-c", "shared_buffers=256MB", "-c", "max_connections=100"]
+    # the WAL-G settings (R2 bucket, key, libsodium key): setu's /opt/setu/walg.env, made by infra/staging/vps-walg-env.sh
+    env_file: [{ path: "${SETU_WALG_ENV_FILE:-/opt/setu/walg.env}", required: false }]
+    # SETU_WAL_ARCHIVE=on (staging.env) once walg.env exists: every WAL segment goes to R2, a forced switch at least
+    # every 60 s while anything is written — the RPO
+    command: ["postgres", "-c", "shared_buffers=256MB", "-c", "max_connections=100", "-c", "wal_level=replica",
+      "-c", "archive_mode=${SETU_WAL_ARCHIVE:-off}", "-c", "archive_command=wal-g wal-push %p", "-c", "archive_timeout=60"]
     mem_limit: 1g
     logging: { driver: json-file, options: { max-size: "20m", max-file: "5" } }
 

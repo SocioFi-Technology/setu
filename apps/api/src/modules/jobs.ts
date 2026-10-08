@@ -58,3 +58,14 @@ export function jobProblems(rows: { name: string; lastFinishedAt: Date; lastOk: 
   }
   return out;
 }
+
+/* Staging (ADR 0019, follow-up 1): the WAL archive to R2 is part of the job-age check. With archiving on, a failure
+   newer than the last success is "failing"; nothing archived for 10 minutes is "stale" (the sweeps write every minute
+   and archive_timeout forces a segment out every 60 s, so a healthy archive is never older than ~2 minutes). */
+export function walArchiveProblem(a: { mode: string; lastArchivedAt: Date | null; lastFailedAt: Date | null }, now: Date, upSeconds: number): JobProblem | null {
+  if (a.mode !== "on" && a.mode !== "always") return null;
+  const age = a.lastArchivedAt ? Math.round((now.getTime() - a.lastArchivedAt.getTime()) / 1000) : null;
+  if (a.lastFailedAt && (!a.lastArchivedAt || a.lastFailedAt > a.lastArchivedAt)) return { name: "wal-archive", problem: "failing", ageSeconds: age };
+  if (age === null) return upSeconds > 600 ? { name: "wal-archive", problem: "missing", ageSeconds: null } : null;
+  return age > 600 ? { name: "wal-archive", problem: "stale", ageSeconds: age } : null;
+}

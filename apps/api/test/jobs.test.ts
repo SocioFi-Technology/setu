@@ -65,6 +65,17 @@ describe.runIf(db)("single-instance jobs (staging)", () => {
     expect(jobProblems(noRollup, now, 3600)).toEqual([]);
     expect(jobProblems(noRollup, now, 27 * 3600)).toEqual([{ name: "nightly-rollup", problem: "missing", ageSeconds: null }]);
   });
+  it("the WAL archive (ADR 0019 follow-up 1): off when archiving is off; failing after a failure; stale past 10 minutes", async () => {
+    const { walArchiveProblem } = await import("../src/modules/jobs.js");
+    const now = new Date("2026-10-08T12:00:00Z");
+    const ago = (s: number) => new Date(now.getTime() - s * 1000);
+    expect(walArchiveProblem({ mode: "off", lastArchivedAt: null, lastFailedAt: ago(5) }, now, 99_999)).toBeNull();
+    expect(walArchiveProblem({ mode: "on", lastArchivedAt: ago(40), lastFailedAt: ago(500) }, now, 99_999)).toBeNull();
+    expect(walArchiveProblem({ mode: "on", lastArchivedAt: ago(400), lastFailedAt: ago(30) }, now, 99_999)).toMatchObject({ name: "wal-archive", problem: "failing", ageSeconds: 400 });
+    expect(walArchiveProblem({ mode: "on", lastArchivedAt: ago(601), lastFailedAt: null }, now, 99_999)).toMatchObject({ problem: "stale", ageSeconds: 601 });
+    expect(walArchiveProblem({ mode: "on", lastArchivedAt: null, lastFailedAt: null }, now, 120)).toBeNull();
+    expect(walArchiveProblem({ mode: "on", lastArchivedAt: null, lastFailedAt: null }, now, 700)).toMatchObject({ problem: "missing" });
+  });
   it("/health/jobs/ok answers the monitor: 200 or 503 with the problems, names and ages only", async () => {
     const r = await app.inject({ method: "GET", url: "/health/jobs/ok" });
     expect([200, 503]).toContain(r.statusCode);

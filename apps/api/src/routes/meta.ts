@@ -25,8 +25,12 @@ export async function metaRoutes(app: FastifyInstance) {
     reply.header("cache-control", "no-store");
     if (!config.dbEnabled) return { ok: true, problems: [] };
     const { prisma } = await import("@setu/db");
-    const { jobProblems } = await import("../modules/jobs.js");
+    const { jobProblems, walArchiveProblem } = await import("../modules/jobs.js");
     const problems = jobProblems(await prisma.jobRun.findMany(), new Date(), process.uptime());
+    const [arc] = await prisma.$queryRaw<{ mode: string; lastArchivedAt: Date | null; lastFailedAt: Date | null }[]>`
+      SELECT current_setting('archive_mode') AS mode, last_archived_time AS "lastArchivedAt", last_failed_time AS "lastFailedAt" FROM pg_stat_archiver`;
+    const wal = arc ? walArchiveProblem(arc, new Date(), process.uptime()) : null;
+    if (wal) problems.push(wal);
     return reply.code(problems.length ? 503 : 200).send({ ok: !problems.length, problems });
   });
   /* Staging (week 2): ready to take traffic — the database and the counter store (Redis) both answer. 503 otherwise, so
