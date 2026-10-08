@@ -22,6 +22,10 @@ import { encounterHere, toVitalsEncounter } from "./vitals.js";
 
 const KIND = "consultation-note";
 const dash = <T extends string>(s: string) => s.replace(/_/g, "-") as T;
+/** the database spelling of a machine state (in-progress → in_progress): every status write is the transition's result */
+const under = <T extends string>(s: string) => s.replace(/-/g, "_") as T;
+type DbEnc = "planned" | "arrived" | "triaged" | "in_progress" | "finished" | "cancelled" | "entered_in_error";
+type DbOrder = "draft" | "active" | "centre_chosen" | "accepted" | "partially_accepted" | "declined" | "in_progress" | "partially_complete" | "complete" | "revoked";
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 type DbDoc = "draft" | "queued" | "final" | "amended" | "superseded" | "entered_in_error";
 const CURRENT: DbDoc[] = ["final", "amended"];
@@ -206,7 +210,7 @@ export async function openConsultation(tx: Tx, s: SessionData, encounterId: stri
     const from = dash<EncounterState>(e.status);
     if (a.event === "start") {
       const to = transition("encounter", ENCOUNTER, from, "start");
-      const n = await tx.encounter.updateMany({ where: { id: e.id, status: e.status, OR: [{ practitionerId: null }, { practitionerId: s.userId }] }, data: { status: "in_progress", statusAt: now, practitionerId: s.userId } });
+      const n = await tx.encounter.updateMany({ where: { id: e.id, status: e.status, OR: [{ practitionerId: null }, { practitionerId: s.userId }] }, data: { status: under<DbEnc>(to), statusAt: now, practitionerId: s.userId } });
       if (n.count === 1) { changed.started = { from, to }; changed.assigned = a.assign; }
       else {
         // Two opens at once (a double click; React's dev mode runs the effect twice): when this doctor's own open won,
@@ -328,8 +332,8 @@ export async function signComposition(tx: Tx, s: SessionData, id: string, body: 
   // This version's orders are placed: ORDER draft → active.
   const drafts = await tx.serviceRequest.findMany({ where: { compositionId: c.id, status: "draft" }, select: { id: true } });
   if (drafts.length) {
-    transition("order", ORDER, "draft", "order");
-    await tx.serviceRequest.updateMany({ where: { compositionId: c.id, status: "draft" }, data: { status: "active", orderedAt: now, statusAt: now } });
+    const ordered = transition("order", ORDER, "draft", "order");
+    await tx.serviceRequest.updateMany({ where: { compositionId: c.id, status: "draft" }, data: { status: under<DbOrder>(ordered), orderedAt: now, statusAt: now } });
   }
 
   // Decision 31: signing the first version finishes the visit (ENCOUNTER finish), so the A6 bill attaches to it.
@@ -337,7 +341,7 @@ export async function signComposition(tx: Tx, s: SessionData, id: string, body: 
   const from = dash<EncounterState>(e.status);
   if (!isAmendment) {
     const encTo = transition("encounter", ENCOUNTER, from, "finish"); // only from with-doctor; anything else refuses the sign
-    const n = await tx.encounter.updateMany({ where: { id: e.id, status: e.status }, data: { status: "finished", statusAt: now } });
+    const n = await tx.encounter.updateMany({ where: { id: e.id, status: e.status }, data: { status: under<DbEnc>(encTo), statusAt: now } });
     if (n.count !== 1) throw stale();
     encounterEvent = { from, to: encTo };
     audit.push({ action: "update", entity: "Encounter", entityId: e.id, detail: { event: "finish", from, to: encTo } });
@@ -440,7 +444,7 @@ export async function markAllergyError(tx: Tx, s: SessionData, id: string, encou
   if (!a) throw notFound();
   await allergyVisit(tx, s, encounterId, a.patientId);
   const to = transition("allergy", ALLERGY, dash<"active">(a.status), "markError");
-  const n = await tx.allergyIntolerance.updateMany({ where: { id, status: "active" }, data: { status: "entered_in_error", errorReason: reason.trim(), errorById: s.userId, errorAt: now } });
+  const n = await tx.allergyIntolerance.updateMany({ where: { id, status: "active" }, data: { status: under<"active" | "entered_in_error">(to), errorReason: reason.trim(), errorById: s.userId, errorAt: now } });
   if (n.count !== 1) throw stale();
   await tx.provenance.create({ data: { tenantId: s.tenantId, targetType: "AllergyIntolerance", targetId: id, activity: "allergy-entered-in-error", agentId: s.userId, onBehalfOf: s.organizationId, recorded: now, source: "provider_verified", reason: reason.trim(), detail: { encounterId, to } } });
   const after = (await tx.allergyIntolerance.findFirst({ where: { id } }))!;
