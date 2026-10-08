@@ -1,0 +1,73 @@
+{
+  "titleBn": "মালিক — ড্যাশবোর্ড, অনুমোদন ও শিফট",
+  "titleEn": "Owner — dashboard, approvals and shifts",
+  "introBn": "প্রতিটি সংখ্যায় চাপ দিলে তার পেছনের তালিকা খোলে। ছাড়, ফেরত আর স্টকের পার্থক্য আপনার অনুমোদন চায়। ক্যাশিয়ারের গণনার পর আপনি মেলান।",
+  "introEn": "Every number opens the list behind it. Discounts, refunds and stock differences wait for your approval. You compare after the cashier counts.",
+  "steps": [
+    {
+      "shot": "walk-owner/05-C1-owner-home-dashboard.png",
+      "bn": "ড্যাশবোর্ড: আজকের আয়, রোগী ও সতর্কতা।",
+      "en": "The dashboard: today's takings, patients and alerts."
+    },
+    {
+      "shot": "walk-owner/06-C1-chart-and-leakage.png",
+      "bn": "চার্ট ও “লিকেজ” — শিফটের বাইরে নেওয়া টাকা ইত্যাদি।",
+      "en": "The chart and leakage — money taken outside a shift and the like."
+    },
+    {
+      "shot": "walk-owner/07-C1-revenue-drill.png",
+      "bn": "আয়ে চাপ দিলে বিস্তারিত।",
+      "en": "Tap the revenue for the detail."
+    },
+    {
+      "shot": "walk-owner/08-C3-approvals.png",
+      "bn": "অনুমোদনের তালিকা।",
+      "en": "The approvals list."
+    },
+    {
+      "shot": "walk-owner/09-C3-approved-one-rejected-one.png",
+      "bn": "একটি অনুমোদিত, একটি বাতিল — দুটোই কারণসহ।",
+      "en": "One approved, one rejected — both with a reason."
+    },
+    {
+      "shot": "walk-owner/10-C2-discounts-above-policy.png",
+      "bn": "নীতির বেশি ছাড়: কে চাইল, কে দিল।",
+      "en": "Discounts above policy: who asked, who approved."
+    },
+    {
+      "shot": "walk-owner/11-C4-owner-shift-card.png",
+      "bn": "ক্যাশিয়ারের শিফট: প্রত্যাশিত বনাম গোনা।",
+      "en": "The cashier's shift: expected against counted."
+    },
+    {
+      "shot": "walk-owner/12-C4-owner-recount.png",
+      "bn": "পার্থক্য থাকলে আবার গোনান।",
+      "en": "A difference: ask for a recount."
+    },
+    {
+      "shot": "walk-owner/13-C4-owner-accepts-with-note.png",
+      "bn": "নোটসহ গ্রহণ।",
+      "en": "Accept with a note."
+    },
+    {
+      "shot": "walk-refund/05-owner-approvals-412.png",
+      "bn": "ফেরতের অনুরোধ অনুমোদন।",
+      "en": "Approving a refund request."
+    },
+    {
+      "shot": "walk-pharm/13-owner-approvals.png",
+      "bn": "ফার্মেসির অনুমোদন: স্বল্প মেয়াদের মাল ও গণনা।",
+      "en": "Pharmacy approvals: short expiry and a count."
+    },
+    {
+      "shot": "walk-discharge/28-owner-inpatient-rows.png",
+      "bn": "ভর্তি রোগীদের হিসাব।",
+      "en": "The inpatient rows."
+    },
+    {
+      "shot": "walk-owner/15-C1-bangla-7-days.png",
+      "bn": "৭ দিনের চিত্র।",
+      "en": "The last 7 days."
+    }
+  ]
+}

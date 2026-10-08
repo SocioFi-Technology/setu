@@ -48,7 +48,7 @@ async function login(phone) {
   await page.getByRole("radio", { name: "বাং", exact: true }).click();
   await page.getByRole("radio", { name: "০১২৩", exact: true }).click();
 }
-async function shot(name, full = false) { n++; const f = `${OUT}/${String(n).padStart(2, "0")}-${name}.png`; await page.waitForTimeout(700); await page.screenshot({ path: f, fullPage: full }); console.log("saved", f); }
+async function shot(name, full = false) { n++; const f = `${OUT}/${String(n).padStart(2, "0")}-${name}.png`; await page.waitForTimeout(700); await (full ? page.evaluate(() => window.scrollTo(0, 0)) : Promise.resolve()).then(() => page.screenshot({ path: f, fullPage: full })); console.log("saved", f); }
 async function ownerApproves(billNumber, phone = false) {
   if (phone) { await page.close(); page = await browser.newPage({ viewport: { width: 412, height: 915 } }); }
   await login(OWNER);

@@ -1,0 +1,128 @@
+{
+  "titleBn": "নার্স — জরুরি বিভাগ, ওয়ার্ড, ওষুধ দেওয়া (MAR) ও হস্তান্তর",
+  "titleEn": "Nurse — ER, the ward, giving medicines (MAR) and handover",
+  "introBn": "ওষুধ দেওয়ার আগে রোগীর রিস্টব্যান্ড ও ওষুধের লেবেল স্ক্যান করুন — পাঁচটি যাচাই (রোগী, ওষুধ, মাত্রা, পথ, সময়) না হলে রেকর্ড হয় না।",
+  "introEn": "Before giving a medicine, scan the wristband and the label — nothing is recorded until the five checks (patient, drug, dose, route, time) pass.",
+  "steps": [
+    {
+      "shot": "walk-er/01-nurse-board-empty.png",
+      "bn": "জরুরি বিভাগের বোর্ড।",
+      "en": "The ER board."
+    },
+    {
+      "shot": "walk-er/02-nurse-arrival-dialog.png",
+      "bn": "নতুন রোগী: আগমন লিখুন, বে বেছে নিন।",
+      "en": "A new arrival: record it, pick the bay."
+    },
+    {
+      "shot": "walk-er/04-nurse-triaged-level-2.png",
+      "bn": "ট্রায়াজ: জরুরি মাত্রা (লেভেল) ঠিক করুন।",
+      "en": "Triage: set the urgency level."
+    },
+    {
+      "shot": "walk-er/06-nurse-vitals-saved.png",
+      "bn": "ভাইটাল সংরক্ষিত।",
+      "en": "Vitals saved."
+    },
+    {
+      "shot": "walk-ward/01-nurse-ward-board.png",
+      "bn": "ওয়ার্ড বোর্ড: প্রতিটি বেড, রোগী আর সতর্কতা।",
+      "en": "The ward board: every bed, patient and alert."
+    },
+    {
+      "shot": "walk-ward/02-nurse-news2-live-9.png",
+      "bn": "NEWS2 স্কোর সাথে সাথে হিসাব হয়।",
+      "en": "The NEWS2 score is worked out as you type."
+    },
+    {
+      "shot": "walk-ward/03-nurse-escalated.png",
+      "bn": "স্কোর বেশি হলে ডাক্তারের কাছে সতর্কতা যায়।",
+      "en": "A high score escalates to the doctor."
+    },
+    {
+      "shot": "walk-ward/05-nurse-log-doctor-contact.png",
+      "bn": "ডাক্তারের সাথে যোগাযোগ লিখে রাখুন।",
+      "en": "Record the contact with the doctor."
+    },
+    {
+      "shot": "walk-ward/13-nurse-mar.png",
+      "bn": "MAR: কখন কোন ওষুধ — সময়মতো, বাকি বা দেরি।",
+      "en": "The MAR: which medicine when — due, overdue or given."
+    },
+    {
+      "shot": "walk-b5b6/02-nurse-dose-locked-until-scanned.png",
+      "bn": "স্ক্যান না করা পর্যন্ত “রেকর্ড” বন্ধ।",
+      "en": "Record stays locked until both are scanned."
+    },
+    {
+      "shot": "walk-b5b6/03-nurse-scan-mismatch.png",
+      "bn": "ভুল রোগী বা ভুল ওষুধ স্ক্যান করলে লাল সতর্কতা।",
+      "en": "Scanning the wrong patient or medicine shows a red alert."
+    },
+    {
+      "shot": "walk-b5b6/04-nurse-dose-scanned.png",
+      "bn": "দুটো স্ক্যান মিললে দেওয়া রেকর্ড করুন।",
+      "en": "Both scans match: record the dose."
+    },
+    {
+      "shot": "walk-b5b6/05-nurse-scanner-not-working.png",
+      "bn": "স্ক্যানার না চললে কারণ লিখে চালানো যায় — উচ্চ-ঝুঁকি বা নিয়ন্ত্রিত ওষুধে নয়।",
+      "en": "Scanner not working: go on with a reason — never for a high-alert or controlled drug."
+    },
+    {
+      "shot": "walk-ward/17-nurse-morphine-wrong-witness-pin.png",
+      "bn": "নিয়ন্ত্রিত ওষুধে (মরফিন) দ্বিতীয় নার্সের সাক্ষী-পিন লাগে।",
+      "en": "A controlled drug (morphine) needs a second nurse's witness PIN."
+    },
+    {
+      "shot": "walk-b5b6/08-wristband-print.png",
+      "bn": "রিস্টব্যান্ড প্রিন্ট।",
+      "en": "Printing the wristband."
+    },
+    {
+      "shot": "walk-b5b6/10-nurse-intake-output.png",
+      "bn": "ইনটেক ও আউটপুট (তরল) হিসাব।",
+      "en": "Intake and output."
+    },
+    {
+      "shot": "walk-b5b6/12-nurse-care-plan.png",
+      "bn": "কেয়ার প্ল্যান: ডাক্তারের দেওয়া কাজ।",
+      "en": "The care plan: the doctor's care tasks."
+    },
+    {
+      "shot": "walk-b5b6/13-nurse-handover-sheet.png",
+      "bn": "শিফট হস্তান্তর শিট।",
+      "en": "The shift handover sheet."
+    },
+    {
+      "shot": "walk-b5b6/15-handover-accepted.png",
+      "bn": "আগত নার্স গ্রহণ করলেন।",
+      "en": "The incoming nurse accepts."
+    },
+    {
+      "shot": "walk-ward/21-nurse-indent-form.png",
+      "bn": "ওয়ার্ডের ওষুধ লাগলে ফার্মেসিতে ইনডেন্ট।",
+      "en": "Ward stock running low: an indent to the pharmacy."
+    },
+    {
+      "shot": "walk-ward/27-nurse-bed-map.png",
+      "bn": "বেড ম্যাপ।",
+      "en": "The bed map."
+    },
+    {
+      "shot": "walk-discharge/15-nurse-checklist-ready-to-leave.png",
+      "bn": "ছুটির চেকলিস্ট সম্পূর্ণ — রোগী যেতে পারেন।",
+      "en": "The discharge checklist complete — the patient may leave."
+    },
+    {
+      "shot": "walk-discharge/17-nurse-discharged.png",
+      "bn": "“রোগী চলে গেছেন” — বেড পরিষ্কারের জন্য।",
+      "en": "Patient left — the bed goes to cleaning."
+    },
+    {
+      "shot": "walk-discharge/19-nurse-map-ready.png",
+      "bn": "পরিষ্কার শেষে বেড আবার প্রস্তুত।",
+      "en": "Cleaned — the bed is ready again."
+    }
+  ]
+}

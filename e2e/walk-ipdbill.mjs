@@ -25,7 +25,7 @@ async function login(phone) {
   await page.getByRole("radio", { name: "বাং", exact: true }).click();
   await page.getByRole("radio", { name: "০১২৩", exact: true }).click();
 }
-async function shot(name, full = false) { n++; const f = `${OUT}/${String(n).padStart(2, "0")}-${name}.png`; await page.waitForTimeout(800); await page.screenshot({ path: f, fullPage: full }); console.log("saved", f); }
+async function shot(name, full = false) { n++; const f = `${OUT}/${String(n).padStart(2, "0")}-${name}.png`; await page.waitForTimeout(800); await (full ? page.evaluate(() => window.scrollTo(0, 0)) : Promise.resolve()).then(() => page.screenshot({ path: f, fullPage: full })); console.log("saved", f); }
 async function pin() { await page.getByTestId("pin").fill("1234"); await page.getByTestId("pin-submit").click(); }
 
 // a ward of its own and a fresh patient (the desk registers through the API; the admission goes through the screen)
@@ -127,34 +127,6 @@ await page.getByRole("radio", { name: "ছিল না" }).click();
 await shot("pharmacist-done-dialog");
 await page.getByTestId("step-continue").click(); await pin();
 await page.waitForTimeout(800);
-// the cashier: steps 4–5 by hand on the bill
-await login(CASHIER);
-await page.goto(BASE + `/m/bill/ipd?adm=${adm.id}`);
-const clear = page.getByTestId("clearance");
-await clear.getByTestId("done-final-bill").click(); await page.getByTestId("step-note").fill("কাগজে চূড়ান্ত বিল"); await page.getByTestId("step-continue").click(); await pin();
-await clear.locator('[data-step="final-bill"][data-step-status="done"]').waitFor();
-await clear.getByTestId("done-payment").click(); await page.getByTestId("step-continue").click(); await pin();
-await clear.locator('[data-step="payment"][data-step-status="done"]').waitFor();
-await clear.scrollIntoViewIfNeeded();
-await shot("cashier-clearance-by-hand", true);
-// the nurse: the list, remind the doctor
-await login(NURSE);
-await page.goto(BASE + "/m/ipd/discharge");
-await page.getByTestId("discharge-list").waitFor();
-await shot("nurse-discharge-list");
-await page.goto(BASE + `/m/ipd/discharge?adm=${adm.id}`);
-await page.getByTestId("remind-summary").click();
-await page.waitForTimeout(800);
-await shot("nurse-reminded-summary", true);
-// the surgeon: the summary (by hand); the nurse: bed release
-await login(SURGEON);
-await page.goto(BASE + `/m/ipd/discharge?adm=${adm.id}`);
-await page.getByTestId("done-summary").click(); await page.getByTestId("step-continue").click(); await pin();
-await page.waitForTimeout(800);
-await login(NURSE);
-await page.goto(BASE + `/m/ipd/discharge?adm=${adm.id}`);
-await page.getByTestId("done-bed-release").click(); await page.getByTestId("step-continue").click(); await pin();
-await page.locator('[data-screen="ipd/discharge"][data-status="completed"]').waitFor();
-await shot("nurse-discharged", true);
+// The final bill and the payment are no longer ticked by hand: since B10–B12 (ADR 0018) issuing the final bill and
+// settling it complete those checklist steps — walk-discharge.mjs walks that part (the cashier, the summary, the bed).
 await browser.close();
-console.log("done", adm.number);

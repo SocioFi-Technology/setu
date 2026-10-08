@@ -1,0 +1,118 @@
+{
+  "titleBn": "ল্যাব — নমুনা সংগ্রহ, ফলাফল, যাচাই ও রিপোর্ট",
+  "titleEn": "Lab — collection, results, verification and the report",
+  "introBn": "টেকনোলজিস্ট নমুনা নেন ও ফলাফল লেখেন; প্যাথলজিস্ট অনুমোদন করেন। জরুরি (HH/LL) মান দুবার টাইপ করতে হয় এবং ডাক্তারকে ফোনে জানানোর আগে অনুমোদন হয় না।",
+  "introEn": "The technologist collects and enters results; the pathologist validates. A critical (HH/LL) value is typed twice and cannot be validated until the doctor is called.",
+  "steps": [
+    {
+      "shot": "walk-lab/01-A8-collect-worklist.png",
+      "bn": "সংগ্রহের তালিকা: যেসব রোগীর নমুনা নিতে হবে।",
+      "en": "The collection list: patients whose samples are due."
+    },
+    {
+      "shot": "walk-lab/02-A8-tube-guidance.png",
+      "bn": "কোন পরীক্ষায় কোন টিউব (EDTA, ফ্লোরাইড, প্লেইন) — স্ক্রিন দেখিয়ে দেয়।",
+      "en": "Which tube for which test (EDTA, fluoride, plain) — the screen tells you."
+    },
+    {
+      "shot": "walk-lab/03-A8-labels-printed.png",
+      "bn": "লেবেল প্রিন্ট করে টিউবে লাগান।",
+      "en": "Print the labels and stick them on the tubes."
+    },
+    {
+      "shot": "walk-lab/04-A8-partial-collection.png",
+      "bn": "কিছু টিউব নেওয়া হলে বাকিগুলো খোলা থাকে।",
+      "en": "Collect some tubes; the rest stay open."
+    },
+    {
+      "shot": "walk-lab/05-A8-reject-dialog.png",
+      "bn": "নমুনা নষ্ট (হিমোলাইসড ইত্যাদি) হলে কারণসহ বাতিল করুন।",
+      "en": "A spoiled sample (haemolysed etc.) is rejected with a reason."
+    },
+    {
+      "shot": "walk-lab/06-A8-rejected-recollect-sms.png",
+      "bn": "বাতিল হলে নতুন টিউব লাগে; রোগী আবার আসার SMS পান।",
+      "en": "A rejection needs a new tube; the patient gets an SMS to come back."
+    },
+    {
+      "shot": "walk-lab/07-A8-new-tube-and-plain-collected.png",
+      "bn": "নতুন টিউব সংগ্রহ।",
+      "en": "The new tube collected."
+    },
+    {
+      "shot": "walk-lab/08-A8-accession.png",
+      "bn": "ল্যাবে গ্রহণ (অ্যাকসেশন): নমুনা পৌঁছাল।",
+      "en": "Accession: the samples reached the lab."
+    },
+    {
+      "shot": "walk-lab/09-A9-entry-critical-k-typed-twice.png",
+      "bn": "ফলাফল লিখুন। জরুরি মান (এখানে পটাশিয়াম ৬.৯) দুবার টাইপ করতে হয়।",
+      "en": "Enter results. A critical value (potassium 6.9 here) is typed twice."
+    },
+    {
+      "shot": "walk-lab/10-A9-sent-for-verification.png",
+      "bn": "“যাচাইয়ে পাঠান”।",
+      "en": "Send for verification."
+    },
+    {
+      "shot": "walk-lab/11-A9-technical-verify.png",
+      "bn": "টেকনিক্যাল যাচাই — আপনার পিন দিয়ে।",
+      "en": "Technical verification, with your PIN."
+    },
+    {
+      "shot": "walk-lab/12-A10-validate-locked-callback.png",
+      "bn": "(প্যাথলজিস্ট) জরুরি মান থাকলে অনুমোদন বন্ধ — আগে ডাক্তারকে ফোন।",
+      "en": "(Pathologist) With a critical value, validation is locked — call the doctor first."
+    },
+    {
+      "shot": "walk-lab/13-A10-no-answer-still-locked.png",
+      "bn": "ফোনে না পেলে লিখে রাখুন — তবুও বন্ধ থাকে।",
+      "en": "No answer is recorded — still locked."
+    },
+    {
+      "shot": "walk-lab/14-A10-reached-readback-unlocked.png",
+      "bn": "ডাক্তার শুনে পুনরায় বললে (read-back) অনুমোদন খোলে।",
+      "en": "Reached, with the value read back: validation unlocks."
+    },
+    {
+      "shot": "walk-lab/15-A10-validated-release-preview.png",
+      "bn": "অনুমোদিত — রিপোর্টের পূর্বরূপ।",
+      "en": "Validated — the report preview."
+    },
+    {
+      "shot": "walk-lab/16-A10-released-preliminary-report.png",
+      "bn": "রিপোর্ট প্রকাশ; কিছু পরীক্ষা বাকি থাকলে “প্রাথমিক”।",
+      "en": "Released; with tests still pending it is preliminary."
+    },
+    {
+      "shot": "walk-lab/17-A11-delivery.png",
+      "bn": "বিতরণ: রোগীকে SMS ও অ্যাপে।",
+      "en": "Delivery: SMS and the patient app."
+    },
+    {
+      "shot": "walk-lab/18-A11-sms-failed.png",
+      "bn": "SMS না গেলে লাল চিহ্ন।",
+      "en": "A failed SMS is marked red."
+    },
+    {
+      "shot": "walk-lab/19-A11-sms-retried-app-sent.png",
+      "bn": "আবার চেষ্টা — একই বার্তা একবারই যায়।",
+      "en": "Retry — the same message goes once."
+    },
+    {
+      "shot": "walk-lab/20-correction-after-release.png",
+      "bn": "প্রকাশের পর ভুল ধরলে সংশোধন — পুরোনো মান মুছে যায় না, রিপোর্ট “সংশোধিত” হয়।",
+      "en": "A correction after release — the old value stays on record, the report becomes Corrected."
+    },
+    {
+      "shot": "walk-lab/21-bangla-result-screen.png",
+      "bn": "ফলাফলের স্ক্রিন বাংলায়।",
+      "en": "The results screen in Bangla."
+    },
+    {
+      "shot": "walk-lab/22-tablet-1024-result-screen.png",
+      "bn": "ট্যাবলেটেও (১০২৪ পিক্সেল) কাজ করে।",
+      "en": "Works on a tablet too (1024 px)."
+    }
+  ]
+}

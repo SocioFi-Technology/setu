@@ -23,7 +23,7 @@ async function login(phone) {
   await page.waitForSelector("header.shell-top", { timeout: 60000 });
   await page.getByRole("radio", { name: "বাং", exact: true }).click(); await page.getByRole("radio", { name: "০১২৩", exact: true }).click();
 }
-async function shot(name, full = false) { n++; const f = `${OUT}/${String(n).padStart(2, "0")}-${name}.png`; await page.waitForTimeout(700); await page.screenshot({ path: f, fullPage: full }); console.log("saved", f, errs.splice(0).join(" | ")); }
+async function shot(name, full = false) { n++; const f = `${OUT}/${String(n).padStart(2, "0")}-${name}.png`; await page.waitForTimeout(700); await (full ? page.evaluate(() => window.scrollTo(0, 0)) : Promise.resolve()).then(() => page.screenshot({ path: f, fullPage: full })); console.log("saved", f, errs.splice(0).join(" | ")); }
 async function board() { await page.goto(BASE + "/m/nur/ward"); await page.getByTestId("ward-pick").selectOption(ip.wardId); await page.locator(`[data-bed-patient="${SHAHIDUL}"]`).waitFor({ timeout: 30000 }); }
 const ticks = async (dlg) => { for (const c of ["patient", "drug", "dose", "route", "time"]) await dlg.locator(`[data-check="${c}"]`).check(); };
 

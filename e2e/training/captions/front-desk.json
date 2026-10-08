@@ -1,0 +1,73 @@
+{
+  "titleBn": "ফ্রন্ট ডেস্ক — রোগী খোঁজা, নিবন্ধন, টোকেন ও ভাইটাল",
+  "titleEn": "Front desk — find, register, token and vitals",
+  "introBn": "রোগী এলে আগে খুঁজুন — একই রোগীর দুটো রেকর্ড যেন না হয়। না পেলে নিবন্ধন করুন; সংরক্ষণ করলেই টোকেন তৈরি হয় এবং রোগী সিরিয়াল বোর্ডে ওঠেন।",
+  "introEn": "When a patient arrives, search first — so one person never gets two records. If not found, register; saving makes the token and puts the patient on the queue board.",
+  "steps": [
+    {
+      "shot": "walk-desk/01-login.png",
+      "bn": "লগইন: আপনার ফোন নম্বর আর পাসওয়ার্ড। নিজের অ্যাকাউন্ট ছাড়া অন্য কারো দিয়ে লগইন করবেন না — সব কাজ আপনার নামে লেখা থাকে।",
+      "en": "Sign in with your phone number and password. Never use someone else's account — every action is recorded under your name."
+    },
+    {
+      "shot": "walk-desk/02-home.png",
+      "bn": "হোম: বাঁ পাশের মেনুতে আপনার কাজের স্ক্রিন। উপরে খোঁজার ঘর (F2), ভাষা (বাং/EN) আর অঙ্ক (০১২৩/0123)।",
+      "en": "Home: your screens on the left. At the top: search (F2), language (বাং/EN) and digits (০১২৩/0123)."
+    },
+    {
+      "shot": "walk-desk/03-search-shared-phone.png",
+      "bn": "ফোন নম্বরে খুঁজুন। এক নম্বরে কয়েকজন থাকলে হলুদ সতর্কতা দেখায় — নাম আর বয়স মিলিয়ে সঠিক জনকে বেছে নিন।",
+      "en": "Search by phone. When several people share a number a warning shows — match the name and age before choosing."
+    },
+    {
+      "shot": "walk-desk/04-register-errors.png",
+      "bn": "না পেলে “নতুন হিসেবে নিবন্ধন”। কোনো ঘর ভুল বা খালি থাকলে উপরে কয়টি ঠিক করতে হবে দেখায় — সংরক্ষণ হয় না।",
+      "en": "Not found → register as new. A missing or wrong field is listed at the top — nothing is saved until it is fixed."
+    },
+    {
+      "shot": "walk-desk/05-register-filled.png",
+      "bn": "নাম (বাংলা ও ইংরেজি), লিঙ্গ, জন্মতারিখ (দিন/মাস/বছর — বাংলা অঙ্কেও চলে), ফোন আর ঠিকানা দিন।",
+      "en": "Name in Bangla and English, sex, date of birth (DD/MM/YYYY — Bangla digits work too), phone and address."
+    },
+    {
+      "shot": "walk-desk/06-queue-new-token.png",
+      "bn": "“সংরক্ষণ ও ভিজিট তৈরি”: টোকেন (A-…) তৈরি হয়, রোগী “অপেক্ষমাণ” কলামে — নতুন কার্ডটি চিহ্নিত থাকে।",
+      "en": "Save & create visit: the token (A-…) is made and the patient is in Waiting — the new card is highlighted."
+    },
+    {
+      "shot": "walk-desk/07-queue-called.png",
+      "bn": "“ডাকুন” (C): রোগীকে ডাকা হলো। কার্ডে চাপ দিলে উপরে তার কাজগুলো আসে।",
+      "en": "Call (C): the patient is called. Tap a card to bring its actions to the top."
+    },
+    {
+      "shot": "walk-desk/08-queue-to-vitals.png",
+      "bn": "“ভাইটালে পাঠান”: রোগী “ভাইটাল নেওয়া” কলামে যান। না এলে “অনুপস্থিত” — সবসময় নিশ্চিত করতে বলে।",
+      "en": "To vitals: the patient moves to the vitals column. A no-show is marked No-show — it always asks to confirm."
+    },
+    {
+      "shot": "walk-desk/09-vitals-entered.png",
+      "bn": "ভাইটাল স্টেশন: তাপমাত্রা, রক্তচাপ, নাড়ি, SpO₂, ওজন, উচ্চতা। সীমার বাইরে হলে লাল/হলুদ দেখায়; অসম্ভব মান সংরক্ষণ হয় না।",
+      "en": "Vitals station: temperature, BP, pulse, SpO₂, weight, height. Out of range shows red/amber; an impossible value is not saved."
+    },
+    {
+      "shot": "walk-desk/10-vitals-saved.png",
+      "bn": "সংরক্ষণের পর “সংরক্ষিত” আর আপনার নাম দেখায়। ডাক্তার পরামর্শের সময় এগুলো চিহ্নিত অবস্থায় দেখবেন।",
+      "en": "After saving it shows Saved and your name. The doctor sees these, flagged, during the consultation."
+    },
+    {
+      "shot": "walk-er/11-desk-requests.png",
+      "bn": "(ভর্তি) জরুরি বিভাগ থেকে ভর্তির অনুরোধ ডেস্কে আসে।",
+      "en": "(Admission) Admission requests from the ER reach the desk."
+    },
+    {
+      "shot": "walk-er/13-desk-admitted.png",
+      "bn": "ভর্তি সম্পন্ন।",
+      "en": "Admitted."
+    },
+    {
+      "shot": "walk-ipdbill/01-desk-admit-package-deposit.png",
+      "bn": "ভর্তির সময় প্যাকেজ ও অগ্রিম জমা।",
+      "en": "At admission: the package and the deposit."
+    }
+  ]
+}

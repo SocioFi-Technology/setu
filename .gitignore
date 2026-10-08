@@ -12,3 +12,6 @@ playwright-report
 test-results
 *.tsbuildinfo
 var/
+# training walkthroughs: the screenshots and the PDFs are made, not committed (e2e/training/build.mjs)
+e2e/training/shots/
+e2e/training/out/

@@ -1,0 +1,58 @@
+{
+  "titleBn": "অ্যাডমিন — প্রতিষ্ঠান সেটআপ, ব্যবহারকারী ও মূল্য তালিকা",
+  "titleEn": "Admin — facility setup, users and the price list",
+  "introBn": "চেকলিস্ট সম্পূর্ণ না হলে প্রতিষ্ঠান “চালু” করা যায় না। নতুন ব্যবহারকারী একটি এককালীন পাসওয়ার্ড পান (২৪ ঘণ্টা) এবং প্রথম লগইনে নিজের পাসওয়ার্ড ও পিন দেন।",
+  "introEn": "The facility cannot go live until the checklist is complete. A new user gets a one-time password (24 hours) and sets their own password and PIN at first sign-in.",
+  "steps": [
+    {
+      "shot": "walk-admin/01-wizard-start.png",
+      "bn": "সেটআপ উইজার্ড: কী কী বাকি।",
+      "en": "The setup wizard: what is left to do."
+    },
+    {
+      "shot": "walk-admin/02-add-doctor.png",
+      "bn": "ব্যবহারকারী যোগ: ডাক্তারের BMDC নম্বরসহ।",
+      "en": "Add a user: a doctor with the BMDC number."
+    },
+    {
+      "shot": "walk-admin/03-one-time-password.png",
+      "bn": "এককালীন পাসওয়ার্ড একবারই দেখায় — ব্যবহারকারীকে দিন।",
+      "en": "The one-time password shows once — give it to the user."
+    },
+    {
+      "shot": "walk-admin/04-manage-doctor-verified.png",
+      "bn": "BMDC নম্বর যাচাই।",
+      "en": "The BMDC number verified."
+    },
+    {
+      "shot": "walk-admin/05-users-list.png",
+      "bn": "ব্যবহারকারীর তালিকা।",
+      "en": "The users list."
+    },
+    {
+      "shot": "walk-admin/06-doctor-first-sign-in.png",
+      "bn": "প্রথম লগইনে ব্যবহারকারী নিজের পাসওয়ার্ড ও পিন দেন।",
+      "en": "At first sign-in the user sets a password and PIN."
+    },
+    {
+      "shot": "walk-admin/07-masters-no-fee.png",
+      "bn": "মূল্য তালিকা: যে ডাক্তারের ফি নেই তা দেখায়।",
+      "en": "The price list shows a doctor with no fee."
+    },
+    {
+      "shot": "walk-admin/08-masters-limits.png",
+      "bn": "ছাড় ও অনুমোদনের সীমা।",
+      "en": "Discount and approval limits."
+    },
+    {
+      "shot": "walk-admin/09-wizard-ready-to-go-live.png",
+      "bn": "চেকলিস্ট সম্পূর্ণ — চালু করতে প্রস্তুত (চালু হলে আর সেটআপে ফেরা যায় না)।",
+      "en": "Checklist complete — ready to go live (a live facility never goes back to setup)."
+    },
+    {
+      "shot": "walk-admin/10-audit-flags.png",
+      "bn": "অডিট লগ: চিহ্নিত ঘটনা।",
+      "en": "The audit log: flagged events."
+    }
+  ]
+}

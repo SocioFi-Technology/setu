@@ -35,7 +35,7 @@ async function login(phone, english = false) {
   await page.getByRole("radio", { name: english ? "EN" : "বাং", exact: true }).click();
   await page.getByRole("radio", { name: english ? "0123" : "০১২৩", exact: true }).click();
 }
-async function shot(name, full = false) { n++; const f = `${OUT}/${String(n).padStart(2, "0")}-${name}.png`; await page.waitForTimeout(600); await page.screenshot({ path: f, fullPage: full }); console.log("saved", f); }
+async function shot(name, full = false) { n++; const f = `${OUT}/${String(n).padStart(2, "0")}-${name}.png`; await page.waitForTimeout(600); await (full ? page.evaluate(() => window.scrollTo(0, 0)) : Promise.resolve()).then(() => page.screenshot({ path: f, fullPage: full })); console.log("saved", f); }
 const line = (k) => page.locator(`[data-testid="rx-line"][data-medicine="${k}"]`);
 
 // P1–P3 as the pharmacist
@@ -56,12 +56,12 @@ await page.getByTestId("issue-bill").click();
 await page.locator('[data-testid="pharmacy-bill"][data-status="issued"]').waitFor();
 await shot("dispensed-bill-issued", true);
 await page.getByTestId("take-payment").click();
-await page.locator('[data-screen="bill/pay"]').waitFor();
+await page.locator('[data-screen="ph/pay"]').waitFor();
 await page.locator("input[name=pay-amount]").waitFor();
 await page.fill("input[name=pay-tendered]", "500");
 await shot("pay-at-counter");
 await page.getByTestId("pay-submit").click();
-await page.locator('[data-screen="bill/pay"][data-invoice-status="balanced"]').waitFor();
+await page.locator('[data-screen="ph/pay"][data-invoice-status="balanced"]').waitFor();
 await shot("paid");
 
 // P4 OTC, with the prescription photo

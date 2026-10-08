@@ -1,0 +1,88 @@
+{
+  "titleBn": "ক্যাশিয়ার — ওপিডি বিল, পেমেন্ট ও রসিদ",
+  "titleEn": "Cashier — the OPD bill, payment and receipt",
+  "introBn": "ডাক্তার নোটে স্বাক্ষর করলে রোগীর ভিজিট বিলের তালিকায় আসে। আপনি বিল খুলে চূড়ান্ত করবেন, টাকা নেবেন, রসিদ দেবেন। সার্ভার নিশ্চিত না করা পর্যন্ত কোনো টাকা “পরিশোধিত” দেখায় না।",
+  "introEn": "When the doctor signs the note, the visit reaches the billing list. You open the bill, issue it, take the money and give the receipt. Nothing shows as paid until the server confirms it.",
+  "steps": [
+    {
+      "shot": "walk-cash/01-worklist.png",
+      "bn": "আজকের বিলের তালিকা: যেসব ভিজিটের বিল বাকি সেগুলো উপরে; পরিশোধিত বিলের সর্বশেষ ২০টি নিচে।",
+      "en": "Today's billing list: visits still to bill or collect first; the latest 20 settled bills below."
+    },
+    {
+      "shot": "walk-cash/02-bill-draft.png",
+      "bn": "টোকেনে চাপ দিলে খসড়া বিল খোলে — পরামর্শ ফি আর ডাক্তারের দেওয়া পরীক্ষা নিজে থেকেই যোগ হয়। দাম দেখে নিন।",
+      "en": "Tap the token: the draft bill opens with the consultation fee and the doctor's tests already on it. Check the prices."
+    },
+    {
+      "shot": "walk-cash/03-bill-issued.png",
+      "bn": "“বিল চূড়ান্ত করুন” চাপলে বিল নম্বর (INV/…) পায়; এর পর লাইন বদলানো যায় না — বদলাতে হলে বাতিল/ফেরতের নিয়ম।",
+      "en": "Issue: the bill gets its number (INV/…); after that its lines cannot change — corrections go through void or refund."
+    },
+    {
+      "shot": "walk-cash/04-pay-cash-change.png",
+      "bn": "“পেমেন্ট নিন” → নগদ। রোগী যত টাকা দিলেন লিখুন — ফেরত কত দেবেন স্ক্রিন নিজেই দেখায়।",
+      "en": "Take payment → Cash. Type what the patient handed over — the screen shows the change to give back."
+    },
+    {
+      "shot": "walk-cash/05-paid.png",
+      "bn": "সার্ভার নিশ্চিত করলে তবেই বিল “পরিশোধিত”। ইন্টারনেট না থাকলে “সিঙ্ক হয়নি” দেখাবে — তখন রসিদ দেবেন না।",
+      "en": "The bill shows paid only once the server confirms. Offline it shows “not yet synced” — do not give a receipt then."
+    },
+    {
+      "shot": "walk-cash/06-receipt.png",
+      "bn": "রসিদ তৈরি করুন: রসিদ নম্বর, কথায় টাকার অঙ্ক আর যাচাইয়ের QR কোড থাকে।",
+      "en": "Make the receipt: its number, the amount in words and a QR code anyone can check."
+    },
+    {
+      "shot": "walk-cash/07-receipt-printed.png",
+      "bn": "প্রিন্ট করুন। প্রথম কপিই মূল; আবার প্রিন্টে কারণ লাগে এবং “অনুলিপি” ছাপা হয়।",
+      "en": "Print it. The first copy is the original; a reprint needs a reason and prints DUPLICATE."
+    },
+    {
+      "shot": "walk-cash/08-shift.png",
+      "bn": "শিফট: দিনের শেষে ড্রয়ারের টাকা গুনে জমা দিন। সিস্টেম কত হওয়া উচিত দেখায় না — গোনার পর মালিক মিলিয়ে দেখেন।",
+      "en": "Your shift: at the end of the day count the drawer and hand over. You are not shown what it should be — the owner compares after your count."
+    },
+    {
+      "shot": "walk-refund/02-cashier-refund-form.png",
+      "bn": "ফেরত: কোন লাইন, কত টাকা, কোন পথে — কারণসহ।",
+      "en": "A refund: which line, how much, which way — with a reason."
+    },
+    {
+      "shot": "walk-refund/04-cashier-refund-requested.png",
+      "bn": "অনুরোধ পাঠানো হলো — অনুমোদনের আগে টাকা যায় না।",
+      "en": "Requested — no money moves until it is approved."
+    },
+    {
+      "shot": "walk-refund/06-cashier-payout.png",
+      "bn": "অনুমোদনের পর টাকা দিন — কে নিলেন তা লিখুন।",
+      "en": "After approval, pay out — and record who took it."
+    },
+    {
+      "shot": "walk-refund/07-cashier-voucher-printed.png",
+      "bn": "ফেরতের ভাউচার প্রিন্ট।",
+      "en": "The refund voucher printed."
+    },
+    {
+      "shot": "walk-ipdbill/04-cashier-bill-due.png",
+      "bn": "(ভর্তি রোগী) চলমান বিল ও বকেয়া।",
+      "en": "(Inpatient) The running bill and what is due."
+    },
+    {
+      "shot": "walk-ipdbill/06-cashier-deposit-receipt.png",
+      "bn": "অগ্রিম জমার রসিদ।",
+      "en": "The deposit receipt."
+    },
+    {
+      "shot": "walk-discharge/07-cashier-final-issued.png",
+      "bn": "চূড়ান্ত বিল চূড়ান্ত করা হলো।",
+      "en": "The final bill issued."
+    },
+    {
+      "shot": "walk-discharge/09-cashier-final-receipt.png",
+      "bn": "চূড়ান্ত রসিদ।",
+      "en": "The final receipt."
+    }
+  ]
+}

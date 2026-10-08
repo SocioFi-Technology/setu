@@ -1,0 +1,113 @@
+{
+  "titleBn": "ডাক্তার — ইনবক্স, পরামর্শ, প্রেসক্রিপশন ও ওয়ার্ড রাউন্ড",
+  "titleEn": "Doctor — inbox, consultation, prescription and ward round",
+  "introBn": "ফোন বা কম্পিউটার — দুটোতেই চলে। জরুরি ফলাফল আগে দেখায়। প্রেসক্রিপশন আপনার পিন দিয়ে স্বাক্ষর হয় এবং সার্ভার নিশ্চিত করার পরেই “স্বাক্ষরিত” দেখায়।",
+  "introEn": "Works on a phone or a computer. Critical results come first. The prescription is signed with your PIN and shows as signed only after the server confirms.",
+  "steps": [
+    {
+      "shot": "walk-doc/01-A12-home.png",
+      "bn": "হোম: আজকের রোগী, দেখার বাকি ফলাফল আর খসড়া নোট এক নজরে।",
+      "en": "Home: today's patients, results to review and draft notes at a glance."
+    },
+    {
+      "shot": "walk-doc/02-A12-inbox-critical-card.png",
+      "bn": "ফলাফল ইনবক্স: জরুরি (!!) ফলাফল সবার উপরে, স্বাভাবিক সীমাসহ।",
+      "en": "The results inbox: critical (!!) results on top, with the normal ranges."
+    },
+    {
+      "shot": "walk-doc/03-A12-seen-tell-patient.png",
+      "bn": "“দেখেছি + রোগীকে জানান”: রোগী একটি SMS পান — তাতে শুধু ক্লিনিকের নাম, ফলাফল নয়।",
+      "en": "Seen + tell patient: the patient gets an SMS with the clinic's name only — never the result."
+    },
+    {
+      "shot": "walk-doc/04-A12-queue.png",
+      "bn": "আপনার সারি: এখন যিনি, অপেক্ষমাণ (জরুরি আগে) আর আজ দেখা রোগী।",
+      "en": "Your queue: now, waiting (critical first) and seen today."
+    },
+    {
+      "shot": "walk-doc/05-A12-quick-consult-allergy-strip.png",
+      "bn": "পরামর্শ: নামের নিচে লাল অ্যালার্জি-পট্টি সবসময় দেখা যায়।",
+      "en": "The consultation: the red allergy strip stays under the name."
+    },
+    {
+      "shot": "walk-doc/06-A12-amoxicillin-flagged-in-search.png",
+      "bn": "ওষুধ খোঁজার সময়ই অ্যালার্জির সাথে মেলে এমন ওষুধ চিহ্নিত হয়।",
+      "en": "While searching, a medicine that matches the allergy is flagged."
+    },
+    {
+      "shot": "walk-doc/07-A12-amoxicillin-blocked.png",
+      "bn": "অ্যালার্জির ওষুধ যোগ করা যায় না — সিস্টেম আটকায়।",
+      "en": "A medicine the patient is allergic to cannot be added."
+    },
+    {
+      "shot": "walk-doc/08-A12-removed-napa-added.png",
+      "bn": "অন্য ওষুধ দিন: মাত্রা (যেমন ১+০+১), খাবারের আগে/পরে, কত দিন।",
+      "en": "Choose another: dose (e.g. 1+0+1), before/after food, days."
+    },
+    {
+      "shot": "walk-doc/09-A12-pin-sheet.png",
+      "bn": "“স্বাক্ষর ও পাঠান”: আপনার ৪ অঙ্কের পিন চায়। পিন কাউকে বলবেন না।",
+      "en": "Sign & send asks for your 4-digit PIN. Never share it."
+    },
+    {
+      "shot": "walk-doc/10-A12-signed-server-confirmed.png",
+      "bn": "সার্ভার নিশ্চিত করলে “স্বাক্ষরিত”। পরে বদলাতে হলে সংশোধন (নতুন সংস্করণ) — আগেরটি মুছে যায় না।",
+      "en": "Signed once the server confirms. A change later is an amendment (a new version) — the old one stays."
+    },
+    {
+      "shot": "walk-doc/11-A13-printed-A5.png",
+      "bn": "A5 প্রেসক্রিপশন প্রিন্ট — QR কোডসহ।",
+      "en": "The A5 prescription print, with its QR code."
+    },
+    {
+      "shot": "walk-doc/12-A13-verify-page.png",
+      "bn": "QR স্ক্যান করলে যাচাই পাতা: প্রেসক্রিপশনটি আসল কি না যে কেউ দেখতে পারেন।",
+      "en": "Scanning the QR opens the check page: anyone can see the prescription is genuine."
+    },
+    {
+      "shot": "walk-ward/07-doctor-inbox-news2.png",
+      "bn": "(ওয়ার্ড) নার্সের জরুরি সতর্কতা (NEWS2) ডাক্তারের ইনবক্সে।",
+      "en": "(Ward) A nurse's NEWS2 escalation in the doctor's inbox."
+    },
+    {
+      "shot": "walk-ward/09-doctor-round-patient.png",
+      "bn": "রাউন্ড: রোগীর অর্ডার, ভাইটাল ও নোট এক পাতায়।",
+      "en": "The round: the patient's orders, vitals and notes on one page."
+    },
+    {
+      "shot": "walk-ward/11-doctor-sign-blocked-duplicate-paracetamol.png",
+      "bn": "একই ওষুধ দুইবার (যেমন দুটি প্যারাসিটামল) থাকলে স্বাক্ষর আটকে যায়।",
+      "en": "A duplicate medicine (two paracetamols) blocks the signature."
+    },
+    {
+      "shot": "walk-ward/12-doctor-round-signed.png",
+      "bn": "রাউন্ড নোট ও অর্ডার স্বাক্ষরিত — নার্সের MAR-এ চলে যায়।",
+      "en": "The round signed — the orders reach the nurse's MAR."
+    },
+    {
+      "shot": "walk-er/07-doctor-orders.png",
+      "bn": "(জরুরি বিভাগ) ডাক্তারের অর্ডার।",
+      "en": "(ER) The doctor's orders."
+    },
+    {
+      "shot": "walk-er/08-doctor-admit-bed-picked.png",
+      "bn": "ভর্তির সিদ্ধান্ত: বেড বেছে নিন।",
+      "en": "Decide to admit: pick the bed."
+    },
+    {
+      "shot": "walk-discharge/01-doctor-record-discharge.png",
+      "bn": "ছুটি: ধরন বেছে নিন — সাধারণ, LAMA বা মৃত্যু।",
+      "en": "Discharge: choose the kind — normal, LAMA or death."
+    },
+    {
+      "shot": "walk-discharge/13-doctor-summary-filled.png",
+      "bn": "ডিসচার্জ সামারি পূরণ করুন।",
+      "en": "Fill in the discharge summary."
+    },
+    {
+      "shot": "walk-discharge/14-doctor-summary-signed-printed.png",
+      "bn": "সামারি স্বাক্ষরিত ও প্রিন্ট — QR কোডসহ।",
+      "en": "The summary signed and printed, with its QR code."
+    }
+  ]
+}

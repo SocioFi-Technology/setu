@@ -28,7 +28,7 @@ async function login(phone) {
   await page.getByRole("radio", { name: "বাং", exact: true }).click();
   await page.getByRole("radio", { name: "০১২৩", exact: true }).click();
 }
-async function shot(name, full = false) { n++; const f = `${OUT}/${String(n).padStart(2, "0")}-${name}.png`; await page.waitForTimeout(900); await page.screenshot({ path: f, fullPage: full }); console.log("saved", f); }
+async function shot(name, full = false) { n++; const f = `${OUT}/${String(n).padStart(2, "0")}-${name}.png`; await page.waitForTimeout(900); await (full ? page.evaluate(() => window.scrollTo(0, 0)) : Promise.resolve()).then(() => page.screenshot({ path: f, fullPage: full })); console.log("saved", f); }
 async function pin() { await page.getByTestId("pin").fill("1234"); await page.getByTestId("pin-submit").click(); }
 const tomorrow = () => new Date(Date.now() + 6 * 3600_000 + 864e5).toISOString().slice(0, 10);
 

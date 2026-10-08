@@ -45,7 +45,15 @@ log(`patient Hands-on ${RUN}: penicillin allergy; critical K 6.9 released (visit
 // 2. The phone
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
-async function shot(name, full = false) { n++; const f = `${OUT}/${String(n).padStart(2, "0")}-${name}.png`; await page.waitForTimeout(700); await page.screenshot({ path: f, fullPage: full }); log("  shot", f); }
+/* training (e2e/training): the steps run on the English screen; each picture is taken in Bangla, then English again */
+async function inBangla(p, take) {
+  // a dialog can cover the toggle: then the picture is taken as the screen is (never a failed step for a toggle)
+  const r = (l) => p.getByRole("radio", { name: l, exact: true });
+  const toggled = await r("বাং").click({ timeout: 2000 }).then(() => true, () => false);
+  if (toggled) await p.waitForTimeout(300);
+  try { await take(); } finally { if (toggled) await r("EN").click({ timeout: 2000 }).then(() => p.waitForTimeout(200), () => {}); }
+}
+async function shot(name, full = false) { n++; const f = `${OUT}/${String(n).padStart(2, "0")}-${name}.png`; await page.waitForTimeout(700); await inBangla(page, () => (full ? page.evaluate(() => window.scrollTo(0, 0)) : Promise.resolve()).then(() => page.screenshot({ path: f, fullPage: full }))); console.log("saved", f); }
 async function step(name, fn, full = false) {
   try { await fn(); await shot(name, full); log("OK  ", name); }
   catch (e) { await shot("FAIL-" + name).catch(() => {}); log("FAIL", name, String(e.message).split("\n")[0]); }
@@ -88,13 +96,16 @@ await step("A12-pin-sheet", async () => {
   const dx = page.locator("section, .card").filter({ hasText: "Diagnosis" }).locator("input").first();
   await dx.fill("diabetes"); await page.waitForTimeout(800); await dx.press("ArrowDown").catch(() => {}); await dx.press("Enter");
   await page.waitForTimeout(1500);
+  // the sheet covers the language toggle: switch to Bangla first so the PIN sheet is pictured in Bangla
+  await page.getByRole("radio", { name: "বাং", exact: true }).click();
   await page.getByTestId("sign-open").click(); await page.getByTestId("sign-sheet").waitFor();
 });
 await step("A12-signed-server-confirmed", async () => {
   const sheet = page.getByTestId("sign-sheet");
   await sheet.locator("input[name=sign-pin]").fill("1234");
-  await sheet.getByRole("button", { name: "Sign", exact: true }).click();
+  await sheet.getByRole("button", { name: /^(Sign|স্বাক্ষর)$/ }).click();
   await page.waitForURL(/signed=1/, { timeout: 20000 }); await page.getByTestId("doc-signed").waitFor();
+  await page.getByRole("radio", { name: "EN", exact: true }).click().catch(() => {});
 });
 await step("A13-printed-A5", async () => {
   const panel = page.getByTestId("print-panel-rx"); await panel.scrollIntoViewIfNeeded();
@@ -107,6 +118,5 @@ await step("A13-verify-page-public", async () => {
   await pub.goto(BASE + new URL(verifyUrl).pathname, { waitUntil: "networkidle" }); await pub.getByTestId("verify-ok").waitFor();
   n++; await pub.screenshot({ path: `${OUT}/${String(n).padStart(2, "0")}-A13-verify-page.png`, fullPage: true }); await pub.close(); n--;
 });
-await step("A12-bangla-inbox", async () => { await page.getByRole("radio", { name: "বাং", exact: true }).click(); await go("/m/doc/inbox"); await card().waitFor(); });
 log("done", verifyUrl ?? "");
 await browser.close(); await api.dispose();

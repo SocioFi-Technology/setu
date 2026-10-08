@@ -1,0 +1,26 @@
+{
+  "titleBn": "ফার্মাসিস্ট — প্রেসক্রিপশন থেকে ওষুধ দেওয়া, ওটিসি বিক্রি ও স্টক",
+  "titleEn": "Pharmacist — dispensing, over-the-counter sales and stock",
+  "introBn": "ডাক্তারের স্বাক্ষর করা প্রেসক্রিপশনই ওষুধ দেওয়ার ভিত্তি। সিস্টেম মেয়াদ অনুযায়ী আগে-শেষ-হওয়া ব্যাচ (FEFO) প্রস্তাব করে; মেয়াদোত্তীর্ণ ব্যাচ কখনো দেওয়া যায় না। স্টকের প্রতিটি নড়াচড়া লেখা থাকে।",
+  "introEn": "The doctor's signed prescription is what you dispense from. The system proposes the batch that expires first (FEFO); an expired batch is never given. Every stock movement is recorded.",
+  "steps": [
+    { "shot": "walk-pharm/01-queue.png", "bn": "ফার্মেসির সারি: স্বাক্ষরিত প্রেসক্রিপশনের রোগীরা এখানে আসেন।", "en": "The pharmacy queue: patients with a signed prescription appear here." },
+    { "shot": "walk-pharm/02-dispense-ready.png", "bn": "প্রতিটি ওষুধে সিস্টেমের প্রস্তাবিত ব্যাচ ও পরিমাণ। বদলি দিলে কারণ লিখুন — ডাক্তারকে জানানো হয়।", "en": "Each line shows the proposed batch and quantity. A substitute needs a reason — the doctor is told." },
+    { "shot": "walk-pharm/03-dispensed-bill-issued.png", "bn": "“দিন” চাপলে স্টক কমে; আংশিক দেওয়া হলে বাকিটা খোলা থাকে। তারপর ফার্মেসির বিল চূড়ান্ত করুন।", "en": "Dispense takes the stock; a partial line stays open for the rest. Then issue the pharmacy bill." },
+    { "shot": "walk-pharm/04-pay-at-counter.png", "bn": "কাউন্টারে টাকা নিন — নগদ দিলে ফেরত কত তা দেখায়।", "en": "Take the payment at the counter — for cash it shows the change." },
+    { "shot": "walk-pharm/05-paid.png", "bn": "সার্ভার নিশ্চিত করলে বিল পরিশোধিত; এরপর লেবেল প্রিন্ট করুন।", "en": "Paid once the server confirms; then print the labels." },
+    { "shot": "walk-pharm/06-otc-controlled-refused.png", "bn": "ওটিসি বিক্রি: নিয়ন্ত্রিত ওষুধ প্রেসক্রিপশন ছাড়া বিক্রি করা যায় না — সিস্টেম আটকে দেয়।", "en": "Over-the-counter: a controlled drug cannot be sold without a prescription — the system refuses it." },
+    { "shot": "walk-pharm/07-otc-rx-needs-photo.png", "bn": "প্রেসক্রিপশন-লাগে এমন ওষুধে প্রেসক্রিপশনের ছবি তুলে যোগ করতে হয় (৩ MB পর্যন্ত)।", "en": "A prescription-only medicine needs a photo of the prescription (up to 3 MB)." },
+    { "shot": "walk-pharm/08-otc-ready.png", "bn": "সব ঠিক থাকলে বিক্রি সম্পন্ন করুন।", "en": "When everything is in order, complete the sale." },
+    { "shot": "walk-pharm/09-stock-near-expiry.png", "bn": "স্টক: শিগগির মেয়াদ শেষ হবে এমন ব্যাচগুলো চিহ্নিত — আগে এগুলো দিন বা ফেরতের ব্যবস্থা করুন।", "en": "Stock: batches close to expiry are flagged — use them first or arrange a return." },
+    { "shot": "walk-pharm/10-po-sent.png", "bn": "সরবরাহকারীকে ক্রয় আদেশ (PO) পাঠানো হলো।", "en": "A purchase order sent to the supplier." },
+    { "shot": "walk-pharm/11-grn-checked.png", "bn": "মাল এলে গ্রহণ (GRN): চালানের সাথে মিলিয়ে ব্যাচ, মেয়াদ, পরিমাণ দিন; কম এলে ডেবিট নোট।", "en": "Goods received: check against the invoice — batch, expiry, quantity; a shortfall makes a debit note." },
+    { "shot": "walk-pharm/12-count-submitted.png", "bn": "স্টক গণনা জমা দিলেন — পার্থক্য থাকলে মালিক অনুমোদন করবেন।", "en": "A stock count submitted — a difference waits for the owner's approval." },
+    { "shot": "walk-pharm/13-owner-approvals.png", "bn": "(মালিক) অনুমোদনের তালিকা: স্বল্প মেয়াদের মাল গ্রহণ ও গণনার পার্থক্য।", "en": "(Owner) The approvals list: a short-expiry receipt and a count difference." },
+    { "shot": "walk-pharm/14-grn-posted-by-owner.png", "bn": "(মালিক) স্বল্প মেয়াদের মাল অনুমোদনের পর স্টকে যোগ হলো।", "en": "(Owner) The short-expiry receipt posted to stock after approval." },
+    { "shot": "walk-pharm/15-count-approved.png", "bn": "(মালিক) গণনার পার্থক্য অনুমোদিত — স্টক ঠিক হলো, কারণসহ লেখা থাকল।", "en": "(Owner) The count difference approved — the stock corrected, with the reason on record." },
+    { "shot": "walk-pharm/16-owner-dash-stock-tiles.png", "bn": "(মালিক) ড্যাশবোর্ডে স্টকের সারসংক্ষেপ।", "en": "(Owner) The stock tiles on the dashboard." },
+    { "shot": "walk-pharm/17-doctor-substitution-notice.png", "bn": "(ডাক্তার) বদলি ওষুধের খবর ডাক্তারের ইনবক্সে।", "en": "(Doctor) The substitution notice in the doctor's inbox." },
+    { "shot": "walk-pharm/18-dispense-english.png", "bn": "একই স্ক্রিন ইংরেজিতে — উপরের বাং/EN দিয়ে ভাষা বদলানো যায়।", "en": "The same screen in English — switch with বাং/EN at the top." }
+  ]
+}

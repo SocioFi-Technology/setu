@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 import { resolve } from "node:path";
 const API = process.env.API_URL ?? "http://localhost:4000";
 const config: NextConfig = {
+  /* the training screenshots (e2e/training) are taken with NEXT_DEV_INDICATOR=off: no Next.js badge on the pictures */
+  ...(process.env.NEXT_DEV_INDICATOR === "off" ? { devIndicators: false as const } : {}),
   /* NEXT_DIST_DIR lets a second dev server (e.g. one for the journeys) run beside another without sharing .next. */
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
   /* staging (week 2): a standalone server (node server.js) with only the files it needs; traced from the repo root */

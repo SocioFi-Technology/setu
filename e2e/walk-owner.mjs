@@ -30,7 +30,15 @@ if (mine.shift) { if (mine.shift.status === "open") await post(`/v1/shifts/${min
 const browser = await chromium.launch();
 const desk = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 const phone = await browser.newPage({ viewport: { width: 412, height: 915 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
-async function shot(page, name) { n++; const f = `${OUT}/${String(n).padStart(2, "0")}-${name}.png`; await page.waitForTimeout(700); await page.screenshot({ path: f }); log("  shot", f); }
+/* training (e2e/training): the steps run on the English screen; each picture is taken in Bangla, then English again */
+async function inBangla(p, take) {
+  // a dialog can cover the toggle: then the picture is taken as the screen is (never a failed step for a toggle)
+  const r = (l) => p.getByRole("radio", { name: l, exact: true });
+  const toggled = await r("বাং").click({ timeout: 2000 }).then(() => true, () => false);
+  if (toggled) await p.waitForTimeout(300);
+  try { await take(); } finally { if (toggled) await r("EN").click({ timeout: 2000 }).then(() => p.waitForTimeout(200), () => {}); }
+}
+async function shot(page, name) { n++; const f = `${OUT}/${String(n).padStart(2, "0")}-${name}.png`; await page.waitForTimeout(700); await inBangla(page, () => page.screenshot({ path: f })); console.log("saved", f); }
 async function step(page, name, fn) { try { await fn(); await shot(page, name); log("OK  ", name); } catch (e) { await shot(page, "FAIL-" + name).catch(() => {}); log("FAIL", name, String(e.message).split("\n")[0]); } }
 async function login(page, ph) { await page.context().clearCookies(); await page.goto(BASE + "/login"); await page.fill("input[name=identifier]", ph); await page.fill("input[name=password]", "setu1234"); await page.click("button[type=submit]"); await page.waitForSelector("header.shell-top"); await page.getByRole("radio", { name: "EN", exact: true }).click(); await page.getByRole("radio", { name: "0123", exact: true }).click(); }
 

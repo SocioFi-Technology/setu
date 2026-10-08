@@ -6,7 +6,7 @@ const BASE = process.env.STAFF_URL ?? "http://localhost:3300";
 const RUN = Date.now().toString(36).slice(-4).toUpperCase();
 let n = 0;
 const key = () => ({ "idempotency-key": crypto.randomUUID() });
-async function shot(p, name, full = false) { n++; const f = `${OUT}/${String(n).padStart(2, "0")}-${name}.png`; await p.waitForTimeout(800); await p.screenshot({ path: f, fullPage: full }); console.log("saved", f); }
+async function shot(p, name, full = false) { n++; const f = `${OUT}/${String(n).padStart(2, "0")}-${name}.png`; await p.waitForTimeout(800); await (full ? p.evaluate(() => window.scrollTo(0, 0)) : Promise.resolve()).then(() => p.screenshot({ path: f, fullPage: full })); console.log("saved", f); }
 
 async function visit(tag) {
   const r = await pwRequest.newContext({ baseURL: BASE });

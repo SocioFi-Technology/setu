@@ -39,7 +39,7 @@ const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
 const page = await ctx.newPage();
 const errs = []; page.on("pageerror", (e) => errs.push(e.message));
 let n = 0;
-async function shot(name, full = false, pg = page) { n++; const f = `${OUT}/${String(n).padStart(2, "0")}-${name}.png`; await pg.waitForTimeout(700); await pg.screenshot({ path: f, fullPage: full }); console.log("saved", f, errs.splice(0).join(" | ")); }
+async function shot(name, full = false, pg = page) { n++; const f = `${OUT}/${String(n).padStart(2, "0")}-${name}.png`; await pg.waitForTimeout(700); await (full ? pg.evaluate(() => window.scrollTo(0, 0)) : Promise.resolve()).then(() => pg.screenshot({ path: f, fullPage: full })); console.log("saved", f, errs.splice(0).join(" | ")); }
 async function login(phone) {
   await ctx.clearCookies(); await page.goto(BASE + "/login");
   await page.fill("input[name=identifier]", phone); await page.fill("input[name=password]", "setu1234"); await page.click("button[type=submit]");
