@@ -1335,3 +1335,14 @@ Built on the cautious reading from the reviews; Kamrul to confirm or change.
 - **321 → VAT on top is owed to the supplier**: a `supplier-vat` ledger entry for the VAT printed on the bill; recorded as
   data; whether it can be reclaimed is the accountant's question (ADR 0009 addendum 2).
 
+
+## Pilot-readiness sprint, review section C (09/10/2026)
+322. **Withdrawing a test's results: ask "was the sample the problem?" first?** (external review C, `lab.ts` withdraw).
+     Today a withdrawal always rejects the tube, so a new tube and the recollection SMS follow (decision 133). The
+     review wants the lab asked first. But a tube finishes (`in-process → done`) as soon as every test on it has a
+     result, so by the time there is anything to withdraw the tube is nearly always `done`; a "not the sample" answer
+     would need SPECIMEN `done → in-process` (run a finished tube again) — a state-machine change and a clinical call
+     (is a finished sample still fit to run, for which analytes, how long after collection?). A value typed wrong already
+     has its own path: a correction (a new value, the tube untouched). **Proposed:** keep decision 133 (withdraw = new
+     tube) unless the clinician wants finished tubes re-runnable; then an ADR 0006 addendum adds `done ──rerun──▶
+     in-process` with the analyte / time limits, and the withdraw dialog asks. Not built.
