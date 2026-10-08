@@ -361,7 +361,9 @@ export async function setPriceActive(tx: Tx, s: SessionData, id: string, active:
   const d = await tx.chargeItemDefinition.findFirst({ where: { id, organizationId: s.organizationId } });
   if (!d) throw notFound();
   if (reason.trim().length < 10) throw err(400, "reason_required", "কারণ লিখুন (অন্তত ১০ অক্ষর)", "Write a reason (at least 10 characters)", { field: "reason" });
-  if (!active && d.kind === "consultation" && d.refCode && (await tx.user.findFirst({ where: { id: d.refCode, active: true }, select: { id: true } })))
+  // the fee of a doctor who still practises here (active, and a doctor at this facility — external review C: not just
+  // "active", which also held for someone moved to another role)
+  if (!active && d.kind === "consultation" && d.refCode && (await tx.user.findFirst({ where: { id: d.refCode, active: true, roles: { some: { organizationId: s.organizationId, role: "doctor" } } }, select: { id: true } })))
     throw err(409, "doctor_active", "ডাক্তার সক্রিয় — তাঁর ফি বন্ধ করলে নতুন বিলে মূল্য থাকবে না; ফি বদলান বা আগে ডাক্তারকে বন্ধ করুন", "The doctor is active — their new bills would have no price; change the fee, or switch the doctor off first");
   await tx.chargeItemDefinition.update({ where: { id: d.id }, data: { active } });
   return [{ action: "price-change", entity: "ChargeItemDefinition", entityId: d.id, detail: { code: d.code, active, reason: reason.trim() } }];

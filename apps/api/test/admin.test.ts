@@ -79,6 +79,14 @@ describe.runIf(db)("G1 onboarding → go live", () => {
     expect(prices.doctorsWithoutFee.map((d: { id: string }) => d.id)).toContain(doc.user.id);
     prices = await ok(post("/v1/admin/prices", { kind: "consultation", ref: doc.user.id, unitPaisa: 70_000 }, "newadmin"), 201);
     expect(prices.doctorsWithoutFee).toEqual([]);
+    // review C: the fee of a doctor who practises here cannot be switched off; once they are no longer a doctor, it can
+    const fee = prices.items.find((i: { kind: string; doctor: { id: string } | null }) => i.kind === "consultation" && i.doctor?.id === doc.user.id);
+    const off = { active: false, reason: "No longer sees patients here" };
+    expect((await post(`/v1/admin/prices/${fee.id}/active`, off, "newadmin")).json().code).toBe("doctor_active");
+    await ok(post(`/v1/admin/users/${doc.user.id}/role`, { role: "receptionist", reason: "Moved to the front desk" }, "newadmin"));
+    expect((await ok(post(`/v1/admin/prices/${fee.id}/active`, off, "newadmin"))).items.find((i: { id: string }) => i.id === fee.id).active).toBe(false);
+    await ok(post(`/v1/admin/users/${doc.user.id}/role`, { role: "doctor", reason: "Back to seeing patients" }, "newadmin"));
+    await ok(post(`/v1/admin/prices/${fee.id}/active`, { active: true, reason: "Sees patients here again" }, "newadmin"));
     prices = await ok(post("/v1/admin/prices", { kind: "test", ref: "cbc", unitPaisa: 45_000 }, "newadmin"), 201);
     expect((await post("/v1/admin/prices", { kind: "test", ref: "cbc", unitPaisa: 45_000 }, "newadmin")).json().code).toBe("already_priced");
 

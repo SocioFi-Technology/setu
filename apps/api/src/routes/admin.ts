@@ -42,7 +42,7 @@ export async function adminRoutes(app: FastifyInstance) {
   facilityWrite("/v1/admin/wards", "wizard", async (tx, s, b) => { const x = WardCreate.parse(b); const w = await addWard(tx, s, x); return [{ action: "create", entity: "Location", entityId: w.id, detail: { kind: "ward", name: x.name, beds: x.beds } }]; }, 201);
   facilityWrite("/v1/admin/settings", "masters", (tx, s, b) => updateSettings(tx, s, SettingsUpdate.parse(b)));
   // the gateway answers within its 20 s timeout; the transaction outlasts it
-  facilityWrite("/v1/admin/sms-test", "wizard", (tx, s, b) => smsTest(tx, s, SmsTestRequest.parse(b).phone, new Date()), 200, 30_000, { max: 5, timeWindow: "1 hour" });
+  facilityWrite("/v1/admin/sms-test", "wizard", (tx, s, b) => smsTest(tx, s, SmsTestRequest.parse(b).phone, new Date()), 200, 30_000, { max: 3, timeWindow: "1 hour" }); // external review C: 3 an hour per facility
   facilityWrite("/v1/admin/sms-test/confirm", "wizard", (tx, s) => smsTestConfirm(tx, s, new Date()));
   facilityWrite("/v1/admin/go-live", "wizard", (tx, s) => goLive(tx, s, new Date()));
 
