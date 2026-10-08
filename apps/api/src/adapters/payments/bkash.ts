@@ -53,7 +53,10 @@ export class BkashProvider implements PaymentProvider {
       // external review B6: the token calls are short (they run inside the token lock) — at most 10 s each
       const call = async (path: string, body: Json) => { renewals.push(new Date(this.now())); try { return await this.post(path, body, this.authHeaders(), TOKEN_CALL_MS); } catch { return {} as Json; } };
       const ok = (r: Json) => r.statusCode === "0000" && !!str(r.id_token);
-      if (budget() <= 0) return { token: cur.token, renewals, error: "bKash token: the hourly renewal limit is reached — wait before trying again" };
+      // the budget is spent: a token that has not expired yet (only due for renewal) is still used until it does —
+      // unless bKash has just refused it (external review C)
+      const usable = !!cur.token && cur.token.idExpiresAt.getTime() > this.now() && cur.token.idToken !== rejected;
+      if (budget() <= 0) return { token: cur.token, renewals, error: usable ? null : "bKash token: the hourly renewal limit is reached — wait before trying again" };
       const keys = { app_key: this.cfg.appKey, app_secret: this.cfg.appSecret };
       const t = cur.token, canRefresh = !!t && t.refreshExpiresAt.getTime() - this.now() > RENEW_AT_MS;
       let r = canRefresh ? await call("auth/refresh-token", { ...keys, refresh_token: t!.refreshToken }) : await call("auth/grant-token", keys);
@@ -78,9 +81,20 @@ export class BkashProvider implements PaymentProvider {
   private async api(path: string, body: Json): Promise<Json> {
     const id = await this.token();
     const j = await this.post(path, body, { authorization: id, "x-app-key": this.cfg.appKey });
-    // the token was refused (HTTP 401 / 403 — not bKash's generic 9999 "system error"): renew within the budget, ask again
-    if (j[HTTP] === 401 || j[HTTP] === 403) return this.post(path, body, { authorization: await this.token(id), "x-app-key": this.cfg.appKey });
+    // the token was refused: renew within the budget and ask again — only for an answer that is a token refusal and
+    // nothing else (external review C). A 401 / 403 that carries a payment, a TrxID or a transaction status goes back to
+    // the caller, which asks bKash's query (execute) or Refund Status (refund) — never sends a money call twice.
+    if (BkashProvider.tokenRefused(j)) return this.post(path, body, { authorization: await this.token(id), "x-app-key": this.cfg.appKey });
     return j;
+  }
+  /** HTTP 401 / 403 whose body is only a refusal of the token (no business answer in it). bKash's exact shape is
+      confirmed against the sandbox (open question 207); this accepts the documented message forms. */
+  static tokenRefused(j: Json): boolean {
+    if (j[HTTP] !== 401 && j[HTTP] !== 403) return false;
+    const business = ["paymentID", "paymentId", "trxID", "trxId", "refundTrxID", "refundTrxId", "transactionStatus", "refundTransactionStatus", "amount"].some((k) => j[k] !== undefined && j[k] !== null && j[k] !== "");
+    if (business) return false;
+    const msg = `${String(j.statusMessage ?? "")} ${String(j.message ?? "")} ${String(j.errorMessage ?? "")}`;
+    return /token|unauthori[sz]ed|expired|forbidden|not authenticated/i.test(msg);
   }
   private async post(path: string, body: Json, headers: Record<string, string>, capMs?: number): Promise<Json> {
     let res: Response;

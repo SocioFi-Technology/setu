@@ -23,7 +23,7 @@ import {
   LINK_CODE_ALPHABET, LINK_SMS_MAX, STUCK_MINUTES, smsSafeName, walletAmount, LINK_CODE_LENGTH, answerOutcome, decideReturn, invoiceEventAfterConfirm, isWallet, type ReturnStatus, issueBlockers, notBilledBlockers, paidBy, paymentSummary, reconcileApplyBlockers, syncOrderLines, transition, voidBlockers, type BillingSettings, type DiscountCategory, type InvoiceState,
   type PaymentMethod, type PaymentRow, type PaymentState, type ProviderEventKind,
 } from "@setu/domain";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { GatewayError, providerByName, providerFor, type PaymentProvider, type ProviderStatus, type ProviderWebhook } from "../adapters/payments/index.js";
 import { config } from "../config.js";
 import type { AuditEntry } from "../command.js";
@@ -32,6 +32,12 @@ import type { SessionData } from "../plugins/session.js";
 import { branchOf, notFound } from "./frontdesk.js";
 import { encounterHere, toVitalsEncounter } from "./vitals.js";
 
+/** the return's signature against the one we stored, in constant time (external review C: never `===` on a secret) */
+const sameSecret = (stored: string | null | undefined, given: string | null | undefined): boolean => {
+  if (!stored || !given) return false;
+  const a = Buffer.from(stored), b = Buffer.from(given);
+  return a.length === b.length && timingSafeEqual(a, b);
+};
 const dash = <T extends string>(s: string) => s.replace(/_/g, "-") as T;
 const undash = <T extends string>(s: string) => s.replace(/-/g, "_") as T;
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
@@ -1123,7 +1129,7 @@ export async function returnFromGateway(provider: PaymentProvider, q: { ref: str
     const d = decideReturn({
       status: q.status, payment: dash<PaymentState>(p.status), current: p.providerRef === q.ref,
       expired: !!p.linkExpiresAt && p.linkExpiresAt.getTime() < now.getTime(), claimed: !!p.executeClaimedAt,
-      signatureOk: !!p.providerSignature && q.signature === p.providerSignature,
+      signatureOk: sameSecret(p.providerSignature, q.signature),
     });
     await audit(tx, hit.tenantId, p, provider, { kind: "return", status: q.status, decision: d.action, ...(d.action === "refuse" ? { reason: d.reason } : {}), current: p.providerRef === q.ref }, ip);
     if (d.action === "execute") {
