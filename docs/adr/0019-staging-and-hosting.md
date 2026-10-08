@@ -147,3 +147,42 @@ images, a deploy that can be undone, private object storage, and jobs that are s
   worklists to the active visits; choose the dedicated host near Bangladesh (Singapore / Mumbai ≈ 40–70 ms, or in the
   country); the lab worklist query (0.46 s server p95 on a 1 KB answer) is the slowest read.
 
+### What staging is, why not the managed services, and what must change before production (recorded 08/10/2026)
+- **What it is:** one Contabo VPS (AS51167 Contabo GmbH, Lauterbourg, France; KVM, 8 vCPU AMD EPYC, 23 GiB RAM,
+  290 GB disk, Ubuntu 24.04), shared with five other SocioFi projects. Postgres 16 is a container on that VPS (the
+  `setu-staging` compose project, a Docker volume on the VPS's own disk), as are Redis and MinIO.
+- **Backups:** nightly `pg_dump` + a copy of the MinIO volume into `/opt/setu/backups` **on the same disk**, 7 kept.
+  **No PITR** (no WAL archiving) and **no copy to S3 or anywhere off the VPS**. The restore drill exists and passed
+  (8 s restore, API tests 432/3 against the copy) but is run by hand, not on a schedule.
+- **Secrets:** `/opt/setu/staging.env` on the VPS, mode 600, owner `kamrul`. Not a secrets manager: every member of the
+  VPS's `docker` group (`kamrul`, `deploy`, `gojobs-deploy`) can read them through `docker inspect`, and `sudo` users
+  through the file.
+- **Cost:** no new bill — the VPS is SocioFi's existing server; Setu uses ≈ 0.7 GiB RAM idle, ≈ 3 cores at peak under
+  20 users, < 1 GB disk. The VPS's own monthly price is on SocioFi's Contabo invoice (not visible from the server).
+- **Why not the managed plan:** **not cost.** The AWS estimate (≈ USD 105/month: RDS with 7-day PITR, ElastiCache,
+  S3, Secrets Manager, CloudWatch) was under the USD 150 limit. Kamrul decided on 08/10/2026 that staging runs on the
+  SocioFi VPS as a subdomain during testing, with a dedicated host — and off-server backups — when the product goes to
+  production under its own name and domain. Nothing was created on AWS.
+- **What a pilot on this setup would lose**, against the managed plan:
+  - *PITR:* the most that can be recovered is last night's dump — up to ~24 h of entries (bills, payments, signed
+    notes) lost on a bad migration, a deletion or a corrupt database.
+  - *Off-site backups:* the dumps sit on the same disk as the database; losing the disk or the VPS loses both.
+  - *Failover:* one VPS, one Postgres, no standby; a host failure is an outage until the VPS is restored, then a
+    restore from the last dump. No provider SLA on the database.
+  - *Isolation and secrets:* a host shared with other projects; other deploy users can read Setu's secrets and
+    containers; no audit or rotation of secret access.
+  - *Region and latency:* data in France (the residency question is open); ≈ 215 ms from Dhaka — the queue missed its
+    p95 < 1 s from Bangladesh.
+  - *Alarms:* not live yet (they need an account that can send email).
+  - **So the pilot (real patients) must not run on this staging.**
+- **Before production — must change:**
+  1. Postgres with PITR (managed with ≥ 7 days, or WAL archiving to object storage, e.g. WAL-G) and a tested
+     point-in-time restore; stated RPO / RTO.
+  2. Encrypted backups off the host (another provider / account or region), the restore drill on a schedule (monthly),
+     its results recorded.
+  3. A dedicated host (no shared `docker` group); secrets in a secrets manager or root-only with no other deployers.
+  4. `HOSTING_REGION` decided with the lawyer, near Bangladesh (in-country, or Singapore / Mumbai).
+  5. Uptime and job-age alarms live and tested (one fired on purpose).
+  6. `SETU_STAGE` unset; the real bKash and SMS providers; the seed never run.
+  7. The queue and worklists paged or narrowed (the load check's miss), and the load check rerun on that host.
+
