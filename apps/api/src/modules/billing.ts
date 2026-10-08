@@ -1133,6 +1133,9 @@ export async function returnFromGateway(provider: PaymentProvider, q: { ref: str
     });
     await audit(tx, hit.tenantId, p, provider, { kind: "return", status: q.status, decision: d.action, ...(d.action === "refuse" ? { reason: d.reason } : {}), current: p.providerRef === q.ref }, ip);
     if (d.action === "execute") {
+      // review C: this link's execute was already decided (a mismatch or a Completed without TrxID left the payment
+      // waiting for the owner, its claim cleared) — a repeated return never executes it again; it only asks
+      if (await tx.providerEvent.findUnique({ where: { provider_eventId: { provider: provider.name, eventId: `execute:${q.ref}` } } })) return { action: "query" as const, p, fac };
       const n = await tx.payment.updateMany({ where: { id: p.id, providerRef: q.ref, executeClaimedAt: null, status: { in: ["link_sent", "waiting_customer"] } }, data: { executeClaimedAt: now } });
       if (n.count !== 1) return { action: "query" as const, p, fac };
     }

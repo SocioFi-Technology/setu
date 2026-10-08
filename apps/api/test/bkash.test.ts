@@ -229,6 +229,9 @@ describe.runIf(db)("ADR 0011 bKash tokenized checkout", () => {
     expect(after.status).not.toBe("failed"); expect(after.executeClaimedAt).toBeNull();
     const task = await inTenant((tx) => tx.task.findFirst({ where: { kind: "payment-reconciliation", focusId: p.id } }));
     expect(task).toMatchObject({ status: "requested", reason: "completed by the provider without a transaction ID" });
+    // review C: a repeated return does not execute it a second time
+    expect((await returnWith(payment.id, "success")).o).toBe("pending");
+    expect(executes(p.providerRef!)).toBe(1);
   });
   it("review A4: two returns at the same moment execute once", async () => {
     const { payment } = await bkashPayment();
@@ -239,6 +242,75 @@ describe.runIf(db)("ADR 0011 bKash tokenized checkout", () => {
     expect([a.statusCode, b.statusCode]).toEqual([303, 303]);
     expect(executes(p.providerRef!)).toBe(1);
     expect((await row(payment.id))!.status).toBe("confirmed");
+  });
+
+  /** A payment whose execute reached bKash and completed there while its answer never reached us (the API stopped after
+      the claim): the claim is past the execute bound; bKash holds it Completed with a TrxID. */
+  async function completedUnheard() {
+    const { payment, bill } = await bkashPayment();
+    const p = (await row(payment.id))!;
+    standIn.authorise(p.providerRef!);
+    await inTenant((tx) => tx.payment.update({ where: { id: p.id }, data: { executeClaimedAt: new Date(Date.now() - 6 * 60_000) } }));
+    const ans = await outside().execute(p.providerRef!);
+    expect(ans.status).toMatchObject({ status: "confirmed", amountPaisa: p.amountPaisa });
+    expect((await row(p.id))!.status).toBe("link_sent"); // we never heard it
+    return { p, bill, trxId: ans.status!.trxId! };
+  }
+  const settledOnce = async (paymentId: string, ref: string, bill: { id: string; total: number }) => {
+    const inv = (await inTenant((tx) => tx.invoice.findFirst({ where: { id: bill.id } })))!;
+    expect(inv).toMatchObject({ status: "balanced", paidPaisa: bill.total }); // counted once, never twice
+    expect(await inTenant((tx) => tx.payment.count({ where: { invoiceId: bill.id } }))).toBe(1);
+    expect(await inTenant((tx) => tx.providerEvent.count({ where: { eventId: `execute:${ref}` } }))).toBe(1);
+    const applied = await inTenant((tx) => tx.auditEvent.findMany({ where: { entity: "Payment", entityId: paymentId, action: "update" } }));
+    expect(applied.filter((a) => (a.detail as { outcome?: string }).outcome === "applied")).toHaveLength(1);
+    expect(await inTenant((tx) => tx.receipt.count({ where: { invoiceId: bill.id } }))).toBe(0); // a receipt is made only when asked for
+    expect(await inTenant((tx) => tx.task.count({ where: { kind: "payment-reconciliation", focusId: paymentId } }))).toBe(0);
+  };
+  it("review C: the sweep confirms a payment bKash completed whose answer never reached us — with the TrxID, the bill paid, executed once", async () => {
+    const { p, bill, trxId } = await completedUnheard();
+    await sweepPayments(new Date());
+    expect((await row(p.id))!).toMatchObject({ status: "confirmed", trxId, confirmedById: null });
+    expect(executes(p.providerRef!)).toBe(1); // the sweep only asks (query) — it never executes
+    expect(standIn.calls.filter((c) => c.path === "query/payment" && c.body.paymentId === p.providerRef).length).toBeGreaterThanOrEqual(1);
+    await settledOnce(p.id, p.providerRef!, bill);
+    // a later sweep finds nothing left to do for it
+    await sweepPayments(new Date());
+    await settledOnce(p.id, p.providerRef!, bill);
+  });
+  it("review C: two overlapping sweeps at the same moment settle that payment once", async () => {
+    const { p, bill, trxId } = await completedUnheard();
+    const now = new Date();
+    await Promise.all([sweepPayments(now), sweepPayments(now)]);
+    expect((await row(p.id))!).toMatchObject({ status: "confirmed", trxId });
+    expect(executes(p.providerRef!)).toBe(1);
+    await settledOnce(p.id, p.providerRef!, bill);
+  });
+  it("review C: bKash answers the execute with another amount than the payment — never confirmed; the owner's reconciliation", async () => {
+    const { payment, bill } = await bkashPayment();
+    const p = (await row(payment.id))!;
+    standIn.authorise(p.providerRef!);
+    // bKash reports ৳1 less than the payment asked for (the stand-in answers its stored amount)
+    standIn.payments.get(p.providerRef!)!.amount = ((p.amountPaisa - 100) / 100).toFixed(2);
+    expect((await returnWith(payment.id, "success")).o).toBe("pending");
+    expect(executes(p.providerRef!)).toBe(1);
+    const after = (await row(payment.id))!;
+    expect(after).toMatchObject({ status: "link_sent", trxId: null, executeClaimedAt: null });
+    const tasks = await inTenant((tx) => tx.task.findMany({ where: { kind: "payment-reconciliation", focusId: p.id } }));
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]).toMatchObject({ status: "requested", reason: "amount reported by the provider differs from the payment", detail: expect.objectContaining({ amountPaisa: p.amountPaisa - 100, paymentAmountPaisa: p.amountPaisa }) });
+    expect(await inTenant((tx) => tx.providerEvent.findFirst({ where: { eventId: `execute:${p.providerRef}` } }))).toMatchObject({ outcome: "refused", reason: "amount-mismatch" });
+    expect((await inTenant((tx) => tx.invoice.findFirst({ where: { id: bill.id } })))!).toMatchObject({ paidPaisa: 0 });
+    expect((await inTenant((tx) => tx.invoice.findFirst({ where: { id: bill.id } })))!.status).not.toBe("balanced");
+    // a repeated "success" return (the patient reloads bKash's page) executes nothing again — the execute was decided
+    expect((await returnWith(payment.id, "success")).o).toBe("pending");
+    expect(executes(p.providerRef!)).toBe(1);
+    expect((await row(payment.id))!.executeClaimedAt).toBeNull();
+    // the sweep does not confirm it afterwards (even with a claim past the execute bound, bKash asked again)
+    await inTenant((tx) => tx.payment.update({ where: { id: p.id }, data: { executeClaimedAt: new Date(Date.now() - 6 * 60_000) } }));
+    await sweepPayments(new Date());
+    expect((await row(payment.id))!).toMatchObject({ status: "link_sent", trxId: null });
+    expect(executes(p.providerRef!)).toBe(1);
+    expect(await inTenant((tx) => tx.task.count({ where: { kind: "payment-reconciliation", focusId: p.id } }))).toBe(1);
   });
   it("while an execute is under way the cashier cannot cancel; one never answered is settled by the sweep", async () => {
     const { payment } = await bkashPayment();
