@@ -1290,6 +1290,37 @@ addendum. Operating notes: "On call (staging)" below.
 - **Alarms: not yet live** — they need a monitor that can email (Kamrul: an UptimeRobot / similar account, or SMTP
   credentials). The two checks are ready: `https://setu.sociofitechnology.com/api/ready` and `…/api/health/jobs/ok`.
 
+## Done (pilot-readiness sprint, the rest, 09/10/2026) — review section C, the MAR range, the lab worklist, training material
+One commit per item. Kamrul 09/10/2026: the real bKash / BulkSMSBD sandbox credentials come before production (not in
+this sprint); alarms and off-server backups are deferred to production (ADR 0019).
+- **The MAR before midnight** (2842c20): a dose already in its ±60-minute window after midnight now shows on tonight's
+  MAR (`marSlotRange` reaches now + the window; ADR 0015 addendum) — found by CI running at 23:54 Dhaka.
+- **Review C:** consultation writes the transition's result (593b6c8); bKash — constant-time return signature, a
+  401 / 403 renewed and asked again only when it is a token refusal, an unexpired token used once the renewal budget is
+  spent (3a90b46); a replay gets the answer after `after` (the payment's link, 985910d); admin — a doctor's fee
+  protected only while they are a doctor here, test SMS 3 an hour (b8f9137; `activeApprovers` kept as decided 04/10);
+  the ℞ drawn as an SVG (1d07736); test files for domain money / catalog (9292d75); the staff app's Bangla strings into
+  packages/i18n, 66 keys, text unchanged (593ff8f). `.env.example` was already complete.
+- **Not built — open question 322:** asking "was the sample the problem?" before a lab withdrawal needs finished tubes
+  to be re-runnable (SPECIMEN `done → in-process`) — a clinical call; tried and reverted.
+- **The lab worklist** (3338993): the recent visits picked by the database on a new index; what remains (~150 ms of
+  ten sequential bundle queries for 200 visits whatever the stage) is a lab-slice follow-up — narrowing per stage must
+  never drop work.
+- **The reviewers' missing tests** (fb26a0f, 60aebb7, 5b08181): bKash sweep confirming a lost answer, overlapping sweeps,
+  an amount mismatch; one-time passwords past 24 h, owner role changes, CSV formula cells; facility A blind to B's
+  shifts; the last-unit dispense race; the 3 MB photo; direct tests for `pin.ts` and `users.ts`. **Two real bugs they
+  found, fixed:** a one-time password's expiry depended on the server's time zone (18 h on a Dhaka-time host, no limit
+  west of UTC — the lookup's zoneless timestamp is now read as UTC); a repeated bKash return after an amount mismatch
+  or a Completed-without-TrxID sent `payment/execute` a second time (now a decided execute is never claimed again).
+- **Training material** (week 3, 93dd849): `e2e/training/` — `shots.mjs` runs the walkthroughs, `build.mjs` makes one
+  Bangla PDF per role from `captions/<role>.json`: front desk, cashier, doctor, lab, nurse, pharmacist, owner, admin —
+  137 steps, **drafts for a Bangla-speaking trainer to review** (the captions are not reviewed copy). New walks
+  `walk-desk.mjs`, `walk-cash.mjs`; every picture is in Bangla. Make the pictures against a freshly seeded database
+  (the long-used dev database's full ER bays and wards break some walks): create one, migrate, seed, point the dev API
+  at it, start the staff app with `NEXT_DEV_INDICATOR=off`, run `shots.mjs`, then `build.mjs`.
+- **Not done here:** the design round in Claude Design (the prototype catching up with the screens built since the
+  handoff) — waiting for Kamrul's call on who runs it; the real providers (Kamrul: before production).
+
 ## On call (staging) — https://setu.sociofitechnology.com (the shared SocioFi VPS, ADR 0019 addendum)
 **Where things are** (`ssh -l setu sociofi` — the `setu` user runs Setu in **its own rootless Docker daemon**: plain
 `docker` as setu sees Setu's containers, the VPS's shared `docker` group does not; every Setu container is compose
