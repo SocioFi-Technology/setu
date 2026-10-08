@@ -36,6 +36,8 @@ while read -r key; do [[ -z "$key" ]] && continue; n=$((n+1)); grep -qF "./setu-
 
 # 3. migrations up to date, the API's role, dev credentials on the copy, then the API tests
 E=(-e DATABASE_URL="postgresql://setu:$PW@postgres:5432/setu" -e DATABASE_URL_APP="postgresql://setu_app:$APW@postgres:5432/setu" -e REDIS_URL=redis://redis:6379 -e STORAGE_DIR=/tmp/setu-storage)
+# the scratch copy is disposable: the tests' E2E reset may run against it (it refuses any non-local host otherwise)
+E+=(-e E2E_RESET_ALLOWED=1)
 docker run --rm --network "$NET" --user root "${E[@]}" "$TOOLS" sh -c 'pnpm --filter @setu/db exec prisma migrate status >/tmp/s.txt 2>&1; grep -q "Database schema is up to date" /tmp/s.txt && echo "migrations: up to date" || { cat /tmp/s.txt; exit 1; }
   pnpm db:set-app-password >/dev/null && SEED_RESET_CREDENTIALS=1 pnpm db:seed >/dev/null && echo "seeded dev credentials onto the copy"'
 t2=$(date +%s)
