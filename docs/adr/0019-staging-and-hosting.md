@@ -92,7 +92,9 @@ images, a deploy that can be undone, private object storage, and jobs that are s
 - Every background job (the nightly owner rollup; the payment, SMS, refund, bed-day and escalation sweeps) runs
   through `singleRun(name)`. It takes a Postgres **advisory lock** `job:<name>` without waiting: a replica that finds the
   lock held skips this run. Each run is recorded in `JobRun` (started, finished, ok, error, summary). With two replicas
-  each job still runs once a minute (or once a night), never twice at the same time.
+  two runs of a job never overlap. Each replica
+  still takes its own turn, so a sweep runs up to twice a minute (staging: 108 runs in ~54 min); the sweeps are
+  idempotent, so that is harmless. The nightly rollup catches up idempotently too.
 - `GET /health/jobs` lists each job's last finish, age in seconds, last result and run/skip counts, for the job-age
   monitor (session 2).
 
@@ -103,3 +105,45 @@ images, a deploy that can be undone, private object storage, and jobs that are s
 - The two api replicas share Redis (sessions, locks, counters) and Postgres. Nothing in an API process is state that
   another replica would need.
 - Follow-ups: smaller images; a staging-only Sentry DSN or equivalent error tracking when the host is chosen.
+
+## Addendum — session 2 (08/10/2026): staging on the shared SocioFi VPS, not AWS (Kamrul)
+- **Where:** staging runs on the existing SocioFi VPS (Ubuntu 24.04, 8 vCPU, 23 GiB, shared with five other projects)
+  at **https://setu.sociofitechnology.com**. A dedicated host comes later, "after we do enough testing", with the
+  product's own name and domain. The session 2 prompt's AWS plan (RDS, ElastiCache, S3, Secrets Manager, CloudWatch)
+  was dropped before anything was created. `HOSTING_REGION` stays open until that host is chosen; the residency
+  question stays with the lawyer.
+- **Co-hosting** (`infra/compose.cohost.yml`, the same pattern as the other projects on the box): the VPS's edge nginx
+  (`sociofi-nginx`, `/opt/sociofitechnology`) owns :80/:443 and terminates TLS (Let's Encrypt via its certbot, renewed
+  with the others); it reaches Setu's Caddy as `setu-proxy:80` on the external network `setu_edge`. Setu publishes no
+  port. Two proxies in front of the API, so `TRUST_PROXY=2`, and Caddy keeps the edge's `X-Forwarded-For`
+  (`trusted_proxies private_ranges`); a client-sent header is not believed (checked: the audit IP is the caller's).
+  Memory limits on every Setu container (api 1 GiB ×2, staff 512 MiB, postgres 1 GiB, minio 512 MiB, redis 256 MiB).
+- **Data:** the stack's own Postgres 16, Redis and MinIO containers (profile `bundled`), on Setu's network only.
+  Storage is S3Storage against that MinIO — no code change, the bucket private, files streamed by the API.
+- **Secrets:** `/opt/setu/staging.env`, generated on the VPS by `infra/staging/vps-env.sh`, mode 600, never printed
+  or committed. The seeded staff accounts get their own password and PIN there (`SEED_PASSWORD` / `SEED_PIN`), never
+  the published dev ones.
+- **Providers (Kamrul):** `SETU_STAGE=staging` lets the production build run the fake gateway and the fake SMS — no
+  real money, no texts to seeded numbers; a real production deploy never sets it. AI stays `off`.
+- **Images and deploy:** `infra/staging/ship.sh` sends a committed revision with `git archive`, builds
+  `setu/setu-{api,staff,tools,drill}:<full sha>` on the VPS and runs `deploy.sh` (`SETU_IMAGES=local`): no registry
+  token on the shared box, still SHA tags only. The GHCR workflow stays for the dedicated host.
+- **Backups (Kamrul: no off-server copy until production):** nightly at 02:30 Dhaka (`infra/staging/backup.sh`, cron):
+  `pg_dump` + the MinIO volume + row counts into `/opt/setu/backups`, 7 kept, the run recorded in `JobRun`
+  ("backup") so a missed or failed backup trips the job-age check. Same disk as the data — a disk loss loses both;
+  accepted for staging.
+- **Restore drill** (`infra/staging/restore-drill.sh`): the newest backup into scratch containers on their own network
+  → row counts, every stored print's file, `migrate status`, the API test suite → removed.
+- **Alarms:** `/api/ready` (uptime) and `/api/health/jobs/ok` (job age, incl. the backup) are the two checks for an
+  external monitor emailing Kamrul — see HANDOVER "On call (staging)".
+- **Results on 08/10/2026.** Restore drill: the newest backup restored in 8 s; row counts and every stored print's
+  file matched; migrations up to date; API tests against the restored copy **432 passed, 3 skipped** (S3 tests: no S3
+  endpoint in the drill); scratch removed; 551 s in all. Rolling deploys on the VPS: 0 failed requests in 632 during a
+  ship. **20-user journey-A load** (k6 from Bangladesh, 5 min at 20 users, 248 full visits incl. lab and prints, 6,761
+  requests, 0 failed): server-side p95 (Caddy) every endpoint ≤ 0.46 s — queue 0.27 s, billing worklist 0.30 s, bill
+  make / issue / pay ≈ 0.3–0.4 s. Seen from Bangladesh p95: bill steps 0.43–0.64 s (target met), **queue 1.47 s and
+  billing worklist 1.50 s (target missed)** — the VPS is in France (≈ 215 ms round trip from Dhaka), and those two lists
+  return every visit of the day (≈ 490 after two runs, 23–30 KB gzipped). Follow-ups: page or narrow the queue and the
+  worklists to the active visits; choose the dedicated host near Bangladesh (Singapore / Mumbai ≈ 40–70 ms, or in the
+  country); the lab worklist query (0.46 s server p95 on a 1 KB answer) is the slowest read.
+

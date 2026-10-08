@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); week 2 staging session 1 done (08/10/2026); next: see Next)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); week 2 staging sessions 1–2 done (08/10/2026, staging live); next: see Next)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -1270,6 +1270,58 @@ ADR 0019 (staging and hosting). One commit per item; `HOSTING_REGION` is chosen 
 - `SETU_REGISTRY=setu-local SETU_ENV_FILE=staging.local.env infra/deploy.sh --local <tag>` to rehearse a deploy;
   `--rollback` to go back. The tag files `.current-tag` / `.previous-tag` are written into `infra/` (git-ignored).
 
+## Done (pilot-readiness sprint, week 2 staging, session 2 of 2, 08/10/2026) — staging live on the SocioFi VPS ✅
+**https://setu.sociofitechnology.com** — the shared SocioFi VPS (Kamrul: not AWS; a dedicated host later), behind the
+box's edge nginx (Setu's server blocks + a Let's Encrypt certificate; the other sites checked unchanged). ADR 0019
+addendum. Operating notes: "On call (staging)" below.
+- **Code:** `SETU_STAGE=staging` (the fake gateway / SMS in a production build, staging only); the seed refuses
+  production without `SEED_ALLOW=staging` and its own `SEED_PASSWORD` / `SEED_PIN`; `GET /health/jobs/ok` (job-age
+  check incl. the nightly backup); `infra/compose.cohost.yml`; `deploy.sh` for host-built images and bundled data
+  services; `infra/staging/` ship, env, backup, restore drill, k6 load script; a `drill` image (tools + Chromium).
+- **Checked live:** `/api/ready` db+redis+pdf; the published dev password refused, the staging one signs in; the audit
+  IP is the caller's (a forged `X-Forwarded-For` ignored); an Rx printed into MinIO and served back; three ships with
+  rolling restarts (one under a request loop: 632 ok, 0 failed).
+- **Backup / restore drill:** nightly 02:30 Dhaka (cron); the drill restored in 8 s, counts and files matched, API
+  tests 432 passed / 3 skipped against the copy (the first two drills found the tools image had no Chromium and the
+  E2E reset's host guard — both fixed).
+- **Load, 20 users through journey A** (k6 from Bangladesh, 248 visits, 0 failed): server p95 ≤ 0.46 s on every
+  endpoint; from Bangladesh the bill steps meet p95 < 1 s, the queue (1.47 s) and billing worklist (1.50 s) do not —
+  ≈ 215 ms round trip to France plus lists that hold every visit of the day. Follow-ups in Next.
+- **Alarms: not yet live** — they need a monitor that can email (Kamrul: an UptimeRobot / similar account, or SMTP
+  credentials). The two checks are ready: `https://setu.sociofitechnology.com/api/ready` and `…/api/health/jobs/ok`.
+
+## On call (staging) — https://setu.sociofitechnology.com (the shared SocioFi VPS, ADR 0019 addendum)
+**Where things are** (ssh `sociofi`, user `kamrul`; every Setu container is compose project `setu-staging`):
+- `/opt/setu/app` the deployed revision (`REVISION`), `/opt/setu/staging.env` the secrets (mode 600 — never print or
+  paste it), `/opt/setu/state/.current-tag` / `.previous-tag`, `/opt/setu/backups` (dumps, files, `backup.log`,
+  drill logs). The edge: `/opt/sociofitechnology/nginx/nginx.conf` (Setu's two server blocks are at the end; it serves
+  every SocioFi site — change it only with `nginx -t` first and a reload, never a restart, and keep a `.bak-<ts>`).
+- Status: `docker ps --filter label=com.docker.compose.project=setu-staging`; logs: `docker logs <container>` (JSON
+  lines; the API's are pino, Caddy's are access logs with the request duration).
+- Health: `curl https://setu.sociofitechnology.com/api/ready` (db, redis, pdf) and `…/api/health/jobs` (each job's
+  age) / `…/api/health/jobs/ok` (200, or 503 naming the stuck / failing / missing job — the backup included).
+**Alarms → what to do first**
+- *Site down / `/api/ready` not 200:* `docker ps` for the setu containers. A 502 from nginx = Setu's Caddy or staff
+  is down (`docker logs setu-staging-caddy-1`); `ready:false` names db / redis / pdf — `docker logs` of that container,
+  then `docker restart` it. If the whole VPS is down, every SocioFi site is: whoever runs the VPS first.
+- *Job stale or failing:* `/api/health/jobs` shows which and `lastError`; `docker logs setu-staging-api-<n> | grep
+  '"job"'`. A job held by a crashed replica frees itself (the lock is per transaction). `backup` stale → read
+  `/opt/setu/backups/backup.log`, run `/opt/setu/app/infra/staging/backup.sh` by hand.
+- *Disk:* `df -h /` (225 GB free at bring-up); backups keep 7 nights.
+**Deploy / roll back** (from a developer machine, a committed revision): `infra/staging/ship.sh [<commit>]` — sends
+the tree, builds the images on the VPS (~5 min), migrates once, rolling restart (no dropped requests). Roll back on
+the VPS: `cd /opt/setu/app/infra && SETU_REGISTRY=setu SETU_IMAGES=local SETU_COMPOSE_EXTRA=compose.cohost.yml
+SETU_PROFILES=bundled SETU_ENV_FILE=/opt/setu/staging.env SETU_STATE_DIR=/opt/setu/state ./deploy.sh --rollback`
+(the previous images; the database is left as it is — migrations are additive).
+**Restore:** the drill is `infra/staging/restore-drill.sh` (scratch only). A real restore of staging: stop api and
+staff, `docker exec -i setu-staging-postgres-1 pg_restore -U setu -d setu --clean --if-exists < /opt/setu/backups/
+db-<ts>.dump`, restore the MinIO volume from `files-<ts>.tar.gz`, `deploy.sh <current sha>` (migrate + password).
+**Secrets:** rotate one by editing `/opt/setu/staging.env`, then a deploy. Rotating `SESSION_SECRET` signs everyone
+out; `DEVICE_KEY_SECRET` makes unsent device drafts unreadable (they show as "not sent"); `SETU_PG_PASSWORD` must
+also be changed in Postgres (`ALTER ROLE setu PASSWORD …`) before the deploy. The staff sign-in for testers: the E2E
+clinic's accounts (017990000xx) with `SEED_PASSWORD` / `SEED_PIN` from the env file — read them on the VPS, never
+paste them into chat or git.
+
 ## Known gaps (fix in the slice that touches them, or when listed)
 1. ~~RLS is bypassed at runtime~~ — fixed in A1–A3 (`setu_app`). Production: the migration role must be superuser or BYPASSRLS for `auth_login_lookup` (open question 11).
 2. ~~MinIO image cannot be pulled~~ — dev and tests store receipts with `LocalFolderStorage` (A6–A7); ~~an S3-compatible adapter before staging~~ — `S3Storage` (ADR 0019, 08/10/2026). `minio/minio` still cannot be pulled here: use `cgr.dev/chainguard/minio`.
@@ -1342,11 +1394,12 @@ ADR 0019 (staging and hosting). One commit per item; `HOSTING_REGION` is chosen 
    ~~week 1–2: the A6 follow-up, review section B (B1–B11), gap 10 (SCRAM, tenant keys), decision 317~~ — done
    07/10/2026, and gap 10's encrypted device drafts / outbox (option b). ~~Decision 321~~ (08/10/2026).
    **Week 2 staging:** ~~session 1~~ (08/10/2026, ADR 0019: builds, images, compose, S3, config, jobs, deploy).
-   **Next — session 2**, once Kamrul has chosen the host and `HOSTING_REGION`: bring staging up there (managed
-   Postgres 16 with PITR, Redis, a private bucket, secrets in the host's store → `infra/staging.env`, GHCR read token,
-   DNS + `SETU_SITE_ADDRESS`); a backup / restore drill; a 20-user load check through journey A (p95 < 1 s for
-   queue / bill / MAR); uptime (`/ready`) and job-age (`/health/jobs`) monitoring; on-call notes here. Then review
-   section C. Follow-ups: smaller api / tools images; error tracking.
+   ~~session 2~~ (08/10/2026): staging live at https://setu.sociofitechnology.com on the shared SocioFi VPS.
+   **Next:** (1) the alarms — an external monitor emailing Kamrul on `/api/ready` and `/api/health/jobs/ok` (needs his
+   account or SMTP credentials); (2) the queue and the worklists: return the active visits only, or page them (the
+   load check's miss); (3) the lab worklist query; (4) review section C. Later, with the dedicated host and the
+   product's own domain: `HOSTING_REGION` near Bangladesh, off-server backups, GHCR images, error tracking, smaller
+   api / tools images.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating
