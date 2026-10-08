@@ -220,3 +220,11 @@ requests, 0 failed, every threshold met, today's lists still ≈ 500 visits:
   fixed in 0428e19 (one after another), CI green (journeys 20.7 min). Production note: a small host hits this, so the
   pool must be sized above the number of simultaneous lock-holding jobs (now one sweep + the nightly rollup).
 
+### Alarms deferred to production (Kamrul, 09/10/2026)
+Staging has **no alarms**: nobody is emailed when the site, a background job or the nightly backup stops. The two
+checks exist and are what production's monitor will poll — `GET /api/ready` (db, redis, PDF) and
+`GET /api/health/jobs/ok` (503 naming a stuck / failing / missing job, the backup and, once archiving is on, the WAL
+archive). Until then, whoever tests staging opens them by hand. Production must have them live and tested (one fired on
+purpose) before the first real patient — production item 5 stands. Chosen for staging: an external monitor
+(UptimeRobot or similar; the VPS has no mail setup, and an on-box checker cannot report the box itself being down).
+

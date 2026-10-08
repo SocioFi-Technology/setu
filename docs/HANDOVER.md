@@ -1305,7 +1305,7 @@ project `setu-staging`; `/opt/setu` is setu's alone, mode 700; nginx and ufw cha
   lines; the API's are pino, Caddy's are access logs with the request duration).
 - Health: `curl https://setu.sociofitechnology.com/api/ready` (db, redis, pdf) and `…/api/health/jobs` (each job's
   age) / `…/api/health/jobs/ok` (200, or 503 naming the stuck / failing / missing job — the backup included).
-**Alarms → what to do first**
+**Alarms → what to do first** (staging has none until production — Kamrul 09/10/2026; read these when a check is red)
 - *Site down / `/api/ready` not 200:* `docker ps` for the setu containers. A 502 from nginx = Setu's Caddy or staff
   is down, or setu's daemon (`docker logs setu-staging-caddy-1` as setu); `ready:false` names db / redis / pdf — `docker logs` of that container,
   then `docker restart` it. If the whole VPS is down, every SocioFi site is: whoever runs the VPS first.
@@ -1404,8 +1404,8 @@ paste them into chat or git.
    07/10/2026, and gap 10's encrypted device drafts / outbox (option b). ~~Decision 321~~ (08/10/2026).
    **Week 2 staging:** ~~session 1~~ (08/10/2026, ADR 0019: builds, images, compose, S3, config, jobs, deploy).
    ~~session 2~~ (08/10/2026): staging live at https://setu.sociofitechnology.com on the shared SocioFi VPS.
-   **Next:** (1) the alarms — UptimeRobot emailing Kamrul on `/api/ready` and `/api/health/jobs/ok` (waiting for his
-   API key on the VPS); off-server backups deferred by Kamrul 09/10 (WAL-G installed, archiving off — ADR 0019); ~~(2) the queue and the worklists~~ (08/10/2026, c9246a0: active complete, latest 20 closed; rerun met p95 < 1 s); (3) the lab worklist query; (4) review section C. Later, with the dedicated host and the
+   **Next:** ~~(1) the alarms~~ and off-server backups: both deferred to production by Kamrul 09/10/2026 (ADR 0019 —
+   staging has no alarms; check `/api/ready` and `/api/health/jobs/ok` by hand; WAL-G installed, archiving off); ~~(2) the queue and the worklists~~ (08/10/2026, c9246a0: active complete, latest 20 closed; rerun met p95 < 1 s); (3) the lab worklist query; (4) review section C. Later, with the dedicated host and the
    product's own domain: `HOSTING_REGION` near Bangladesh, off-server backups, GHCR images, error tracking, smaller
    api / tools images.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
