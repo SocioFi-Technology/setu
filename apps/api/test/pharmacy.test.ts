@@ -330,3 +330,61 @@ describe.runIf(db)("who may", () => {
     expect(st.json().items.map((i: { medicine: { key: string } }) => i.medicine.key)).toEqual(expect.arrayContaining(["napa", "comet"]));
   });
 });
+
+describe.runIf(db)("review C: the last unit, and a photo too large", () => {
+  it("review C: two dispenses of the last unit at once — one gives it, the other gets 409 stock_short; never a 500, never below zero", { timeout: 60_000 }, async () => {
+    // Clopirel (no other test uses it): its usable counter stock is brought down to exactly one tablet for the race and
+    // put back after (adjust moves on the owner connection, like the top-up above)
+    const CLOPI: Med = { medicineKey: "clopi", dose: "1+0+0", meal: "after", days: 1 }; // 1 tablet
+    const a = await signedVisit([CLOPI]), b = await signedVisit([CLOPI]);
+    const org = (await inTenant((tx) => tx.encounter.findFirst({ where: { id: a.enc } })))!.organizationId;
+    const owner = new db!.PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+    const usable = await owner.stockBatch.findMany({ where: { tenantId: T, organizationId: org, medicineKey: "clopi", location: { in: ["counter", "fridge"] }, expiry: { gte: TODAY }, qtyOnHand: { gt: 0 } }, orderBy: [{ expiry: "asc" }, { id: "asc" }] });
+    expect(usable.length).toBeGreaterThan(0);
+    const adjust = (batch: { id: string; organizationId: string }, qty: number) => qty === 0 ? null
+      : owner.stockMove.create({ data: { tenantId: T, organizationId: batch.organizationId, batchId: batch.id, kind: "adjust", qty, refType: "test-top-up", reason: "api test review C: the last unit", byId: "u_e2e_pharm" } });
+    try {
+      for (const [i, x] of usable.entries()) await adjust(x, (i === 0 ? 1 : 0) - x.qtyOnHand);
+      const ra = lineOf((await get(`/v1/pharmacy/encounters/${a.enc}`)).json(), "clopi"), rb = lineOf((await get(`/v1/pharmacy/encounters/${b.enc}`)).json(), "clopi");
+      expect([ra.remaining, rb.remaining]).toEqual([1, 1]);
+      expect(ra.proposal).toMatchObject({ shortfall: 0, allocations: [{ batch: { id: usable[0]!.id }, qty: 1 }] });
+      const [x, y] = await Promise.all([
+        post(`/v1/pharmacy/encounters/${a.enc}/dispense`, { compositionId: a.compositionId, lines: [{ requestId: ra.requestId, medicineKey: "clopi", qty: 1 }] }),
+        post(`/v1/pharmacy/encounters/${b.enc}/dispense`, { compositionId: b.compositionId, lines: [{ requestId: rb.requestId, medicineKey: "clopi", qty: 1 }] }),
+      ]);
+      expect([x.statusCode, y.statusCode].sort(), `${x.body} | ${y.body}`).toEqual([200, 409]);
+      const [won, lost] = x.statusCode === 200 ? [a, b] : [b, a];
+      expect((x.statusCode === 409 ? x : y).json().code).toBe("stock_short");
+      // exactly one tablet left the shelf; nothing is below zero
+      const now = await owner.stockBatch.findMany({ where: { id: { in: usable.map((u) => u.id) } } });
+      expect(now.every((n) => n.qtyOnHand >= 0)).toBe(true);
+      expect(now.reduce((s, n) => s + n.qtyOnHand, 0)).toBe(0);
+      const given = await inTenant((tx) => tx.medicationDispense.findMany({ where: { encounterId: { in: [a.enc, b.enc] } } }));
+      expect(given.map((g) => [g.encounterId, g.qty])).toEqual([[won.enc, 1]]);
+      const moves = await inTenant((tx) => tx.stockMove.findMany({ where: { refType: "dispense", refId: { in: given.map((g) => g.id) } } }));
+      expect(moves.map((m) => m.qty)).toEqual([-1]);
+      // the loser's visit is untouched: still to give, no pharmacy bill
+      expect(lineOf((await get(`/v1/pharmacy/encounters/${lost.enc}`)).json(), "clopi")).toMatchObject({ dispensedQty: 0, remaining: 1 });
+      expect(await inTenant((tx) => tx.invoice.count({ where: { encounterId: lost.enc, kind: "pharmacy" } }))).toBe(0);
+    } finally {
+      // put the stock back as it was before the race
+      for (const u of usable) { const cur = (await owner.stockBatch.findUnique({ where: { id: u.id } }))!.qtyOnHand; await adjust(u, u.qtyOnHand - cur); }
+      await owner.$disconnect();
+    }
+  });
+
+  it("review C: a prescription photo over 3 MB is refused (413 too_large) and nothing is kept", async () => {
+    const c = await post("/v1/pharmacy/otc", { buyerName: `Walk-in big photo ${RUN}` });
+    expect(c.statusCode, c.body).toBe(201);
+    const id = c.json().bill.invoice.id as string, rev = c.json().bill.invoice.rev as number;
+    const png = (bytes: number) => Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(bytes - 8, 1)]);
+    const big = await post(`/v1/pharmacy/otc/${id}/rx-photo`, { rev, contentType: "image/png", dataBase64: png(3 * 1024 * 1024 + 1).toString("base64") });
+    expect([big.statusCode, big.json().code, big.json().field]).toEqual([413, "too_large", "dataBase64"]);
+    expect((await inTenant((tx) => tx.invoice.findFirst({ where: { id } })))!).toMatchObject({ rxPhotoKey: null, rev });
+    expect((await get(`/v1/pharmacy/otc/${id}/rx-photo`)).statusCode).toBe(404);
+    // a small photo on the same sale is still taken (the refusal changed nothing)
+    const small = await post(`/v1/pharmacy/otc/${id}/rx-photo`, { rev, contentType: "image/png", dataBase64: png(64).toString("base64") });
+    expect(small.statusCode, small.body).toBe(200);
+    expect(small.json().rxPhoto).toBe(true);
+  });
+});

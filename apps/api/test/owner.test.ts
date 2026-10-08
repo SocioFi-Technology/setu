@@ -364,3 +364,30 @@ describe.runIf(db)("C1–C2 owner dashboard", () => {
     expect((await get("/v1/owner/drill?what=revenue", "doctor")).statusCode).toBe(403);
   });
 });
+
+describe.runIf(db)("review C: one facility's owner and another's shifts", () => {
+  it("review C: the owner of facility A sees nothing of facility B's shifts — not in the list, not by id, cannot review it", async () => {
+    // facility B: the E2E Lite hospital (its own tenant), its cashier's shift — the one open now, else a new one
+    const as = async (phone: string) => [(await app.inject({ method: "POST", url: "/v1/auth/login", payload: { identifier: phone, password: "setu1234" } })).headers["set-cookie"]].flat()[0] as string;
+    const liteCashier = await as("01798000008"), liteOwner = await as("01798000009");
+    const lget = (url: string, cookie: string) => app.inject({ method: "GET", url, headers: { cookie } });
+    const mine = ok<{ shift: Shift | null }>(await lget("/v1/shifts/mine", liteCashier));
+    const theirs = mine.shift ?? ok<Shift>(await app.inject({ method: "POST", url: "/v1/shifts", payload: { openingFloatPaisa: 100_000 }, headers: { cookie: liteCashier, "idempotency-key": randomUUID() } }), 201);
+    // B's owner sees it (the control)
+    expect(ok<Shift>(await lget(`/v1/shifts/${theirs.id}`, liteOwner)).id).toBe(theirs.id);
+    expect(ok<{ items: Shift[] }>(await lget("/v1/shifts?status=all&days=90", liteOwner)).items.map((s) => s.id)).toContain(theirs.id);
+    // A's owner (and admin): nothing — the list leaves it out, the id is not found, a review finds nothing to review
+    const list = ok<{ items: Shift[] }>(await get("/v1/shifts?status=all&days=90"));
+    expect(list.items.map((s) => s.id)).not.toContain(theirs.id);
+    expect(ok<{ items: Shift[] }>(await get("/v1/shifts?status=all&days=90", "admin")).items.map((s) => s.id)).not.toContain(theirs.id);
+    const byId = await get(`/v1/shifts/${theirs.id}`);
+    expect([byId.statusCode, byId.json().code]).toEqual([404, "not_found"]);
+    expect(byId.body).not.toContain("01798000008");
+    const review = await post(`/v1/shifts/${theirs.id}/review`, { decision: "approve", note: "not my facility's shift" }, "owner");
+    expect(review.statusCode).toBe(404);
+    // and the database itself shows A none of B's shift rows
+    expect(await db!.forTenant(T, (tx) => tx.shift.findFirst({ where: { id: theirs.id } }))).toBeNull();
+    // B's shift is untouched by the refused review
+    expect(ok<Shift>(await lget(`/v1/shifts/${theirs.id}`, liteOwner)).status).toBe(theirs.status);
+  });
+});
