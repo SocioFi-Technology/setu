@@ -1291,18 +1291,23 @@ addendum. Operating notes: "On call (staging)" below.
   credentials). The two checks are ready: `https://setu.sociofitechnology.com/api/ready` and `…/api/health/jobs/ok`.
 
 ## On call (staging) — https://setu.sociofitechnology.com (the shared SocioFi VPS, ADR 0019 addendum)
-**Where things are** (ssh `sociofi`, user `kamrul`; every Setu container is compose project `setu-staging`):
+**Where things are** (`ssh -l setu sociofi` — the `setu` user runs Setu in **its own rootless Docker daemon**: plain
+`docker` as setu sees Setu's containers, the VPS's shared `docker` group does not; every Setu container is compose
+project `setu-staging`; `/opt/setu` is setu's alone, mode 700; nginx and ufw changes need `kamrul` (sudo)):
 - `/opt/setu/app` the deployed revision (`REVISION`), `/opt/setu/staging.env` the secrets (mode 600 — never print or
   paste it), `/opt/setu/state/.current-tag` / `.previous-tag`, `/opt/setu/backups` (dumps, files, `backup.log`,
   drill logs). The edge: `/opt/sociofitechnology/nginx/nginx.conf` (Setu's two server blocks are at the end; it serves
   every SocioFi site — change it only with `nginx -t` first and a reload, never a restart, and keep a `.bak-<ts>`).
-- Status: `docker ps --filter label=com.docker.compose.project=setu-staging`; logs: `docker logs <container>` (JSON
+- The edge reaches Setu's Caddy at `172.21.0.1:18080` (published by the rootless daemon on the sociofitechnology
+  network's bridge; one ufw rule admits 172.21.0.0/16 to it). If setu's daemon is down: `systemctl --user status
+  docker` as setu (lingering is on, so it starts at boot).
+- Status (as setu): `docker ps --filter label=com.docker.compose.project=setu-staging`; logs: `docker logs <container>` (JSON
   lines; the API's are pino, Caddy's are access logs with the request duration).
 - Health: `curl https://setu.sociofitechnology.com/api/ready` (db, redis, pdf) and `…/api/health/jobs` (each job's
   age) / `…/api/health/jobs/ok` (200, or 503 naming the stuck / failing / missing job — the backup included).
 **Alarms → what to do first**
 - *Site down / `/api/ready` not 200:* `docker ps` for the setu containers. A 502 from nginx = Setu's Caddy or staff
-  is down (`docker logs setu-staging-caddy-1`); `ready:false` names db / redis / pdf — `docker logs` of that container,
+  is down, or setu's daemon (`docker logs setu-staging-caddy-1` as setu); `ready:false` names db / redis / pdf — `docker logs` of that container,
   then `docker restart` it. If the whole VPS is down, every SocioFi site is: whoever runs the VPS first.
 - *Job stale or failing:* `/api/health/jobs` shows which and `lastError`; `docker logs setu-staging-api-<n> | grep
   '"job"'`. A job held by a crashed replica frees itself (the lock is per transaction). `backup` stale → read
@@ -1310,7 +1315,7 @@ addendum. Operating notes: "On call (staging)" below.
 - *Disk:* `df -h /` (225 GB free at bring-up); backups keep 7 nights.
 **Deploy / roll back** (from a developer machine, a committed revision): `infra/staging/ship.sh [<commit>]` — sends
 the tree, builds the images on the VPS (~5 min), migrates once, rolling restart (no dropped requests). Roll back on
-the VPS: `cd /opt/setu/app/infra && SETU_REGISTRY=setu SETU_IMAGES=local SETU_COMPOSE_EXTRA=compose.cohost.yml
+the VPS as setu: `cd /opt/setu/app/infra && SETU_REGISTRY=setu SETU_IMAGES=local SETU_COMPOSE_EXTRA=compose.cohost.yml
 SETU_PROFILES=bundled SETU_ENV_FILE=/opt/setu/staging.env SETU_STATE_DIR=/opt/setu/state ./deploy.sh --rollback`
 (the previous images; the database is left as it is — migrations are additive).
 **Restore:** the drill is `infra/staging/restore-drill.sh` (scratch only). A real restore of staging: stop api and

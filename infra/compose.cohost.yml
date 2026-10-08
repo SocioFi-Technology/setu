@@ -1,21 +1,20 @@
 # Co-hosting overlay: staging on the shared SocioFi VPS (ADR 0019 addendum, 08/10/2026). The VPS's edge nginx
-# (`sociofi-nginx`, /opt/sociofitechnology) owns :80/:443 and terminates TLS for setu.sociofitechnology.com; it reaches
-# this stack's Caddy as `setu-proxy:80` on the external `setu_edge` network. Nothing here is published on the host.
+# (`sociofi-nginx`, /opt/sociofitechnology) owns :80/:443 and terminates TLS for setu.sociofitechnology.com.
+# The stack runs in the `setu` user's own rootless Docker daemon (Kamrul, 08/10/2026: secrets readable by setu alone —
+# the VPS's shared docker group cannot see these containers). So the edge cannot reach it over a Docker network:
+# Caddy publishes on the edge network's host address only (SETU_EDGE_BIND, default 172.21.0.1:18080 — the
+# sociofitechnology network's bridge; ufw admits 172.21.0.0/16 to that port and nothing else).
 # Postgres, Redis and MinIO are this stack's own containers (profile `bundled`), on its own network only.
 #
-#   docker network create setu_edge          # once; the edge nginx joins it (its compose file lists it)
-#   SETU_COMPOSE_EXTRA=compose.cohost.yml SETU_PROFILES=bundled SETU_IMAGES=local \
+#   (as setu) SETU_COMPOSE_EXTRA=compose.cohost.yml SETU_PROFILES=bundled SETU_IMAGES=local \
 #     SETU_ENV_FILE=/opt/setu/staging.env SETU_STATE_DIR=/opt/setu/state infra/deploy.sh <full sha>
 #
 # Memory limits keep a spike (the PDF browser) from reaching the other sites on the box.
 services:
   caddy:
-    ports: !override []
+    ports: !override ["${SETU_EDGE_BIND:-172.21.0.1:18080}:80"]
+    # the edge's X-Forwarded-For is kept; rootless port forwarding shows the edge as a private address
     environment: { SETU_SITE_ADDRESS: ":80", SETU_TRUSTED_PROXIES: "private_ranges" }
-    networks:
-      default: {}
-      setu_edge:
-        aliases: [setu-proxy]
     mem_limit: 128m
 
   staff:
@@ -52,6 +51,3 @@ services:
     mem_limit: 512m
     logging: { driver: json-file, options: { max-size: "20m", max-file: "5" } }
 
-networks:
-  setu_edge:
-    external: true

@@ -157,6 +157,13 @@ images, a deploy that can be undone, private object storage, and jobs that are s
 - **Secrets:** `/opt/setu/staging.env` on the VPS, mode 600, owner `kamrul`. Not a secrets manager: every member of the
   VPS's `docker` group (`kamrul`, `deploy`, `gojobs-deploy`) can read them through `docker inspect`, and `sudo` users
   through the file.
+  **Fixed the same day (follow-up 2):** a dedicated `setu` user (no password, no sudo, not in the `docker` group) runs
+  Setu in **its own rootless Docker daemon**; `/opt/setu` is setu's alone (mode 700), the backups and cron are its own.
+  The shared `docker` group no longer sees Setu's containers, so `docker inspect` cannot reveal the secrets. Root and
+  the two `sudo` users (`kamrul`, `ubuntu`) still can — unavoidable on a host they administer. The edge reaches the
+  rootless Caddy at `172.21.0.1:18080` (the sociofitechnology network's bridge; one ufw rule admits 172.21.0.0/16 to
+  that port, closed from outside); `setu_edge` was removed and the SocioFi compose file is back to its pre-Setu text.
+  Cutover: 3.5 minutes down, the final backup restored into the new daemon (counts and an 11:49 print verified).
 - **Cost:** no new bill — the VPS is SocioFi's existing server; Setu uses ≈ 0.7 GiB RAM idle, ≈ 3 cores at peak under
   20 users, < 1 GB disk. The VPS's own monthly price is on SocioFi's Contabo invoice (not visible from the server).
 - **Why not the managed plan:** **not cost.** The AWS estimate (≈ USD 105/month: RDS with 7-day PITR, ElastiCache,
@@ -180,7 +187,8 @@ images, a deploy that can be undone, private object storage, and jobs that are s
      point-in-time restore; stated RPO / RTO.
   2. Encrypted backups off the host (another provider / account or region), the restore drill on a schedule (monthly),
      its results recorded.
-  3. A dedicated host (no shared `docker` group); secrets in a secrets manager or root-only with no other deployers.
+  3. A dedicated host (staging already runs as its own user in a rootless daemon; production must not share the host
+     at all); secrets in a secrets manager.
   4. `HOSTING_REGION` decided with the lawyer, near Bangladesh (in-country, or Singapore / Mumbai).
   5. Uptime and job-age alarms live and tested (one fired on purpose).
   6. `SETU_STAGE` unset; the real bKash and SMS providers; the seed never run.
