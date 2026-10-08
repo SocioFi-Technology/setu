@@ -41,7 +41,14 @@ export async function findLoginCandidates(identifier: string): Promise<UserRecor
   const { loginLookup } = await import("@setu/db");
   const rows = await loginLookup(digits ? [digits, "0" + digits] : [], email);
   return rows.map((u) => ({ id: u.id, tenantId: u.tenantId, nameBn: u.nameBn, nameEn: u.nameEn, phone: u.phone ?? undefined, email: u.email ?? undefined, passwordHash: u.passwordHash, plan: u.plan, roles: u.roles as UserRecord["roles"],
-    mustChangePassword: u.mustChangePassword ?? false, tempPasswordExpiresAt: u.tempPasswordExpiresAt ?? null, tempPasswordUsedAt: u.tempPasswordUsedAt ?? null, sessionGeneration: u.sessionGeneration ?? 0 }));
+    mustChangePassword: u.mustChangePassword ?? false, tempPasswordExpiresAt: utc(u.tempPasswordExpiresAt), tempPasswordUsedAt: utc(u.tempPasswordUsedAt), sessionGeneration: u.sessionGeneration ?? 0 }));
+}
+/** The login lookup returns `timestamp` columns (stored in UTC) as JSON text with no zone — "2026-10-08T20:33:38.719".
+    `Date.parse` reads such text in the server's local time zone, so a one-time password lasted 18 h on a Dhaka-time
+    host and had no 24 h limit on one west of UTC (review C test). Mark it UTC; a value that has a zone keeps it. */
+function utc(v: string | null | undefined): string | null {
+  if (!v) return null;
+  return /(Z|[+-]\d{2}:?\d{2})$/.test(v) ? v : `${v}Z`;
 }
 
 /** After login: the signed-in user, read under the session's tenant. */

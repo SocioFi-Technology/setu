@@ -188,6 +188,96 @@ describe.runIf(db)("G2 users: one-time password, first sign-in, sessions end", (
   });
 });
 
+describe.runIf(db)("review C: one-time password age, owner roles, CSV cells", () => {
+  /** a new user of the E2E Test Clinic made by its owner (a one-time password) */
+  const newUser = async (role: string, name: string) => { const p = phone(); return { ...(await ok(post("/v1/admin/users", { nameBn: "রিভিউ সি", nameEn: `${name} ${RUN}`, phone: p, role }, "owner"), 201)), phone: p }; };
+  /** move the one-time password's issue back: it was issued `ageMs` ago (expiry = issue + 24 h) */
+  const issuedAgo = (userId: string, ageMs: number) => db!.forTenant(T, (tx) => tx.user.update({ where: { id: userId }, data: { tempPasswordExpiresAt: new Date(Date.now() - ageMs + 24 * 3600_000) } }), { userId: "u_e2e_owner" });
+  const switchOff = (userId: string) => post(`/v1/admin/users/${userId}/deactivate`, { reason: "review C test user, no longer needed" }, "owner");
+
+  it("review C: a one-time password older than 24 h is refused at first sign-in, and at the first-sign-in step once it passes 24 h", async () => {
+    const u = await newUser("receptionist", "Otp Age");
+    try {
+      await issuedAgo(u.user.id, 24 * 3600_000 + 60_000); // 24 h and a minute ago
+      const old = await login(u.phone, u.oneTimePassword);
+      expect([old.r.statusCode, old.r.json().code]).toEqual([401, "otp_expired"]);
+      expect(old.r.headers["set-cookie"]).toBeUndefined();
+      await issuedAgo(u.user.id, 3600_000); // an hour ago: it signs in to a setup session
+      const fresh = await login(u.phone, u.oneTimePassword);
+      expect(fresh.r.statusCode, fresh.r.body).toBe(200);
+      expect(fresh.r.json().mustSetCredentials).toBe(true);
+      // 24 h pass while the setup session is open: setting the password and PIN is refused too
+      await issuedAgo(u.user.id, 24 * 3600_000 + 60_000);
+      const set = await post("/v1/auth/first-sign-in", { password: "reviewc2026", pin: "2580" }, fresh.cookie);
+      expect([set.statusCode, set.json().code]).toEqual([401, "otp_expired"]);
+      expect((await db!.forTenant(T, (tx) => tx.user.findFirst({ where: { id: u.user.id } }), { userId: "u_e2e_owner" }))!.mustChangePassword).toBe(true);
+    } finally { await switchOff(u.user.id); }
+  });
+  // review C finding, fixed in modules/users.ts: the lookup's zoneless timestamp is read as UTC on any host
+  it("review C: a one-time password 23 h 59 min old still signs in, whatever the host's time zone", async () => {
+    const u = await newUser("receptionist", "Otp Edge");
+    try {
+      await issuedAgo(u.user.id, 24 * 3600_000 - 60_000);
+      const r = await login(u.phone, u.oneTimePassword);
+      expect(r.r.statusCode, r.r.body).toBe(200);
+    } finally { await switchOff(u.user.id); }
+  });
+
+  it("review C: only an owner makes someone an owner, and only an owner changes an owner back; the role changes are audited", async () => {
+    const u = await newUser("receptionist", "Role Owner");
+    const id = u.user.id as string;
+    try {
+      const byAdmin = await post(`/v1/admin/users/${id}/role`, { role: "owner", reason: "Partner joins the clinic" }, "admin");
+      expect([byAdmin.statusCode, byAdmin.json().code]).toEqual([403, "owner_only"]);
+      expect((await ok(get("/v1/admin/users", "owner"))).items.find((x: { id: string }) => x.id === id).role).toBe("receptionist");
+      const made = await ok(post(`/v1/admin/users/${id}/role`, { role: "owner", reason: "Partner joins the clinic" }, "owner"));
+      expect(made.role).toBe("owner");
+      // the facility keeps its approvers (a pending one-time password does not count) — this change leaves them as they were
+      const approvers = (await ok(get("/v1/admin/users", "owner"))).activeApprovers as number;
+      expect(approvers).toBeGreaterThanOrEqual(2);
+      const back = await post(`/v1/admin/users/${id}/role`, { role: "receptionist", reason: "Partnership ended" }, "admin");
+      expect([back.statusCode, back.json().code]).toEqual([403, "owner_only"]);
+      expect((await post(`/v1/admin/users/${id}/role`, { role: "cashier", reason: "Partnership ended" }, "admin")).json().code).toBe("owner_only");
+      const undone = await ok(post(`/v1/admin/users/${id}/role`, { role: "receptionist", reason: "Partnership ended" }, "owner"));
+      expect(undone.role).toBe("receptionist");
+      expect((await ok(get("/v1/admin/users", "owner"))).activeApprovers).toBe(approvers);
+      const changes = await db!.forTenant(T, (tx) => tx.auditEvent.findMany({ where: { action: "role-change", entityId: id }, orderBy: { at: "asc" } }));
+      expect(changes.map((c) => [(c.detail as { from: string }).from, (c.detail as { to: string }).to, c.userId])).toEqual([["receptionist", "owner", "u_e2e_owner"], ["owner", "receptionist", "u_e2e_owner"]]);
+    } finally { await switchOff(id); }
+  });
+
+  it("review C: the audit CSV neutralises a cell that starts with = + - @ (a reason a person wrote); quotes stay quoted", async () => {
+    const u = await newUser("receptionist", "Csv Cells");
+    const id = u.user.id as string;
+    // what admin.ts csvCell writes: a leading ' before = + - @ (tab / CR too), then CSV quoting when needed
+    const reasons: [string, string][] = [
+      [`=1+1 cmd ${RUN}`, `'=1+1 cmd ${RUN}`],
+      [`+SUM(A1) ${RUN}`, `'+SUM(A1) ${RUN}`],
+      [`-2+3 moved desk ${RUN}`, `'-2+3 moved desk ${RUN}`],
+      [`@SUM(A1:A9) ${RUN}`, `'@SUM(A1:A9) ${RUN}`],
+      [`=HYPERLINK("http://evil.test","click") ${RUN}`, `"'=HYPERLINK(""http://evil.test"",""click"") ${RUN}"`],
+    ];
+    try {
+      let role = "receptionist";
+      for (const [reason] of reasons) {
+        role = role === "receptionist" ? "cashier" : "receptionist";
+        await ok(post(`/v1/admin/users/${id}/role`, { role, reason }, "owner"));
+      }
+      const csv = await get("/v1/admin/audit.csv?action=role-change", "owner");
+      expect(csv.statusCode).toBe(200);
+      const lines = csv.body.split("\r\n").filter((l) => l.includes(`,${id},`));
+      expect(lines).toHaveLength(reasons.length);
+      for (const [raw, cell] of reasons) {
+        expect(lines.some((l) => l.includes(`,${cell},`)), cell).toBe(true);
+        expect(lines.some((l) => l.includes(`,${raw},`) || l.includes(`,"${raw}`)), raw).toBe(false); // never as written
+      }
+      // the screen's page keeps the reason as written (only the file is neutralised)
+      const page = await ok(get("/v1/admin/audit?action=role-change", "owner"));
+      expect(page.items.filter((x: { entityId: string }) => x.entityId === id).map((x: { summary: string }) => x.summary).sort()).toEqual(reasons.map(([r]) => r).sort());
+    } finally { await switchOff(id); }
+  });
+});
+
 describe.runIf(db)("G3 masters and settings", () => {
   it("a price change needs a reason, keeps the draft's price (price changed since), and the database insists on the history", { timeout: 30_000 }, async () => {
     const created = await ok(post("/v1/admin/prices", { kind: "service", nameEn: `Admin test service ${RUN}`, nameBn: "অ্যাডমিন টেস্ট সেবা", unitPaisa: 20_000 }, "owner"), 201);
