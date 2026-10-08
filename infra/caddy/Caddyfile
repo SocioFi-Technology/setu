@@ -6,6 +6,11 @@
 {
 	# inside the container only (not published): infra/deploy.sh reloads a changed Caddyfile without a restart
 	admin localhost:2019
+	# behind a shared edge proxy (the SocioFi VPS: infra/compose.cohost.yml sets private_ranges) Caddy keeps the edge's
+	# X-Forwarded-For and appends the edge, so the API counts two hops; on its own, nothing is trusted (the default)
+	servers {
+		trusted_proxies static {$SETU_TRUSTED_PROXIES:127.0.0.1/32}
+	}
 	log {
 		output stdout
 		format json

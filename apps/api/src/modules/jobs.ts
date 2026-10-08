@@ -36,3 +36,22 @@ export async function jobAges(now = new Date()) {
   const rows = await prisma.jobRun.findMany({ orderBy: { name: "asc" } });
   return rows.map((r) => ({ name: r.name, lastFinishedAt: r.lastFinishedAt.toISOString(), ageSeconds: Math.round((now.getTime() - r.lastFinishedAt.getTime()) / 1000), lastOk: r.lastOk, lastError: r.lastError, runs: r.runs, skips: r.skips }));
 }
+
+/* Staging (week 2, session 2): the job-age alarm. Every job the server schedules, with the age past which it counts as
+   stuck: the sweeps run every minute (10 minutes = nine missed turns), the nightly rollup once a day (26 hours). A job
+   never recorded counts only once the server has been up longer than its limit (a fresh deploy is not an alarm). */
+export const JOB_LIMITS_SECONDS: Record<string, number> = {
+  payments: 600, sms: 600, refunds: 600, "bed-days": 600, escalations: 600, "nightly-rollup": 26 * 3600,
+};
+export type JobProblem = { name: string; problem: "stale" | "failing" | "missing"; ageSeconds: number | null; lastError?: string | null };
+export function jobProblems(rows: { name: string; lastFinishedAt: Date; lastOk: boolean; lastError: string | null }[], now: Date, upSeconds: number): JobProblem[] {
+  const out: JobProblem[] = [];
+  for (const [name, limit] of Object.entries(JOB_LIMITS_SECONDS)) {
+    const r = rows.find((x) => x.name === name);
+    if (!r) { if (upSeconds > limit) out.push({ name, problem: "missing", ageSeconds: null }); continue; }
+    const age = Math.round((now.getTime() - r.lastFinishedAt.getTime()) / 1000);
+    if (age > limit) out.push({ name, problem: "stale", ageSeconds: age });
+    else if (!r.lastOk) out.push({ name, problem: "failing", ageSeconds: age, lastError: r.lastError });
+  }
+  return out;
+}

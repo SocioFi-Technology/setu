@@ -44,4 +44,28 @@ describe.runIf(db)("single-instance jobs (staging)", () => {
     expect(j.ageSeconds).toBeLessThan(10);
     await db!.prisma.jobRun.delete({ where: { name } });
   });
+  it("the job-age check: stale past its limit, failing on a bad last run, missing only once the server has been up that long", async () => {
+    const { jobProblems, JOB_LIMITS_SECONDS } = await import("../src/modules/jobs.js");
+    const now = new Date("2026-10-08T12:00:00Z");
+    const ago = (s: number) => new Date(now.getTime() - s * 1000);
+    const fresh = Object.keys(JOB_LIMITS_SECONDS).map((name) => ({ name, lastFinishedAt: ago(30), lastOk: true, lastError: null }));
+    expect(jobProblems(fresh, now, 99_999)).toEqual([]);
+    const rows = fresh.map((r) => r.name === "sms" ? { ...r, lastFinishedAt: ago(601) } : r.name === "refunds" ? { ...r, lastOk: false, lastError: "boom" } : r);
+    expect(jobProblems(rows, now, 99_999)).toEqual([
+      { name: "sms", problem: "stale", ageSeconds: 601 },
+      { name: "refunds", problem: "failing", ageSeconds: 30, lastError: "boom" },
+    ]);
+    // the nightly rollup: 25 h old is fine, 27 h is stale
+    expect(jobProblems(fresh.map((r) => r.name === "nightly-rollup" ? { ...r, lastFinishedAt: ago(25 * 3600) } : r), now, 99_999)).toEqual([]);
+    expect(jobProblems(fresh.map((r) => r.name === "nightly-rollup" ? { ...r, lastFinishedAt: ago(27 * 3600) } : r), now, 99_999)[0]).toMatchObject({ name: "nightly-rollup", problem: "stale" });
+    // never recorded: no alarm right after a deploy, an alarm once the server has been up past the limit
+    const noRollup = fresh.filter((r) => r.name !== "nightly-rollup");
+    expect(jobProblems(noRollup, now, 3600)).toEqual([]);
+    expect(jobProblems(noRollup, now, 27 * 3600)).toEqual([{ name: "nightly-rollup", problem: "missing", ageSeconds: null }]);
+  });
+  it("/health/jobs/ok answers the monitor: 200 or 503 with the problems, names and ages only", async () => {
+    const r = await app.inject({ method: "GET", url: "/health/jobs/ok" });
+    expect([200, 503]).toContain(r.statusCode);
+    expect(r.json()).toHaveProperty("ok", r.statusCode === 200);
+  });
 });

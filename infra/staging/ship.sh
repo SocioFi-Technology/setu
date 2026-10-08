@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# From a developer machine: ship a committed revision to the SocioFi VPS, build its images there, deploy it.
+#   infra/staging/ship.sh [<commit>]        (default HEAD; the tree is sent with git archive — only what is committed)
+# On the VPS: /opt/setu/app (the source of the revision, replaced each time), /opt/setu/staging.env (secrets,
+# infra/staging/vps-env.sh), /opt/setu/state (the deployed tags), /opt/setu/backups. Images: setu/setu-{api,staff,tools}:<sha>.
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+HOST="${SETU_SSH_HOST:-sociofi}"
+SHA=$(git rev-parse "${1:-HEAD}^{commit}")
+echo "shipping $SHA to $HOST"
+git archive --format=tar "$SHA" | ssh "$HOST" "set -e; rm -rf /opt/setu/app.new; mkdir -p /opt/setu/app.new; tar -x -C /opt/setu/app.new; rm -rf /opt/setu/app; mv /opt/setu/app.new /opt/setu/app; echo $SHA > /opt/setu/app/REVISION"
+ssh "$HOST" "set -e; cd /opt/setu/app; infra/staging/vps-env.sh; \
+  for t in api staff tools; do docker build -q -f infra/Dockerfile --target \$t -t setu/setu-\$t:$SHA . >/dev/null; echo built setu/setu-\$t:$SHA; done; \
+  SETU_REGISTRY=setu SETU_IMAGES=local SETU_COMPOSE_EXTRA=compose.cohost.yml SETU_PROFILES=bundled \
+  SETU_ENV_FILE=/opt/setu/staging.env SETU_STATE_DIR=/opt/setu/state infra/deploy.sh $SHA"

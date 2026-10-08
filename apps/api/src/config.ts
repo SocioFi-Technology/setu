@@ -56,8 +56,13 @@ if (process.env.NODE_ENV === "production" && !/^https:\/\//.test(config.verifyBa
 if (process.env.NODE_ENV === "production" && process.env.VERIFY_DOC_ROOT_URL && !/^https:\/\//.test(process.env.VERIFY_DOC_ROOT_URL)) throw new Error("VERIFY_DOC_ROOT_URL must be https in production");
 if (process.env.NODE_ENV === "production" && process.env.TRUST_PROXY === undefined) throw new Error("TRUST_PROXY (the number of proxies in front of the API) is required in production");
 if (config.corsOrigins.some((o) => !/^https?:\/\/[^/]+$/.test(o) || (process.env.NODE_ENV === "production" && !o.startsWith("https://")))) throw new Error("CORS_ORIGINS: origins only (scheme://host[:port]), https in production");
-if (process.env.NODE_ENV === "production" && config.adapters.payments === "fake") throw new Error("PAYMENTS_PROVIDER=fake is not allowed in production");
-if (process.env.NODE_ENV === "production" && config.adapters.sms === "fake") throw new Error("SMS_PROVIDER=fake is not allowed in production");
+// staging (week 2, Kamrul 08/10/2026): SETU_STAGE=staging lets a production build run the fake gateway and the fake SMS —
+// no real money, no texts to the seeded phone numbers. A real production deploy never sets it; the fakes' dev routes
+// (mark paid, deliver) stay off in production either way.
+if (process.env.SETU_STAGE !== undefined && process.env.SETU_STAGE !== "staging") throw new Error("SETU_STAGE: only \"staging\" (or unset)");
+const stagingFakes = process.env.SETU_STAGE === "staging";
+if (process.env.NODE_ENV === "production" && config.adapters.payments === "fake" && !stagingFakes) throw new Error("PAYMENTS_PROVIDER=fake is not allowed in production");
+if (process.env.NODE_ENV === "production" && config.adapters.sms === "fake" && !stagingFakes) throw new Error("SMS_PROVIDER=fake is not allowed in production");
 // ADR 0016 review: wristbands are forged with the published dev secret — production sets its own
 if (process.env.NODE_ENV === "production" && (!process.env.WRISTBAND_SECRET || process.env.WRISTBAND_SECRET.length < 32)) throw new Error("WRISTBAND_SECRET (at least 32 characters) is required in production");
 // external review A1: sessions are signed with the published dev secret, and with no DATABASE_URL_APP the API serves the

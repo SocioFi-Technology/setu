@@ -67,6 +67,14 @@ describe("production refuses to start without its secrets (external review A1)",
   it("REDIS_URL missing — login and PIN tries must be counted in one place (review A3)", () => {
     expect(start({ ...good, REDIS_URL: undefined })).toContain("REDIS_URL is required in production");
   });
+  it("the fake gateway and SMS: refused in production, allowed only with SETU_STAGE=staging (Kamrul, 08/10/2026)", () => {
+    expect(start({ ...good, PAYMENTS_PROVIDER: "fake" })).toContain("PAYMENTS_PROVIDER=fake is not allowed in production");
+    expect(start({ ...good, SMS_PROVIDER: "fake" })).toContain("SMS_PROVIDER=fake is not allowed in production");
+    expect(start({ ...good, PAYMENTS_PROVIDER: "fake", SMS_PROVIDER: "fake", SETU_STAGE: "staging" })).toBe("");
+    expect(start({ ...good, PAYMENTS_PROVIDER: "fake", SETU_STAGE: "prod" })).toContain("SETU_STAGE");
+    // the fake AI is not covered by the stage: staging runs AI_PROVIDER=off
+    expect(start({ ...good, AI_PROVIDER: "fake", SETU_STAGE: "staging" })).toContain("AI_PROVIDER=fake is not allowed in production");
+  });
   it("development is unchanged: no secrets, no database, the demo login", () => { expect(start({ NODE_ENV: "development" })).toBe(""); });
 });
 

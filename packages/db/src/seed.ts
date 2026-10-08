@@ -9,6 +9,20 @@ import { seedInpatient } from "./inpatient.ts";
 
 /** argon2id, as the API stores them (external review A2) — every seeded account gets its own salt. */
 const hash = (s: string) => argon2(s, { memoryCost: 19_456, timeCost: 2, parallelism: 1 });
+/* Staging (week 2, Kamrul 08/10/2026): the staging site is public, so its accounts never get the published dev password
+   and PINs. In production the seed runs only with SEED_ALLOW=staging and its own SEED_PASSWORD (12+ characters) and
+   SEED_PIN (4 digits, every seeded account). SEED_RESET_CREDENTIALS=1 rewrites the seeded accounts' password and PIN
+   (the restore drill gives a scratch copy back the dev ones so the API tests can sign in). */
+if (process.env.NODE_ENV === "production") {
+  if (process.env.SEED_ALLOW !== "staging") throw new Error("the seed is demo data: in production it runs only with SEED_ALLOW=staging");
+  if (!process.env.SEED_PASSWORD || process.env.SEED_PASSWORD.length < 12 || process.env.SEED_PASSWORD === "setu1234") throw new Error("SEED_PASSWORD (12+ characters, not the dev password) is required to seed staging");
+  if (!/^\d{4}$/.test(process.env.SEED_PIN ?? "") || ["1234", "2580"].includes(process.env.SEED_PIN!)) throw new Error("SEED_PIN (4 digits, not a dev PIN) is required to seed staging");
+}
+const SEED_PASSWORD = process.env.SEED_PASSWORD ?? "setu1234";
+const RESET_CREDENTIALS = process.env.SEED_RESET_CREDENTIALS === "1";
+/** A seeded account's password and PIN hashes (`pin` is the dev PIN; staging's SEED_PIN replaces every one). */
+const credentials = async (pin: string) => ({ passwordHash: await hash(SEED_PASSWORD), pinHash: await hash(process.env.SEED_PIN ?? pin) });
+const credentialsUpdate = async (pin: string) => (RESET_CREDENTIALS ? credentials(pin) : {});
 /** The hash the seed wrote before argon2 — accounts seeded then are upgraded below (the API also upgrades on login). */
 const legacy = (s: string) => createHash("sha256").update("dev-only:" + s).digest("hex");
 /** ADR 0010: the demo facilities were set up before go-live existed — live, A5 formats, every payment method. */
@@ -219,8 +233,8 @@ async function main() {
   ];
   for (const [id, nameBn, nameEn, phone, role] of users) {
     const u = await prisma.user.upsert({
-      where: { id }, update: {},
-      create: { id, tenantId: tenant.id, nameBn, nameEn, phone, passwordHash: await hash("setu1234"), pinHash: await hash("1234") },
+      where: { id }, update: await credentialsUpdate("1234"),
+      create: { id, tenantId: tenant.id, nameBn, nameEn, phone, ...(await credentials("1234")) },
     });
     await prisma.practitionerRole.upsert({
       where: { userId_organizationId_role: { userId: u.id, organizationId: org.id, role } }, update: {},
@@ -301,7 +315,7 @@ async function main() {
     await prisma.tenant.upsert({ where: { id: tid }, update: { patientNoPrefix }, create: { id: tid, name, plan, patientNoPrefix } });
     await prisma.organization.upsert({ where: { id: oid }, update: {}, create: { id: oid, tenantId: tid, name, nameBn, ...LIVE } });
     await prisma.location.upsert({ where: { id: `l_branch_${tid}` }, update: {}, create: { id: `l_branch_${tid}`, tenantId: tid, organizationId: oid, kind: "branch", name: "Main branch", nameBn: "প্রধান শাখা" } });
-    await prisma.user.upsert({ where: { id: uid }, update: {}, create: { id: uid, tenantId: tid, nameBn: uBn, nameEn: uEn, phone: planPhones[uid], passwordHash: await hash("setu1234"), pinHash: await hash("1234") } });
+    await prisma.user.upsert({ where: { id: uid }, update: await credentialsUpdate("1234"), create: { id: uid, tenantId: tid, nameBn: uBn, nameEn: uEn, phone: planPhones[uid], ...(await credentials("1234")) } });
     await prisma.practitionerRole.upsert({ where: { userId_organizationId_role: { userId: uid, organizationId: oid, role } }, update: {}, create: { tenantId: tid, userId: uid, organizationId: oid, role } });
   }
   await prisma.sequence.upsert({ where: { tenantId_name: { tenantId: tenant.id, name: "patient" } }, update: {}, create: { tenantId: tenant.id, name: "patient", value: 240210 } });
@@ -329,7 +343,7 @@ async function main() {
     ["u_e2e_cashier2", "টেস্ট ক্যাশিয়ার দুই", "Test Cashier Two", "01799000012", "cashier"],
   ];
   for (const [id, nameBn, nameEn, phone, role] of e2eUsers) {
-    await prisma.user.upsert({ where: { id }, update: {}, create: { id, tenantId: E2E.tenant, nameBn, nameEn, phone, passwordHash: await hash("setu1234"), pinHash: await hash("1234") } });
+    await prisma.user.upsert({ where: { id }, update: await credentialsUpdate("1234"), create: { id, tenantId: E2E.tenant, nameBn, nameEn, phone, ...(await credentials("1234")) } });
     await prisma.practitionerRole.upsert({ where: { userId_organizationId_role: { userId: id, organizationId: E2E.org, role } }, update: {}, create: { tenantId: E2E.tenant, userId: id, organizationId: E2E.org, role } });
   }
   /* Admin slice (ADR 0010): facilities still in setup, each with its own admin — the onboarding journey takes them live
@@ -339,7 +353,7 @@ async function main() {
     [tenant.id, "o_greenlife_uttara", "Green Life Clinic, Uttara", "গ্রীন লাইফ ক্লিনিক, উত্তরা", "u_gl_uttara_admin", "উত্তরা অ্যাডমিন", "Uttara Admin", "1711000011"],
   ] as const) {
     await prisma.organization.upsert({ where: { id: oid }, update: {}, create: { id: oid, tenantId: tid, name, nameBn, status: "setup" } });
-    await prisma.user.upsert({ where: { id: uid }, update: {}, create: { id: uid, tenantId: tid, nameBn: uBn, nameEn: uEn, phone, passwordHash: await hash("setu1234"), pinHash: await hash("2580") } });
+    await prisma.user.upsert({ where: { id: uid }, update: await credentialsUpdate("2580"), create: { id: uid, tenantId: tid, nameBn: uBn, nameEn: uEn, phone, ...(await credentials("2580")) } });
     await prisma.practitionerRole.upsert({ where: { userId_organizationId_role: { userId: uid, organizationId: oid, role: "admin" } }, update: {}, create: { tenantId: tid, userId: uid, organizationId: oid, role: "admin" } });
   }
   await seedFamily(E2E.tenant, "e2e_", "E2E");
@@ -368,7 +382,7 @@ async function main() {
     ["u_e2l_admin", "লাইট অ্যাডমিন", "Lite Admin", "01798000010", "admin", null],
   ];
   for (const [id, nameBn, nameEn, phone, role, speciality] of liteUsers) {
-    await prisma.user.upsert({ where: { id }, update: {}, create: { id, tenantId: LITE.tenant, nameBn, nameEn, phone, passwordHash: await hash("setu1234"), pinHash: await hash("1234") } });
+    await prisma.user.upsert({ where: { id }, update: await credentialsUpdate("1234"), create: { id, tenantId: LITE.tenant, nameBn, nameEn, phone, ...(await credentials("1234")) } });
     await prisma.practitionerRole.upsert({ where: { userId_organizationId_role: { userId: id, organizationId: LITE.org, role } }, update: {}, create: { tenantId: LITE.tenant, userId: id, organizationId: LITE.org, role } });
     if (speciality) await prisma.practitioner.upsert({ where: { userId: id }, update: { speciality }, create: { tenantId: LITE.tenant, userId: id, speciality } });
   }
@@ -418,7 +432,7 @@ async function main() {
   // decision 317: every tenant has its system actor (the migration made them for tenants that existed then)
   await prisma.$executeRaw`INSERT INTO "User" ("id", "tenantId", "nameBn", "nameEn", "passwordHash", "active", "system", "createdAt")
     SELECT 'sys_' || t."id", t."id", 'সেতু (সিস্টেম)', 'Setu (system)', '!', false, true, now() FROM "Tenant" t ON CONFLICT ("id") DO NOTHING`;
-  console.log("seeded demo tenant: Green Life Clinic, Mirpur — 10 users (password setu1234, PIN 1234), 8 patients (5 share 01711-234567), Mirpur branch, ward 2A; plan demos: Clinic-plan nurse 01722000004, Lite-plan doctor 01733000002; E2E Test Clinic (tests only): 017990000xx; E2E Lite Hospital (tests only, Hospital Lite, wards and beds): 017980000xx; Rahima Khatun's previous visit 12/08/2026 with vitals");
+  console.log((process.env.SEED_PASSWORD ? "seeded with the staging password and PIN (SEED_PASSWORD / SEED_PIN). " : "") + "seeded demo tenant: Green Life Clinic, Mirpur — 10 users (password setu1234, PIN 1234), 8 patients (5 share 01711-234567), Mirpur branch, ward 2A; plan demos: Clinic-plan nurse 01722000004, Lite-plan doctor 01733000002; E2E Test Clinic (tests only): 017990000xx; E2E Lite Hospital (tests only, Hospital Lite, wards and beds): 017980000xx; Rahima Khatun's previous visit 12/08/2026 with vitals");
 }
 
 main().finally(() => prisma.$disconnect());

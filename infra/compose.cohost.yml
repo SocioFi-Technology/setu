@@ -1,0 +1,57 @@
+# Co-hosting overlay: staging on the shared SocioFi VPS (ADR 0019 addendum, 08/10/2026). The VPS's edge nginx
+# (`sociofi-nginx`, /opt/sociofitechnology) owns :80/:443 and terminates TLS for setu.sociofitechnology.com; it reaches
+# this stack's Caddy as `setu-proxy:80` on the external `setu_edge` network. Nothing here is published on the host.
+# Postgres, Redis and MinIO are this stack's own containers (profile `bundled`), on its own network only.
+#
+#   docker network create setu_edge          # once; the edge nginx joins it (its compose file lists it)
+#   SETU_COMPOSE_EXTRA=compose.cohost.yml SETU_PROFILES=bundled SETU_IMAGES=local \
+#     SETU_ENV_FILE=/opt/setu/staging.env SETU_STATE_DIR=/opt/setu/state infra/deploy.sh <full sha>
+#
+# Memory limits keep a spike (the PDF browser) from reaching the other sites on the box.
+services:
+  caddy:
+    ports: !override []
+    environment: { SETU_SITE_ADDRESS: ":80", SETU_TRUSTED_PROXIES: "private_ranges" }
+    networks:
+      default: {}
+      setu_edge:
+        aliases: [setu-proxy]
+    mem_limit: 128m
+
+  staff:
+    mem_limit: 512m
+
+  api:
+    # the edge nginx, then Caddy
+    environment: { TRUST_PROXY: "2" }
+    mem_limit: 1g
+
+  migrate:
+    mem_limit: 1536m
+
+  postgres:
+    profiles: !override ["bundled"]
+    image: postgres:16
+    restart: unless-stopped
+    environment: !override { POSTGRES_USER: setu, POSTGRES_PASSWORD: "${SETU_PG_PASSWORD:?set in the env file}", POSTGRES_DB: setu }
+    command: ["postgres", "-c", "shared_buffers=256MB", "-c", "max_connections=100"]
+    mem_limit: 1g
+    logging: { driver: json-file, options: { max-size: "20m", max-file: "5" } }
+
+  redis:
+    profiles: !override ["bundled"]
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory", "200mb", "--maxmemory-policy", "noeviction"]
+    mem_limit: 256m
+    logging: { driver: json-file, options: { max-size: "20m", max-file: "5" } }
+
+  minio:
+    profiles: !override ["bundled"]
+    restart: unless-stopped
+    environment: !override { MINIO_ROOT_USER: setu, MINIO_ROOT_PASSWORD: "${SETU_MINIO_PASSWORD:?set in the env file}" }
+    mem_limit: 512m
+    logging: { driver: json-file, options: { max-size: "20m", max-file: "5" } }
+
+networks:
+  setu_edge:
+    external: true
