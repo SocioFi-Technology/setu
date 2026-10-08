@@ -62,3 +62,9 @@ CMD ["node", "apps/staff/server.js"]
 FROM build AS tools
 USER node
 CMD ["sh", "-c", "pnpm --filter @setu/db migrate:deploy && pnpm db:set-app-password"]
+
+# ── drill (the restore drill's test runner, infra/staging/restore-drill.sh): tools + Chromium for the PDF tests ─────
+FROM tools AS drill
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends chromium && rm -rf /var/lib/apt/lists/*
+ENV CHROMIUM_PATH=/usr/bin/chromium

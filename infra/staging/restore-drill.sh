@@ -2,13 +2,14 @@
 # The backup / restore drill (staging on the SocioFi VPS). Restores the newest nightly backup into scratch containers on
 # their own network — never the live stack — then: the row counts against the ones recorded at backup time, migrations
 # up to date, every stored print's file present in the files backup, the API test suite against the restored database
-# (dev credentials put back on the copy so the tests can sign in), then everything scratch is removed.
+# (dev credentials put back on the copy so the tests can sign in; the drill image = tools + Chromium for the PDF tests),
+# then everything scratch is removed.
 #   infra/staging/restore-drill.sh [/opt/setu/backups/db-<ts>.dump]
 set -euo pipefail
 B=/opt/setu/backups
 D="${1:-$(ls -1t "$B"/db-*.dump | head -n 1)}"; base="${D%.dump}"; F="${base/db-/files-}.tar.gz"
 [[ -f "$D" && -f "$F" ]] || { echo "no backup pair for $D"; exit 1; }
-SHA=$(cat /opt/setu/state/.current-tag); TOOLS="setu/setu-tools:$SHA"
+SHA=$(cat /opt/setu/state/.current-tag); TOOLS="setu/setu-tools:$SHA"; DRILL="setu/setu-drill:$SHA"; LOG="$B/drill-$(date -u +%Y%m%dT%H%M%SZ).log"
 NET="setu-drill"; PW=$(openssl rand -hex 16); APW=$(openssl rand -hex 16)
 cleanup() { docker rm -f setu-drill-pg setu-drill-redis >/dev/null 2>&1 || true; docker network rm "$NET" >/dev/null 2>&1 || true; }
 trap cleanup EXIT; cleanup
@@ -39,6 +40,7 @@ docker run --rm --network "$NET" --user root "${E[@]}" "$TOOLS" sh -c 'pnpm --fi
   pnpm db:set-app-password >/dev/null && SEED_RESET_CREDENTIALS=1 pnpm db:seed >/dev/null && echo "seeded dev credentials onto the copy"'
 t2=$(date +%s)
 log "API tests against the restored copy"
-docker run --rm --network "$NET" --user root "${E[@]}" "$TOOLS" sh -c 'pnpm --filter @setu/api test > /tmp/t.txt 2>&1; rc=$?; grep -E "Test Files|Tests  |FAIL" /tmp/t.txt | head -40; exit $rc' && ok=1 || ok=0
+docker run --rm --network "$NET" --user root "${E[@]}" "$DRILL" pnpm --filter @setu/api test > "$LOG" 2>&1 && ok=1 || ok=0
+sed 's/\x1b\[[0-9;]*m//g' "$LOG" | grep -aE "Test Files|Tests  |FAIL" | head -40; log "full test log: $LOG"
 log "tests took $(( $(date +%s) - t2 )) s; restore $((t1 - t0)) s; drill total $(( $(date +%s) - t0 )) s"
 [[ $ok == 1 ]] && log "DRILL OK — scratch containers removed" || { log "DRILL: API TESTS FAILED"; exit 1; }
