@@ -2,6 +2,7 @@
 /* Screens are ported from docs/prototype/<module>.dc.html one journey slice at a time and registered here.
    Until then a screen shows the placeholder below, which names the slice that brings it. */
 import type { ComponentType } from "react";
+import { fill } from "@setu/i18n";
 import { PageState } from "@setu/ui";
 import { useSession } from "../lib/session";
 import { BillApprovals } from "./bill/Approvals";
@@ -139,7 +140,7 @@ export function ModuleScreen({ mod, screen }: { mod: string; screen: string }) {
   const name = sc ? (s.lang === "bn" ? sc.name_bn : sc.name_en) : screen;
   return (
     <PageState icon={sc?.icon ?? "layout-template"} title={name}
-      body={s.L(`এই স্ক্রিনটি স্লাইস ${SLICE[mod] ?? "—"}-এ প্রোটোটাইপ থেকে পোর্ট হবে।`, `This screen is ported from the prototype in slice ${SLICE[mod] ?? "—"}.`)}
+      body={fill(s.t("shellApp", "screen_pending"), { slice: SLICE[mod] ?? "—" })}
       foot={`${mod}/${screen}`} />
   );
 }

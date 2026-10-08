@@ -8,6 +8,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { CapabilityModule } from "@setu/contracts";
 import { PLAN_NAME, PLAN_RANK, ROLE_NAME, type Plan } from "@setu/domain";
+import { fill } from "@setu/i18n";
 import { Dialog, Icon, IconButton, OfflineBanner, PatientHeaderBanner, Segmented } from "@setu/ui";
 import { deviceDraftCount } from "../lib/outbox";
 import { useSession } from "../lib/session";
@@ -22,18 +23,20 @@ export function Shell({ children }: { children: ReactNode }) {
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const [unsent, setUnsent] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null); const palRef = useRef<HTMLInputElement>(null);
-  const { L, lang, n } = s;
+  const { lang, n } = s;
   const bn = lang === "bn";
   const curMod = path.startsWith("/m/") ? path.split("/")[2] : null;
 
+  /** shellApp strings; vars are passed as given (the queued count stays in Western digits, as before). */
+  const S = (key: string, vars: Record<string, string | number> = {}) => fill(s.t("shellApp", key), vars);
   const t = {
-    search: L("রোগী খুঁজুন", "Find patient"), searchPh: L("নাম, ফোন, রোগী নং বা QR · F2", "Name, phone, patient no. or QR · F2"),
-    palette: L("কমান্ড", "Command palette"), palPh: L("মডিউল বা স্ক্রিন খুঁজুন…", "Go to a module or screen…"), palNone: L("কিছু মেলেনি", "Nothing matches"),
-    scan: L("QR স্ক্যান", "Scan QR"), patients: L("রোগী", "Patients"), noMatch: L("মিল নেই — নতুন নিবন্ধন করুন", "No match — register a new patient"),
-    offline: L("অফলাইন", "Offline"), synced: L("সিঙ্ক", "Synced"), notifs: L("বিজ্ঞপ্তি", "Notifications"), nav: L("প্রধান মেনু", "Main navigation"), home: L("হোম", "Home"),
-    offlineBanner: L("অফলাইন — কাজ চলবে, এই ডিভাইসে সংরক্ষিত হবে। স্বাক্ষর, SMS ও পেমেন্ট সার্ভার ফিরলে যাবে; ততক্ষণ কিছুই “পাঠানো” বা “স্বাক্ষরিত” দেখাবে না।", "Offline — you can keep working; changes are saved on this device. Signing, SMS and payments send when the server is back; nothing shows as Sent or Signed until then."),
-    queued: (k: number) => L(`${k}টি পরিবর্তন অপেক্ষমাণ`, `${k} changes queued`), ctxNote: L("রোগী প্রসঙ্গ · সব মডিউলে একই ব্যানার", "Patient context · same banner in every module"),
-    logout: L("লগআউট", "Sign out"),
+    search: S("shell_search"), searchPh: S("shell_search_ph"),
+    palette: S("shell_palette"), palPh: S("shell_palette_ph"), palNone: S("shell_palette_none"),
+    scan: S("shell_scan"), patients: S("shell_patients"), noMatch: S("shell_no_match"),
+    offline: S("shell_offline"), synced: S("shell_synced"), notifs: S("shell_notifs"), nav: S("shell_nav"), home: S("shell_home"),
+    offlineBanner: S("shell_offline_banner"),
+    queued: (k: number) => S("shell_queued", { n: k }), ctxNote: S("shell_ctx_note"),
+    logout: S("shell_logout"),
   };
 
   // keyboard: Ctrl/⌘+K palette · F2 search · '/' search (except inside Consultation, where it is the Rx search — round-2 fix #9)
@@ -53,17 +56,18 @@ export function Shell({ children }: { children: ReactNode }) {
   const hiddenByPlan = mods.filter((m) => m.locked === "plan");
   const lockedScreens = mods.some((m) => !m.locked && m.screens.some((x) => x.reason === "plan"));
   const otLocked = mods.some((m) => m.key === "er" && !m.locked && PLAN_RANK[plan] < 2);
-  const hiddenNote = hiddenByPlan.length ? L(`${n(hiddenByPlan.length)}টি মডিউল এই প্ল্যানে নেই — ক্লিক করে দেখুন`, `${hiddenByPlan.length} module(s) not in this plan — click to see`)
-    : otLocked ? L("OT ও রেডিওলজি Hospital Pro-তে", "OT needs Hospital Pro") : lockedScreens ? L("কিছু স্ক্রিন Hospital Pro-তে", "Some screens need Hospital Pro") : L("সব মডিউল চালু", "All modules available");
+  const hiddenNote = hiddenByPlan.length ? S("shell_hidden_by_plan", { n: bn ? n(hiddenByPlan.length) : hiddenByPlan.length })
+    : otLocked ? S("shell_ot_locked") : lockedScreens ? S("shell_screens_locked") : S("shell_all_modules");
 
+  const notInPlan = S("shell_not_in_plan");
   const palItems = useMemo(() => {
     const items = [{ l: t.home, sub: t.home, icon: "house", href: "/", key: "home" }, ...mods.flatMap((m) => m.screens.map((x) => ({
-      l: bn ? x.name_bn : x.name_en, sub: (bn ? m.name_bn : m.name_en) + (x.allowed ? "" : " · " + L("প্ল্যানে নেই", "not in plan")), icon: x.allowed ? x.icon : "lock",
+      l: bn ? x.name_bn : x.name_en, sub: (bn ? m.name_bn : m.name_en) + (x.allowed ? "" : " · " + notInPlan), icon: x.allowed ? x.icon : "lock",
       href: `/m/${m.key}/${x.key}`, key: (x.name_bn + " " + x.name_en + " " + m.name_bn + " " + m.name_en).toLowerCase(),
     })))];
     const pq = palQ.trim().toLowerCase();
     return items.filter((p) => !pq || p.key.includes(pq)).slice(0, 12);
-  }, [mods, palQ, bn, L, t.home]);
+  }, [mods, palQ, bn, notInPlan, t.home]);
   const psel = Math.min(palSel, Math.max(0, palItems.length - 1));
   const go = (href: string) => { setPal(false); setSearchOpen(false); router.push(href); };
 
@@ -75,9 +79,9 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="shell">
       <header className="shell-top">
         <span className="shell-brand">Setu</span>
-        <button type="button" className="org-btn" title={L("প্রতিষ্ঠান ও শাখা", "Organisations & branches")}>
+        <button type="button" className="org-btn" title={S("shell_org_branches")}>
           <Icon name="building-2" size={16} />
-          <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}><b>{me?.organizationName ?? "—"}</b><span>{L("শাখা বদলালে অ্যাক্সেস বদলায়", "access changes with the branch")}</span></span>
+          <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}><b>{me?.organizationName ?? "—"}</b><span>{S("shell_org_branch_note")}</span></span>
           <Icon name="chevrons-up-down" size={14} />
         </button>
         <div className="search" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setSearchOpen(false); }}>
@@ -88,7 +92,7 @@ export function Shell({ children }: { children: ReactNode }) {
           {searchOpen && (
             <div className="popover" role="listbox" aria-label={t.patients}>
               <div className="t-label" style={{ padding: "6px 10px" }}>{t.patients}</div>
-              <div className="t-muted" style={{ padding: 10, font: "500 13px/20px var(--font-sans)" }}>{q.trim() ? t.noMatch : L("ফোন নম্বর বা নাম লিখুন", "Type a phone number or a name")} <span className="t-small">· {L("(রোগী খোঁজা স্লাইস A1-এ আসছে)", "(search arrives in slice A1)")}</span></div>
+              <div className="t-muted" style={{ padding: 10, font: "500 13px/20px var(--font-sans)" }}>{q.trim() ? t.noMatch : S("shell_search_hint")} <span className="t-small">· {S("shell_search_soon")}</span></div>
             </div>
           )}
         </div>

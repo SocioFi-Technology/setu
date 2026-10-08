@@ -302,5 +302,9 @@
   "show_all": [
     "সব দেখুন",
     "Show all"
+  ],
+  "nav_label": [
+    "ডাক্তার অ্যাপ",
+    "Doctor app"
   ]
 }

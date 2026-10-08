@@ -1,5 +1,6 @@
 "use client";
 import { SaveDraftRequest } from "@setu/contracts";
+import { t as tr } from "@setu/i18n";
 import { importMacKey, importSealKey, open, ownerTag, seal, signQueued, type DeviceKey } from "./devicekeys";
 /* Offline outbox (CLAUDE.md rule 1: a write is pending until the server acknowledges it). A write that cannot reach the
    server is kept on this device with its Idempotency-Key and replayed, in order, when the browser is back online —
@@ -8,6 +9,8 @@ export interface OutboxItem { id: string; owner: string; method: string; path: s
   /** kept when a payment is refused (method and amount, no patient data): money in the drawer must never vanish unrecorded */
   summary?: { method: string; amountPaisa: number } }
 const MAX_AGE_MS = 24 * 3600_000;
+/** A refusal reason in both languages (shellApp strings), as stored on the item. */
+const bi = (key: string) => ({ error: tr("en", "shellApp", key), errorBn: tr("bn", "shellApp", key) });
 const listeners = new Set<(pending: number, refused: number, unreadable: number) => void>();
 /* Each queued write belongs to the user + tenant + facility that made it; it is only ever replayed under that same
    session (security review A1–A3: a shared desk PC must never send one user's registration under another login) —
@@ -114,7 +117,7 @@ const fresh = (i: OutboxItem) => Date.now() - Date.parse(i.at) < (i.error ? REFU
 /* A pending write older than 24 h is not replayed: it becomes a refused item ("not sent within 24 hours"), without its
    body, so staff see it and redo the work (clinical review: never a silent drop). */
 const expire = (i: OutboxItem): OutboxItem => (!i.error && !fresh(i)
-  ? { ...i, body: null, at: new Date().toISOString(), error: "Not sent within 24 hours — redo it", errorBn: "২৪ ঘণ্টার মধ্যে পাঠানো যায়নি — আবার করুন", status: 0 }
+  ? { ...i, body: null, at: new Date().toISOString(), ...bi("outbox_expired"), status: 0 }
   : i);
 const load = (): OutboxItem[] => items.map(expire).filter((i) => i.owner && fresh(i));
 const mine = (items: OutboxItem[]) => items.filter((i) => owner !== null && i.owner === owner && !i.error);
@@ -201,7 +204,7 @@ function drafts(): DeviceDraft[] {
   storeDrafts(keep);
   save([...load(), ...old.map((d): OutboxItem => ({
     id: crypto.randomUUID(), owner: d.owner, method: "PUT", path: `/v1/compositions/${d.compositionId}`, body: null, key: d.key, label: "note_draft",
-    at: new Date().toISOString(), error: "Note draft not sent within 24 hours — redo it", errorBn: "নোটের খসড়া ২৪ ঘণ্টার মধ্যে পাঠানো যায়নি — আবার করুন", status: 0,
+    at: new Date().toISOString(), ...bi("outbox_draft_expired"), status: 0,
   }))]);
   return keep;
 }
@@ -233,7 +236,7 @@ async function flushDrafts(): Promise<void> {
     // Only a well-formed note body is ever sent (security review A5: localStorage is not trusted input).
     if (!SaveDraftRequest.omit({ rev: true }).safeParse(d.body).success || !Number.isInteger(d.baseRev)) {
       storeDrafts(rawDrafts().filter((x) => !(x.owner === d.owner && x.key === d.key)));
-      save([...load(), { id: crypto.randomUUID(), owner: d.owner, method: "PUT", path: `/v1/compositions/${d.compositionId}`, body: null, key: d.key, label: "note_draft", at: new Date().toISOString(), error: "Note draft on this device was damaged — not sent", errorBn: "এই ডিভাইসের নোটের খসড়া নষ্ট — পাঠানো হয়নি", status: 0 }]);
+      save([...load(), { id: crypto.randomUUID(), owner: d.owner, method: "PUT", path: `/v1/compositions/${d.compositionId}`, body: null, key: d.key, label: "note_draft", at: new Date().toISOString(), ...bi("outbox_draft_damaged"), status: 0 }]);
       continue;
     }
     let r: Response;

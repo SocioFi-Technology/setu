@@ -13,6 +13,7 @@ import type {
   AiDraftResponse, AllergyOptions, AllergyView, CompositionView, ConsultationView, ConsultWorklist, Icd11Search, MedicineSearch, RecordAllergyRequest, SaveDraftRequest, SignRequest, TestList,
   ApiError, Capabilities, VitalsBatchRequest, VitalsBatchResponse, VitalsView, VitalsWorklist, CreateVisitResponse, MatchDecisionResponse, MatchPreviewResponse, Me, PatientMatches, PatientSearchResponse, QueueItem, QueueResponse, RegisterResponse, RegistrationInput, ReviewOutcomeResponse, ReviewQueueResponse,
 } from "@setu/contracts";
+import { t as tr } from "@setu/i18n";
 import { clearRefusedForOwner, enqueue, flush, setOutboxOwner } from "./outbox";
 import { deviceId } from "./devicekeys";
 export class ApiFailure extends Error { constructor(public status: number, public body: ApiError) { super(body.message_en); } }
@@ -29,7 +30,7 @@ async function call<T>(method: string, path: string, body?: unknown, idemKey?: s
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!r.ok) {
-    let e: ApiError = { code: "http_" + r.status, message_bn: "সার্ভারে সমস্যা", message_en: r.statusText }; try { e = await r.json(); } catch {}
+    let e: ApiError = { code: "http_" + r.status, message_bn: tr("bn", "shellApp", "err_server"), message_en: r.statusText }; try { e = await r.json(); } catch {}
     // ADR 0010: switched off, the role changed or the password reset — this session has ended: back to sign-in, saying why
     if (r.status === 401 && e.code === "session_ended") sessionEnded = true;
     if (r.status === 401 && e.code === "session_ended" && typeof location !== "undefined" && location.pathname !== "/login") {
@@ -48,7 +49,7 @@ export type Write<T> = { queued: false; data: T } | { queued: true };
 async function write<T>(method: string, path: string, body: unknown, label: string, key: string = crypto.randomUUID()): Promise<Write<T>> {
   const park = (): Write<T> => {
     if (enqueue({ method, path, body, key, label })) return { queued: true };
-    throw new ApiFailure(0, { code: "offline", message_bn: "সংযোগ নেই — সংরক্ষণ হয়নি", message_en: "Offline — not saved" });
+    throw new ApiFailure(0, { code: "offline", message_bn: tr("bn", "shellApp", "err_offline_not_saved"), message_en: tr("en", "shellApp", "err_offline_not_saved") });
   };
   if (typeof navigator !== "undefined" && !navigator.onLine) return park();
   try { void flush(); return { queued: false, data: await call<T>(method, path, body, key) }; }

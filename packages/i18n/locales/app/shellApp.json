@@ -86,5 +86,193 @@
   "unreadable_title": [
     "আগের সেশনে এই ডিভাইসে রাখা লেখা, সেশন শেষ হওয়ায় চাবিও গেছে — পাঠানো হয়নি, পড়া যায় না; ২৪ ঘণ্টা পরে মুছে যায়। কাজটি আবার করুন।",
     "Kept on this device in an earlier session whose key ended with it — not sent and cannot be read; removed after 24 hours. Redo the work."
+  ],
+  "shell_search": [
+    "রোগী খুঁজুন",
+    "Find patient"
+  ],
+  "shell_search_ph": [
+    "নাম, ফোন, রোগী নং বা QR · F2",
+    "Name, phone, patient no. or QR · F2"
+  ],
+  "shell_palette": [
+    "কমান্ড",
+    "Command palette"
+  ],
+  "shell_palette_ph": [
+    "মডিউল বা স্ক্রিন খুঁজুন…",
+    "Go to a module or screen…"
+  ],
+  "shell_palette_none": [
+    "কিছু মেলেনি",
+    "Nothing matches"
+  ],
+  "shell_scan": [
+    "QR স্ক্যান",
+    "Scan QR"
+  ],
+  "shell_patients": [
+    "রোগী",
+    "Patients"
+  ],
+  "shell_no_match": [
+    "মিল নেই — নতুন নিবন্ধন করুন",
+    "No match — register a new patient"
+  ],
+  "shell_offline": [
+    "অফলাইন",
+    "Offline"
+  ],
+  "shell_synced": [
+    "সিঙ্ক",
+    "Synced"
+  ],
+  "shell_notifs": [
+    "বিজ্ঞপ্তি",
+    "Notifications"
+  ],
+  "shell_nav": [
+    "প্রধান মেনু",
+    "Main navigation"
+  ],
+  "shell_home": [
+    "হোম",
+    "Home"
+  ],
+  "shell_offline_banner": [
+    "অফলাইন — কাজ চলবে, এই ডিভাইসে সংরক্ষিত হবে। স্বাক্ষর, SMS ও পেমেন্ট সার্ভার ফিরলে যাবে; ততক্ষণ কিছুই “পাঠানো” বা “স্বাক্ষরিত” দেখাবে না।",
+    "Offline — you can keep working; changes are saved on this device. Signing, SMS and payments send when the server is back; nothing shows as Sent or Signed until then."
+  ],
+  "shell_queued": [
+    "{n}টি পরিবর্তন অপেক্ষমাণ",
+    "{n} changes queued"
+  ],
+  "shell_ctx_note": [
+    "রোগী প্রসঙ্গ · সব মডিউলে একই ব্যানার",
+    "Patient context · same banner in every module"
+  ],
+  "shell_logout": [
+    "লগআউট",
+    "Sign out"
+  ],
+  "shell_hidden_by_plan": [
+    "{n}টি মডিউল এই প্ল্যানে নেই — ক্লিক করে দেখুন",
+    "{n} module(s) not in this plan — click to see"
+  ],
+  "shell_ot_locked": [
+    "OT ও রেডিওলজি Hospital Pro-তে",
+    "OT needs Hospital Pro"
+  ],
+  "shell_screens_locked": [
+    "কিছু স্ক্রিন Hospital Pro-তে",
+    "Some screens need Hospital Pro"
+  ],
+  "shell_all_modules": [
+    "সব মডিউল চালু",
+    "All modules available"
+  ],
+  "shell_not_in_plan": [
+    "প্ল্যানে নেই",
+    "not in plan"
+  ],
+  "shell_org_branches": [
+    "প্রতিষ্ঠান ও শাখা",
+    "Organisations & branches"
+  ],
+  "shell_org_branch_note": [
+    "শাখা বদলালে অ্যাক্সেস বদলায়",
+    "access changes with the branch"
+  ],
+  "shell_search_hint": [
+    "ফোন নম্বর বা নাম লিখুন",
+    "Type a phone number or a name"
+  ],
+  "shell_search_soon": [
+    "(রোগী খোঁজা স্লাইস A1-এ আসছে)",
+    "(search arrives in slice A1)"
+  ],
+  "page_back_home": [
+    "হোমে ফিরুন",
+    "Back to home"
+  ],
+  "denied_title": [
+    "প্রবেশাধিকার নেই",
+    "You don’t have access"
+  ],
+  "denied_body": [
+    "“{role}” ভূমিকায় {what} দেখার অনুমতি নেই। এটি লুকানো নয় — নীতি অনুযায়ী বন্ধ।",
+    "The {role} role cannot open {what}. This is not hidden by mistake; it is closed by policy."
+  ],
+  "denied_who": [
+    "যিনি অনুমতি দিতে পারেন: অ্যাডমিন",
+    "Who can grant it: Admin"
+  ],
+  "denied_where": [
+    "অ্যাডমিন › ব্যবহারকারী ও ভূমিকা › অনুমতি ম্যাট্রিক্স",
+    "Admin › Users & roles › Permission matrix"
+  ],
+  "denied_request": [
+    "অনুমতির অনুরোধ পাঠান",
+    "Request access"
+  ],
+  "denied_foot": [
+    "চেষ্টাটি অডিট লগে লেখা হয়েছে",
+    "This attempt was written to the audit log"
+  ],
+  "plan_not_in_plan": [
+    "এই প্ল্যানে নেই",
+    "not in your plan"
+  ],
+  "plan_body": [
+    "আপনার প্রতিষ্ঠান “{plan}” প্ল্যানে আছে। এই মডিউলটি {needs} থেকে পাওয়া যায়।",
+    "Your facility is on the {plan} plan. This module is available from {needs}."
+  ],
+  "plan_who": [
+    "যিনি বদলাতে পারেন: মালিক",
+    "Who can change this: Owner"
+  ],
+  "plan_where": [
+    "অ্যাডমিন › সাবস্ক্রিপশন থেকে আপগ্রেড",
+    "Upgrade from Admin › Subscription"
+  ],
+  "plan_view": [
+    "প্ল্যান দেখুন",
+    "View plans"
+  ],
+  "plan_foot": [
+    "এই পাতা দেখা লগ হয়েছে",
+    "This view is logged."
+  ],
+  "home_greeting": [
+    "শুভ সকাল, ",
+    "Good morning, "
+  ],
+  "home_sample_note": [
+    "নমুনা সংখ্যা — প্রতিটি স্লাইস বাস্তব ডেটা যুক্ত করবে",
+    "Sample figures — each slice replaces them with live data"
+  ],
+  "screen_pending": [
+    "এই স্ক্রিনটি স্লাইস {slice}-এ প্রোটোটাইপ থেকে পোর্ট হবে।",
+    "This screen is ported from the prototype in slice {slice}."
+  ],
+  "err_server": [
+    "সার্ভারে সমস্যা",
+    "Server error"
+  ],
+  "err_offline_not_saved": [
+    "সংযোগ নেই — সংরক্ষণ হয়নি",
+    "Offline — not saved"
+  ],
+  "outbox_expired": [
+    "২৪ ঘণ্টার মধ্যে পাঠানো যায়নি — আবার করুন",
+    "Not sent within 24 hours — redo it"
+  ],
+  "outbox_draft_expired": [
+    "নোটের খসড়া ২৪ ঘণ্টার মধ্যে পাঠানো যায়নি — আবার করুন",
+    "Note draft not sent within 24 hours — redo it"
+  ],
+  "outbox_draft_damaged": [
+    "এই ডিভাইসের নোটের খসড়া নষ্ট — পাঠানো হয়নি",
+    "Note draft on this device was damaged — not sent"
   ]
 }

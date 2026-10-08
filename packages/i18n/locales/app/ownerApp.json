@@ -610,5 +610,9 @@
   "rs_abandoned": [
     "শিফট শেষে বন্ধ",
     "Ended at shift close"
+  ],
+  "home_greeting": [
+    "শুভ সকাল, ",
+    "Good morning, "
   ]
 }

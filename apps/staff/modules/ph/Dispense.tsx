@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { DispenseLine, DispenseView, InvoiceView } from "@setu/contracts";
+import { fill, t as tr } from "@setu/i18n";
 import { Button, Callout, Card, Dialog, PageState, Pill, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
 import { ApiFailure, bill, pharm } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -101,12 +102,12 @@ function Visit({ encounterId }: { encounterId: string }) {
   };
   const allClosed = v.lines.every((l) => l.remaining === 0);
   const printable = v.lines.filter((l) => l.given.length > 0 && l.label);
-  /** the label of a line as it goes in the bag: what was given (brand, total), the Bangla dose, the batches */
+  /** the label of a line as it goes in the bag: what was given (brand, total), the Bangla dose, the batches (Bangla whatever the screen language) */
   const labelOf = (l: DispenseLine): DoseLabelData => {
     const m = l.given[l.given.length - 1]!.medicine;
     return {
       medicine: `${m.brand} ${m.strength}`, qty: s.n(l.given.reduce((a, g) => a + g.qty, 0)), dose: l.label!.bn,
-      patient: v.encounter.patient.nameBn, batches: [...new Set(l.given.map((g) => `${g.batchNo} · মেয়াদ ${F.day(g.expiry)}`))].join(", "),
+      patient: v.encounter.patient.nameBn, batches: [...new Set(l.given.map((g) => fill(tr("bn", "pharmApp", "label_batch_exp"), { batch: g.batchNo, date: F.day(g.expiry) })))].join(", "),
       facility: v.facility.nameBn ?? v.facility.nameEn, date: F.date(new Date().toISOString()),
     };
   };

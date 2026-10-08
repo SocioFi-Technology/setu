@@ -27,7 +27,7 @@ export default function HomePage() {
       <div style={{ display: "flex", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
         <div style={{ flex: "1 1 320px", display: "flex", flexDirection: "column", gap: 2 }}>
           <span className="t-muted" style={{ font: "500 13px/20px var(--font-sans)" }}>{today}</span>
-          <h1 className="t-title">{s.L("শুভ সকাল, ", "Good morning, ") + first}</h1>
+          <h1 className="t-title">{s.t("shellApp", "home_greeting") + first}</h1>
           <span className="t-body t-secondary">{me.organizationName} · {bn ? ROLE_NAME[me.role].bn : ROLE_NAME[me.role].en}</span>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -67,7 +67,7 @@ export default function HomePage() {
             ))}
           </Card>
           <Callout icon="keyboard">{B(h.tip)}</Callout>
-          <span className="t-small t-muted">{s.L("নমুনা সংখ্যা — প্রতিটি স্লাইস বাস্তব ডেটা যুক্ত করবে", "Sample figures — each slice replaces them with live data")}</span>
+          <span className="t-small t-muted">{s.t("shellApp", "home_sample_note")}</span>
         </div>
       </div>
     </div>

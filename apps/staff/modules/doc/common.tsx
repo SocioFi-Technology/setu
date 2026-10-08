@@ -44,7 +44,7 @@ export function DocFrame({ tab, children }: { tab: "home" | "queue" | "consult" 
       {!s.online && <Callout tone="warn" icon="cloud-off" data-testid="doc-offline">{D("offline")}</Callout>}
       {children}
       <div className="doc-tabs">
-        <nav aria-label={s.L("ডাক্তার অ্যাপ", "Doctor app")}>
+        <nav aria-label={D("nav_label")}>
           {TABS.map((t) => (
             <Link key={t.key} href={docUrl(t.key)} className="doc-tab" aria-current={tab === t.key || (tab === "consult" && t.key === "queue") ? "page" : undefined} data-tab={t.key}>
               <Icon name={t.icon} size={20} />

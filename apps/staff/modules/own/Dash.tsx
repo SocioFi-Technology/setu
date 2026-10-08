@@ -50,7 +50,7 @@ export function OwnerDash({ home = false }: { home?: boolean } = {}) {
   return (
     <div data-screen="own/dash" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        {home ? <span style={{ display: "flex", flexDirection: "column" }}><h1 className="t-h2" style={{ margin: 0 }}>{s.L("শুভ সকাল, ", "Good morning, ") + first}</h1><span className="t-small t-muted">{O("dash_title")}</span></span>
+        {home ? <span style={{ display: "flex", flexDirection: "column" }}><h1 className="t-h2" style={{ margin: 0 }}>{O("home_greeting") + first}</h1><span className="t-small t-muted">{O("dash_title")}</span></span>
           : <h1 className="t-h2" style={{ margin: 0 }}>{O("dash_title")}</h1>}
         <span style={{ marginLeft: "auto" }} />
         <Segmented label={O("dash_title")} value={period} onChange={(p) => setPeriod(p as Period)} options={(["today", "7d", "30d"] as const).map((p) => ({ value: p, label: O(`p_${p}`) }))} />

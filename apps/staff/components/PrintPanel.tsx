@@ -41,7 +41,7 @@ export function PrintPanel({ kind, id, compact = false }: { kind: DocKindT; id: 
     finally { setBusy(false); }
   };
 
-  if (failed) return <Callout tone="warn" icon="triangle-alert">{s.L("প্রিন্টের তথ্য আনা যায়নি", "Could not load the print state")}</Callout>;
+  if (failed) return <Callout tone="warn" icon="triangle-alert">{P("panel_load_failed")}</Callout>;
   if (!v) return <div aria-busy="true" className="t-muted">…</div>;
   const blocked = v.blockers[0];
   const printed = v.prints.length > 0;

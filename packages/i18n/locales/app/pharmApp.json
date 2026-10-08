@@ -1142,5 +1142,9 @@
   "se_supplier-vat": [
     "চালানের উপরে ভ্যাট",
     "VAT billed on top"
+  ],
+  "label_batch_exp": [
+    "{batch} · মেয়াদ {date}",
+    "{batch} · Exp {date}"
   ]
 }

@@ -1,0 +1,46 @@
+{
+  "_about": [
+    "স্টাফ লগইন পাতার লেখা",
+    "Staff sign-in page strings"
+  ],
+  "err_unreachable": [
+    "সার্ভারে পৌঁছানো যায়নি",
+    "Could not reach the server"
+  ],
+  "title": [
+    "স্টাফ লগইন",
+    "Staff sign in"
+  ],
+  "subtitle": [
+    "আপনার প্রতিষ্ঠানের দেওয়া ফোন নম্বর বা ইমেইল",
+    "The phone number or email your facility gave you"
+  ],
+  "session_ended": [
+    "আপনার সেশন শেষ হয়েছে (অ্যাকাউন্ট বন্ধ, ভূমিকা বা পাসওয়ার্ড বদলেছে) — আবার লগইন করুন",
+    "Your session has ended (account switched off, role or password changed) — sign in again"
+  ],
+  "identifier": [
+    "ফোন বা ইমেইল",
+    "Phone or email"
+  ],
+  "password": [
+    "পাসওয়ার্ড",
+    "Password"
+  ],
+  "signing_in": [
+    "লগইন হচ্ছে…",
+    "Signing in…"
+  ],
+  "sign_in": [
+    "লগইন",
+    "Sign in"
+  ],
+  "demo_note": [
+    "ডেমো মোড (ডাটাবেস নেই): ফোন 01711000001–10 · পাসওয়ার্ড setu1234 · PIN 1234",
+    "Demo mode (no database): phone 01711000001–10 · password setu1234 · PIN 1234"
+  ],
+  "demo_plan": [
+    "প্ল্যান",
+    "Plan"
+  ]
+}
