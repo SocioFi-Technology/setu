@@ -38,10 +38,13 @@ export async function jobAges(now = new Date()) {
 }
 
 /* Staging (week 2, session 2): the job-age alarm. Every job the server schedules, with the age past which it counts as
-   stuck: the sweeps run every minute (10 minutes = nine missed turns), the nightly rollup once a day (26 hours). A job
+   stuck: the sweeps run every minute (10 minutes = nine missed turns), the nightly rollup and the host's backup once a
+   day (26 hours). A job
    never recorded counts only once the server has been up longer than its limit (a fresh deploy is not an alarm). */
 export const JOB_LIMITS_SECONDS: Record<string, number> = {
   payments: 600, sms: 600, refunds: 600, "bed-days": 600, escalations: 600, "nightly-rollup": 26 * 3600,
+  // the host's nightly backup (infra/staging/backup.sh records its run here, ok or not)
+  backup: 26 * 3600,
 };
 export type JobProblem = { name: string; problem: "stale" | "failing" | "missing"; ageSeconds: number | null; lastError?: string | null };
 export function jobProblems(rows: { name: string; lastFinishedAt: Date; lastOk: boolean; lastError: string | null }[], now: Date, upSeconds: number): JobProblem[] {

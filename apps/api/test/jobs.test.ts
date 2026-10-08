@@ -58,6 +58,8 @@ describe.runIf(db)("single-instance jobs (staging)", () => {
     // the nightly rollup: 25 h old is fine, 27 h is stale
     expect(jobProblems(fresh.map((r) => r.name === "nightly-rollup" ? { ...r, lastFinishedAt: ago(25 * 3600) } : r), now, 99_999)).toEqual([]);
     expect(jobProblems(fresh.map((r) => r.name === "nightly-rollup" ? { ...r, lastFinishedAt: ago(27 * 3600) } : r), now, 99_999)[0]).toMatchObject({ name: "nightly-rollup", problem: "stale" });
+    // the host's nightly backup is watched like the rollup (26 h)
+    expect(jobProblems(fresh.map((r) => r.name === "backup" ? { ...r, lastFinishedAt: ago(27 * 3600) } : r), now, 99_999)[0]).toMatchObject({ name: "backup", problem: "stale" });
     // never recorded: no alarm right after a deploy, an alarm once the server has been up past the limit
     const noRollup = fresh.filter((r) => r.name !== "nightly-rollup");
     expect(jobProblems(noRollup, now, 3600)).toEqual([]);
