@@ -22,13 +22,22 @@ if (config.dbEnabled) {
   const { singleRun } = await import("./modules/jobs.js");
   const job = <T extends object>(name: string, run: () => Promise<T>, worth: (r: T) => unknown) =>
     singleRun(name, run, { summary: (r) => r }).then((x) => { if (x.ran && worth(x.result)) app.log.info({ job: name, result: x.result as object }, `${name} sweep`); }).catch((e) => app.log.error({ err: e, job: name }, `${name} sweep failed`));
+  // One after another, never all at once: each holds a pooled connection for its lock while its own queries need
+  // another, so five at once took a 5-connection pool (2 vCPU: Prisma's default) whole — every request stalled ~10 s
+  // each minute and the sweeps failed ("Timed out fetching a new connection"; CI, 08/10/2026). A turn still running
+  // when the next minute comes is not doubled.
+  let turn = false;
   sweeps = setInterval(() => {
-    void job("payments", () => sweepPayments(new Date()), (r) => r.failed || r.settled);
-    void job("sms", () => sweepSms(new Date()), (r) => r.sent || r.interrupted);
-    void job("refunds", () => sweepRefunds(new Date()), (r) => r.checked);
-    // ADR 0017: the bed-day census (00:01 Dhaka), caught up every minute
-    void job("bed-days", () => sweepBedDays(new Date()), (r) => r.posted);
-    void job("escalations", () => sweepEscalations(new Date()), (r) => r.widened);
+    if (turn) return;
+    turn = true;
+    void (async () => {
+      await job("payments", () => sweepPayments(new Date()), (r) => r.failed || r.settled);
+      await job("sms", () => sweepSms(new Date()), (r) => r.sent || r.interrupted);
+      await job("refunds", () => sweepRefunds(new Date()), (r) => r.checked);
+      // ADR 0017: the bed-day census (00:01 Dhaka), caught up every minute
+      await job("bed-days", () => sweepBedDays(new Date()), (r) => r.posted);
+      await job("escalations", () => sweepEscalations(new Date()), (r) => r.widened);
+    })().finally(() => { turn = false; });
   }, 60_000);
   sweeps.unref?.();
 }
