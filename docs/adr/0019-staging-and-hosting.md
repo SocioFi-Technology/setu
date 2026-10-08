@@ -204,3 +204,19 @@ requests, 0 failed, every threshold met, today's lists still ≈ 500 visits:
   queue 0.24 s — so what remains from Bangladesh is the ≈ 215 ms round trip to France and its variance, not the
   server or the rootless hop. The dedicated host near Bangladesh (item 4) is the remaining lever.
 
+### Off-server backups deferred again; what is installed (09/10/2026)
+- **Kamrul (09/10/2026): no off-server backups for now** — they come with production (its own host and domain). The
+  WAL-G machinery from follow-up 1 is committed (26ff6c2) and deployed but **dormant**: Postgres runs
+  `setu/setu-postgres:16-walg-v3.0.9` with `archive_mode=off` (no `/opt/setu/walg.env`, `SETU_WAL_ARCHIVE` unset),
+  `backup.sh` skips the R2 step, `pitr-drill.sh` is unused. Turning it on later = R2 credentials →
+  `infra/staging/vps-walg-env.sh` → a deploy → `pitr-drill.sh`. Tested so far only on a developer PC against MinIO
+  (PITR to a recorded time: exact, 9 s); **no point-in-time restore has run against R2, so no staging RPO / RTO is
+  measured for it**.
+- **Staging's recovery today:** the nightly `pg_dump` + MinIO copy on the VPS disk (restore drill passed: 8 s restore,
+  API tests 432/3 on the copy). RPO up to ~24 h; a disk or VPS loss loses the data and its backups together.
+  Production items 1 and 2 above stand unchanged.
+- **Found on the way (CI on the staging commits):** the five background jobs started together each minute took a
+  5-connection pool whole (Prisma's default on 2 vCPU) — every request stalled ~10 s a minute and the jobs failed;
+  fixed in 0428e19 (one after another), CI green (journeys 20.7 min). Production note: a small host hits this, so the
+  pool must be sized above the number of simultaneous lock-holding jobs (now one sweep + the nightly rollup).
+

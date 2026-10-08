@@ -1380,6 +1380,10 @@ paste them into chat or git.
     counts as on duty (the mechanism is built, samples 15 min / every active doctor), controlled-drug register gaps
     (open questions, B3–B4 session 2).
 11. **Patients are per tenant** (decided 02/10/2026, open question 21): one record shared across an owner's branches; between different owners only through Connected Care with consent (Journey E), never by default.
+15. **MAR tests near midnight Dhaka** (found 08/10/2026, CI run 37820137833 at 23:54–00:00 Dhaka): `mar.test` and
+    `b5b6.test` schedule a dose a few minutes ahead (`dhakaHHMM(2)`); in the last minutes before midnight that slot is
+    tomorrow's and the day's MAR has no row for it ("reading 'record'" of undefined). Green on the rerun after
+    midnight. Fix in the test helpers (schedule from the start of the day, or skip the window).
 
 ## Next (in order)
 1. ~~`/slice A1-A3`~~ — done 02/10/2026.
@@ -1400,8 +1404,8 @@ paste them into chat or git.
    07/10/2026, and gap 10's encrypted device drafts / outbox (option b). ~~Decision 321~~ (08/10/2026).
    **Week 2 staging:** ~~session 1~~ (08/10/2026, ADR 0019: builds, images, compose, S3, config, jobs, deploy).
    ~~session 2~~ (08/10/2026): staging live at https://setu.sociofitechnology.com on the shared SocioFi VPS.
-   **Next:** (1) the alarms — an external monitor emailing Kamrul on `/api/ready` and `/api/health/jobs/ok` (needs his
-   account or SMTP credentials); ~~(2) the queue and the worklists~~ (08/10/2026, c9246a0: active complete, latest 20 closed; rerun met p95 < 1 s); (3) the lab worklist query; (4) review section C. Later, with the dedicated host and the
+   **Next:** (1) the alarms — UptimeRobot emailing Kamrul on `/api/ready` and `/api/health/jobs/ok` (waiting for his
+   API key on the VPS); off-server backups deferred by Kamrul 09/10 (WAL-G installed, archiving off — ADR 0019); ~~(2) the queue and the worklists~~ (08/10/2026, c9246a0: active complete, latest 20 closed; rerun met p95 < 1 s); (3) the lab worklist query; (4) review section C. Later, with the dedicated host and the
    product's own domain: `HOSTING_REGION` near Bangladesh, off-server backups, GHCR images, error tracking, smaller
    api / tools images.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
