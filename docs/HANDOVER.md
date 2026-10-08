@@ -1401,8 +1401,7 @@ paste them into chat or git.
    **Week 2 staging:** ~~session 1~~ (08/10/2026, ADR 0019: builds, images, compose, S3, config, jobs, deploy).
    ~~session 2~~ (08/10/2026): staging live at https://setu.sociofitechnology.com on the shared SocioFi VPS.
    **Next:** (1) the alarms — an external monitor emailing Kamrul on `/api/ready` and `/api/health/jobs/ok` (needs his
-   account or SMTP credentials); (2) the queue and the worklists: return the active visits only, or page them (the
-   load check's miss); (3) the lab worklist query; (4) review section C. Later, with the dedicated host and the
+   account or SMTP credentials); ~~(2) the queue and the worklists~~ (08/10/2026, c9246a0: active complete, latest 20 closed; rerun met p95 < 1 s); (3) the lab worklist query; (4) review section C. Later, with the dedicated host and the
    product's own domain: `HOSTING_REGION` near Bangladesh, off-server backups, GHCR images, error tracking, smaller
    api / tools images.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.

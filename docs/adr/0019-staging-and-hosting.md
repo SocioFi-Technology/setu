@@ -194,3 +194,13 @@ images, a deploy that can be undone, private object storage, and jobs that are s
   6. `SETU_STAGE` unset; the real bKash and SMS providers; the seed never run.
   7. The queue and worklists paged or narrowed (the load check's miss), and the load check rerun on that host.
 
+### Load check rerun (08/10/2026, after production item 7 on staging — commit c9246a0)
+The queue, the doctor's worklist and the billing worklist now carry every visit still in play and only the 20 most
+recently closed ones (with full counts; "Show all" on the screens). Same k6 script, 20 users, 5 min, 248 visits, 6,775
+requests, 0 failed, every threshold met, today's lists still ≈ 500 visits:
+- from Bangladesh: queue p95 **0.92 s** (was 1.47 s), billing worklist **0.70 s** (was 1.50 s), list bodies ≈ 2 KB
+  (were 23–30 KB); server-side queue p95 0.18 s. Other steps' p95 0.7–0.97 s, their server-side p95 ≤ 0.38 s.
+- from the VPS itself (through the edge nginx and the rootless port forward, no internet): all requests p95 **0.40 s**,
+  queue 0.24 s — so what remains from Bangladesh is the ≈ 215 ms round trip to France and its variance, not the
+  server or the rootless hop. The dedicated host near Bangladesh (item 4) is the remaining lever.
+
