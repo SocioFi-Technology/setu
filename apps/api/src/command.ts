@@ -38,7 +38,9 @@ export async function assertLiveSession(tx: Tx, s: SessionData) {
 }
 
 /** `after`: work that must not run inside the transaction (a payment gateway call, ADR 0011), run once after the commit
-    of a fresh request — never on a replay; its answer is what the caller gets (the stored replay keeps the committed one). */
+    of a fresh request — never on a replay; its answer is what the caller gets, and it then replaces the stored answer
+    so a replay gets it too (external review C: a replayed payment showed payUrl null though the link was made). If
+    that last write fails the caller still has the right answer; only a replay would see the committed one. */
 /** `redact`: what the idempotency record keeps of the answer (a one-time password is never stored — a replay leaves it out). */
 export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (tx: Tx, s: SessionData) => Promise<CommandResult<T>>, opts: { hashOmit?: string[]; txTimeoutMs?: number; redact?: (body: T) => T; after?: (body: T, s: SessionData) => Promise<T> } = {}): Promise<T> {
   const s = requireSession(req);
@@ -76,7 +78,12 @@ export async function command<T>(req: FastifyRequest, reply: FastifyReply, fn: (
       await tx.idempotencyKey.create({ data: { tenantId: s.tenantId, key, route, statusCode: status, response: { hash, body: opts.redact ? opts.redact(r.body) : r.body } as object } });
       return { replayed: false as const, status, body: r.body };
     }, { timeoutMs: opts.txTimeoutMs, userId: s.userId });
-    if (!out.replayed && opts.after) out.body = await opts.after(out.body, s);
+    if (!out.replayed && opts.after) {
+      out.body = await opts.after(out.body, s);
+      const after = { hash, body: opts.redact ? opts.redact(out.body) : out.body } as object;
+      await forTenant(s.tenantId, (tx) => tx.idempotencyKey.updateMany({ where: { tenantId: s.tenantId, key, route }, data: { response: after } }), { userId: s.userId })
+        .catch((e) => req.log.warn({ err: e }, "idempotency: the answer after `after` was not stored"));
+    }
     return send(out);
   } catch (e) {
     // Two requests with the same key raced: the loser rolls back entirely and answers with the winner's response.

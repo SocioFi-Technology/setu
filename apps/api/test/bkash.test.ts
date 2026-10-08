@@ -109,6 +109,18 @@ describe.runIf(db)("ADR 0011 bKash tokenized checkout", () => {
     expect((await get(`/v1/pay/ABCDEFGH23`, null)).headers.location).toContain("o=unknown");
   });
 
+  it("review C: a replayed payment request answers with the link that was made (payUrl), not the answer before it; one link", async () => {
+    const b = await issuedBill();
+    const key = randomUUID();
+    const first = await post(`/v1/invoices/${b.id}/payments`, { method: "bkash", amountPaisa: b.total }, "cashier", key);
+    expect(first.statusCode, first.body).toBe(201);
+    const creates = standIn.calls.filter((c) => c.path === "payment/create").length;
+    const again = await post(`/v1/invoices/${b.id}/payments`, { method: "bkash", amountPaisa: b.total }, "cashier", key);
+    expect(again.headers["idempotent-replay"]).toBe("true");
+    expect(again.json().payment.payUrl).toMatch(/^https:\/\/setu\.test\/p\/[A-Z2-9]{10}$/);
+    expect(again.json().payment.payUrl).toBe(first.json().payment.payUrl);
+    expect(standIn.calls.filter((c) => c.path === "payment/create").length).toBe(creates); // the replay made no new link
+  });
   it("the patient pays: one execute, confirmed with the TrxID, the bill balanced; a repeated return executes nothing", async () => {
     const { payment, bill } = await bkashPayment();
     const p = (await row(payment.id))!;
