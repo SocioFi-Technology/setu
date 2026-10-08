@@ -264,7 +264,7 @@ describe("print templates (no database)", () => {
   };
   it("a print has the QR, the grouped code, the allergy line, 'Digitally signed', the sample notes; record text is escaped", () => {
     const h = rxHtml(base);
-    expect(h).toContain("<svg");
+    expect(h).toContain('<div class="qr"><svg');
     expect(h).toContain("ABCD-EFGH-JKMN-PQRS-TVWX");
     expect(h).toMatch(/ALLERGY[^<]*: পেনিসিলিন · Penicillin \(rash\)/);
     expect(h).toContain("BMDC A-52817 · not verified");
@@ -277,7 +277,8 @@ describe("print templates (no database)", () => {
   it("a draft: the DRAFT watermark, no QR, 'Not signed', 'Drafts cannot be printed — sign first'", () => {
     const h = rxHtml({ ...base, mode: "draft", verify: null, signedAt: null });
     expect(h).toContain("খসড়া — বৈধ নয় · DRAFT");
-    expect(h).not.toContain("<svg");
+    expect(h).not.toContain('<div class="qr">'); // no QR (the ℞ mark is an SVG too — review C)
+    expect(h).toContain('aria-label="Rx"');
     expect(h).toContain("Not signed");
     expect(h).toContain("Drafts cannot be printed — sign first");
   });

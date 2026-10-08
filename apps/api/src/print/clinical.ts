@@ -9,6 +9,9 @@ import { format, type Interpretation } from "@setu/domain";
 import { t } from "@setu/i18n";
 import { esc, fonts, qrSvg } from "../receipts/template.js";
 
+/** ℞ (U+211E) is in neither embedded font (Noto Sans Bengali, IBM Plex Sans), so Chromium printed whatever system font
+    had it, or a box (external review C): drawn here instead — an R whose leg is crossed — the same on every printer. */
+const RX_MARK = `<svg viewBox="0 0 20 24" role="img" aria-label="Rx" fill="none" stroke="#000" stroke-width="2.4" stroke-linecap="square"><path d="M3 22V2h7a5 5 0 0 1 0 10H3"/><path d="M8 12l10 11"/><path d="M12 22l6-6"/></svg>`;
 export type Lang = "both" | "bn" | "en";
 export type Paper = "a5" | "a4";
 export type Mode = "print" | "preview" | "draft";
@@ -78,7 +81,7 @@ body{font-family:'IBM Plex Sans','Noto Sans Bengali',sans-serif;font-size:${A5 ?
 h3{font-size:${A5 ? 10 : 11}pt;margin:3mm 0 1mm;font-weight:700}
 ul{margin:0;padding-left:5mm}li{margin:.5mm 0}
 .allergy{border:1pt solid #000;padding:1.5mm 2mm;font-weight:700;margin:2mm 0}
-.rx{font-size:${A5 ? 18 : 20}pt;font-weight:700;margin:2mm 0 0}
+.rx{height:${A5 ? 18 : 20}pt;margin:2mm 0 0}.rx svg{height:100%;width:auto;display:block}
 .med{margin:1.5mm 0}.med b{font-weight:700}.med i{font-style:italic}
 table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:1mm 1.5mm;border-bottom:.3pt solid #000;vertical-align:top}th{font-size:${A5 ? 8 : 9}pt}
 .strike{text-decoration:line-through}.dna{font-weight:700}
@@ -139,7 +142,7 @@ ${i.diagnoses.length ? `<h3>${k.P("dx")}</h3><ul>${i.diagnoses.map((d) => `<li>$
 ${i.orders.length ? `<h3>${k.P("ix")}</h3><ul>${i.orders.map((o) => `<li>${k.name(o.nameBn, o.nameEn)}</li>`).join("")}</ul>` : ""}
 </div>
 <div>
-<div class="rx">℞</div>${meds}
+<div class="rx">${RX_MARK}</div>${meds}
 ${i.advice.trim() ? `<h3>${k.P("advice")}</h3><div>${esc(i.advice)}</div>` : ""}
 ${i.followUp.trim() ? `<h3>${k.P("follow_up")}</h3><div>${esc(i.followUp)}</div>` : ""}
 </div></div>
