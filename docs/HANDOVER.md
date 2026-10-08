@@ -1380,10 +1380,8 @@ paste them into chat or git.
     counts as on duty (the mechanism is built, samples 15 min / every active doctor), controlled-drug register gaps
     (open questions, B3–B4 session 2).
 11. **Patients are per tenant** (decided 02/10/2026, open question 21): one record shared across an owner's branches; between different owners only through Connected Care with consent (Journey E), never by default.
-15. **MAR tests near midnight Dhaka** (found 08/10/2026, CI run 37820137833 at 23:54–00:00 Dhaka): `mar.test` and
-    `b5b6.test` schedule a dose a few minutes ahead (`dhakaHHMM(2)`); in the last minutes before midnight that slot is
-    tomorrow's and the day's MAR has no row for it ("reading 'record'" of undefined). Green on the rerun after
-    midnight. Fix in the test helpers (schedule from the start of the day, or skip the window).
+15. ~~**MAR tests near midnight Dhaka**~~ — fixed 09/10/2026: not a test bug but the MAR range (a dose due just after
+    midnight was in its window yet not shown); `marSlotRange` now reaches now + the dose window (ADR 0015 addendum).
 
 ## Next (in order)
 1. ~~`/slice A1-A3`~~ — done 02/10/2026.

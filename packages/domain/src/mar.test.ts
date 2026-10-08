@@ -160,6 +160,15 @@ describe("marSlotRange — every dose the board counts is on the MAR", () => {
     const slot22 = new Date("2026-10-05T16:00:00Z"); // 5 Oct 22:00 Dhaka
     expect(slot22 >= r.from && slot22 <= r.to).toBe(true);
   });
+  it("just before midnight: a dose already in its window after midnight is on tonight's MAR (00:15 at 23:30)", () => {
+    const r = marSlotRange(dayStart, new Date("2026-10-06T17:30:00Z")); // 6 Oct 23:30 Dhaka
+    const slot0015 = new Date("2026-10-06T18:15:00Z"); // 7 Oct 00:15 Dhaka
+    expect(slotState(slot0015, new Date("2026-10-06T17:30:00Z"))).toBe("due");
+    expect(slot0015 >= r.from && slot0015 <= r.to).toBe(true);
+    expect(r.to.toISOString()).toBe("2026-10-06T18:30:00.000Z"); // now + the 60-minute window
+    // earlier in the day the range still ends at midnight
+    expect(marSlotRange(dayStart, new Date("2026-10-06T06:00:00Z")).to.toISOString()).toBe("2026-10-06T17:59:59.999Z");
+  });
   it("an earlier day shows just that day", () => {
     const r = marSlotRange(dayStart, new Date("2026-10-08T06:00:00Z"));
     expect(r.from.getTime()).toBe(dayStart.getTime());

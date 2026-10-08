@@ -122,3 +122,9 @@ Migration `20261006090800_escalation_reach_dose_error_stock`.
 - Kept as built: a controlled drug is always witnessed; stopping an order needs the doctor's PIN; held / refused before
   due, missed only after the window, PRN given or refused only. Open questions 264–269 accepted.
 
+
+## Addendum (09/10/2026) — the MAR shows doses already in their window after midnight
+Today's MAR ran from the last 24 hours to the end of the Dhaka day. With the ±60-minute dose window, a dose due at
+00:15 is already *due* at 23:15 but was not on the MAR until midnight — a nurse could not record it on time (found when
+CI ran the MAR tests at 23:54 Dhaka). `marSlotRange` now extends today's range to `now + DOSE_WINDOW_MIN` when that is
+later than midnight. Earlier days and the rest of the day are unchanged; the ward board's counts are unchanged.
