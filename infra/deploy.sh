@@ -66,6 +66,8 @@ roll() {
   log "$svc: $want healthy on $TAG; old ones removed"
 }
 "${DC[@]}" up -d --no-deps --no-recreate caddy >/dev/null
+# a Caddy whose mounted folder was replaced underneath it sees nothing: recreate it once (a second's gap at the edge)
+"${DC[@]}" exec -T caddy test -f /etc/caddy/Caddyfile || { log "caddy: its config folder is gone (replaced on disk) — recreating"; "${DC[@]}" up -d --no-deps --force-recreate caddy >/dev/null; sleep 2; }
 # a changed Caddyfile (infra/caddy/, mounted as a directory so a git checkout is seen) — reloaded in place, no restart
 "${DC[@]}" exec -T caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || { log "caddy: the Caddyfile does not load — fix it; the running config is unchanged"; exit 1; }
 roll api 2
