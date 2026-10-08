@@ -65,7 +65,8 @@ export const fd = {
   /** `key`: one per filled-in form, so pressing Save twice (or offline, then online) never registers twice. */
   register: (body: RegistrationInput & { createVisit: boolean }, key: string) => write<RegisterResponse>("POST", "/v1/patients", body, "register", key),
   createVisit: (patientId: string) => write<CreateVisitResponse>("POST", "/v1/encounters", { patientId }, "visit"),
-  queue: () => call<QueueResponse>("GET", "/v1/queue"),
+  /** all: every done / no-show token, not only the latest RECENT_DONE */
+  queue: (all = false) => call<QueueResponse>("GET", "/v1/queue" + (all ? "?all=1" : "")),
   reviews: () => call<ReviewQueueResponse>("GET", "/v1/reviews/duplicates"),
   unlink: (id: string, reason: string) => call<ReviewOutcomeResponse>("POST", `/v1/patients/${encodeURIComponent(id)}/unlink`, { reason }, crypto.randomUUID()),
   keep: (taskId: string) => call<ReviewOutcomeResponse>("POST", `/v1/reviews/${encodeURIComponent(taskId)}/keep`, {}, crypto.randomUUID()),
@@ -85,7 +86,8 @@ export const vitals = {
    Idempotency-Key, so a retry (e.g. the right PIN after a wrong one) is the same request. */
 const enc = encodeURIComponent;
 export const cons = {
-  worklist: () => call<ConsultWorklist>("GET", "/v1/consultations/worklist"),
+  /** all: every visit this doctor saw today, not only the latest RECENT_DONE */
+  worklist: (all = false) => call<ConsultWorklist>("GET", "/v1/consultations/worklist" + (all ? "?all=1" : "")),
   view: (encounterId: string) => call<ConsultationView>("GET", `/v1/encounters/${enc(encounterId)}/consultation`),
   open: (encounterId: string) => call<ConsultationView>("POST", `/v1/encounters/${enc(encounterId)}/consultation/open`, {}, crypto.randomUUID()),
   save: (compositionId: string, body: SaveDraftRequest, key: string) => call<CompositionView>("PUT", `/v1/compositions/${enc(compositionId)}`, body, key),
@@ -105,7 +107,8 @@ export const cons = {
    "recorded on this device · not synced" and a payment link "will send when online" — never Paid until the server
    confirms. `key`: the caller's Idempotency-Key, so pressing a button twice is one request. */
 export const bill = {
-  worklist: () => call<BillingWorklist>("GET", "/v1/billing/worklist"),
+  /** all: every settled bill of the day too, not only the latest RECENT_DONE */
+  worklist: (all = false) => call<BillingWorklist>("GET", "/v1/billing/worklist" + (all ? "?all=1" : "")),
   definitions: (q: string) => call<ChargeDefinitionList>("GET", "/v1/charge-definitions?q=" + enc(q)),
   open: (encounterId: string) => call<InvoiceView>("POST", `/v1/encounters/${enc(encounterId)}/invoice`, {}, crypto.randomUUID()),
   view: (id: string) => call<InvoiceView>("GET", `/v1/invoices/${enc(id)}`),

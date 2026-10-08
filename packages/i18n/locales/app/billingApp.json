@@ -687,5 +687,13 @@
   "ib_bill_due": ["বাকি {amount}", "Due {amount}"],
   "ib_bill_excess": ["ফেরত বাকি {amount}", "To return {amount}"],
   "fb_refund": ["একটি লাইন ফেরত (রিফান্ড)", "Refund a line"],
-  "ib_dep_counter": ["চূড়ান্ত বিলে কাউন্টারে পরিশোধ", "paid at the counter on the final bill"]
+  "ib_dep_counter": ["চূড়ান্ত বিলে কাউন্টারে পরিশোধ", "paid at the counter on the final bill"],
+  "recent_of": [
+    "সর্বশেষ {n}টি দেখানো হচ্ছে, মোট {total}টি",
+    "Showing the latest {n} of {total}"
+  ],
+  "show_all": [
+    "সব দেখুন",
+    "Show all"
+  ]
 }

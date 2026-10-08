@@ -1,6 +1,7 @@
 /* Front desk service (slice A1–A3). Every function runs inside a command()/query() transaction, so RLS scopes it to
    the session's tenant. State changes go through @setu/domain: ENCOUNTER for visits, APPROVAL for review Tasks. */
 import type { MatchCandidate, PatientSummary, PreviewCandidate, QueueItem, RegistrationInput } from "@setu/contracts";
+import { RECENT_DONE } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
   APPROVAL, ENCOUNTER, LINK_REASON_MIN, canLinkDirectly, columnOf, compareRecords, dhakaDay, format, formatToken, frontDeskActions, isCandidate, linkAnywayAllowed, linkBlocked,
@@ -341,15 +342,22 @@ export async function createVisit(tx: Tx, s: SessionData, patientId: string, vis
   return { encounter: toQueueItem(e as EncounterRow), patient: p };
 }
 
-export async function queueBoard(tx: Tx, s: SessionData, day: string) {
+/* The board (staging load check, ADR 0019): the waiting, vitals and with-doctor columns are always complete; done and
+   no-show carry the RECENT_DONE most recently closed unless `all` — they grow all day (≈ 130 KB at 490 visits) and the
+   board refreshes every 15 s on every desk. Each column's `total` is its full count. */
+export async function queueBoard(tx: Tx, s: SessionData, day: string, all = false) {
   const branch = await branchOf(tx, s);
-  const rows = (await tx.encounter.findMany({ where: { branchId: branch.id, tokenDay: day, class: "opd" }, include: encounterInclude, orderBy: { tokenNo: "asc" } })) as EncounterRow[];
+  const where = { branchId: branch.id, tokenDay: day, class: "opd" as const };
+  const active = (await tx.encounter.findMany({ where: { ...where, status: { in: ["arrived", "triaged", "in_progress"] } }, include: encounterInclude, orderBy: { tokenNo: "asc" } })) as EncounterRow[];
+  const closed = async (status: "finished" | "cancelled") => (await tx.encounter.findMany({ where: { ...where, status }, include: encounterInclude, orderBy: { statusAt: "desc" }, ...(all ? {} : { take: RECENT_DONE }) })) as EncounterRow[];
+  const rows = [...active, ...(await closed("finished")), ...(await closed("cancelled"))].sort((a, b) => a.tokenNo - b.tokenNo);
+  const counts = new Map((await tx.encounter.groupBy({ by: ["status"], where, _count: { _all: true } })).map((g) => [g.status as string, g._count._all]));
   const critical = await criticalVisits(tx, rows.map((r) => r.id));
   const items = rows.map((r) => toQueueItem(r, critical));
   const { QUEUE_COLUMNS } = await import("@setu/domain");
   return {
     day, branch: { id: branch.id, name: branch.name, nameBn: branch.nameBn },
-    columns: QUEUE_COLUMNS.map((c) => ({ key: c.key, status: c.state, items: items.filter((i) => i.column === c.key) })),
+    columns: QUEUE_COLUMNS.map((c) => ({ key: c.key, status: c.state, items: items.filter((i) => i.column === c.key), total: counts.get(c.state.replace("-", "_")) ?? 0 })),
   };
 }
 

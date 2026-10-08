@@ -134,6 +134,8 @@ export type ConsultationView = z.infer<typeof ConsultationView>;
 export const ConsultWorklist = z.object({
   day: z.string(),
   items: z.array(VitalsEncounter.extend({ practitionerId: z.string().nullable(), mine: z.boolean(), critical: z.boolean(), hasDraft: z.boolean(), signed: z.boolean() })),
+  /** this doctor's finished visits today; items carry the latest RECENT_DONE of them unless ?all=1 (ADR 0019 load check) */
+  doneTotal: z.number().int().min(0),
 });
 export type ConsultWorklist = z.infer<typeof ConsultWorklist>;
 

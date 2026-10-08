@@ -7,6 +7,7 @@
    - signDocument (ADR 0003): draft → final, or an amendment → amended while the old version is superseded in the same
      transaction. The PIN is checked inside that transaction. Nothing is "signed" until this commits. */
 import type { AllergyView, CompositionView, ConsultationView, ConsultWorklist, RecordAllergyRequest, SaveDraftRequest, SignRequest } from "@setu/contracts";
+import { RECENT_DONE } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
   ALLERGY, ALLERGY_CLASSES, DOCUMENT, ENCOUNTER, ORDER, aiSections, catalogMatch, consultAccess, dhakaDay, emptySections, rxQuantity, signBlockers,
@@ -142,22 +143,28 @@ export async function consultationFor(tx: Tx, s: SessionData, encounterId: strin
   return { e, ...(await consultationView(tx, s, e)) };
 }
 
-export async function consultWorklist(tx: Tx, s: SessionData, now: Date): Promise<ConsultWorklist> {
+export async function consultWorklist(tx: Tx, s: SessionData, now: Date, all = false): Promise<ConsultWorklist> {
   const branch = await branchOf(tx, s);
   const day = dhakaDay(now);
-  const rows = await tx.encounter.findMany({
-    where: { organizationId: s.organizationId, branchId: branch.id, tokenDay: day, class: "opd", OR: [
+  const here = { organizationId: s.organizationId, branchId: branch.id, tokenDay: day, class: "opd" as const };
+  const active = await tx.encounter.findMany({
+    where: { ...here, OR: [
       { status: { in: ["arrived", "triaged"] }, practitionerId: null },
-      { status: { in: ["arrived", "triaged", "in_progress", "finished"] }, practitionerId: s.userId },
+      { status: { in: ["arrived", "triaged", "in_progress"] }, practitionerId: s.userId },
       { status: "in_progress", practitionerId: null },
     ] },
     include: { patient: true }, orderBy: { tokenNo: "asc" },
   });
+  // this doctor's seen visits: the latest RECENT_DONE unless all (staging load check, ADR 0019); the count is complete
+  const seenWhere = { ...here, status: "finished" as const, practitionerId: s.userId };
+  const seen = await tx.encounter.findMany({ where: seenWhere, include: { patient: true }, orderBy: { statusAt: "desc" }, ...(all ? {} : { take: RECENT_DONE }) });
+  const doneTotal = all ? seen.length : await tx.encounter.count({ where: seenWhere });
+  const rows = [...active, ...seen].sort((a, b) => a.tokenNo - b.tokenNo);
   const ids = rows.map((r) => r.id);
   const critical = await criticalVisits(tx, ids);
   const comps = ids.length ? await tx.composition.findMany({ where: { encounterId: { in: ids }, kind: KIND }, select: { encounterId: true, status: true } }) : [];
   return {
-    day,
+    day, doneTotal,
     items: rows.map((e) => ({
       ...toVitalsEncounter(e as Enc), practitionerId: e.practitionerId, mine: e.practitionerId === s.userId, critical: critical.has(e.id),
       hasDraft: comps.some((c) => c.encounterId === e.id && c.status === "draft"),

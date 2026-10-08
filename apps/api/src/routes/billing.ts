@@ -110,7 +110,7 @@ export async function billingRoutes(app: FastifyInstance) {
   app.get("/v1/billing/worklist", async (req): Promise<BillingWorklist> => {
     requireBill(req, "opd");
     return query(req, async (tx, s) => {
-      const w = await billingWorklist(tx, s, new Date());
+      const w = await billingWorklist(tx, s, new Date(), (req.query as { all?: string }).all === "1");
       return { body: w, audit: [{ action: "view", entity: "Encounter", detail: { purpose: "billing-worklist", count: w.items.length, patientIds: w.items.map((i) => i.encounter.patient.id) } }] };
     });
   });

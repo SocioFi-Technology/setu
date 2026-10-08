@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ConsultWorklist } from "@setu/contracts";
-import { Callout, PageState, Pill } from "@setu/ui";
+import { Button, Callout, PageState, Pill } from "@setu/ui";
 import { cons } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useLabels } from "../fd/common";
@@ -16,7 +16,8 @@ type Item = ConsultWorklist["items"][number];
 export function DocQueue() {
   const s = useSession(); const D = useD(); const F = useDF(); const L = useLabels(); const router = useRouter();
   const [w, setW] = useState<ConsultWorklist | null>(null); const [failed, setFailed] = useState(false);
-  useEffect(() => { s.setPatient(null); cons.worklist().then(setW).catch(() => setFailed(true)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [showAll, setShowAll] = useState(false); // the seen visits: the latest few unless asked (ADR 0019 load check)
+  useEffect(() => { s.setPatient(null); cons.worklist(showAll).then(setW).catch(() => setFailed(true)); }, [showAll]); // eslint-disable-line react-hooks/exhaustive-deps
   const byToken = (a: Item, b: Item) => a.token.localeCompare(b.token, "en", { numeric: true });
   const now = (w?.items ?? []).filter((i) => i.status === "in-progress").sort(byToken);
   const waiting = (w?.items ?? []).filter((i) => i.status === "arrived" || i.status === "triaged").sort((a, b) => Number(b.critical) - Number(a.critical) || byToken(a, b));
@@ -46,7 +47,8 @@ export function DocQueue() {
       {w && w.items.length === 0 && <PageState icon="ticket" title={D("q_empty")} />}
       {now.length > 0 && <section data-group="now" style={{ display: "flex", flexDirection: "column", gap: 8 }}><span className="t-small t-secondary"><b>{D("q_now")}</b></span>{now.map((i) => card(i, true))}</section>}
       {waiting.length > 0 && <section data-group="waiting" style={{ display: "flex", flexDirection: "column", gap: 8 }}><span className="t-small t-secondary"><b>{D("q_waiting")}</b> · <span className="num">{s.n(waiting.length)}</span></span>{waiting.map((i) => card(i))}</section>}
-      {done.length > 0 && <section data-group="done" style={{ display: "flex", flexDirection: "column", gap: 8 }}><span className="t-small t-secondary"><b>{D("q_done")}</b> · <span className="num">{s.n(done.length)}</span></span>{done.map((i) => card(i))}</section>}
+      {done.length > 0 && <section data-group="done" style={{ display: "flex", flexDirection: "column", gap: 8 }}><span className="t-small t-secondary"><b>{D("q_done")}</b> · <span className="num">{s.n(w?.doneTotal ?? done.length)}</span></span>{done.map((i) => card(i))}
+        {w && w.doneTotal > done.length && <span className="t-small t-muted" data-testid="recent-of-done">{D("recent_of", { n: done.length, total: w.doneTotal })} · <Button variant="ghost" size="sm" onClick={() => setShowAll(true)}>{D("show_all")}</Button></span>}</section>}
     </DocFrame>
   );
 }

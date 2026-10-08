@@ -134,6 +134,9 @@ export const BillingWorklist = z.object({
     encounter: VitalsEncounter.extend({ practitioner: Person.nullable() }),
     invoice: z.object({ id: z.string(), status: InvoiceStatus, number: z.string().nullable(), totalPaisa: Paisa, paidPaisa: Paisa, approvalPending: z.boolean() }).nullable(),
   })),
+  /** visits whose bill is settled (paid in full or cancelled); items carry the latest RECENT_DONE of them unless ?all=1 —
+      every unsettled one is always there (ADR 0019 load check) */
+  settledTotal: z.number().int().min(0),
 });
 export type BillingWorklist = z.infer<typeof BillingWorklist>;
 

@@ -47,7 +47,7 @@ export async function consultationRoutes(app: FastifyInstance) {
   app.get("/v1/consultations/worklist", async (req): Promise<ConsultWorklist> => {
     requireCons(req);
     return query(req, async (tx, s) => {
-      const w = await consultWorklist(tx, s, new Date());
+      const w = await consultWorklist(tx, s, new Date(), (req.query as { all?: string }).all === "1");
       return { body: w, audit: [{ action: "view", entity: "Encounter", detail: { purpose: "consult-worklist", count: w.items.length, patientIds: w.items.map((i) => i.patient.id) } }] };
     });
   });

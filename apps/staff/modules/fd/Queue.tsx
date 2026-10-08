@@ -22,10 +22,12 @@ export function FrontDeskQueue() {
   const [sel, setSel] = useState<string | null>(params.get("sel"));
   const [busy, setBusy] = useState(false);
   const [confirmNoShow, setConfirmNoShow] = useState(false);
+  // done and no-show carry the latest few unless asked (staging load check, ADR 0019); the counts are always complete
+  const [showAll, setShowAll] = useState(false);
 
   const load = useCallback(async () => {
-    try { setQ(await fd.queue()); setState("ready"); } catch { setState((x) => (x === "ready" ? x : "error")); }
-  }, []);
+    try { setQ(await fd.queue(showAll)); setState("ready"); } catch { setState((x) => (x === "ready" ? x : "error")); }
+  }, [showAll]);
   useEffect(() => { void load(); const t = setInterval(() => void load(), 15000); return () => clearInterval(t); }, [load]);
 
   const all = q?.columns.flatMap((c) => c.items) ?? [];
@@ -105,7 +107,7 @@ export function FrontDeskQueue() {
             {q.columns.map((col) => (
               <section key={col.key} data-column={col.key} aria-label={T(`col_${col.key}`)} style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0, minHeight: 0, overflowY: "auto", background: "var(--surface-sunken)", borderRadius: 10, padding: 8 }}>
                 <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "2px 4px", position: "sticky", top: -8, background: "var(--surface-sunken)", zIndex: 1 }}>
-                  <b className="t-small">{T(`col_${col.key}`)}</b><span className="badge-count num">{s.n(col.items.length)}</span>
+                  <b className="t-small">{T(`col_${col.key}`)}</b><span className="badge-count num">{s.n(col.total)}</span>
                 </header>
                 {col.items.map((i) => {
                   const on = i.id === sel;
@@ -124,6 +126,11 @@ export function FrontDeskQueue() {
                     </button>
                   );
                 })}
+              {col.total > col.items.length && (
+                  <span className="t-small t-muted" data-testid={`recent-of-${col.key}`} style={{ padding: "4px 4px 0" }}>
+                    {T("recent_of", { n: col.items.length, total: col.total })} · <Button variant="ghost" size="sm" onClick={() => setShowAll(true)}>{T("show_all")}</Button>
+                  </span>
+                )}
               </section>
             ))}
           </div>

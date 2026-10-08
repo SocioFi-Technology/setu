@@ -172,8 +172,12 @@ export type CreateVisitResponse = z.infer<typeof CreateVisitResponse>;
 export const QueueResponse = z.object({
   day: z.string(),
   branch: z.object({ id: z.string(), nameBn: z.string().nullable(), name: z.string() }),
-  columns: z.array(z.object({ key: QueueColumn, status: EncounterStatus, items: z.array(QueueItem) })),
+  /** Load check (ADR 0019): the active columns are always complete; done and noShow carry the latest RECENT_DONE
+      (by when they finished) unless ?all=1. `total` is the column's full count either way. */
+  columns: z.array(z.object({ key: QueueColumn, status: EncounterStatus, items: z.array(QueueItem), total: z.number().int().min(0) })),
 });
+/** How many finished / no-show visits, settled bills and a doctor's seen visits a list carries unless ?all=1. */
+export const RECENT_DONE = 20;
 export type QueueResponse = z.infer<typeof QueueResponse>;
 
 /* POST /v1/encounters/:id/actions */

@@ -151,14 +151,14 @@ export async function frontDeskRoutes(app: FastifyInstance) {
     });
   });
 
-  /* Queue board for today (or ?day=yyyy-mm-dd) at the session's branch. */
+  /* Queue board for today (or ?day=yyyy-mm-dd) at the session's branch; ?all=1 for every done / no-show token. */
   app.get("/v1/queue", async (req): Promise<QueueResponse> => {
     requireScreen(req, "queue");
     const raw = (req.query as { day?: string }).day;
     if (raw !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(raw)) throw validationError([{ field: "day", code: "day_format" }]);
     const day = raw ?? dhakaDay(new Date());
     return query(req, async (tx, s) => {
-      const b = await queueBoard(tx, s, day);
+      const b = await queueBoard(tx, s, day, (req.query as { all?: string }).all === "1");
       return { body: b as QueueResponse, audit: [{ action: "view", entity: "Encounter", detail: { purpose: "queue", day, count: b.columns.reduce((n, c) => n + c.items.length, 0) } }] };
     });
   });

@@ -21,7 +21,7 @@ export function DocHome() {
   const mine = w?.items.filter((i) => i.mine) ?? [];
   const tiles = w && inbox ? [
     { k: "waiting", n: w.items.filter((i) => i.status === "arrived" || i.status === "triaged").length, label: D("h_waiting") },
-    { k: "seen", n: mine.filter((i) => i.status === "finished").length, label: D("h_seen") },
+    { k: "seen", n: w.doneTotal, label: D("h_seen") },
     { k: "drafts", n: mine.filter((i) => i.hasDraft).length, label: D("h_drafts") },
     { k: "results", n: inbox.counts.unread, label: D("h_results") },
   ] : [];

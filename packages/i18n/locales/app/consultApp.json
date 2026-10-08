@@ -238,5 +238,13 @@
   "order_cancel_confirm": ["পরীক্ষা বাতিল করুন", "Cancel the test"],
   "order_cancel_bill": ["বাতিল হয়েছে · বিল থেকে বাদ: {lines}", "Cancelled · removed from the bill: {lines}"],
   "order_cancel_bill_waits": ["বাতিল হয়েছে · বিলে ছাড় বা অনুমোদন আছে — ক্যাশিয়ার বিলটি হালনাগাদ করবেন", "Cancelled · the bill has a discount or approval — the cashier updates it"],
-  "order_cancel_done": ["বাতিল হয়েছে", "Cancelled"]
+  "order_cancel_done": ["বাতিল হয়েছে", "Cancelled"],
+  "recent_of": [
+    "সর্বশেষ {n}টি দেখানো হচ্ছে, মোট {total}টি",
+    "Showing the latest {n} of {total}"
+  ],
+  "show_all": [
+    "সব দেখুন",
+    "Show all"
+  ]
 }

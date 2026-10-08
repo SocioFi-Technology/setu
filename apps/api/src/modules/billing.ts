@@ -15,6 +15,7 @@
    - a pending wallet amount is reserved, so confirmations can never overpay;
    - provider callbacks are recorded once; a repeat is a no-op, an out-of-order or backwards one is refused, and money
      reported on a failed or superseded attempt opens a reconciliation Task instead of being applied. */
+import { RECENT_DONE } from "@setu/contracts";
 import type { ApprovalItem, ApprovalList, BillingWorklist, ChargeSourceWire, ChargeDefinitionList, DiscountRequest, InvoiceView, NewPaymentRequest, PaymentView, ProviderCallbackResponse, ReconcileItem, ReconcileList } from "@setu/contracts";
 import type { Tx } from "@setu/db";
 import {
@@ -242,9 +243,16 @@ function toPaymentView(p: Pay, who: (id: string) => { id: string; nameBn: string
 }
 
 /* ───── worklist and price list ───── */
-export async function billingWorklist(tx: Tx, s: SessionData, now: Date): Promise<BillingWorklist> {
+export async function billingWorklist(tx: Tx, s: SessionData, now: Date, all = false): Promise<BillingWorklist> {
   const branch = await branchOf(tx, s);
-  const rows = await tx.encounter.findMany({ where: { organizationId: s.organizationId, branchId: branch.id, tokenDay: dhakaDay(now), class: { not: "ipd" }, status: "finished" }, include: { patient: true }, orderBy: { tokenNo: "asc" } });
+  // Staging load check (ADR 0019): every visit still to bill or collect is listed; of the settled ones (paid in full or
+  // cancelled) only the RECENT_DONE newest unless `all`. Decided on ids and statuses first, then the rows are loaded.
+  const ids = await tx.encounter.findMany({ where: { organizationId: s.organizationId, branchId: branch.id, tokenDay: dhakaDay(now), class: { not: "ipd" }, status: "finished" }, select: { id: true, tokenNo: true } });
+  const billStatus = new Map((await tx.invoice.findMany({ where: { encounterId: { in: ids.map((r) => r.id) }, kind: "opd", status: OPEN_BILL }, select: { encounterId: true, status: true } })).map((i) => [i.encounterId, i.status as string]));
+  const isSettled = (id: string) => ["balanced", "cancelled"].includes(billStatus.get(id) ?? "");
+  const settledIds = ids.filter((r) => isSettled(r.id)).sort((a, b) => b.tokenNo - a.tokenNo);
+  const keep = new Set([...ids.filter((r) => !isSettled(r.id)), ...(all ? settledIds : settledIds.slice(0, RECENT_DONE))].map((r) => r.id));
+  const rows = await tx.encounter.findMany({ where: { id: { in: [...keep] } }, include: { patient: true }, orderBy: { tokenNo: "asc" } });
   const invs = await tx.invoice.findMany({ where: { encounterId: { in: rows.map((r) => r.id) }, kind: "opd", status: OPEN_BILL } });
   const pending = new Set((await tx.task.findMany({ where: { kind: { in: APPROVAL_KINDS }, status: "requested", focusId: { in: invs.map((i) => i.id) } }, select: { focusId: true } })).map((t) => t.focusId));
   const byEnc = new Map(invs.map((i) => [i.encounterId, i]));
@@ -253,6 +261,7 @@ export async function billingWorklist(tx: Tx, s: SessionData, now: Date): Promis
   const settled = (id: string) => ["balanced", "cancelled"].includes(byEnc.get(id)?.status ?? "");
   rows.sort((a, b) => Number(settled(a.id)) - Number(settled(b.id)) || b.tokenNo - a.tokenNo);
   return {
+    settledTotal: settledIds.length,
     items: rows.map((e) => {
       const i = byEnc.get(e.id);
       return {

@@ -294,5 +294,13 @@
   "r_withdrawn_no_result": [
     "প্রত্যাহার — কোনো ফলাফল নেই (নতুন নমুনা লাগবে)",
     "Withdrawn — no result (a new sample is needed)"
+  ],
+  "recent_of": [
+    "সর্বশেষ {n}টি দেখানো হচ্ছে, মোট {total}টি",
+    "Showing the latest {n} of {total}"
+  ],
+  "show_all": [
+    "সব দেখুন",
+    "Show all"
   ]
 }

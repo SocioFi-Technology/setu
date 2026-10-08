@@ -978,5 +978,13 @@
   "reviewed_done": [
     "দেখা হয়েছে — তালিকা থেকে সরানো হলো",
     "Reviewed — removed from the list"
+  ],
+  "recent_of": [
+    "সর্বশেষ {n}টি দেখানো হচ্ছে, মোট {total}টি",
+    "Showing the latest {n} of {total}"
+  ],
+  "show_all": [
+    "সব দেখুন",
+    "Show all"
   ]
 }

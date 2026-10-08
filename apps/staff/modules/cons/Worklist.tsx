@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ConsultWorklist as Worklist } from "@setu/contracts";
-import { Callout, PageState, Pill } from "@setu/ui";
+import { Button, Callout, PageState, Pill } from "@setu/ui";
 import { cons } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useLabels } from "../fd/common";
@@ -18,7 +18,8 @@ const ordered = (items: Worklist["items"]) =>
 export function ConsultWorklist() {
   const s = useSession(); const C = useC(); const F = useFmt(); const L = useLabels(); const router = useRouter();
   const [w, setW] = useState<Worklist | null>(null); const [failed, setFailed] = useState(false);
-  useEffect(() => { s.setPatient(null); cons.worklist().then(setW).catch(() => setFailed(true)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [showAll, setShowAll] = useState(false); // the seen visits: the latest few unless asked (ADR 0019 load check)
+  useEffect(() => { s.setPatient(null); cons.worklist(showAll).then(setW).catch(() => setFailed(true)); }, [showAll]); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <Callout tone="warn" icon="triangle-alert">{C("error_generic")}</Callout>;
   if (!w) return <div aria-busy="true" className="t-muted">{C("loading")}</div>;
   return (
@@ -47,6 +48,11 @@ export function ConsultWorklist() {
               </button>
             ))}
           </div>
+          {w.doneTotal > w.items.filter((i) => i.status === "finished").length && (
+            <span className="t-small t-muted" data-testid="recent-of-done">
+              {C("recent_of", { n: w.items.filter((i) => i.status === "finished").length, total: w.doneTotal })} · <Button variant="ghost" size="sm" onClick={() => setShowAll(true)}>{C("show_all")}</Button>
+            </span>
+          )}
         </>
       )}
     </div>

@@ -25,7 +25,8 @@ export function BillOpd() {
 function Worklist() {
   const s = useSession(); const B = useB(); const M = useMoney(); const L = useLabels(); const router = useRouter();
   const [w, setW] = useState<BillingWorklist | null>(null); const [failed, setFailed] = useState(false);
-  useEffect(() => { s.setPatient(null); api.worklist().then(setW).catch(() => setFailed(true)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [showAll, setShowAll] = useState(false); // settled bills: the latest few unless asked (ADR 0019 load check)
+  useEffect(() => { s.setPatient(null); api.worklist(showAll).then(setW).catch(() => setFailed(true)); }, [showAll]); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <Callout tone="warn" icon="triangle-alert">{B("error_generic")}</Callout>;
   if (!w) return <div aria-busy="true" className="t-muted">{B("loading")}</div>;
   const writer = WRITERS.includes(s.me?.role ?? "");
@@ -54,6 +55,14 @@ function Worklist() {
           })}
         </div>
       )}
+      {(() => {
+        const shown = w.items.filter((i) => ["balanced", "cancelled"].includes(i.invoice?.status ?? "")).length;
+        return w.settledTotal > shown && (
+          <span className="t-small t-muted" data-testid="recent-of-settled">
+            {B("recent_of", { n: shown, total: w.settledTotal })} · <Button variant="ghost" size="sm" onClick={() => setShowAll(true)}>{B("show_all")}</Button>
+          </span>
+        );
+      })()}
     </div>
   );
 }
