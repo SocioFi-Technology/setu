@@ -404,7 +404,7 @@ export async function dispatchSms(by: SmsActor, ids: string[], meta: { ip: strin
         const sending = undash<"in_progress">(transition("COMMUNICATION", COMMUNICATION, "preparation", "send"));
         const n = await tx.communication.updateMany({ where: { id, status: "preparation" }, data: { status: sending, attempts: c.attempts + 1, sentAt: now, statusAt: now } });
         return n.count === 1 ? c : null;
-      });
+      }, by.userId ? { userId: by.userId } : { system: true });
       if (!claimed) continue;
       const r = await messenger.sendSms({ messageId: claimed.id, to: claimed.toPhone!, text: claimed.text!, tenantId: by.tenantId })
         .catch((e: unknown): SendResult => ({ status: "failed", error: e instanceof Error ? e.message.slice(0, 120) : "gateway error", providerRef: null, reason: "gateway" }));
@@ -417,7 +417,7 @@ export async function dispatchSms(by: SmsActor, ids: string[], meta: { ip: strin
           completedAt: ok ? done : null, deliveryConfirmed: r.status === "delivered", statusAt: done } });
         await tx.auditEvent.create({ data: { tenantId: by.tenantId, organizationId: claimed.organizationId, userId: by.userId, role: by.role, action: "send", entity: "Communication", entityId: id, patientId: claimed.patientId, ip: meta.ip,
           detail: { route: meta.route, channel: "sms", kind: claimed.kind, outcome: r.status, ...(r.status === "failed" && r.reason ? { reason: r.reason } : {}), attempt: claimed.attempts + 1, provider: messenger.name, ...(by.userId ? {} : { actor: "system:sms-sweep" }), ...(n.count ? {} : { late: true }) } } });
-      });
+      }, by.userId ? { userId: by.userId } : { system: true });
       out.set(id, { status: dash(next), attempts: claimed.attempts + 1, lastError: r.status === "failed" ? r.error : null, sentAt: now.toISOString(), completedAt: ok ? done.toISOString() : null, deliveryConfirmed: r.status === "delivered" });
     } catch { /* left queued or in progress: the sweep and Retry pick it up */ }
   }
@@ -435,7 +435,7 @@ async function giveUp(tenantId: string, id: string, why: string, now: Date) {
     if (!n.count) return;
     await tx.communication.update({ where: { id }, data: { status: "failed", lastError: why, statusAt: now } });
     await tx.auditEvent.create({ data: { tenantId, organizationId: c.organizationId, userId: null, role: null, action: "update", entity: "Communication", entityId: id, patientId: c.patientId, detail: { actor: "system:sms-sweep", kind: c.kind, outcome: "not-sent", reason: why } } });
-  });
+  }, { system: true });
 }
 
 /** Every minute (ADR 0012, open question 124): an SMS queued for more than a minute is sent; one "sending" for more than
@@ -456,7 +456,7 @@ export async function sweepSms(now: Date): Promise<{ sent: number; interrupted: 
             if (!p || !["link_sent", "waiting_customer"].includes(p.status) || p.executeClaimedAt || !p.linkCode || !(c.text ?? "").endsWith(`/p/${p.linkCode}`)) return "not sent — the payment link has changed";
           }
           return null;
-        });
+        }, { system: true });
         if (why === "gone") continue;
         if (why) { await giveUp(t.tenantId, t.communicationId, why, now); continue; }
         sent += (await dispatchSms({ tenantId: t.tenantId, userId: null, role: null }, [t.communicationId], { ip: null, route: "sweep" })).size;
@@ -468,7 +468,7 @@ export async function sweepSms(now: Date): Promise<{ sent: number; interrupted: 
         const failed = undash<"failed">(transition("COMMUNICATION", COMMUNICATION, "in-progress", "fail"));
         const n = await tx.communication.updateMany({ where: { id: c.id, status: "in_progress", attempts: c.attempts }, data: { status: failed, lastError: SMS_MAYBE_SENT, statusAt: now } });
         if (n.count) { interrupted++; await tx.auditEvent.create({ data: { tenantId: t.tenantId, organizationId: c.organizationId, userId: null, role: null, action: "update", entity: "Communication", entityId: c.id, patientId: c.patientId, detail: { actor: "system:sms-sweep", kind: c.kind, outcome: "interrupted" } } }); }
-      });
+      }, { system: true });
     } catch (e) { console.error(`sms sweep ${t.tenantId}/${t.communicationId} failed`, e); }
   }
   return { sent, interrupted };

@@ -800,7 +800,7 @@ export async function attachLink(tenantId: string, paymentId: string, now: Date,
     if (!p || p.status !== "initiated" || p.providerRef) return null;
     const inv = await tx.invoice.findFirst({ where: { id: p.invoiceId }, select: { number: true } });
     return { p, number: inv?.number ?? "" };
-  });
+  }, by ? { userId: by } : { system: true });
   if (!p0) return "gone";
   const { p } = p0;
   const provider = providerOf(p);
@@ -822,7 +822,7 @@ export async function attachLink(tenantId: string, paymentId: string, now: Date,
     // ADR 0012: the link goes to the patient by SMS too (queued here, sent after the commit by the route or the sweep)
     if (by) await queueLinkSms(tx, (await tx.payment.findFirst({ where: { id: p.id } }))!, by);
     return "link-sent" as const;
-  });
+  }, by ? { userId: by } : { system: true });
   if (out === "gone" && link) await provider.cancel(link.providerRef).catch(() => undefined);
   return out;
 }
@@ -1110,7 +1110,7 @@ async function applyAnswer(tenantId: string, provider: PaymentProvider, paymentI
     await tx.providerEvent.create({ data: { ...event, outcome: "applied", reason: a.outcome } });
     await audit(tx, tenantId, p, provider, { kind, outcome: "applied", reason: a.outcome, to: "failed" }, ip, "update");
     return result("not-paid");
-  });
+  }, { system: true });
 }
 
 /** bKash sends the patient's browser back here (`GET /v1/payments/return/bkash`). Decide under the bill's lock, claim
@@ -1140,7 +1140,7 @@ export async function returnFromGateway(provider: PaymentProvider, q: { ref: str
       if (n.count !== 1) return { action: "query" as const, p, fac };
     }
     return { action: d.action, reason: d.action === "refuse" ? d.reason : null, p, fac };
-  });
+  }, { system: true });
   if (!step) return none;
   const base = { trxId: null, amountPaisa: step.p.amountPaisa, ...step.fac, code: step.p.providerRef === q.ref ? step.p.linkCode : null };
   if (step.action === "refuse") {
@@ -1214,7 +1214,7 @@ export async function sweepPayments(now: Date, stuckMinutes = STUCK_MINUTES): Pr
           return null;
         }
         return p0;
-      });
+      }, { system: true });
       if (!p?.executeClaimedAt || !p.providerRef) continue;
       // external review A4: an execute claimed less than its worst case ago (execute + query + a token renewal) may still
       // be answering — the sweep leaves it alone

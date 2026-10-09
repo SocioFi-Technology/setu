@@ -62,7 +62,7 @@ async function processCallback(req: FastifyRequest, payments: PaymentProvider, e
         detail: { route: req.routeOptions.url, method: req.method, ...(a.detail ?? {}), ...(actor ? { simulatedBy: actor.userId, fakeGateway: true } : {}) } as object,
       } });
       return r.body;
-    });
+    }, actor ? { userId: actor.userId } : { system: true });
   } catch (e) {
     if (isUnique(e)) return { outcome: "noop", reason: "repeat" };
     throw e;

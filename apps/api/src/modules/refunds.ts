@@ -618,7 +618,7 @@ export async function settleClaimed(tenantId: string, organizationId: string, al
       const p = (await tx.payment.findFirst({ where: { id: a.paymentId } }))!;
       const known = (await tx.refundAllocation.findMany({ where: { paymentId: p.id, status: "paid", refundTrxId: { not: null } }, select: { refundTrxId: true } })).map((x) => x.refundTrxId!); // ours already
       return { a, p, known };
-    }, { userId: userId ?? undefined });
+    }, userId ? { userId } : { system: true });
     if (!job) continue;
     const provider = providerName(job.p);
     let answer: RefundAnswer = { status: "unknown", refundTrxId: null, code: "gateway-off" };
@@ -655,7 +655,7 @@ async function applyRefundAnswer(tenantId: string, organizationId: string, alloc
     for (const e of audit) await tx.auditEvent.create({ data: {
       tenantId, organizationId, userId, role: null, action: e.action, entity: e.entity, entityId: e.entityId, patientId: e.patientId ?? null, detail: { route: "refund-gateway-answer", ...(e.detail ?? {}) } as object,
     } });
-  }, { userId: userId ?? undefined });
+  }, userId ? { userId } : { system: true });
 }
 
 /** A person asks the gateway again about a claimed allocation ("check"): found → paid; nothing found after the give-up
@@ -676,7 +676,7 @@ export async function askGateway(tenantId: string, organizationId: string, alloc
     const p = (await tx.payment.findFirst({ where: { id: a.paymentId } }))!;
     const known = (await tx.refundAllocation.findMany({ where: { paymentId: p.id, status: "paid", refundTrxId: { not: null } }, select: { refundTrxId: true } })).map((x) => x.refundTrxId!); // ours already
     return { a, p, known };
-  }, { userId: userId ?? undefined });
+  }, userId ? { userId } : { system: true });
   if (!job) return;
   const provider = providerName(job.p);
   let list: Awaited<ReturnType<PaymentProvider["refundStatus"]>> = null;

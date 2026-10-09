@@ -96,7 +96,8 @@ host and Caddy: no new DNS or certificate). `GET /v1/dev/patient-otp` exists onl
   a grantee-tenant policy; the cross-tenant path is one module, reviewed like the SECURITY DEFINER functions.
 - The clinician list gains the plain-language wording (gap 12); critical results stay wording-free until signed off.
 - Found while building it: the database's `lab_actor_ok()` is NULL (not false) on a connection that never carried
-  `app.user_id`, so the "who" checks it guards pass there — HANDOVER gap 16. The patient copy issues its document code
+  `app.user_id`, so the "who" checks it guards pass there — HANDOVER gap 16, fixed the same day (migration
+  `20261009160000_actor_check_never_null`; jobs and gateway writes as the system actor). The patient copy issues its document code
   as the facility's system actor with `app.user_id` set, which is right under either behaviour.
 - Follow-ups: share links for doctors outside Setu; the prescription and summary screens; uploads ("mine");
   break-glass itself (Journey E's emergency path); guardians.

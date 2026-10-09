@@ -181,7 +181,7 @@ async function rollupDays(now: Date, back: number, onlyTenant?: string): Promise
   for (const t of targets) {
     // one failing facility never stops the others (security review C1–C4 #7); each day commits on its own
     for (const d of days) {
-      try { await forTenant(t.tenant_id, async (tx) => upsertRollup(tx, t.tenant_id, t.organization_id, d, await computeDay(tx, t.organization_id, d), now), { timeoutMs: 30_000 }); }
+      try { await forTenant(t.tenant_id, async (tx) => upsertRollup(tx, t.tenant_id, t.organization_id, d, await computeDay(tx, t.organization_id, d), now), { timeoutMs: 30_000, system: true }); }
       catch (e) { failed++; console.error(`nightly rollup ${t.tenant_id}/${t.organization_id}/${d} failed`, e); }
     }
   }

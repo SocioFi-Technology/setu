@@ -185,7 +185,7 @@ export async function censusOf(tenantId: string, admissionId: string, now: Date)
     for (const a of syncAudit(adm, r, "census"))
       await tx.auditEvent.create({ data: { tenantId, organizationId: adm.organizationId, userId: null, role: null, action: a.action, entity: a.entity, entityId: a.entityId ?? null, patientId: a.patientId ?? null, detail: { ...a.detail, actor: "census" } as object } });
     return r.added.length;
-  });
+  }, { system: true });
 }
 /** The census (ADR 0017): every minute, the admissions whose bill lacks a bed day that is due. */
 export async function sweepBedDays(now: Date): Promise<{ posted: number }> {

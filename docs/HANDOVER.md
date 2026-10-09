@@ -1385,11 +1385,7 @@ break-glass labelled; the patient app on staging with a "STAGING — test data" 
   other doctors / receptionist / the owner clinic refused, audits both sides, opens, who viewed incl. break-glass,
   revoke idempotent then refused, "all" + expiry + the job, the read-mark guard); `e2e/journeys/journey-d.spec.ts` now
   D1–D6 (a second browser context is the receiving doctor).
-- **Found, not fixed (gap 16, Kamrul to decide):** `lab_actor_ok()` returns NULL when `app.user_id` was never set on a
-  pooled connection, so `IF NOT lab_actor_ok(...)` does not raise — the "who" check of the lab / print / pharmacy /
-  refund / ward guards is skipped for writes that run without a signed-in user on a fresh connection (it works once the
-  connection has carried a user: the setting then reads ''). 144 uses in 33 migrations; fixing it (coalesce to false)
-  needs every system-actor write path set `app.user_id` first — its own change and review.
+- **Found while building it:** gap 16 (`lab_actor_ok()` NULL without `app.user_id`) — fixed the same day, see gap 16.
 - **Follow-ups:** share links for doctors outside Setu; the prescription and summary screens (pictograms, reminders);
   uploads ("mine"); break-glass itself (Journey E); the desk-proof confirm screen and the claim-code QR (D1–D3);
   guardians; a service worker.
@@ -1487,9 +1483,16 @@ paste them into chat or git.
     counts as on duty (the mechanism is built, samples 15 min / every active doctor), controlled-drug register gaps
     (open questions, B3–B4 session 2).
 11. **Patients are per tenant** (decided 02/10/2026, open question 21): one record shared across an owner's branches; between different owners only through Connected Care with consent (Journey E), never by default.
-16. **`lab_actor_ok()` is NULL without `app.user_id`** (found 09/10/2026, D4–D6): the database's "who did it" checks are
-    skipped on a connection that never carried a signed-in user — see "Done (Phase 4 slice D4–D6)". Kamrul to decide
-    when to fix (every system write must then set `app.user_id` to the system actor).
+16. ~~**`lab_actor_ok()` is NULL without `app.user_id`**~~ — fixed 09/10/2026 (Kamrul: "gap 16 now, own commit"):
+    migration `20261009160000_actor_check_never_null` — the function is true or false, never NULL (an unset or empty
+    `app.user_id` is nobody); `refund_voucher_guard`'s "no user set → skip" exemption removed (the only other function
+    comparing against `current_setting`). Every job and gateway write sets the system actor (`forTenant(..., { system:
+    true })` → `sys_<tenant>`, decision 317) — the SMS / payment / refund / escalation / bed-day sweeps and give-ups,
+    the gateway return, the webhook (the cashier when simulating), the nightly rollup; shared helpers take the caller's
+    user when there is one. `apps/api/test/actor-guards.test.ts`: on a fresh connection (no `app.user_id` at all), with
+    '' and with another user, a write is refused on Observation, CriticalCallback, InboxAck, MedicationAdministration,
+    Handover, ShiftCount and ShiftHandover; with the right actor it passes that rule (all rolled back); with the old
+    function 7 of its 8 tests fail.
 15. ~~**MAR tests near midnight Dhaka**~~ — fixed 09/10/2026: not a test bug but the MAR range (a dose due just after
     midnight was in its window yet not shown); `marSlotRange` now reaches now + the dose window (ADR 0015 addendum).
 
@@ -1518,7 +1521,7 @@ paste them into chat or git.
    product's own domain: `HOSTING_REGION` near Bangladesh, off-server backups, GHCR images, error tracking, smaller
    api / tools images.
 9. **Phase 4 (Journeys D and E):** ~~D1–D3~~ (09/10/2026, ADR 0020) · ~~D4–D6~~ (09/10/2026, ADR 0021) · E1–E2 (ADR 0022) ·
-   E3–E4 (ADR 0023); the desk-proof confirm screen; gap 16.
+   E3–E4 (ADR 0023); the desk-proof confirm screen.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

@@ -271,7 +271,7 @@ export async function sweepEscalations(now: Date): Promise<{ widened: number; to
         const m = dutyListMissing(e.encounterId, e.patientId, "news2-escalation", to.length);
         await tx.auditEvent.create({ data: { tenantId: t.tenantId, organizationId: e.organizationId, userId: null, role: null, action: m.action, entity: m.entity, entityId: m.entityId, patientId: m.patientId, detail: { actor: "system:escalation-sweep", ...m.detail } as object } });
       }
-    });
+    }, { system: true });
   }
   return { widened, told };
 }

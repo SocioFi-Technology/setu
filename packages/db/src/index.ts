@@ -17,14 +17,19 @@ export type Tx = PrismaClient;
 /**
  * Runs `fn` inside a transaction with the Postgres session variable `app.tenant_id` set,
  * which the row-level-security policies read. Every request handler and every job uses this.
- * `userId` (a signed-in request) sets `app.user_id`: the lab guards require every "who" column the API writes to be
- * that user (security review A8–A11, L1). Jobs and provider callbacks run without one.
+ * `userId` (a signed-in request) sets `app.user_id`: the database's guards require every "who" column the API writes to
+ * be that user (security review A8–A11, L1). `system: true` (the sweeps, the payment gateway's callbacks — no person
+ * behind the write) sets it to the tenant's system actor, `sys_<tenant>` (decision 317). With neither, it stays unset
+ * and every guarded write is refused (gap 16: never "nobody checked").
  */
-export async function forTenant<T>(tenantId: string, fn: (tx: Tx) => Promise<T>, opts: { timeoutMs?: number; userId?: string } = {}): Promise<T> {
+export const systemActor = (tenantId: string) => `sys_${tenantId}`;
+export async function forTenant<T>(tenantId: string, fn: (tx: Tx) => Promise<T>, opts: { timeoutMs?: number; userId?: string; system?: boolean } = {}): Promise<T> {
   if (!tenantId) throw new Error("forTenant: tenantId is required");
+  if (opts.userId && opts.system) throw new Error("forTenant: a signed-in user or the system actor, not both");
+  const actor = opts.system ? systemActor(tenantId) : opts.userId;
   return prisma.$transaction(async (tx: unknown) => {
     await (tx as PrismaClient).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
-    if (opts.userId) await (tx as PrismaClient).$executeRaw`SELECT set_config('app.user_id', ${opts.userId}, true)`;
+    if (actor) await (tx as PrismaClient).$executeRaw`SELECT set_config('app.user_id', ${actor}, true)`;
     return fn(tx as unknown as Tx);
   }, opts.timeoutMs ? { timeout: opts.timeoutMs, maxWait: 5_000 } : undefined);
 }
