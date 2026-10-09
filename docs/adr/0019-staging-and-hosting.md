@@ -228,3 +228,18 @@ archive). Until then, whoever tests staging opens them by hand. Production must 
 purpose) before the first real patient — production item 5 stands. Chosen for staging: an external monitor
 (UptimeRobot or similar; the VPS has no mail setup, and an on-box checker cannot report the box itself being down).
 
+
+### Alarms live; old images removed (Kamrul, 09/10/2026)
+Before D4–D6 Kamrul set up the uptime monitor and asked for the alarms to go live with one fired on purpose, and the old
+images removed. **Off-server backups stay deferred** (his decision above stands): WAL archiving off, no R2, no
+point-in-time restore — so still no staging RPO / RTO beyond the nightly dump (up to ~24 h, same disk).
+- **Alarms — live.** UptimeRobot checks `https://setu.sociofitechnology.com/api/ready` and `…/api/health/jobs/ok`
+  and emails Kamrul. **Fired on purpose:** at 08:09:19 UTC the `backup` job's last run was recorded as failed
+  ("alarm drill … deliberate") — `/api/health/jobs/ok` answered 503 naming it, `/api/ready` stayed 200 (no downtime);
+  Kamrul confirmed the email. Cleared at 08:13:09 UTC by a real `backup.sh` run (7.4 MB dump + 32 MB files), the check
+  back to 200. Production item 5 is met for staging.
+- **Old images removed** (setu's own daemon only, by name): the api / staff / tools / drill images of the four
+  revisions before the rollback one (6310f3a, c9246a0, 26ff6c2, 0428e19); build cache older than 2 h; the
+  `state.shared-daemon` folder left from the move to the rootless daemon. Kept: the current and previous revisions
+  (rollback), the running Postgres / Redis / MinIO / Caddy images. Images 26.3 → 10.6 GB, build cache 26.2 → 7.0 GB;
+  disk 16% used.

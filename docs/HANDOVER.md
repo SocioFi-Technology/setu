@@ -1292,7 +1292,7 @@ addendum. Operating notes: "On call (staging)" below.
 
 ## Done (pilot-readiness sprint, the rest, 09/10/2026) — review section C, the MAR range, the lab worklist, training material
 One commit per item. Kamrul 09/10/2026: the real bKash / BulkSMSBD sandbox credentials come before production (not in
-this sprint); alarms and off-server backups are deferred to production (ADR 0019).
+this sprint); off-server backups are deferred to production (ADR 0019); the alarms went live later that day.
 - **The MAR before midnight** (2842c20): a dose already in its ±60-minute window after midnight now shows on tonight's
   MAR (`marSlotRange` reaches now + the window; ADR 0015 addendum) — found by CI running at 23:54 Dhaka.
 - **Review C:** consultation writes the transition's result (593b6c8); bKash — constant-time return signature, a
@@ -1302,7 +1302,8 @@ this sprint); alarms and off-server backups are deferred to production (ADR 0019
   the ℞ drawn as an SVG (1d07736); test files for domain money / catalog (9292d75); the staff app's Bangla strings into
   packages/i18n, 66 keys, text unchanged (593ff8f). `.env.example` was already complete.
 - **Not built — open question 322:** asking "was the sample the problem?" before a lab withdrawal needs finished tubes
-  to be re-runnable (SPECIMEN `done → in-process`) — a clinical call; tried and reverted.
+  to be re-runnable (SPECIMEN `done → in-process`) — a clinical call; tried and reverted. **Kamrul 09/10/2026: deferred
+  to the clinician pre-pilot list (gap 12), not built.**
 - **The lab worklist** (3338993): the recent visits picked by the database on a new index; what remains (~150 ms of
   ten sequential bundle queries for 200 visits whatever the stage) is a lab-slice follow-up — narrowing per stage must
   never drop work.
@@ -1319,7 +1320,8 @@ this sprint); alarms and off-server backups are deferred to production (ADR 0019
   (the long-used dev database's full ER bays and wards break some walks): create one, migrate, seed, point the dev API
   at it, start the staff app with `NEXT_DEV_INDICATOR=off`, run `shots.mjs`, then `build.mjs`.
 - **Not done here:** the design round in Claude Design (the prototype catching up with the screens built since the
-  handoff) — waiting for Kamrul's call on who runs it; the real providers (Kamrul: before production).
+  handoff) — **Kamrul runs it in Claude Design after the sprint** (09/10/2026); the real providers (Kamrul: before
+  production).
 
 ## Done (Phase 4 slice D1–D3, 09/10/2026) — the patient app: sign-in, claiming records, the history ✅
 ADR 0020. Kamrul 09/10/2026: "go with the recommendations" (phone + SMS code person, records only through a proven
@@ -1365,7 +1367,8 @@ project `setu-staging`; `/opt/setu` is setu's alone, mode 700; nginx and ufw cha
   lines; the API's are pino, Caddy's are access logs with the request duration).
 - Health: `curl https://setu.sociofitechnology.com/api/ready` (db, redis, pdf) and `…/api/health/jobs` (each job's
   age) / `…/api/health/jobs/ok` (200, or 503 naming the stuck / failing / missing job — the backup included).
-**Alarms → what to do first** (staging has none until production — Kamrul 09/10/2026; read these when a check is red)
+**Alarms → what to do first** (UptimeRobot watches `/api/ready` and `/api/health/jobs/ok` and emails Kamrul — live
+since 09/10/2026, one fired on purpose; ADR 0019)
 - *Site down / `/api/ready` not 200:* `docker ps` for the setu containers. A 502 from nginx = Setu's Caddy or staff
   is down, or setu's daemon (`docker logs setu-staging-caddy-1` as setu); `ready:false` names db / redis / pdf — `docker logs` of that container,
   then `docker restart` it. If the whole VPS is down, every SocioFi site is: whoever runs the VPS first.
@@ -1428,6 +1431,8 @@ paste them into chat or git.
       classes (OTC / Rx / controlled) of the demo list (`packages/domain/src/pharmacy.ts`, all `sample`); whether
       controlled drugs need a register entry or a second check; substitution rules (same ingredients, strength and form)
       and the dose-label wording.
+    - **Lab withdrawal (open question 322, Kamrul 09/10/2026):** whether "was the sample the problem?" is asked before a
+      released report is withdrawn, which needs finished tubes to be re-runnable (SPECIMEN `done → in-process`).
 13. **ER fee and ER billing rules** (Kamrul, 05/10/2026, decision 244): an ER visit discharged home is billed like an OPD
     visit until the owner and the accountant decide the ER fee, what the ER bill carries (bay, drugs, procedures) and
     how an admitted patient's ER charges move to the IPD bill. Pre-pilot, with gap 12.
@@ -1462,8 +1467,9 @@ paste them into chat or git.
    07/10/2026, and gap 10's encrypted device drafts / outbox (option b). ~~Decision 321~~ (08/10/2026).
    **Week 2 staging:** ~~session 1~~ (08/10/2026, ADR 0019: builds, images, compose, S3, config, jobs, deploy).
    ~~session 2~~ (08/10/2026): staging live at https://setu.sociofitechnology.com on the shared SocioFi VPS.
-   **Next:** ~~(1) the alarms~~ and off-server backups: both deferred to production by Kamrul 09/10/2026 (ADR 0019 —
-   staging has no alarms; check `/api/ready` and `/api/health/jobs/ok` by hand; WAL-G installed, archiving off); ~~(2) the queue and the worklists~~ (08/10/2026, c9246a0: active complete, latest 20 closed; rerun met p95 < 1 s); (3) the lab worklist query; (4) review section C. Later, with the dedicated host and the
+   **Next:** ~~(1) the alarms~~ — live 09/10/2026 (UptimeRobot on `/api/ready` and `/api/health/jobs/ok`, one fired on
+   purpose; ADR 0019); off-server backups deferred to production by Kamrul 09/10/2026 (WAL-G installed, archiving off,
+   no R2 — ask before any R2 work); ~~(2) the queue and the worklists~~ (08/10/2026, c9246a0: active complete, latest 20 closed; rerun met p95 < 1 s); (3) the lab worklist query; (4) review section C. Later, with the dedicated host and the
    product's own domain: `HOSTING_REGION` near Bangladesh, off-server backups, GHCR images, error tracking, smaller
    api / tools images.
 9. **Phase 4 (Journeys D and E):** ~~D1–D3~~ (09/10/2026, ADR 0020) · D4–D6 (ADR 0021) · E1–E2 (ADR 0022) · E3–E4
