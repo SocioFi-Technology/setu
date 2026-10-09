@@ -60,6 +60,20 @@ const codeOf = async (patientId: string) => {
 };
 const wrongFor = (right: string) => (right.startsWith("2") ? "3" : "2") + right.slice(1);
 
+describe.runIf(db)("the dev / staging sign-in code route (ADR 0021)", () => {
+  it("reads the code from the shared store (any API replica answers), 404 when none was sent, 400 for a non-phone", async () => {
+    const other = `017${String(randomInt(0, 1e8)).padStart(8, "0")}`;
+    expect((await app.inject({ method: "GET", url: `/v1/dev/patient-otp?phone=${other}` })).statusCode).toBe(404);
+    await app.inject({ method: "POST", url: "/v1/patient/otp", remoteAddress: IP, payload: { phone: other, lang: "bn" } });
+    const sent = fakeMessenger()!.log("network").filter((m) => m.to === other).at(-1)!.text.match(/\d{6}/)![0];
+    // the code the API keeps for sign-in (shared by the replicas), not a replica's fake-gateway log
+    expect(String(await counters().get(`potp:code:${other.slice(1)}`))).toBe(sent);
+    expect((await app.inject({ method: "GET", url: `/v1/dev/patient-otp?phone=${other}` })).json()).toEqual({ code: sent });
+    expect((await app.inject({ method: "GET", url: "/v1/dev/patient-otp?phone=abc" })).statusCode).toBe(400);
+    await counters().del(`potp:send:${other.slice(1)}`, `potp:code:${other.slice(1)}`);
+  });
+});
+
 describe.runIf(db)("D1 sign-in with an SMS code", () => {
   it("a code is sent with a fixed template; a wrong code counts down; the right one signs in and sets the patient cookie only", async () => {
     const s = await app.inject({ method: "POST", url: "/v1/patient/otp", remoteAddress: IP, payload: { phone: PHONE, lang: "en" } });

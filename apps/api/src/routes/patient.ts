@@ -4,6 +4,7 @@ import { ClaimProofRequest, OtpRequest, PatientSignInRequest, ShareCreate, Timel
 import { z } from "zod";
 import { config } from "../config.js";
 import { fakeMessenger } from "../adapters/messaging/index.js";
+import { counters } from "../adapters/counters.js";
 import { err } from "../errors.js";
 import { accessLog, listClaims, notMine, patientMe, patientPdf, patientReport, proveClaim, sendOtp, timeline, verifyOtp } from "../modules/patient.js";
 import { createShare, directory, listShares, revokeShare } from "../modules/share.js";
@@ -79,10 +80,12 @@ export async function patientRoutes(app: FastifyInstance) {
   if (fakeMessenger() && config.patientOtpDevRoute) {
     app.get("/v1/dev/patient-otp", async (req) => {
       const phone = String((req.query as { phone?: string }).phone ?? "");
-      const m = fakeMessenger()!.log("network").filter((x) => x.to === phone && x.messageId.startsWith("potp_")).at(-1);
-      const code = m?.text.match(/\d{6}/)?.[0] ?? null;
+      if (!/^01[3-9]\d{8}$/.test(phone)) throw err(400, "validation", "ফোন নম্বর ঠিক নয়", "Not a phone number", { field: "phone" });
+      // the code as stored for sign-in (Redis, shared by the API replicas — the fake gateway's log is per replica, so
+      // staging's two replicas found it only half the time)
+      const code = await counters().get(`potp:code:${phone.slice(1)}`);
       if (!code) throw err(404, "not_found", "কোড নেই", "No code sent");
-      return { code };
+      return { code: String(code) };
     });
   }
 }
