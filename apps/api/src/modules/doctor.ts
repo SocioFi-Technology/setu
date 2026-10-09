@@ -15,7 +15,7 @@ import { smsPhone, smsText } from "./lab.js";
 
 const dash = <T extends string>(s: string) => s.replace(/_/g, "-") as T;
 type RangeLabel = "adult" | "adult-female" | "adult-male";
-const INBOX_KINDS: InboxKind[] = ["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital", "substitution-notice", "return-notice", "news2-escalation", "discharge-remind", "portable-declined"];
+const INBOX_KINDS: InboxKind[] = ["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital", "substitution-notice", "return-notice", "news2-escalation", "discharge-remind", "portable-declined", "portable-result"];
 const MAX_ITEMS = 200;
 
 function requireDoctor(s: SessionData) {
@@ -45,6 +45,10 @@ async function toItems(tx: Tx, s: SessionData, rows: Row[], now: Date): Promise<
   const declinedSr = rows.filter((r) => r.kind === "portable-declined" && r.serviceRequestId).map((r) => r.serviceRequestId!);
   const portableItems = declinedSr.length ? await tx.portableOrderItem.findMany({ where: { originServiceRequestId: { in: declinedSr }, status: "declined" }, include: { order: true }, orderBy: { id: "asc" } }) : [];
   const PI = new Map(portableItems.map((i) => [i.originServiceRequestId, i]));
+  // ADR 0023: a result is out for a portable order — the order that test belongs to (the latest released)
+  const resultSr = rows.filter((r) => r.kind === "portable-result" && r.serviceRequestId).map((r) => r.serviceRequestId!);
+  const resultItems = resultSr.length ? await tx.portableOrderItem.findMany({ where: { originServiceRequestId: { in: resultSr }, order: { releasedAt: { not: null } } }, include: { order: true }, orderBy: { id: "asc" } }) : [];
+  const PR = new Map(resultItems.map((i) => [i.originServiceRequestId, i]));
   // substitution notices (ADR 0009): the dispense, the line the doctor wrote and who gave what
   const dispenses = await tx.medicationDispense.findMany({ where: { id: { in: ids("dispenseId") } } });
   const [prescribedRows, dispensers] = await Promise.all([
@@ -95,7 +99,7 @@ async function toItems(tx: Tx, s: SessionData, rows: Row[], now: Date): Promise<
       report: r ? { id: r.id, number: r.number, version: r.version, status: r.status, superseded, testCount: r.testCount, pendingCount: r.pendingCount, results } : null,
       test: order ? { nameEn: order.nameEn, nameBn: order.nameBn } : null,
       portable: (() => {
-        const i = kind === "portable-declined" && c.serviceRequestId ? PI.get(c.serviceRequestId) : undefined;
+        const i = c.serviceRequestId ? (kind === "portable-declined" ? PI.get(c.serviceRequestId) : kind === "portable-result" ? PR.get(c.serviceRequestId) : undefined) : undefined;
         return i ? { orderId: i.orderId, number: i.order.number, centreEn: i.order.centreFacilityEn, centreBn: i.order.centreFacilityBn, reason: i.declineReason, notOffered: i.notOffered, reorderable: !i.reorderedToId } : null;
       })(),
       vital: vObs ? { code: vObs.code, value: vObs.value, unit: vObs.unit, flag: (vObs.interpretation ?? null) as Interpretation | null } : null,
@@ -168,7 +172,9 @@ export async function acknowledge(tx: Tx, s: SessionData, id: string, req: AckRe
   }
   await tx.inboxAck.create({ data: { tenantId: s.tenantId, communicationId: c.id, ackedById: s.userId, ackedAt: now, notifyPatient: req.notifyPatient, notifyCommunicationId: smsId } });
   // escalation reach: a doctor's acknowledgement of a NEWS2 escalation item acknowledges the open escalation
-  const escAudit = c.kind === "news2-escalation" && c.encounterId ? await (await import("./ward.js")).acknowledgeEscalation(tx, s, c.encounterId!, now) : [];
+  const escAudit = c.kind === "news2-escalation" && c.encounterId ? await (await import("./ward.js")).acknowledgeEscalation(tx, s, c.encounterId!, now)
+    // ADR 0023: a portable order's result acknowledged — the order is received, the patient told
+    : c.kind === "portable-result" && c.serviceRequestId ? await (await import("./portable.js")).receivedByDoctor(tx, s, c.serviceRequestId, now) : [];
   const [after] = await loadRows(tx, s, { id });
   const [item] = await toItems(tx, s, [after!], now);
   return {

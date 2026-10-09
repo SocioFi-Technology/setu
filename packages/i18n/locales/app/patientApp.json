@@ -216,5 +216,14 @@
   "tests_offer": ["{of}টির মধ্যে {n}টি · রিপোর্ট {tat} ঘণ্টায়", "{n} of {of} tests · report in {tat} h"],
   "tests_missing": ["হয় না: {tests}", "Not offered: {tests}"],
   "tests_home_fee": ["বাড়ি থেকে নমুনা {fee} সহ", "incl. home collection {fee}"],
-  "tests_choose": ["এই কেন্দ্র বাছুন", "Choose this centre"]
+  "tests_choose": ["এই কেন্দ্র বাছুন", "Choose this centre"],
+  "po_step_collected": ["নমুনা নেওয়া হয়েছে", "Sample collected"],
+  "po_step_released": ["ফলাফল প্রকাশ", "Result released"],
+  "po_step_received": ["ডাক্তার দেখেছেন", "Your doctor has seen it"],
+  "tests_bill": ["বিল: {total} · পরিশোধ {paid}", "Bill: {total} · paid {paid}"],
+  "tests_bill_pending": ["আনুমানিক: {total} — কেন্দ্র বিল করবে", "About {total} — the centre will bill it"],
+  "tests_pay_bkash": ["বিকাশে পরিশোধ করুন", "Pay with bKash"],
+  "tests_pay_centre": ["কেন্দ্রে গিয়ে পরিশোধ করুন", "Pay at the centre"],
+  "tests_paid": ["পরিশোধ হয়েছে", "Paid"],
+  "tests_result_ready": ["ফলাফল এসেছে — আপনার ইতিহাসে দেখুন", "Your result is ready — see it in your history"]
 }

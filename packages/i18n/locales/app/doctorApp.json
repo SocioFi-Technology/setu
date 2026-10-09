@@ -309,5 +309,7 @@
   ],
   "k_portable_declined": ["{centre} {test} ফেরত দিয়েছে: {reason}", "{centre} declined {test}: {reason}"],
   "k_portable_not_offered": ["{centre}-এ {test} হয় না", "{test} is not offered at {centre}"],
-  "open_portable": ["অর্ডার {number} — অন্য কেন্দ্রে পাঠান", "Order {number} — re-order elsewhere"]
+  "open_portable": ["অর্ডার {number} — অন্য কেন্দ্রে পাঠান", "Order {number} — re-order elsewhere"],
+  "k_portable_result": ["{centre}-এর ফলাফল এসেছে · অর্ডার {number}", "Result from {centre} · order {number}"],
+  "open_portable_result": ["ফলাফল দেখুন", "Open the result"]
 }

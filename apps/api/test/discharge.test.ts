@@ -201,8 +201,14 @@ describe.runIf(db)("B12: LAMA and a death on the ward", () => {
     ok(await c.post(`/v1/ipd/bills/${a.admissionId}/issue`, {}, "cashier"));
     v = await view(a.admissionId);
     expect(v.admission.visitFinished).toBe(true); expect(step(v, "summary")).toBe("in-progress");
-    const dues = ok(await c.get("/v1/owner/drill?period=today&what=ipdOutcomeDues", "owner"));
-    expect(dues.rows.some((r: { patient: { id: string } | null }) => r.patient?.id === a.patientId)).toBe(true);
+    // the list is every facility's open outcome dues, oldest first, a page at a time: follow the pages to this patient
+    let found = false;
+    for (let cursor: string | null = null, n = 0; !found && n < 20; n++) {
+      const dues: { rows: { patient: { id: string } | null }[]; nextCursor: string | null } = ok(await c.get(`/v1/owner/drill?period=today&what=ipdOutcomeDues${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, "owner"));
+      found = dues.rows.some((r) => r.patient?.id === a.patientId);
+      cursor = dues.nextCursor; if (!cursor) break;
+    }
+    expect(found).toBe(true);
     ok(await sign(await draftSummary(a.admissionId, { medicines: [] })));
     expect(step(await view(a.admissionId), "summary")).toBe("done");
   }, 60_000);

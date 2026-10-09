@@ -20,7 +20,7 @@ let app: Awaited<ReturnType<typeof buildApp>>;
 const RUN = randomUUID().slice(0, 6);
 const IP = `10.${randomInt(0, 255)}.${randomInt(0, 255)}.${randomInt(1, 255)}`;
 const PHONE = `019${String(randomInt(0, 1e8)).padStart(8, "0")}`, PH = PHONE.slice(1);
-const USERS = { desk: "01799000001", doctor: "01799000002", tech: "01799000005", cashier: "01799000008", liteTech: "01798000006", liteDoctor: "01798000002", glTech: "01711000005" } as const;
+const USERS = { desk: "01799000001", doctor: "01799000002", tech: "01799000005", cashier: "01799000008", liteCashier: "01798000008", liteTech: "01798000006", liteDoctor: "01798000002", glTech: "01711000005" } as const;
 type Who = keyof typeof USERS;
 const staff: Partial<Record<Who, string>> = {};
 let cookie = "", patientId = "", enc = "", orderId = "";
@@ -137,6 +137,11 @@ describe.runIf(db)("E2 the chosen centre accepts part", () => {
     expect(centre.p).toMatchObject({ nameBn: "নাসরিন আক্তার", sex: "female", phone: PH, nid: null, addressLine: null });
     expect(centre.srs.map((r) => [r.testCode, r.status, r.performer])).toEqual([["cbc", "active", "in-house"]]);
     expect((await spost(`/v1/network-orders/${orderId}/decide`, { items: [{ itemId: cbc.id, accept: true }] }, "liteTech")).statusCode).toBe(409);
+  });
+  it("the centre's bill (E3): the accepted test at its price and the home collection fee — no consultation", async () => {
+    const enc = await db!.forTenant("t_e2e_lite", async (tx) => (await tx.portableOrder.findFirstOrThrow({ where: { id: orderId } })).centreEncounterId!);
+    const bill = ok<{ lines: { code: string; unitPaisa: number | null }[] }>(await spost(`/v1/encounters/${enc}/invoice`, {}, "liteCashier"), 201);
+    expect(bill.lines.map((l) => [l.code, l.unitPaisa])).toEqual([["desk:home-collection", 20_000], ["test:cbc", expect.any(Number)]]);
   });
   it("the ordering doctor's inbox names each declined test, the centre and the reason", async () => {
     const inbox = ok<{ items: { kind: string; test: { nameEn: string } | null; portable: { number: string; centreEn: string | null; reason: string | null; notOffered: boolean } | null }[] }>(await sget("/v1/doctor/inbox", "doctor"));

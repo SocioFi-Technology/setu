@@ -94,6 +94,12 @@ export async function nextPortableNumber(tx: Tx): Promise<number> {
   return Number(rows[0]!.n);
 }
 
+/** ADR 0023: the one person linked to a record (claims are per tenant — SECURITY DEFINER), or null */
+export async function personOfRecord(tenantId: string, patientId: string): Promise<string | null> {
+  const rows = await prisma.$queryRaw<{ p: string | null }[]>`SELECT person_of_record(${tenantId}::text, ${patientId}::text) AS p`;
+  return rows[0]?.p ?? null;
+}
+
 export interface LoginCandidate {
   id: string; tenantId: string; nameBn: string; nameEn: string; phone: string | null; email: string | null; passwordHash: string;
   plan: "clinic" | "lite" | "pro"; roles: { organizationId: string; organizationName: string; role: string }[];

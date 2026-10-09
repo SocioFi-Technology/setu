@@ -318,10 +318,17 @@ export async function createInvoice(tx: Tx, s: SessionData, encounterId: string,
   const orders = await tx.serviceRequest.findMany({ where: { encounterId: e.id, status: { in: [...BILLED_ORDER_STATES] }, performer: "in-house" }, orderBy: { createdAt: "asc" } });
   const doctor = e.practitionerId ? await tx.user.findFirst({ where: { id: e.practitionerId }, select: { nameBn: true, nameEn: true } }) : null;
   const consult = e.practitionerId ? byCode.get(`consult:${e.practitionerId}`) : undefined;
+  // ADR 0023: a network-order visit (a centre doing another facility's portable order) is lab only — no consultation;
+  // home collection, when chosen, at the fee fixed on the order
+  const network = await tx.composition.findFirst({ where: { encounterId: e.id, kind: "network-order" }, select: { sections: true } });
+  const portableId = (network?.sections as { portableOrderId?: string } | null)?.portableOrderId;
+  const portableOrder = portableId ? await tx.portableOrder.findFirst({ where: { id: portableId }, select: { homeFeePaisa: true } }) : null;
   const lines = [
-    { source: "consultation" as const, sourceId: e.id, definitionId: consult?.id ?? null, code: consult?.code ?? "consult",
+    ...(network ? [] : [{ source: "consultation" as const, sourceId: e.id, definitionId: consult?.id ?? null, code: consult?.code ?? "consult",
       nameEn: consult?.nameEn ?? `Consultation · ${doctor?.nameEn ?? "—"}`, nameBn: consult?.nameBn ?? `পরামর্শ ফি · ${doctor?.nameBn ?? "—"}`,
-      unitPaisa: consult?.unitPaisa ?? null, vatRateBp: consult?.vatRateBp ?? 0 },
+      unitPaisa: consult?.unitPaisa ?? null, vatRateBp: consult?.vatRateBp ?? 0 }]),
+    ...(portableOrder && portableOrder.homeFeePaisa > 0 ? [{ source: "desk" as const, sourceId: null, definitionId: null, code: "desk:home-collection",
+      nameEn: "Home sample collection", nameBn: "বাড়ি থেকে নমুনা সংগ্রহ", unitPaisa: portableOrder.homeFeePaisa, vatRateBp: 0 }] : []),
     ...orders.map((o) => {
       const d = byCode.get(`test:${o.testCode}`);
       return { source: "order" as const, sourceId: o.id, definitionId: d?.id ?? null, code: d?.code ?? `test:${o.testCode}`, nameEn: d?.nameEn ?? o.nameEn, nameBn: d?.nameBn ?? o.nameBn, unitPaisa: d?.unitPaisa ?? null, vatRateBp: d?.vatRateBp ?? 0 };

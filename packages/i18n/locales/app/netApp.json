@@ -84,5 +84,9 @@
   "po_reason_ph": ["কারণ — ডাক্তার ও রোগী দেখবেন (অন্তত ১০ অক্ষর)", "Reason — the doctor and the patient see it (at least 10 characters)"],
   "po_not_offered_note": ["এই প্রতিষ্ঠানে হয় না বলে ফেরত যাবে: {tests}", "Declined as not offered here: {tests}"],
   "po_send_decision": ["সিদ্ধান্ত পাঠান", "Send the decision"],
-  "po_reason_rule": ["ফেরত দেওয়া প্রতিটি পরীক্ষার কারণ অন্তত ১০ অক্ষর", "Each declined test needs a reason of at least 10 characters"]
+  "po_reason_rule": ["ফেরত দেওয়া প্রতিটি পরীক্ষার কারণ অন্তত ১০ অক্ষর", "Each declined test needs a reason of at least 10 characters"],
+  "po_view_result": ["কেন্দ্রের ফলাফল দেখুন", "View the centre's result"],
+  "po_step_collected": ["নমুনা নেওয়া হয়েছে", "Sample collected"],
+  "po_step_released": ["ফলাফল প্রকাশ", "Result released"],
+  "po_step_received": ["ডাক্তার দেখেছেন", "Received by the doctor"]
 }

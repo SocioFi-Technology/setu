@@ -119,6 +119,11 @@ function InboxCard({ item: x, queued, busy, onAck }: { item: InboxItem; queued: 
       {x.kind === "results-withdrawn" && <span>{D("k_withdrawn", { test: testName })}</span>}
       {x.kind === "order-cancelled" && <span>{D("k_cancelled", { test: testName })}</span>}
       {/* ADR 0022: a network centre declined a test of a portable order — re-order it elsewhere from the order */}
+      {/* ADR 0023: the centre's result for a portable order — open it through the order; acknowledging tells the patient */}
+      {x.kind === "portable-result" && x.portable && (
+        <span data-testid="portable-result">{D("k_portable_result", { centre: (s.lang === "bn" ? x.portable.centreBn ?? x.portable.centreEn : x.portable.centreEn) ?? "", number: x.portable.number })}{" "}
+          <a className="t-small" href={`/m/net/lab?order=${encodeURIComponent(x.portable.orderId)}`} data-testid="open-portable-result">{D("open_portable_result")}</a></span>
+      )}
       {x.kind === "portable-declined" && x.portable && (
         <span data-testid="portable-declined">{x.portable.notOffered
           ? D("k_portable_not_offered", { test: testName, centre: (s.lang === "bn" ? x.portable.centreBn ?? x.portable.centreEn : x.portable.centreEn) ?? "" })

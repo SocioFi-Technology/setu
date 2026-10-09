@@ -36,13 +36,18 @@ type Step = { encounterId: string; audit: AuditEntry[]; dispatch?: string[] };
     queued SMS are sent after the commit and their new state merged into the answer. */
 async function labWrite(req: FastifyRequest, reply: Parameters<typeof command>[1], purpose: string, fn: (tx: Tx, s: SessionData, now: Date) => Promise<Step>, opts: { status?: number; hashOmit?: string[] } = {}): Promise<LabVisitView> {
   let dispatch: string[] = [];
+  let encounterId: string | null = null;
   const out = await command(req, reply, async (tx, s) => {
     const now = new Date();
     const r = await fn(tx, s, now);
+    // ADR 0023: only a network-order visit has progress to record (checked here, in the write's own transaction)
+    if (r.encounterId && await tx.composition.count({ where: { encounterId: r.encounterId, kind: "network-order" } })) encounterId = r.encounterId;
     const v = await labVisitView(tx, s, r.encounterId, now);
     return { status: opts.status ?? 200, body: { view: v.view, dispatch: r.dispatch ?? [] }, audit: [...r.audit, viewAudit(v, purpose)] };
   }, { hashOmit: opts.hashOmit });
   dispatch = out.dispatch;
+  // ADR 0023: a network-order visit's progress (collected, released) reaches its portable order and the ordering doctor
+  if (encounterId) { const { progressAfterLab } = await import("../modules/portable.js"); await progressAfterLab(requireSession(req).tenantId, encounterId, new Date()).catch((e) => req.log.error({ err: e }, "portable: progress not recorded")); }
   if (!dispatch.length) return out.view;
   // The write has committed: a sending problem never turns it into an error (security review M3). A message that could
   // not be sent stays queued / in progress, and Retry picks it up.

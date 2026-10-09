@@ -2896,6 +2896,14 @@ model PortableOrder {
   centrePatientId      String?
   centreEncounterId    String?
   reorderOfId          String?
+  /// E3 (ADR 0023): the home collection fee fixed at the choice; the progress — collected, released (the centre's
+  /// report), received (the ordering doctor's acknowledgement)
+  homeFeePaisa         Int                 @default(0)
+  collectedAt          DateTime?
+  releasedAt           DateTime?
+  resultReportId       String?
+  receivedAt           DateTime?
+  receivedById         String?
   createdAt            DateTime            @default(now())
   items                PortableOrderItem[] @relation("items")
 

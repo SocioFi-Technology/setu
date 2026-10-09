@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); week 2 staging sessions 1–2 done (08/10/2026, staging live); Phase 4 slice D1–D3 done (09/10/2026, the patient app); D4–D6 done (09/10/2026: report, share, who viewed; the patient app on staging); gap 16 fixed; E1–E2 done (09/10/2026: the portable lab order); next: see Next)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); week 2 staging sessions 1–2 done (08/10/2026, staging live); Phase 4 slice D1–D3 done (09/10/2026, the patient app); D4–D6 done (09/10/2026: report, share, who viewed; the patient app on staging); gap 16 fixed; E1–E2 done (09/10/2026: the portable lab order); E3 done (10/10/2026: results back); next: see Next)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -1426,6 +1426,27 @@ reason.
 - **Follow-ups:** E3 (payment — bKash / Nagad / at the centre; results back to the doctor and the patient); revoking a
   portable order; real distance; non-Setu centres; the centre's duplicate review for network-origin records.
 
+## Done (Phase 4 slice E3, 10/10/2026) — results back across facilities ✅
+ADR 0023 (E3 and E4's decisions; E4 is next). Kamrul 10/10/2026: bKash link + pay at the centre (Nagad later); the
+centre's record linked to the same person automatically; (E4: sensitive sample list, never shared; blood group field;
+current medicines rule).
+- **Migration** `20261010090000_portable_results`: the order's progress (`collectedAt`, `releasedAt` + `resultReportId`,
+  `receivedAt` / `receivedById`, set once and in order by the guard), `homeFeePaisa` fixed at the choice; SECURITY
+  DEFINER `person_of_record()`.
+- **API:** accepting finishes the centre's lab-only visit and links its record to the person (claim method
+  `network-order`); the centre's bill has no consultation line and carries the home collection fee; after each lab
+  write at a network-order visit the order records collected / released and a release tells the ordering doctor
+  (`portable-result` inbox item) and the patient (app) as the ordering facility's system actor;
+  `GET /v1/portable-orders/:id/report` (the centre's report through the order only, audited at the centre, basis
+  `portable-order`); acknowledging the inbox item marks the order received and tells the patient; the patient's order
+  list carries the centre's bill (total, paid, the live bKash link the centre sent).
+- **Screens:** the inbox's result line → the order → "View the centre's result"; the tracker's collected / released /
+  received steps (staff and app); the patient app's bill ("Pay with bKash" or "pay at the centre") and "your result is
+  ready".
+- **Tests:** API `portable-results.test.ts` (5: the finished visit and the linked person, the bill and the bKash link,
+  collected / released / inbox, the report through the order only + the centre's audit, acknowledge → received + the
+  patient's history) and a home-collection bill test in `portable.test.ts`; `journey-e` now E1–E3.
+
 ## On call (staging) — https://setu.sociofitechnology.com (the shared SocioFi VPS, ADR 0019 addendum)
 **Where things are** (`ssh -l setu sociofi` — the `setu` user runs Setu in **its own rootless Docker daemon**: plain
 `docker` as setu sees Setu's containers, the VPS's shared `docker` group does not; every Setu container is compose
@@ -1557,7 +1578,7 @@ paste them into chat or git.
    product's own domain: `HOSTING_REGION` near Bangladesh, off-server backups, GHCR images, error tracking, smaller
    api / tools images.
 9. **Phase 4 (Journeys D and E):** ~~D1–D3~~ (09/10/2026, ADR 0020) · ~~D4–D6~~ (09/10/2026, ADR 0021) · ~~E1–E2~~ (09/10/2026, ADR 0022) ·
-   E3–E4 (ADR 0023); the desk-proof confirm screen.
+   ~~E3~~ (10/10/2026, ADR 0023) · E4 (ADR 0023); the desk-proof confirm screen.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

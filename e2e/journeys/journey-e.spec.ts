@@ -1,14 +1,16 @@
 import { expect, test, type APIRequestContext, type Browser } from "@playwright/test";
-/* Journey E1–E2 (ADR 0022) — the portable lab order across three facilities and the patient app:
+/* Journey E1–E3 (ADR 0022, 0023) — the portable lab order across three facilities and the patient app:
    the E2E clinic's doctor orders CBC, HbA1c and USG for "a network centre the patient picks"; the patient (390 px) sees
    the centres and chooses the E2E Lite Hospital with home collection (it does not do USG); the Lite technologist
    accepts CBC and declines HbA1c with a reason (USG goes back as not offered there); the doctor's inbox shows the
    declines and opens the order, where the doctor re-orders them elsewhere; the clinic's desk chooses Green Life for the
-   patient (who has the app, but the desk can); the patient sees both outcomes. The order and the patient's sign-in are
-   made through the API; every decision is made on the screens. */
+   patient (who has the app, but the desk can); the patient sees both outcomes. E3: Green Life takes the re-order, works
+   the sample and bills it with a bKash link; the patient sees the bill and the result; the doctor opens the centre's
+   result from the inbox and acknowledges it; the patient sees it received. The order, the patient's sign-in and the
+   centre's lab and cashier steps go through the API; the decisions people make are made on the screens. */
 const PATIENT = process.env.PATIENT_URL ?? "http://localhost:3001";
 const STAFF = process.env.STAFF_URL ?? "http://localhost:3000";
-const DESK = "01799000001", DOCTOR = "01799000002", CASHIER = "01799000008", LITE_TECH = "01798000006";
+const DESK = "01799000001", DOCTOR = "01799000002", CASHIER = "01799000008", LITE_TECH = "01798000006", GL_TECH = "01711000005", GL_PATH = "01711000006", GL_CASHIER = "01711000008";
 const key = () => ({ "idempotency-key": crypto.randomUUID() });
 async function as(request: APIRequestContext, phone: string) {
   const r = await request.post("/api/v1/auth/login", { data: { identifier: phone, password: "setu1234" } });
@@ -29,7 +31,7 @@ async function staffPage(browser: Browser, phone: string) {
   return { ctx, page };
 }
 
-test("@phone Journey E1–E2: a portable lab order — the patient picks a centre, the centre accepts part, the doctor re-orders, the desk picks for the patient", async ({ page, request, browser }) => {
+test("@phone Journey E1–E3: a portable lab order — the patient picks a centre, the centre accepts part, the doctor re-orders, the desk picks for the patient, the result comes back", async ({ page, request, browser }) => {
   test.setTimeout(300_000);
   const run = Math.random().toString(36).slice(2, 7);
   const phone = `019${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}`;
@@ -127,4 +129,54 @@ test("@phone Journey E1–E2: a portable lab order — the patient picks a centr
   const again = page.locator(`section[aria-label="${second}"]`);
   await expect(again).toHaveAttribute("data-portable", "centre-chosen");
   await expect(again).toContainText("গ্রিন লাইফ ক্লিনিক");
+
+  // E3 — Green Life accepts both, collects, releases; its cashier bills and sends the bKash link (the API)
+  type LV = { specimens: { id: string; status: string }[]; orders: { id: string; testCode: string; results: { id: string }[] }[]; release: { observationIds: string[] } };
+  await as(request, GL_TECH);
+  const glOrders = (await (await request.get("/api/v1/network-orders")).json()) as { items: { id: string; number: string; items: { id: string }[] }[] };
+  const glOrder = glOrders.items.find((x) => x.number === second)!;
+  await post(request, `/v1/network-orders/${glOrder.id}/decide`, { items: glOrder.items.map((i) => ({ itemId: i.id, accept: true })) });
+  const enc = ((await (await request.get(`/api/v1/network-orders/${glOrder.id}`)).json()) as { centreVisitId: string | null }).centreVisitId;
+  expect(enc, "the centre's visit for the order").toBeTruthy();
+  let lv = await post<LV>(request, `/v1/lab/visits/${enc}/labels`, {});
+  for (const sp of lv.specimens.filter((x) => x.status === "pending")) for (const step of ["collect", "receive", "start"]) await post(request, `/v1/lab/specimens/${sp.id}/${step}`, { at: new Date().toISOString() });
+  lv = (await (await request.get(`/api/v1/lab/visits/${enc}`)).json()) as LV;
+  const VALUES: Record<string, [string, string][]> = { hba1c: [["hba1c", "7.4"]], usgwa: [] };
+  for (const o of lv.orders.filter((x) => VALUES[x.testCode]?.length)) await post(request, `/v1/lab/orders/${o.id}/results`, { entries: VALUES[o.testCode]!.map(([analyteCode, value]) => ({ analyteCode, value })) }, 201);
+  lv = (await (await request.get(`/api/v1/lab/visits/${enc}`)).json()) as LV;
+  lv = await post<LV>(request, `/v1/lab/visits/${enc}/verify`, { pin: "1234", observationIds: lv.orders.flatMap((o) => o.results.map((r) => r.id)), deltaChecked: true });
+  await as(request, GL_PATH);
+  lv = await post<LV>(request, `/v1/lab/visits/${enc}/validate`, { pin: "1234", observationIds: lv.orders.flatMap((o) => o.results.map((r) => r.id)) });
+  await post(request, `/v1/lab/visits/${enc}/release`, { observationIds: lv.release.observationIds }, 201);
+  await as(request, GL_CASHIER);
+  const glBill = await post<{ invoice: { id: string; rev: number; totalPaisa: number } }>(request, `/v1/encounters/${enc}/invoice`, {}, 201);
+  await post(request, `/v1/invoices/${glBill.invoice.id}/issue`, { rev: glBill.invoice.rev });
+  const shift = (await (await request.get("/api/v1/shifts/mine")).json()) as { shift: { status: string } | null };
+  if (!shift.shift || shift.shift.status !== "open") await post(request, "/v1/shifts", { openingFloatPaisa: 100_000 }, 201);
+  await post(request, `/v1/invoices/${glBill.invoice.id}/payments`, { method: "bkash", amountPaisa: glBill.invoice.totalPaisa }, 201);
+
+  // the patient: the bill with the bKash link, and the result is out
+  await page.reload();
+  await expect(again.locator("[data-bill]")).toContainText("বিকাশে পরিশোধ করুন");
+  await expect(again.getByRole("link", { name: "বিকাশে পরিশোধ করুন" })).toHaveAttribute("href", /\/p\/[A-Za-z0-9_-]+$/);
+  await expect(again.locator("[data-result-ready]")).toBeVisible();
+
+  // the ordering doctor: the result in the inbox → the order → the centre's report; acknowledged
+  const doc2 = await staffPage(browser, DOCTOR);
+  await doc2.page.goto("/m/doc/inbox");
+  const result = doc2.page.locator('[data-kind="portable-result"]').filter({ hasText: second });
+  await expect(result.first()).toBeVisible();
+  await result.first().getByTestId("ack-seen").click();
+  await expect(result.first()).toHaveAttribute("data-acked", "server");
+  await result.first().getByTestId("open-portable-result").click();
+  await expect(doc2.page.locator('[data-testid="portable-detail"]')).toHaveAttribute("data-status", "accepted", { timeout: 30_000 });
+  await doc2.page.getByTestId("po-result").click();
+  await expect(doc2.page.locator('[data-testid="shared-report"] tr[data-analyte="hba1c"]')).toContainText("H");
+  await expect(doc2.page.locator('[data-testid="portable-detail"]')).toContainText("Received by the doctor");
+  await doc2.ctx.close();
+
+  // the patient sees it received
+  await page.reload();
+  await again.locator("summary").click();
+  await expect(again).toContainText("ডাক্তার দেখেছেন");
 });

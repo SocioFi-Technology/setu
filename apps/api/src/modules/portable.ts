@@ -8,7 +8,7 @@
    The rules are @setu/domain portable.ts; PortableOrder's row-level security lets each party see only its own. */
 import { randomUUID } from "node:crypto";
 import type { CentreDecisionRequest, CentreOffers, ChooseCentreRequest, PortableOrderView } from "@setu/contracts";
-import { ORDER, TESTS_SAMPLE, centreOffer, decideOrder, chooseCentreProblems, patientAgeYears, portableOrderNumber, reorderable, sortOffers, transition, type CentreCatalogue, type OrderState } from "@setu/domain";
+import { ENCOUNTER, ORDER, TESTS_SAMPLE, centreOffer, decideOrder, chooseCentreProblems, patientAgeYears, portableOrderNumber, reorderable, sortOffers, transition, type CentreCatalogue, type OrderState } from "@setu/domain";
 import type { Tx } from "@setu/db";
 import type { AuditEntry } from "../command.js";
 import { err } from "../errors.js";
@@ -24,11 +24,15 @@ const yymm = (d: Date) => d.toISOString().slice(2, 4) + d.toISOString().slice(5,
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
 /* ── the view (the tracker) ── */
-export function portableView(o: Order, viewer: "origin" | "centre" | "patient", canDecideHere = false): PortableOrderView {
+export function portableView(o: Order, viewer: "origin" | "centre" | "patient", canDecideHere = false, bill: PortableOrderView["bill"] = null): PortableOrderView {
   const status = dash<OrderState>(o.status) as PortableOrderView["status"];
   const steps: PortableOrderView["steps"] = [{ step: "ordered", at: o.createdAt.toISOString(), by: o.doctorEn }];
   if (o.chosenAt) steps.push({ step: "centre-chosen", at: o.chosenAt.toISOString(), by: o.chosenByKind === "desk" ? "desk" : "patient" });
   if (o.decidedAt) steps.push({ step: "decided", at: o.decidedAt.toISOString(), by: o.decidedByName });
+  // E3 (ADR 0023): the centre's sample, its released report, the ordering doctor's acknowledgement
+  if (o.collectedAt) steps.push({ step: "collected", at: o.collectedAt.toISOString(), by: o.centreFacilityEn });
+  if (o.releasedAt) steps.push({ step: "released", at: o.releasedAt.toISOString(), by: o.centreFacilityEn });
+  if (o.receivedAt) steps.push({ step: "received", at: o.receivedAt.toISOString(), by: o.doctorEn });
   return {
     id: o.id, number: o.number, status, createdAt: o.createdAt.toISOString(),
     origin: { facilityEn: o.originFacilityEn, facilityBn: o.originFacilityBn, doctorEn: o.doctorEn, doctorBn: o.doctorBn },
@@ -38,6 +42,7 @@ export function portableView(o: Order, viewer: "origin" | "centre" | "patient", 
     items: o.items.map((i) => ({ id: i.id, testCode: i.testCode, nameEn: i.nameEn, nameBn: i.nameBn, status: i.status as "pending" | "accepted" | "declined", declineReason: i.declineReason, notOffered: i.notOffered, unitPaisa: i.unitPaisa, reorderedToId: i.reorderedToId })),
     reorderOfId: o.reorderOfId, steps, viewer,
     canChoose: viewer !== "centre" && status === "active",
+    resultReady: o.releasedAt !== null, bill: viewer === "patient" ? bill : null, centreVisitId: viewer === "centre" ? o.centreEncounterId : null,
     canDecide: viewer === "centre" && status === "centre-chosen" && canDecideHere,
     reorderable: viewer === "origin" ? reorderable(o.items.map((i) => ({ id: i.id, status: i.status, reorderedToId: i.reorderedToId }))) : [],
   };
@@ -109,7 +114,7 @@ export async function choose(tx: Tx, orderId: string, by: { kind: "patient"; per
   const to = transition("order", ORDER, "active", "chooseCentre");
   for (const x of offer.offered) await tx.portableOrderItem.update({ where: { id: x.itemId }, data: { unitPaisa: x.unitPaisa } });
   await tx.portableOrder.update({ where: { id: o.id }, data: {
-    status: under<"centre_chosen">(to), statusAt: now, centreTenantId: c.tenantId, centreOrganizationId: c.organizationId, centreFacilityEn: c.nameEn, centreFacilityBn: c.nameBn,
+    status: under<"centre_chosen">(to), statusAt: now, centreTenantId: c.tenantId, centreOrganizationId: c.organizationId, centreFacilityEn: c.nameEn, centreFacilityBn: c.nameBn, homeFeePaisa: offer.homeFeePaisa,
     collection: b.collection, chosenAt: now, chosenByKind: by.kind, chosenBy: by.kind === "patient" ? `person:${by.personId}` : by.userId,
   } });
   return { order: (await load(tx, o.id))!, audit: [{ action: "update", entity: "PortableOrder", entityId: o.id, patientId: o.originPatientId,
@@ -150,6 +155,20 @@ export async function decide(tx: Tx, s: SessionData, id: string, b: CentreDecisi
     centrePatientId = p.id;
     const v = await createVisit(tx, s, p.id, "new", now);
     centreEncounterId = v.encounter.id;
+    // a lab-only visit: nothing waits for a doctor here — started and finished at once (ENCOUNTER), so its bill can be made
+    const started = transition("encounter", ENCOUNTER, "arrived", "start"), finished = transition("encounter", ENCOUNTER, started, "finish");
+    await tx.encounter.update({ where: { id: centreEncounterId }, data: { status: under<"in_progress">(started), statusAt: now } });
+    await tx.encounter.update({ where: { id: centreEncounterId }, data: { status: under<"finished">(finished), statusAt: now } });
+    // ADR 0023 (Kamrul): the centre's record is the same person's — linked to them (the order proves it), so the result
+    // reaches their history; one record per facility as for any claim
+    const { personOfRecord } = await import("@setu/db");
+    const personId = o.chosenBy?.startsWith("person:") ? o.chosenBy.slice(7) : await personOfRecord(o.originTenantId, o.originPatientId);
+    if (personId) {
+      const claim = await tx.patientClaim.findFirst({ where: { tenantId: s.tenantId, personId } });
+      if (!claim) await tx.patientClaim.create({ data: { tenantId: s.tenantId, personId, status: "linked", method: "network-order", patientId: p.id, linkedAt: now, statusAt: now } });
+      else if (claim.status !== "linked") await tx.patientClaim.update({ where: { id: claim.id }, data: { status: "linked", method: "network-order", patientId: p.id, linkedAt: now, statusAt: now, tries: 0, lockedUntil: null } });
+      audit.push({ action: "claim", entity: "PatientClaim", patientId: p.id, detail: { method: "network-order", order: o.number, outcome: claim?.status === "linked" ? "already-linked" : "linked" } });
+    }
     const enc = (await tx.encounter.findFirstOrThrow({ where: { id: centreEncounterId } }));
     // the network order as this centre's note: drafted tests, signed by the deciding technologist → active orders
     const note = await tx.composition.create({ data: {
@@ -220,3 +239,79 @@ export async function originOrder(tx: Tx, s: SessionData, id: string): Promise<O
 export const originOrdersOf = (tx: Tx, s: SessionData, patientId: string | null) =>
   tx.portableOrder.findMany({ where: { originTenantId: s.tenantId, originOrganizationId: s.organizationId, ...(patientId ? { originPatientId: patientId } : {}) }, include: { items: { orderBy: { id: "asc" } } }, orderBy: { createdAt: "desc" }, take: 50 }) as Promise<Order[]>;
 export { load as loadPortable };
+
+/* ── E3 (ADR 0023): results back ── */
+/** after a lab write commits at a centre: a network-order visit records its progress on the order (collected; released
+    with the current report), and a new or corrected release tells the ordering doctor (inbox) and the patient (app) —
+    in the ordering facility, as its system actor. Anything else: nothing. */
+export async function progressAfterLab(tenantId: string, encounterId: string, now: Date): Promise<void> {
+  const { forTenant } = await import("@setu/db");
+  const news = await forTenant(tenantId, async (tx) => {
+    const note = await tx.composition.findFirst({ where: { encounterId, kind: "network-order" }, select: { sections: true } });
+    const orderId = (note?.sections as { portableOrderId?: string } | null)?.portableOrderId;
+    if (!orderId) return null;
+    const o = await load(tx, orderId);
+    if (!o || o.centreTenantId !== tenantId || !["accepted", "partially_accepted"].includes(o.status)) return null;
+    const srIds = o.items.map((i) => i.centreServiceRequestId).filter((x): x is string => !!x);
+    const collected = await tx.specimen.count({ where: { encounterId, status: { notIn: ["pending", "rejected"] }, orders: { some: { serviceRequestId: { in: srIds } } } } }) > 0;
+    const report = await tx.diagnosticReport.findFirst({ where: { encounterId, supersededById: null }, orderBy: { version: "desc" }, select: { id: true, releasedAt: true } });
+    const data: { collectedAt?: Date; releasedAt?: Date; resultReportId?: string } = {};
+    if ((collected || report) && !o.collectedAt) data.collectedAt = now;
+    if (report && !o.releasedAt) { data.releasedAt = report.releasedAt; data.resultReportId = report.id; }
+    else if (report && o.resultReportId !== report.id) data.resultReportId = report.id;
+    if (!Object.keys(data).length) return null;
+    await tx.portableOrder.update({ where: { id: o.id }, data });
+    return data.resultReportId ? { o, reportId: data.resultReportId, corrected: !!o.resultReportId } : null;
+  }, { system: true });
+  if (!news) return;
+  await forTenant(news.o.originTenantId, async (tx) => {
+    const o = news.o;
+    const s = { tenantId: o.originTenantId, organizationId: o.originOrganizationId, userId: (await import("@setu/db")).systemActor(o.originTenantId) } as SessionData;
+    const sr = o.items.find((i) => i.status === "accepted")?.originServiceRequestId ?? o.items[0]!.originServiceRequestId;
+    await deliverInApp(tx, s, { patientId: o.originPatientId, encounterId: o.originEncounterId }, { kind: "portable-result", channel: "doctor_inbox", recipientUserId: o.orderedById, serviceRequestId: sr }, now);
+    await deliverInApp(tx, s, { patientId: o.originPatientId, encounterId: o.originEncounterId }, { kind: "portable-result", channel: "patient_app", serviceRequestId: sr }, now);
+    await tx.auditEvent.create({ data: { tenantId: o.originTenantId, organizationId: o.originOrganizationId, userId: s.userId, action: "update", entity: "PortableOrder", entityId: o.id, patientId: o.originPatientId,
+      detail: { event: news.corrected ? "result-corrected" : "result-released", number: o.number, centre: o.centreFacilityEn } as object } });
+  }, { system: true });
+}
+
+/** the centre's report for an order, read by the ordering facility through the order itself (only that report, only
+    while the order names it) — audited at the centre too (basis portable-order) */
+export async function orderReport(tx: Tx, s: SessionData, id: string) {
+  const o = await originOrder(tx, s, id);
+  if (!o.resultReportId || !o.centreTenantId || !o.centrePatientId) throw err(404, "no_result", "এখনো ফলাফল আসেনি", "No result yet");
+  const { forTenant } = await import("@setu/db");
+  const { reportIn } = await import("./records.js");
+  const who = await tx.user.findFirst({ where: { id: s.userId }, select: { nameEn: true, nameBn: true } });
+  const core = await forTenant(o.centreTenantId, async (c) => {
+    const r = await reportIn(c, o.centrePatientId!, o.resultReportId!);
+    await c.auditEvent.create({ data: { tenantId: o.centreTenantId!, userId: s.userId, role: s.role, action: "view", entity: "DiagnosticReport", entityId: o.resultReportId!, patientId: o.centrePatientId, basis: "portable-order",
+      detail: { order: o.number, reader: { nameEn: who?.nameEn ?? s.nameEn, nameBn: who?.nameBn ?? s.nameBn, role: s.role, facilityEn: o.originFacilityEn, facilityBn: o.originFacilityBn }, readerTenantId: s.tenantId } as object } });
+    return r;
+  }, { system: true });
+  return { order: o, report: core };
+}
+
+/** the ordering doctor acknowledged the result (their inbox): the order is received; the patient is told (the app) */
+export async function receivedByDoctor(tx: Tx, s: SessionData, originServiceRequestId: string, now: Date): Promise<AuditEntry[]> {
+  const item = await tx.portableOrderItem.findFirst({ where: { originServiceRequestId, order: { originTenantId: s.tenantId, releasedAt: { not: null }, receivedAt: null } }, include: { order: true }, orderBy: { id: "desc" } });
+  if (!item) return [];
+  const o = item.order;
+  await tx.portableOrder.update({ where: { id: o.id }, data: { receivedAt: now, receivedById: s.userId } });
+  await deliverInApp(tx, s, { patientId: o.originPatientId, encounterId: o.originEncounterId }, { kind: "portable-received", channel: "patient_app", serviceRequestId: originServiceRequestId }, now);
+  return [{ action: "update", entity: "PortableOrder", entityId: o.id, patientId: o.originPatientId, detail: { event: "received", number: o.number } }];
+}
+
+/** the patient's view of the centre's bill (their linked record there): total, paid, the bKash link the centre sent */
+export async function billFor(o: Order, personId: string): Promise<PortableOrderView["bill"]> {
+  if (!o.centreTenantId || !o.centreEncounterId || !o.centrePatientId) return null;
+  const { forTenant, personOfRecord } = await import("@setu/db");
+  if ((await personOfRecord(o.centreTenantId, o.centrePatientId)) !== personId) return null;
+  const { config } = await import("../config.js");
+  return forTenant(o.centreTenantId, async (tx) => {
+    const inv = await tx.invoice.findFirst({ where: { encounterId: o.centreEncounterId!, kind: "opd", status: { notIn: ["entered_in_error", "cancelled"] } }, orderBy: { createdAt: "desc" } });
+    if (!inv) return { totalPaisa: o.items.reduce((a, i) => a + (i.status === "accepted" ? i.unitPaisa ?? 0 : 0), 0) + o.homeFeePaisa, paidPaisa: 0, status: "not-billed", homeFeePaisa: o.homeFeePaisa, payUrl: null };
+    const link = await tx.payment.findFirst({ where: { invoiceId: inv.id, method: "bkash", status: { in: ["link_sent", "waiting_customer"] }, linkCode: { not: null } }, orderBy: { createdAt: "desc" } });
+    return { totalPaisa: inv.totalPaisa, paidPaisa: inv.paidPaisa, status: inv.status, homeFeePaisa: o.homeFeePaisa, payUrl: link?.linkCode ? `${config.publicAppUrl}/p/${link.linkCode}` : null };
+  }, { system: true });
+}

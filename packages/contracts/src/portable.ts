@@ -13,7 +13,8 @@ export const PortableItemView = z.object({
   /** re-ordered elsewhere (the new order's id) */
   reorderedToId: z.string().nullable(),
 });
-export const PortableStep = z.object({ step: z.enum(["ordered", "centre-chosen", "decided", "reordered"]), at: z.string(), by: z.string().nullable() });
+/** the prototype's tracker: ordered → centre chosen → decided (accepted n/N) → collected → released → received */
+export const PortableStep = z.object({ step: z.enum(["ordered", "centre-chosen", "decided", "reordered", "collected", "released", "received"]), at: z.string(), by: z.string().nullable() });
 export const PortableOrderView = z.object({
   id: z.string(), number: z.string(), status: PortableStatus, createdAt: z.string(),
   origin: z.object({ facilityEn: z.string(), facilityBn: z.string().nullable(), doctorEn: z.string(), doctorBn: z.string() }),
@@ -27,6 +28,12 @@ export const PortableOrderView = z.object({
   steps: z.array(PortableStep),
   /** who is reading: the ordering facility, the chosen centre, or the patient (what they may do next) */
   viewer: z.enum(["origin", "centre", "patient"]),
+  /** E3: the centre's report for the order is out (the ordering facility opens it through the order) */
+  resultReady: z.boolean(),
+  /** the centre's own visit for the accepted tests (the centre's view only) */
+  centreVisitId: z.string().nullable(),
+  /** E3, the patient's view: the centre's bill — total, paid, and the bKash link the centre sent (null: pay at the centre) */
+  bill: z.object({ totalPaisa: Paisa, paidPaisa: Paisa, status: z.string(), homeFeePaisa: Paisa, payUrl: z.string().nullable() }).nullable(),
   canChoose: z.boolean(), canDecide: z.boolean(), reorderable: z.array(z.string()),
 });
 export type PortableOrderView = z.infer<typeof PortableOrderView>;

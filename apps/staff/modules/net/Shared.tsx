@@ -81,7 +81,7 @@ function Records({ consentId, onBack }: { consentId: string; onBack: () => void 
   );
 }
 
-function ReportTable({ r }: { r: SharedReportView }) {
+export function ReportTable({ r }: { r: SharedReportView }) {
   const s = useSession(); const N = useN();
   const bn = s.numerals === "bn";
   return (

@@ -11,7 +11,7 @@ import { err, forbidden } from "../errors.js";
 import { requireSession } from "../plugins/session.js";
 import { requirePerson } from "../plugins/patientSession.js";
 import { audit, personCommand } from "../modules/patient.js";
-import { centreOrder, centreQueue, choose, decide, loadPortable, offersFor, originOrder, originOrdersOf, portableView, reorder, tellOriginIn } from "../modules/portable.js";
+import { billFor, centreOrder, centreQueue, choose, decide, loadPortable, offersFor, orderReport, originOrder, originOrdersOf, portableView, reorder, tellOriginIn } from "../modules/portable.js";
 
 const id = z.string().min(1).max(64);
 const sortQ = (q: unknown) => ({ sort: (q as { sort?: string }).sort === "turnaround" ? "turnaround" as const : "price" as const, collection: (q as { collection?: string }).collection === "home" ? "home" as const : "centre" as const });
@@ -59,6 +59,15 @@ export async function portableRoutes(app: FastifyInstance) {
       return { body: portableView(r.order, "origin"), audit: r.audit };
     });
   });
+  /* E3 (ADR 0023): the centre's report for the order — read through the order, audited at both facilities */
+  app.get("/v1/portable-orders/:id/report", async (req) => {
+    requireNet(req);
+    const p = z.object({ id }).parse(req.params);
+    return query(req, async (tx, s) => {
+      const r = await orderReport(tx, s, p.id);
+      return { body: { orderId: r.order.id, number: r.order.number, centreEn: r.order.centreFacilityEn, centreBn: r.order.centreFacilityBn, ...r.report }, audit: [{ action: "view", entity: "PortableOrder", entityId: r.order.id, patientId: r.order.originPatientId, detail: { purpose: "portable-result", number: r.order.number, report: r.order.resultReportId } }] };
+    });
+  });
   app.post("/v1/portable-orders/:id/reorder", { config: { ownTx: true } }, async (req, reply): Promise<PortableOrderView> => {
     requireNet(req);
     const p = z.object({ id }).parse(req.params);
@@ -102,7 +111,8 @@ export async function portableRoutes(app: FastifyInstance) {
     const pr = requirePerson(req);
     const { forPerson } = await import("@setu/db");
     const rows = await forPerson(pr.personId, (tx) => tx.portableOrder.findMany({ include: { items: { orderBy: { id: "asc" } } }, orderBy: { createdAt: "desc" }, take: 50 }));
-    return { items: rows.map((o) => portableView(o as never, "patient")) };
+    // E3: each order's bill at the centre (the patient's own record there)
+    return { items: await Promise.all(rows.map(async (o) => portableView(o as never, "patient", false, await billFor(o as never, pr.personId)))) };
   });
   app.get("/v1/patient/portable-orders/:id/centres", async (req): Promise<CentreOffers> => {
     dbOn();

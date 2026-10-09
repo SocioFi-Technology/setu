@@ -450,6 +450,8 @@ export const portable = {
   get: (id: string) => call<PortableOrderView>("GET", `/v1/portable-orders/${encodeURIComponent(id)}`),
   centres: (id: string, sort: "price" | "turnaround", collection: "centre" | "home") => call<CentreOffers>("GET", `/v1/portable-orders/${encodeURIComponent(id)}/centres?sort=${sort}&collection=${collection}`),
   choose: (id: string, body: ChooseCentreRequest, key: string) => call<PortableOrderView>("POST", `/v1/portable-orders/${encodeURIComponent(id)}/choose`, body, key),
+  /** E3: the centre's report for the order (read through the order) */
+  report: (id: string) => call<SharedReportView & { orderId: string; centreEn: string | null; centreBn: string | null }>("GET", `/v1/portable-orders/${encodeURIComponent(id)}/report`),
   reorder: (id: string, key: string) => call<PortableOrderView>("POST", `/v1/portable-orders/${encodeURIComponent(id)}/reorder`, {}, key),
   queue: () => call<PortableList>("GET", "/v1/network-orders"),
   decide: (id: string, body: CentreDecisionRequest, key: string) => call<PortableOrderView>("POST", `/v1/network-orders/${encodeURIComponent(id)}/decide`, body, key),

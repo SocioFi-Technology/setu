@@ -4,6 +4,7 @@
    what it does not offer, its turnaround and the total at its own prices; the choice; then the order's tracker (only
    the doctor, the patient and the chosen centre see it). Choosing needs the network and says so. */
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import type { CentreOffers, PortableOrderView } from "@setu/contracts";
 import { format } from "@setu/domain";
 import { Icon, Pill, Segmented } from "@setu/ui";
@@ -51,6 +52,17 @@ function OrderCard({ o, onChange }: { o: PortableOrderView; onChange: (v: Portab
         ))}
       </ul>
       {o.centre && <span className="pa-sub">{T("tests_centre", { centre: nm(o.centre.facilityEn, o.centre.facilityBn), how: T(o.centre.collection === "home" ? "tests_home" : "tests_at_centre") })}</span>}
+      {/* E3 (ADR 0023): the centre's bill — paid by the bKash link the centre sent, or at the centre */}
+      {o.bill && (
+        <div className="pa-why" data-bill={o.bill.status}>
+          {o.bill.status === "not-billed" ? T("tests_bill_pending", { total: format.takaFromPaisa(o.bill.totalPaisa, { bn }) })
+            : T("tests_bill", { total: format.takaFromPaisa(o.bill.totalPaisa, { bn }), paid: format.takaFromPaisa(o.bill.paidPaisa, { bn }) })}
+          {o.bill.paidPaisa >= o.bill.totalPaisa && o.bill.totalPaisa > 0 && o.bill.status !== "not-billed" ? <><br /><b>{T("tests_paid")}</b></>
+            : o.bill.payUrl ? <><br /><a className="pa-btn pa-btn-primary" href={o.bill.payUrl}>{T("tests_pay_bkash")}</a></>
+            : <><br /><span className="pa-note">{T("tests_pay_centre")}</span></>}
+        </div>
+      )}
+      {o.resultReady && <Link className="pa-btn" href="/timeline" data-result-ready><Icon name="test-tube" size={18} />{T("tests_result_ready")}</Link>}
       {o.canChoose && <Choose o={o} onChosen={onChange} />}
       {o.status === "partially-accepted" || o.status === "declined" ? <span className="pa-note">{T("tests_declined_note")}</span> : null}
       <details>

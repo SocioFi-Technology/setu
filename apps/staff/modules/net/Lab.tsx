@@ -12,6 +12,7 @@ import { format } from "@setu/domain";
 import { fill } from "@setu/i18n";
 import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
 import { ApiFailure, portable } from "../../lib/api";
+import { ReportTable } from "./Shared";
 import { useSession } from "../../lib/session";
 
 function useN() {
@@ -100,6 +101,7 @@ function Detail({ id, mode, onBack }: { id: string; mode: "origin" | "centre"; o
         </ol>
       </Card>
       {error && <Callout tone="bad" role="alert">{error}</Callout>}
+      {mode === "origin" && o.resultReady && <ResultPanel id={o.id} />}
       {mode === "origin" && o.canChoose && <ChooseForPatient o={o} busy={busy} onChoose={(organizationId, collection) => run(() => portable.choose(o.id, { organizationId, collection }, crypto.randomUUID()), N("po_chosen"))} />}
       {mode === "origin" && o.reorderable.length > 0 && s.me?.role === "doctor" && (
         <span><Button icon="repeat" disabled={busy || !s.online} onClick={() => run(() => portable.reorder(o.id, crypto.randomUUID()), N("po_reordered"))} data-testid="po-reorder">{N("po_reorder", { n: o.reorderable.length })}</Button></span>
@@ -160,4 +162,14 @@ function Decide({ o, busy, onDecide }: { o: PortableOrderView; busy: boolean; on
       {short && <span className="t-small t-muted">{N("po_reason_rule")}</span>}
     </Card>
   );
+}
+
+/** E3 (ADR 0023): the centre's report, read through the order (only that report) */
+function ResultPanel({ id }: { id: string }) {
+  const s = useSession(); const N = useN();
+  const [r, setR] = useState<Awaited<ReturnType<typeof portable.report>> | null>(null); const [open, setOpen] = useState(false); const [error, setError] = useState<string | null>(null);
+  const show = () => { setOpen(true); portable.report(id).then(setR).catch((e) => setError(e instanceof ApiFailure ? s.L(e.body.message_bn, e.body.message_en) : N("error"))); };
+  if (!open) return <span><Button variant="primary" icon="test-tube" onClick={show} data-testid="po-result">{N("po_view_result")}</Button></span>;
+  if (error) return <Callout tone="bad" role="alert">{error}</Callout>;
+  return r ? <ReportTable r={{ ...r, consentId: "" }} /> : <PageState icon="loader" title="…" />;
 }
