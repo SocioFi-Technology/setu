@@ -246,5 +246,9 @@
   "show_all": [
     "সব দেখুন",
     "Show all"
-  ]
+  ],
+  "perf_label": ["কোথায় হবে", "Where"],
+  "perf_here": ["এখানে", "Here"],
+  "perf_network": ["নেটওয়ার্ক কেন্দ্র (রোগী বাছবেন)", "Network centre (patient picks)"],
+  "ord_network_note": ["নেটওয়ার্কের পরীক্ষা: স্বাক্ষরের পর রোগী Setu অ্যাপে বা রিসেপশনে কেন্দ্র বাছবেন; এই প্রতিষ্ঠানের ল্যাব ও বিলে আসবে না।", "Network tests: after signing, the patient picks a centre in the Setu app or at the reception; they do not come to this facility's lab or bill."]
 }

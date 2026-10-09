@@ -15,7 +15,7 @@ import { smsPhone, smsText } from "./lab.js";
 
 const dash = <T extends string>(s: string) => s.replace(/_/g, "-") as T;
 type RangeLabel = "adult" | "adult-female" | "adult-male";
-const INBOX_KINDS: InboxKind[] = ["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital", "substitution-notice", "return-notice", "news2-escalation", "discharge-remind"];
+const INBOX_KINDS: InboxKind[] = ["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital", "substitution-notice", "return-notice", "news2-escalation", "discharge-remind", "portable-declined"];
 const MAX_ITEMS = 200;
 
 function requireDoctor(s: SessionData) {
@@ -41,6 +41,10 @@ async function toItems(tx: Tx, s: SessionData, rows: Row[], now: Date): Promise<
     tx.observation.findMany({ where: { id: { in: ids("observationId") } } }),
     tx.organization.findFirst({ where: { id: s.organizationId }, select: { name: true } }),
   ]);
+  // ADR 0022: a network centre declined a test of a portable order — the order, the centre, the reason
+  const declinedSr = rows.filter((r) => r.kind === "portable-declined" && r.serviceRequestId).map((r) => r.serviceRequestId!);
+  const portableItems = declinedSr.length ? await tx.portableOrderItem.findMany({ where: { originServiceRequestId: { in: declinedSr }, status: "declined" }, include: { order: true }, orderBy: { id: "asc" } }) : [];
+  const PI = new Map(portableItems.map((i) => [i.originServiceRequestId, i]));
   // substitution notices (ADR 0009): the dispense, the line the doctor wrote and who gave what
   const dispenses = await tx.medicationDispense.findMany({ where: { id: { in: ids("dispenseId") } } });
   const [prescribedRows, dispensers] = await Promise.all([
@@ -90,6 +94,10 @@ async function toItems(tx: Tx, s: SessionData, rows: Row[], now: Date): Promise<
       encounter: { id: c.encounterId ?? "", token: c.encounterId ? E.get(c.encounterId)?.token ?? null : null, facilityEn: org?.name ?? "" },
       report: r ? { id: r.id, number: r.number, version: r.version, status: r.status, superseded, testCount: r.testCount, pendingCount: r.pendingCount, results } : null,
       test: order ? { nameEn: order.nameEn, nameBn: order.nameBn } : null,
+      portable: (() => {
+        const i = kind === "portable-declined" && c.serviceRequestId ? PI.get(c.serviceRequestId) : undefined;
+        return i ? { orderId: i.orderId, number: i.order.number, centreEn: i.order.centreFacilityEn, centreBn: i.order.centreFacilityBn, reason: i.declineReason, notOffered: i.notOffered, reorderable: !i.reorderedToId } : null;
+      })(),
       vital: vObs ? { code: vObs.code, value: vObs.value, unit: vObs.unit, flag: (vObs.interpretation ?? null) as Interpretation | null } : null,
       substitution: (() => {
         const d = kind === "substitution-notice" && c.dispenseId ? D.get(c.dispenseId) : undefined;

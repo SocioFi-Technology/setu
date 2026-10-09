@@ -96,6 +96,8 @@ export const OrderView = z.object({
   note: z.string().nullable(),
   /** the note version that placed it; an amendment can add orders, never remove one already placed */
   placedInVersion: z.number().int(), placed: z.boolean(),
+  /** ADR 0022: in-house | network */
+  performer: z.enum(["in-house", "network"]),
 });
 export const CompositionView = z.object({
   id: z.string(), version: z.number().int(), status: DocStatus, rev: z.number().int(),
@@ -151,7 +153,8 @@ export const SaveDraftRequest = z.object({
     note: z.string().trim().max(200).optional(), keepBoth: z.boolean().optional(), acks: z.array(z.string().max(60)).max(10).optional(),
   })).max(30),
   /** this version's new orders only; orders placed by an earlier version are kept as they are */
-  orders: z.array(z.object({ testCode: z.string().max(30), priority: OrderPriority, note: z.string().trim().max(200).optional() })).max(30),
+  /** performer (ADR 0022): in-house (this facility's lab) or network (the patient chooses a Setu network centre) */
+  orders: z.array(z.object({ testCode: z.string().max(30), priority: OrderPriority, note: z.string().trim().max(200).optional(), performer: z.enum(["in-house", "network"]).default("in-house") })).max(30),
 });
 export type SaveDraftRequest = z.infer<typeof SaveDraftRequest>;
 

@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); week 2 staging sessions 1–2 done (08/10/2026, staging live); Phase 4 slice D1–D3 done (09/10/2026, the patient app); D4–D6 done (09/10/2026: report, share, who viewed; the patient app on staging); next: see Next)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); week 2 staging sessions 1–2 done (08/10/2026, staging live); Phase 4 slice D1–D3 done (09/10/2026, the patient app); D4–D6 done (09/10/2026: report, share, who viewed; the patient app on staging); gap 16 fixed; E1–E2 done (09/10/2026: the portable lab order); next: see Next)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -1390,6 +1390,42 @@ break-glass labelled; the patient app on staging with a "STAGING — test data" 
   uploads ("mine"); break-glass itself (Journey E); the desk-proof confirm screen and the claim-code QR (D1–D3);
   guardians; a service worker.
 
+## Done (Phase 4 slice E1–E2, 09/10/2026) — the portable lab order ✅
+ADR 0022. Kamrul 09/10/2026 ("go" on the plan): each centre offers its own tests to the network at its own prices (price
+list switch) with home collection and its fee and a turnaround; the order lives at the ordering facility, the accepted
+tests become the centre's own orders for a centre patient record of name, sex, age and phone; the patient picks in the
+app or the desk picks for them; sort by price / turnaround (no distance yet); a declined test needs a 10+ character
+reason.
+- **Database** (`20261009180000_portable_order`): `PortableOrder` / `PortableOrderItem` (network level; RLS: the ordering
+  tenant reads / writes, the chosen centre's tenant reads and records its decision, the patient reads theirs through
+  `person_has_record()`; guards: who / what / for whom never change, ORDER steps only, the choice and the decision once,
+  an item decided once and re-ordered once), `ServiceRequest.performer` (in-house | network), `ChargeItemDefinition.network`,
+  `Organization.homeCollection / homeCollectionFeePaisa / networkTurnaroundHours`, `Patient.networkOrigin`, the
+  `portable_order_seq` (LO-YYMM-NNNN), SECURITY DEFINER `network_centres()`.
+- **Domain** `portable.ts` (13 tests): the centre's offer and total, the sort, choosing, the decision
+  (accept / acceptPartial / decline by the ORDER machine), re-orderable items, who may see.
+- **API** (`modules/portable.ts`, `routes/portable.ts`): signing network tests makes the order and tells the patient (SMS
+  of a fixed template `sms_portable_order` + the app); the ordering facility's lab, worklist and bills skip network
+  orders; `/v1/portable-orders` (list, one, centres, the desk's choice, the doctor's re-order), `/v1/network-orders`
+  (the centre's queue, one, decide — the centre's patient record, visit and a `network-order` note signed by the
+  technologist so its tests become active orders), `/v1/patient/portable-orders` (list, centres, choose — written in the
+  ordering tenant after the person is checked, audited basis patient); after a decision the ordering doctor's inbox gets
+  a `portable-declined` item per declined test (centre, reason, "not offered") and the patient an app notice — written
+  as the ordering facility's system actor. Admin: per-test "Setu network" switch (`/v1/admin/prices/:id/network`),
+  home collection / fee / turnaround on the facility screen. Seed: Lite (6 lab tests, home ৳200, 6 h), Green Life Mirpur
+  (8 incl. USG, 12 h), Meghna (4, 24 h).
+- **Screens:** consultation orders "Here / Network centre (patient picks)"; staff `net/lab` ("Ordered here" with the
+  tracker, the desk's choice for the patient, the doctor's re-order; "For this facility" with accept / decline-with-
+  reason); the doctor's inbox line with a link to the order; patient app "Tests" tab (centres by price or report time,
+  at the centre or home, the choice, each test's outcome, the tracker).
+- **Tests:** API `portable.test.ts` (10: the order and the patient's SMS / app notice, the clinic's lab and bill
+  without network tests, no centre sees it before the choice, the offers and the patient's choice once, only the chosen
+  centre sees and decides, the reason rule and the role, partial acceptance making the centre's own order and minimal
+  patient record, the inbox items, re-order once, the desk's choice); `e2e/journeys/journey-e.spec.ts` (E1–E2: the
+  patient at 390 px, the Lite technologist, the doctor and the desk in their own browser contexts).
+- **Follow-ups:** E3 (payment — bKash / Nagad / at the centre; results back to the doctor and the patient); revoking a
+  portable order; real distance; non-Setu centres; the centre's duplicate review for network-origin records.
+
 ## On call (staging) — https://setu.sociofitechnology.com (the shared SocioFi VPS, ADR 0019 addendum)
 **Where things are** (`ssh -l setu sociofi` — the `setu` user runs Setu in **its own rootless Docker daemon**: plain
 `docker` as setu sees Setu's containers, the VPS's shared `docker` group does not; every Setu container is compose
@@ -1520,7 +1556,7 @@ paste them into chat or git.
    no R2 — ask before any R2 work); ~~(2) the queue and the worklists~~ (08/10/2026, c9246a0: active complete, latest 20 closed; rerun met p95 < 1 s); (3) the lab worklist query; (4) review section C. Later, with the dedicated host and the
    product's own domain: `HOSTING_REGION` near Bangladesh, off-server backups, GHCR images, error tracking, smaller
    api / tools images.
-9. **Phase 4 (Journeys D and E):** ~~D1–D3~~ (09/10/2026, ADR 0020) · ~~D4–D6~~ (09/10/2026, ADR 0021) · E1–E2 (ADR 0022) ·
+9. **Phase 4 (Journeys D and E):** ~~D1–D3~~ (09/10/2026, ADR 0020) · ~~D4–D6~~ (09/10/2026, ADR 0021) · ~~E1–E2~~ (09/10/2026, ADR 0022) ·
    E3–E4 (ADR 0023); the desk-proof confirm screen.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 

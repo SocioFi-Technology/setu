@@ -29,7 +29,8 @@ export function useFmt() {
 export type Medicine = Pick<MedicineSearch["items"][number], "key" | "brand" | "generic" | "strength" | "form" | "ingredients" | "classes"> & { brandBn?: string };
 export interface Line { uid: string; medicine: Medicine; dose: string; meal: "before" | "after" | "with" | "any"; days: number; note: string; keepBoth: boolean; acks: string[] }
 export interface Dx { code: string; labelBn: string; labelEn: string; codeVerification: string; verificationStatus: "provisional" | "confirmed" }
-export interface Order { testCode: string; nameEn: string; nameBn: string; group: string; priority: "routine" | "urgent" | "stat"; note: string; placed: boolean; placedInVersion: number }
+/** performer (ADR 0022): in-house, or a Setu network centre the patient picks */
+export interface Order { testCode: string; nameEn: string; nameBn: string; group: string; priority: "routine" | "urgent" | "stat"; note: string; placed: boolean; placedInVersion: number; performer?: "in-house" | "network" }
 /** What the doctor is editing. The server copies labels and medicine data from its own catalogues; this copy is for the screen. */
 export interface Form { sections: NoteSections; sources: SectionSources; diagnoses: Dx[]; lines: Line[]; orders: Order[] }
 
@@ -40,7 +41,7 @@ export const formOf = (c: CompositionView): Form => ({
     uid: m.id, medicine: { key: m.medicineKey, brand: m.brand, generic: m.generic, strength: m.strength, form: m.form, ingredients: m.ingredients, classes: m.classes },
     dose: m.dose, meal: m.meal, days: m.days, note: m.note ?? "", keepBoth: m.keepBoth, acks: m.acks,
   })),
-  orders: c.orders.filter((o) => o.status !== "revoked").map((o) => ({ testCode: o.testCode, nameEn: o.nameEn, nameBn: o.nameBn, group: o.group, priority: o.priority, note: o.note ?? "", placed: o.placed, placedInVersion: o.placedInVersion })),
+  orders: c.orders.filter((o) => o.status !== "revoked").map((o) => ({ testCode: o.testCode, nameEn: o.nameEn, nameBn: o.nameBn, group: o.group, priority: o.priority, note: o.note ?? "", placed: o.placed, placedInVersion: o.placedInVersion, performer: o.performer })),
 });
 
 /** The save body: keys only (labels and medicine data come from the server's catalogues); only this version's new orders. */
@@ -48,7 +49,7 @@ export const bodyOf = (f: Form): Omit<SaveDraftRequest, "rev"> => ({
   sections: f.sections, sectionSources: f.sources,
   diagnoses: f.diagnoses.map((d) => ({ code: d.code, verificationStatus: d.verificationStatus })),
   medications: f.lines.map((l) => ({ medicineKey: l.medicine.key, dose: l.dose, meal: l.meal, days: l.days, ...(l.note.trim() ? { note: l.note.trim() } : {}), ...(l.keepBoth ? { keepBoth: true } : {}), ...(l.acks.length ? { acks: l.acks } : {}) })),
-  orders: f.orders.filter((o) => !o.placed).map((o) => ({ testCode: o.testCode, priority: o.priority, ...(o.note.trim() ? { note: o.note.trim() } : {}) })),
+  orders: f.orders.filter((o) => !o.placed).map((o) => ({ testCode: o.testCode, priority: o.priority, performer: o.performer ?? "in-house", ...(o.note.trim() ? { note: o.note.trim() } : {}) })),
 });
 
 /** A device copy read back from localStorage is untrusted (security review A5): only a well-formed form is loaded. */

@@ -14,6 +14,8 @@ export const FacilityView = z.object({
   id: z.string(), name: z.string(), nameBn: z.string().nullable(), address: z.string().nullable(), licenceNo: z.string().nullable(),
   /** ADR 0021 */
   phone: z.string().nullable(), networkJoinedAt: z.string().nullable(),
+  /** ADR 0022 */
+  homeCollection: z.boolean(), homeCollectionFeePaisa: Paisa, networkTurnaroundHours: z.number().int(),
   plan: z.enum(["clinic", "lite", "pro"]), status: z.enum(["setup", "live"]), liveAt: z.string().nullable(),
   checklist: z.array(z.object({ item: GoLiveItem, done: z.boolean(), required: z.boolean() })),
   branches: z.array(z.object({ id: z.string(), name: z.string(), nameBn: z.string().nullable() })),
@@ -39,7 +41,10 @@ export const FacilityUpdate = z.object({ name: z.string().trim().min(2).max(120)
   /** ADR 0021: the number the patient app tells a patient to call ("" clears it; left out: unchanged) */
   phone: z.union([z.literal(""), z.string().trim().regex(/^\+?[0-9][0-9 -]{4,18}$/)]).optional(),
   /** ADR 0021: joined the Setu network — patients can share their records with this facility's doctors (left out: unchanged) */
-  network: z.boolean().optional() });
+  network: z.boolean().optional(),
+  /** ADR 0022: the network offer — home collection, its fee, the promised turnaround (left out: unchanged) */
+  homeCollection: z.boolean().optional(), homeCollectionFeePaisa: Paisa.max(1_000_000).optional(), networkTurnaroundHours: z.number().int().min(1).max(720).optional() });
+export const PriceNetwork = z.object({ network: z.boolean() });
 export type FacilityUpdate = z.infer<typeof FacilityUpdate>;
 export const BranchCreate = z.object({ name: z.string().trim().min(2).max(80), nameBn: z.string().trim().max(80).optional() });
 export const WardCreate = z.object({ name: z.string().trim().min(1).max(80), nameBn: z.string().trim().max(80).optional(), beds: z.number().int().min(1).max(100), bedClass: z.string().trim().max(40).default("General") });
@@ -92,6 +97,8 @@ export type FirstSignInRequest = z.infer<typeof FirstSignInRequest>;
 export const PriceItem = z.object({
   id: z.string(), code: z.string(), kind: z.enum(["consultation", "test", "service", "medicine"]), nameEn: z.string(), nameBn: z.string(),
   unitPaisa: Paisa, vatRateBp: z.number().int(), active: z.boolean(), sample: z.boolean(),
+  /** ADR 0022: a test offered to the Setu network (at this price) */
+  network: z.boolean(),
   /** consultation: the doctor */
   doctor: Person.nullable(),
   lastChange: z.object({ at: z.string(), by: Person, oldUnitPaisa: Paisa.nullable(), reason: z.string().nullable() }).nullable(),

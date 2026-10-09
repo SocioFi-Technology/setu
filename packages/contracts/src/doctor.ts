@@ -9,7 +9,7 @@ import { Interpretation } from "./vitals.js";
 
 const Person = z.object({ id: z.string(), nameBn: z.string(), nameEn: z.string() });
 
-export const InboxKind = z.enum(["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital", "substitution-notice", "return-notice", "news2-escalation", "discharge-remind"]);
+export const InboxKind = z.enum(["report-inbox", "correction-notice", "results-withdrawn", "order-cancelled", "critical-vital", "substitution-notice", "return-notice", "news2-escalation", "discharge-remind", "portable-declined"]);
 export const InboxSeverity = z.enum(["critical", "abnormal", "normal", "notice"]);
 export const InboxResult = z.object({
   code: z.string(), nameEn: z.string(), nameBn: z.string(), value: z.number(), unit: z.string(), decimals: z.number().int(),
@@ -34,6 +34,8 @@ export const InboxItem = z.object({
   }).nullable(),
   /** correction / withdrawal / cancellation: the test it is about */
   test: z.object({ nameEn: z.string(), nameBn: z.string() }).nullable(),
+  /** ADR 0022: a network centre declined this test of a portable order (the reason; re-order it elsewhere) */
+  portable: z.object({ orderId: z.string(), number: z.string(), centreEn: z.string().nullable(), centreBn: z.string().nullable(), reason: z.string().nullable(), notOffered: z.boolean(), reorderable: z.boolean() }).nullable(),
   /** critical-vital: the reading */
   vital: z.object({ code: z.string(), value: z.number(), unit: z.string(), flag: Interpretation.nullable() }).nullable(),
   /** substitution-notice (ADR 0009): what was prescribed, what the pharmacist gave instead and why */

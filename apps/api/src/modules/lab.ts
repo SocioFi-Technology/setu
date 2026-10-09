@@ -82,7 +82,7 @@ async function loadBundle(tx: Tx, s: SessionData, encounterIds: string[], withPr
   const encounters = (await tx.encounter.findMany({ where: { id: { in: encounterIds }, organizationId: s.organizationId, branchId: branch.id }, include: { patient: true } })) as EncP[];
   const ids = encounters.map((e) => e.id);
   const [orders, specimens, obs, callbacks, reports, comms, invoices, analyteRows, rangeRows] = await Promise.all([
-    tx.serviceRequest.findMany({ where: { encounterId: { in: ids }, group: "lab", status: { not: "draft" } }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] }),
+    tx.serviceRequest.findMany({ where: { encounterId: { in: ids }, group: "lab", status: { not: "draft" }, performer: "in-house" }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] }),
     tx.specimen.findMany({ where: { encounterId: { in: ids } }, include: { orders: { select: { serviceRequestId: true } } }, orderBy: { createdAt: "asc" } }) as Promise<Spec[]>,
     tx.observation.findMany({ where: { encounterId: { in: ids }, category: LAB }, orderBy: [{ recordedAt: "asc" }, { id: "asc" }] }),
     tx.criticalCallback.findMany({ where: { encounterId: { in: ids } }, orderBy: { recordedAt: "asc" } }),
@@ -278,7 +278,7 @@ export async function labWorklist(tx: Tx, s: SessionData, stage: LabWorklist["st
   // them out: thousands of rows a call in a busy lab)
   const recent = await tx.serviceRequest.groupBy({
     by: ["encounterId"],
-    where: { organizationId: s.organizationId, branchId: branch.id, group: "lab", status: { not: "draft" }, orderedAt: { gte: since } },
+    where: { organizationId: s.organizationId, branchId: branch.id, group: "lab", status: { not: "draft" }, performer: "in-house", orderedAt: { gte: since } },
     _max: { orderedAt: true }, orderBy: { _max: { orderedAt: "desc" } }, take: WORKLIST_MAX,
   });
   const encIds = recent.map((x) => x.encounterId);

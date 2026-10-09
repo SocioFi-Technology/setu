@@ -51,7 +51,7 @@ function Prices() {
       </div>
       <Card style={{ padding: 0, overflowX: "auto" }}>
         <table className="table" style={{ width: "100%" }} data-testid="price-list">
-          <thead><tr><th>{A("item")}</th><th>{A("kind")}</th><th className="num">{A("price")}</th><th className="num">{A("vat")}</th><th>{A("status")}</th><th>{A("last_change")}</th><th /></tr></thead>
+          <thead><tr><th>{A("item")}</th><th>{A("kind")}</th><th className="num">{A("price")}</th><th className="num">{A("vat")}</th><th>{A("status")}</th><th>{A("network_col")}</th><th>{A("last_change")}</th><th /></tr></thead>
           <tbody>
             {rows.map((i) => (
               <tr key={i.id} data-code={i.code} data-active={i.active ? "1" : "0"}>
@@ -60,6 +60,11 @@ function Prices() {
                 <td className="num">{F.tk(i.unitPaisa)}</td>
                 <td className="num">{F.n(`${i.vatRateBp / 100}%`)}</td>
                 <td>{i.active ? <Pill tone="ok" icon="check">{A("on")}</Pill> : <Pill tone="off" icon="minus">{A("off")}</Pill>}</td>
+                {/* ADR 0022: offered to the Setu network (patients' portable orders can choose this facility for it) */}
+                <td>{i.kind === "test" ? (
+                  <input type="checkbox" checked={i.network} disabled={!s.online} aria-label={A("network_col")} data-testid="price-network"
+                    onChange={(e) => adm.priceNetwork(i.id, e.target.checked, crypto.randomUUID()).then((l) => { setList(l); toast(A("saved"), "check"); }).catch((x) => toast(E(x), "triangle-alert"))} />
+                ) : "—"}</td>
                 <td className="t-small">{i.lastChange ? `${F.dateTime(i.lastChange.at)} · ${F.name(i.lastChange.by)}${i.lastChange.oldUnitPaisa !== null ? ` · ${F.tk(i.lastChange.oldUnitPaisa)} →` : ""}` : "—"}</td>
                 <td style={{ whiteSpace: "nowrap" }}>
                   <Button size="sm" icon="pencil" data-testid="change-price" disabled={!s.online} onClick={() => setEditing(i)}>{A("change")}</Button>{" "}

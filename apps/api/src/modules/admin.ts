@@ -67,7 +67,7 @@ export async function facilityView(tx: Tx, s: SessionData): Promise<FacilityView
     tx.location.findMany({ where: { organizationId: s.organizationId, kind: "ward" }, orderBy: { name: "asc" }, include: { _count: { select: { children: { where: { kind: "bed" } } } } } }),
   ]);
   return {
-    id: o.id, name: o.name, nameBn: o.nameBn, address: o.address, licenceNo: o.licenceNo, phone: o.phone, networkJoinedAt: iso(o.networkJoinedAt), plan: facts.plan, status: o.status, liveAt: iso(o.liveAt),
+    id: o.id, name: o.name, nameBn: o.nameBn, address: o.address, licenceNo: o.licenceNo, phone: o.phone, networkJoinedAt: iso(o.networkJoinedAt), homeCollection: o.homeCollection, homeCollectionFeePaisa: o.homeCollectionFeePaisa, networkTurnaroundHours: o.networkTurnaroundHours, plan: facts.plan, status: o.status, liveAt: iso(o.liveAt),
     checklist: goLiveChecklist(facts),
     branches: branches.map((b) => ({ id: b.id, name: b.name, nameBn: b.nameBn })),
     wards: wards.map((w) => ({ id: w.id, name: w.name, nameBn: w.nameBn, beds: w._count.children })),
@@ -90,7 +90,9 @@ export async function updateFacility(tx: Tx, s: SessionData, req: FacilityUpdate
   const data = { name: req.name, nameBn: req.nameBn || null, address: req.address || null, licenceNo: req.licenceNo || null,
     // ADR 0021: left out = unchanged; joining keeps the first join time
     phone: req.phone === undefined ? o.phone : req.phone || null,
-    networkJoinedAt: req.network === undefined ? o.networkJoinedAt : req.network ? (o.networkJoinedAt ?? new Date()) : null };
+    networkJoinedAt: req.network === undefined ? o.networkJoinedAt : req.network ? (o.networkJoinedAt ?? new Date()) : null,
+    // ADR 0022: the network offer (left out = unchanged)
+    homeCollection: req.homeCollection ?? o.homeCollection, homeCollectionFeePaisa: req.homeCollectionFeePaisa ?? o.homeCollectionFeePaisa, networkTurnaroundHours: req.networkTurnaroundHours ?? o.networkTurnaroundHours };
   await tx.organization.update({ where: { id: o.id }, data });
   return [{ action: "update", entity: "Organization", entityId: o.id, detail: { before: { name: o.name, nameBn: o.nameBn, address: o.address, licenceNo: o.licenceNo, phone: o.phone, network: o.networkJoinedAt !== null }, after: { ...data, network: data.networkJoinedAt !== null } } }];
 }
@@ -312,7 +314,7 @@ export async function priceList(tx: Tx, s: SessionData): Promise<PriceList> {
   return {
     items: defs.map((d) => {
       const c = last.get(d.id);
-      return { id: d.id, code: d.code, kind: d.kind, nameEn: d.nameEn, nameBn: d.nameBn, unitPaisa: d.unitPaisa, vatRateBp: d.vatRateBp, active: d.active, sample: d.sample,
+      return { id: d.id, code: d.code, kind: d.kind, nameEn: d.nameEn, nameBn: d.nameBn, unitPaisa: d.unitPaisa, vatRateBp: d.vatRateBp, active: d.active, sample: d.sample, network: d.network,
         doctor: d.kind === "consultation" && d.refCode ? who(d.refCode) : null,
         lastChange: c ? { at: c.at.toISOString(), by: who(c.byId), oldUnitPaisa: c.oldUnitPaisa, reason: c.reason } : null };
     }),
@@ -370,6 +372,14 @@ export async function setPriceActive(tx: Tx, s: SessionData, id: string, active:
     throw err(409, "doctor_active", "ডাক্তার সক্রিয় — তাঁর ফি বন্ধ করলে নতুন বিলে মূল্য থাকবে না; ফি বদলান বা আগে ডাক্তারকে বন্ধ করুন", "The doctor is active — their new bills would have no price; change the fee, or switch the doctor off first");
   await tx.chargeItemDefinition.update({ where: { id: d.id }, data: { active } });
   return [{ action: "price-change", entity: "ChargeItemDefinition", entityId: d.id, detail: { code: d.code, active, reason: reason.trim() } }];
+}
+/** ADR 0022: a test offered to the Setu network (at this facility's price) — tests only */
+export async function setPriceNetwork(tx: Tx, s: SessionData, id: string, network: boolean): Promise<AuditEntry[]> {
+  const d = await tx.chargeItemDefinition.findFirst({ where: { id, organizationId: s.organizationId } });
+  if (!d) throw notFound();
+  if (d.kind !== "test") throw err(400, "not_a_test", "শুধু পরীক্ষা নেটওয়ার্কে দেওয়া যায়", "Only tests are offered to the network", { field: "network" });
+  await tx.chargeItemDefinition.update({ where: { id: d.id }, data: { network } });
+  return [{ action: "update", entity: "ChargeItemDefinition", entityId: d.id, detail: { code: d.code, network } }];
 }
 export async function priceHistory(tx: Tx, s: SessionData, id: string): Promise<PriceHistory> {
   const d = await tx.chargeItemDefinition.findFirst({ where: { id, organizationId: s.organizationId }, select: { id: true } });

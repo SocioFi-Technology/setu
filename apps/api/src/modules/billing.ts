@@ -127,7 +127,7 @@ async function ordersDiff(tx: Tx, inv: Inv) {
   // Only the visit's OPD bill carries order lines (ADR 0009); a pharmacy or OTC bill never changes with the orders.
   if (inv.kind !== "opd" || !inv.encounterId) return { orders: [], remove: [] as string[], add: [] as string[] };
   const [orders, lines] = await Promise.all([
-    tx.serviceRequest.findMany({ where: { encounterId: inv.encounterId, status: { in: [...BILLED_ORDER_STATES] } }, orderBy: { createdAt: "asc" } }),
+    tx.serviceRequest.findMany({ where: { encounterId: inv.encounterId, status: { in: [...BILLED_ORDER_STATES] }, performer: "in-house" }, orderBy: { createdAt: "asc" } }),
     tx.chargeItem.findMany({ where: { invoiceId: inv.id, source: "order" } }),
   ]);
   return { orders, ...syncOrderLines(lines.map((l) => ({ id: l.id, sourceId: l.sourceId })), orders.map((o) => o.id)) };
@@ -315,7 +315,7 @@ export async function createInvoice(tx: Tx, s: SessionData, encounterId: string,
   if (e.status !== "finished") throw err(409, "visit_not_finished", "ডাক্তার নোটে স্বাক্ষর করার পর বিল হবে", "The bill is made after the doctor signs the note", { field: "encounter" });
   const defs = await tx.chargeItemDefinition.findMany({ where: { organizationId: s.organizationId, active: true } });
   const byCode = new Map(defs.map((d) => [d.code, d]));
-  const orders = await tx.serviceRequest.findMany({ where: { encounterId: e.id, status: { in: [...BILLED_ORDER_STATES] } }, orderBy: { createdAt: "asc" } });
+  const orders = await tx.serviceRequest.findMany({ where: { encounterId: e.id, status: { in: [...BILLED_ORDER_STATES] }, performer: "in-house" }, orderBy: { createdAt: "asc" } });
   const doctor = e.practitionerId ? await tx.user.findFirst({ where: { id: e.practitionerId }, select: { nameBn: true, nameEn: true } }) : null;
   const consult = e.practitionerId ? byCode.get(`consult:${e.practitionerId}`) : undefined;
   const lines = [

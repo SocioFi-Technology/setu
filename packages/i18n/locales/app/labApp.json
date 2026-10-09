@@ -15,6 +15,10 @@
     "ল্যাবের লেখা (স্লাইস A8–A11), প্রোটোটাইপ Setu Lab থেকে",
     "Lab strings (slice A8–A11), from the prototype Setu Lab"
   ],
+  "sms_portable_order": [
+    "{facility}: ডাক্তার আপনার জন্য পরীক্ষা লিখেছেন। Setu অ্যাপে বা রিসেপশনে পরীক্ষার কেন্দ্র বেছে নিন।",
+    "{facility}: Your doctor ordered tests for you. Choose where to have them in the Setu app or at the reception."
+  ],
   "sms_report_ready": [
     "{facility}: আপনার ল্যাব রিপোর্ট তৈরি। অনুগ্রহ করে ল্যাব কাউন্টার থেকে সংগ্রহ করুন।",
     "{facility}: Your lab report is ready. Please collect it at the lab counter."

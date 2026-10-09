@@ -118,6 +118,13 @@ function InboxCard({ item: x, queued, busy, onAck }: { item: InboxItem; queued: 
       {x.kind === "correction-notice" && <span>{D("k_correction", { test: testName })}</span>}
       {x.kind === "results-withdrawn" && <span>{D("k_withdrawn", { test: testName })}</span>}
       {x.kind === "order-cancelled" && <span>{D("k_cancelled", { test: testName })}</span>}
+      {/* ADR 0022: a network centre declined a test of a portable order — re-order it elsewhere from the order */}
+      {x.kind === "portable-declined" && x.portable && (
+        <span data-testid="portable-declined">{x.portable.notOffered
+          ? D("k_portable_not_offered", { test: testName, centre: (s.lang === "bn" ? x.portable.centreBn ?? x.portable.centreEn : x.portable.centreEn) ?? "" })
+          : D("k_portable_declined", { test: testName, centre: (s.lang === "bn" ? x.portable.centreBn ?? x.portable.centreEn : x.portable.centreEn) ?? "", reason: x.portable.reason ?? "" })}{" "}
+          <a className="t-small" href={`/m/net/lab?order=${encodeURIComponent(x.portable.orderId)}`} data-testid="open-portable">{D("open_portable", { number: x.portable.number })}</a></span>
+      )}
       {x.kind === "critical-vital" && x.vital && (
         <span data-testid="critical-vital"><Icon name="siren" size={14} /> {D("k_vital", { vital: `${s.t("vitalsApp", VITAL_KEY[x.vital.code] ?? x.vital.code)} ${F.num(x.vital.value)} ${UNIT[x.vital.unit] ?? x.vital.unit}${x.vital.flag ? ` · ${lab(`flag_${x.vital.flag}`)}` : ""}` })}</span>
       )}

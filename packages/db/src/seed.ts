@@ -440,6 +440,17 @@ async function main() {
     await prisma.organization.updateMany({ where: { id: oid, phone: null }, data: { phone } });
     await prisma.organization.updateMany({ where: { id: oid, networkJoinedAt: null }, data: { networkJoinedAt: new Date() } });
   }
+  /* ADR 0022: network offers (sample) — which tests each centre offers to the network at its own price, home collection,
+     turnaround. Set once: a facility that already chose its offer keeps it. */
+  for (const [oid, tests, home, fee, tat] of [
+    [LITE.org, ["cbc", "hba1c", "lipid", "creat", "elec", "ure"], true, 20_000, 6],
+    ["o_greenlife_mirpur", ["cbc", "hba1c", "lipid", "creat", "elec", "ure", "rbs", "usgwa"], false, 0, 12],
+    ["o_litedemo", ["cbc", "hba1c", "rbs", "usgwa"], false, 0, 24],
+  ] as const) {
+    if (await prisma.chargeItemDefinition.count({ where: { organizationId: oid, network: true } })) continue;
+    await prisma.chargeItemDefinition.updateMany({ where: { organizationId: oid, kind: "test", refCode: { in: [...tests] } }, data: { network: true } });
+    await prisma.organization.update({ where: { id: oid }, data: { homeCollection: home, homeCollectionFeePaisa: fee, networkTurnaroundHours: tat } });
+  }
   console.log((process.env.SEED_PASSWORD ? "seeded with the staging password and PIN (SEED_PASSWORD / SEED_PIN). " : "") + "seeded demo tenant: Green Life Clinic, Mirpur — 10 users (password setu1234, PIN 1234), 8 patients (5 share 01711-234567), Mirpur branch, ward 2A; plan demos: Clinic-plan nurse 01722000004, Lite-plan doctor 01733000002; E2E Test Clinic (tests only): 017990000xx; E2E Lite Hospital (tests only, Hospital Lite, wards and beds): 017980000xx; Rahima Khatun's previous visit 12/08/2026 with vitals");
 }
 

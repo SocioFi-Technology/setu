@@ -73,7 +73,7 @@ async function stockFacts(tx: Tx, encounterId: string): Promise<StockFact[]> {
   return [...out.values()];
 }
 async function orderFacts(tx: Tx, organizationId: string, encounterId: string): Promise<OrderFact[]> {
-  const orders = await tx.serviceRequest.findMany({ where: { encounterId, status: { in: [...BILLED_ORDER_STATES] } }, orderBy: { createdAt: "asc" } });
+  const orders = await tx.serviceRequest.findMany({ where: { encounterId, status: { in: [...BILLED_ORDER_STATES] }, performer: "in-house" }, orderBy: { createdAt: "asc" } });
   if (!orders.length) return [];
   const defs = new Map((await tx.chargeItemDefinition.findMany({ where: { organizationId, code: { in: orders.map((o) => `test:${o.testCode}`) }, active: true } })).map((d) => [d.code, d]));
   return orders.map((o) => { const d = defs.get(`test:${o.testCode}`); return { id: o.id, code: `test:${o.testCode}`, nameEn: d?.nameEn ?? o.nameEn, nameBn: d?.nameBn ?? o.nameBn, unitPaisa: d?.unitPaisa ?? null, vatRateBp: d?.vatRateBp ?? 0, at: o.orderedAt ?? o.createdAt }; });

@@ -306,5 +306,8 @@
   "nav_label": [
     "ডাক্তার অ্যাপ",
     "Doctor app"
-  ]
+  ],
+  "k_portable_declined": ["{centre} {test} ফেরত দিয়েছে: {reason}", "{centre} declined {test}: {reason}"],
+  "k_portable_not_offered": ["{centre}-এ {test} হয় না", "{test} is not offered at {centre}"],
+  "open_portable": ["অর্ডার {number} — অন্য কেন্দ্রে পাঠান", "Order {number} — re-order elsewhere"]
 }

@@ -3,7 +3,7 @@ import type {
   WardList, WardBoard, WardPatientView, WardVitalsRequest, WardVitalsResponse, Escalation, NursingNoteView, MarView, DoseRequest, WitnessList, RoundWorklist, RoundView, SaveRoundRequest, IndentCreate, IndentView, IndentList, IndentIssueRequest, WardStock, BedMoveRequest, WristbandView, BatchLabels, IoView, IoEntryRequest, IoEntryView, CareTaskCreate, CareTaskList, WardHandover, HandoverView, HandoverPatientUpdate,
   AdmissionList, AdmissionView, AdmitRequest, BedActionRequest, BedBoard, BedView, ErArrivalRequest, ErArrivalResponse, ErAssignRequest, ErBoard, ErBoardItem, ErDispositionRequest, ErTriageRequest, ErVisitView,
   RefundableView, RefundRequest, RefundView, RefundDecisionRequest, RefundPayRequest, RefundReleaseRequest, RefundPayResponse, RefundList, RefundVoucherView, RefundVoucherPrintResponse, ReconcileRefundRequest, ResaleRequest,
-  SharedList, SharedRecords, SharedReportView,
+  SharedList, SharedRecords, SharedReportView, PortableList, PortableOrderView, CentreOffers, ChooseCentreRequest, CentreDecisionRequest,
   FacilityView, FacilityUpdate, SettingsUpdate, UserList, UserView, UserCreate, UserCredentialResponse, PriceList, PriceCreate, PriceHistory, AuditPage, AuditQuery,
   DispenseQueue, DispenseRequest, DispenseView, OtcCreateRequest, OtcView, RxPhotoRequest, StockList, SupplierList, SupplierLedger, SupplierPaymentRequest,
   PurchaseOrderList, PurchaseOrderView, GoodsReceiptView, GrnLineRequest, StockCountView, CountList, PharmacyApprovals, TransferRequest,
@@ -308,6 +308,8 @@ export const adm = {
   addPrice: (body: PriceCreate, key: string) => call<PriceList>("POST", "/v1/admin/prices", body, key),
   changePrice: (id: string, body: { unitPaisa: number; vatRateBp: number; reason: string }, key: string) => call<PriceList>("POST", `/v1/admin/prices/${enc(id)}`, body, key),
   priceActive: (id: string, active: boolean, reason: string, key: string) => call<PriceList>("POST", `/v1/admin/prices/${enc(id)}/active`, { active, reason }, key),
+  /** ADR 0022: a test offered to the Setu network (at this facility's price) */
+  priceNetwork: (id: string, network: boolean, key: string) => call<PriceList>("POST", `/v1/admin/prices/${enc(id)}/network`, { network }, key),
   priceHistory: (id: string) => call<PriceHistory>("GET", `/v1/admin/prices/${enc(id)}/history`),
   audit: (q: AuditQuery) => call<AuditPage>("GET", "/v1/admin/audit?" + qs(q as Record<string, string | undefined>)),
   /** a browser URL (same origin, through the /api proxy) — the download is itself audited */
@@ -440,4 +442,15 @@ export const net = {
   records: (consentId: string) => call<SharedRecords>("GET", `/v1/shared/${encodeURIComponent(consentId)}`),
   report: (consentId: string, tenantId: string, reportId: string) => call<SharedReportView>("GET", `/v1/shared/${encodeURIComponent(consentId)}/reports/${encodeURIComponent(tenantId)}/${encodeURIComponent(reportId)}`),
   pdfUrl: (consentId: string, tenantId: string, kind: "lr" | "rx" | "ds", id: string, lang: "bn" | "en") => `/api/v1/shared/${encodeURIComponent(consentId)}/documents/${encodeURIComponent(tenantId)}/${kind}/${encodeURIComponent(id)}/pdf?lang=${lang}`,
+};
+
+/* ADR 0022: the portable lab order — the ordering facility and the chosen centre */
+export const portable = {
+  list: (patientId?: string) => call<PortableList>("GET", "/v1/portable-orders" + (patientId ? "?patientId=" + encodeURIComponent(patientId) : "")),
+  get: (id: string) => call<PortableOrderView>("GET", `/v1/portable-orders/${encodeURIComponent(id)}`),
+  centres: (id: string, sort: "price" | "turnaround", collection: "centre" | "home") => call<CentreOffers>("GET", `/v1/portable-orders/${encodeURIComponent(id)}/centres?sort=${sort}&collection=${collection}`),
+  choose: (id: string, body: ChooseCentreRequest, key: string) => call<PortableOrderView>("POST", `/v1/portable-orders/${encodeURIComponent(id)}/choose`, body, key),
+  reorder: (id: string, key: string) => call<PortableOrderView>("POST", `/v1/portable-orders/${encodeURIComponent(id)}/reorder`, {}, key),
+  queue: () => call<PortableList>("GET", "/v1/network-orders"),
+  decide: (id: string, body: CentreDecisionRequest, key: string) => call<PortableOrderView>("POST", `/v1/network-orders/${encodeURIComponent(id)}/decide`, body, key),
 };

@@ -475,7 +475,7 @@ function Orders({ value, disabled, onChange }: { value: Form["orders"]; disabled
   const toggle = (t: TestList["items"][number]) => {
     const o = value.find((x) => x.testCode === t.code);
     if (o?.placed) return;
-    onChange(o ? value.filter((x) => x.testCode !== t.code) : [...value, { testCode: t.code, nameEn: t.nameEn, nameBn: t.nameBn, group: t.group, priority: "routine", note: "", placed: false, placedInVersion: 0 }]);
+    onChange(o ? value.filter((x) => x.testCode !== t.code) : [...value, { testCode: t.code, nameEn: t.nameEn, nameBn: t.nameBn, group: t.group, priority: "routine", note: "", placed: false, placedInVersion: 0, performer: "in-house" }]);
   };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -497,13 +497,20 @@ function Orders({ value, disabled, onChange }: { value: Form["orders"]; disabled
           {value.map((o) => (
             <div key={o.testCode} data-order={o.testCode} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <b>{s.lang === "bn" ? o.nameBn : o.nameEn}</b>
-              {o.placed ? <Pill tone="final" icon="check">{C("ord_placed", { v: o.placedInVersion })}</Pill> : (
+              {o.placed ? <>
+                <Pill tone="final" icon="check">{C("ord_placed", { v: o.placedInVersion })}</Pill>
+                {o.performer === "network" && <Pill tone="info" icon="share-2">{C("perf_network")}</Pill>}
+              </> : <>
                 <Segmented label={C("sec_orders")} value={o.priority} onChange={(v) => !disabled && onChange(value.map((x) => (x.testCode === o.testCode ? { ...x, priority: v } : x)))}
                   options={(["routine", "urgent", "stat"] as const).map((p) => ({ value: p, label: C(`pr_${p}`) }))} />
-              )}
+                {/* ADR 0022: here, or a Setu network centre the patient picks (this facility's lab and bill then never take it) */}
+                <Segmented label={C("perf_label")} value={o.performer ?? "in-house"} onChange={(v) => !disabled && onChange(value.map((x) => (x.testCode === o.testCode ? { ...x, performer: v } : x)))}
+                  options={(["in-house", "network"] as const).map((p) => ({ value: p, label: C(p === "in-house" ? "perf_here" : "perf_network") }))} />
+              </>}
             </div>
           ))}
           {value.some((o) => !o.placed) && <span className="t-small t-muted">{C("ord_on_sign")}</span>}
+          {value.some((o) => !o.placed && o.performer === "network") && <span className="t-small t-muted" data-network-note>{C("ord_network_note")}</span>}
         </div>
       )}
     </div>

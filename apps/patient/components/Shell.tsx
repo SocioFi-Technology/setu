@@ -24,7 +24,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <button type="button" className="pa-btn pa-btn-link" onClick={signOut}><Icon name="log-out" size={18} />{T("sign_out")}</button>
       </header>
       <main className="pa-main">{children}</main>
-      <nav className="pa-tabs">{tab("/timeline", "history", "tab_history")}{tab("/share", "share-2", "tab_share")}{tab("/claim", "search", "tab_claims")}</nav>
+      <nav className="pa-tabs">{tab("/timeline", "history", "tab_history")}{tab("/tests", "test-tube", "tab_tests")}{tab("/share", "share-2", "tab_share")}{tab("/claim", "search", "tab_claims")}</nav>
     </div>
   );
 }

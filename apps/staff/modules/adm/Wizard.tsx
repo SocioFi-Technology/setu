@@ -10,22 +10,25 @@ import type { FacilityView } from "@setu/contracts";
 import { Button, Callout, Card, PageState, Pill, SelectField, TextField, useToast } from "@setu/ui";
 import { adm } from "../../lib/api";
 import { useSession } from "../../lib/session";
-import { renewKey, useA, useErr, useFmt } from "./common";
+import { renewKey, takaToPaisa, useA, useErr, useFmt } from "./common";
 
 const METHODS = ["cash", "card", "bank", "bkash", "nagad"] as const;
 
+/** the facility card's form from the server's answer (ADR 0021–0022: phone, the network and its offer) */
+const orgForm = (x: FacilityView) => ({ name: x.name, nameBn: x.nameBn ?? "", address: x.address ?? "", licenceNo: x.licenceNo ?? "", phone: x.phone ?? "", network: x.networkJoinedAt !== null,
+  homeCollection: x.homeCollection, homeFee: String(x.homeCollectionFeePaisa / 100), tat: String(x.networkTurnaroundHours) });
 export function AdmWizard() {
   const s = useSession(); const A = useA(); const F = useFmt(); const E = useErr(); const router = useRouter(); const toast = useToast();
   const [f, setF] = useState<FacilityView | null>(null); const [failed, setFailed] = useState(false); const [busy, setBusy] = useState(false);
   // one key per kind of write, renewed after the server answers it (success or refusal) — a retry after a lost answer replays
   const [keys] = useState(() => ({ org: crypto.randomUUID(), branch: crypto.randomUUID(), ward: crypto.randomUUID(), prints: crypto.randomUUID(), sms: crypto.randomUUID(), smsOk: crypto.randomUUID(), live: crypto.randomUUID() }));
-  const [org, setOrg] = useState({ name: "", nameBn: "", address: "", licenceNo: "", phone: "", network: false });
+  const [org, setOrg] = useState({ name: "", nameBn: "", address: "", licenceNo: "", phone: "", network: false, homeCollection: false, homeFee: "0", tat: "24" });
   const [branch, setBranch] = useState({ name: "", nameBn: "" }); const [ward, setWard] = useState({ name: "", beds: "4" });
   const [prints, setPrints] = useState<{ receiptFormat: "a5" | "thermal"; rxFormat: "a5" | "a4"; paymentMethods: string[] }>({ receiptFormat: "a5", rxFormat: "a5", paymentMethods: [] });
   const [phone, setPhone] = useState("");
   const show = useCallback((x: FacilityView) => {
     setF(x);
-    setOrg({ name: x.name, nameBn: x.nameBn ?? "", address: x.address ?? "", licenceNo: x.licenceNo ?? "", phone: x.phone ?? "", network: x.networkJoinedAt !== null });
+    setOrg(orgForm(x));
     setPrints({ receiptFormat: x.settings.receiptFormat ?? "a5", rxFormat: x.settings.rxFormat ?? "a5", paymentMethods: x.settings.paymentMethods });
   }, []);
   // the first load: a re-run effect (React runs it twice in development) ignores the earlier answer, so a late answer
@@ -91,7 +94,15 @@ export function AdmWizard() {
             <input type="checkbox" checked={org.network} onChange={(e) => setOrg({ ...org, network: e.target.checked })} data-testid="org-network" style={{ marginTop: 3 }} />
             <span><b>{A("org_network")}</b><br /><span className="t-small t-muted">{A("org_network_hint")}</span></span>
           </label>
-          <span><Button icon="save" data-testid="org-save" disabled={!s.online || busy || org.name.trim().length < 2 || (!!org.phone.trim() && !/^\+?[0-9][0-9 -]{4,18}$/.test(org.phone.trim()))} onClick={() => void run("org", (k) => adm.updateFacility({ name: org.name.trim(), nameBn: org.nameBn.trim() || undefined, address: org.address.trim() || undefined, licenceNo: org.licenceNo.trim() || undefined, phone: org.phone.trim(), network: org.network }, k), A("saved"), (x) => setOrg({ name: x.name, nameBn: x.nameBn ?? "", address: x.address ?? "", licenceNo: x.licenceNo ?? "", phone: x.phone ?? "", network: x.networkJoinedAt !== null }))}>{A("save")}</Button></span>
+          {/* ADR 0022: what a network centre offers — home collection, its fee, the promised report time; its tests: the price list */}
+          {org.network && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, alignItems: "end" }} data-testid="org-network-offer">
+            <label style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={org.homeCollection} onChange={(e) => setOrg({ ...org, homeCollection: e.target.checked })} data-testid="org-home" />{A("net_home")}</label>
+            <TextField label={A("net_home_fee")} inputMode="decimal" value={org.homeFee} disabled={!org.homeCollection} onChange={(e) => setOrg({ ...org, homeFee: e.target.value })} data-testid="org-home-fee" />
+            <TextField label={A("net_tat")} inputMode="numeric" value={org.tat} onChange={(e) => setOrg({ ...org, tat: e.target.value })} data-testid="org-tat" />
+            <span className="t-small t-muted" style={{ gridColumn: "1 / -1" }}>{A("net_offer_hint")}</span>
+          </div>}
+          <span><Button icon="save" data-testid="org-save" disabled={!s.online || busy || org.name.trim().length < 2 || (!!org.phone.trim() && !/^\+?[0-9][0-9 -]{4,18}$/.test(org.phone.trim()))} onClick={() => void run("org", (k) => adm.updateFacility({ name: org.name.trim(), nameBn: org.nameBn.trim() || undefined, address: org.address.trim() || undefined, licenceNo: org.licenceNo.trim() || undefined, phone: org.phone.trim(), network: org.network,
+              ...(org.network ? { homeCollection: org.homeCollection, homeCollectionFeePaisa: takaToPaisa(org.homeFee) ?? 0, networkTurnaroundHours: Math.max(1, Math.min(720, Number(org.tat) || 24)) } : {}) }, k), A("saved"), (x) => setOrg(orgForm(x)))}>{A("save")}</Button></span>
         </Card>
 
         <Card id="step-branch" style={{ display: "flex", flexDirection: "column", gap: 10, padding: 16 }} data-testid="step-branch">

@@ -17,3 +17,4 @@ export * from "./ipd.js";
 export * from "./ward.js";
 export * from "./patient.js";
 export * from "./network.js";
+export * from "./portable.js";

@@ -102,7 +102,7 @@ async function toCompositionView(tx: Tx, c: Comp): Promise<CompositionView> {
     sections: c.sections as unknown as NoteSections, sectionSources: c.sectionSources as SectionSources,
     diagnoses: conditions.map((d) => ({ code: d.code, labelBn: d.labelBn, labelEn: d.labelEn, codeVerification: d.codeVerification, verificationStatus: d.verificationStatus })),
     medications: meds.map((m) => ({ id: m.id, position: m.position, medicineKey: m.medicineKey, brand: m.brand, generic: m.generic, strength: m.strength, form: m.form, ingredients: m.ingredients, classes: m.classes, sample: m.sample, dose: m.dose, meal: m.meal, days: m.days, quantity: m.quantity, note: m.note, keepBoth: m.keepBoth, acks: m.acks })),
-    orders: orders.map((o) => ({ id: o.id, testCode: o.testCode, nameEn: o.nameEn, nameBn: o.nameBn, group: o.group, priority: o.priority, status: dash<CompositionView["orders"][number]["status"]>(o.status), note: o.note, placedInVersion: versionOf.get(o.compositionId) ?? c.version, placed: o.status !== "draft" })),
+    orders: orders.map((o) => ({ id: o.id, testCode: o.testCode, nameEn: o.nameEn, nameBn: o.nameBn, group: o.group, priority: o.priority, status: dash<CompositionView["orders"][number]["status"]>(o.status), note: o.note, performer: o.performer as "in-house" | "network", placedInVersion: versionOf.get(o.compositionId) ?? c.version, placed: o.status !== "draft" })),
     author: who(c.authorId),
     signedAt: iso(c.signedAt),
     signedBy: c.signedById ? { ...who(c.signedById), regBody: reg?.regBody ?? null, regNo: reg?.regNo ?? null, regVerified: reg?.regVerified ?? false } : null,
@@ -282,6 +282,8 @@ export async function saveDraft(tx: Tx, s: SessionData, id: string, body: SaveDr
   }) });
   await tx.serviceRequest.createMany({ data: body.orders.map((o) => { const t = tests.get(o.testCode)!; return {
     ...base, organizationId: s.organizationId, branchId: e.branchId, testCode: t.code, nameEn: t.nameEn, nameBn: t.nameBn, group: t.group, priority: o.priority, note: o.note || null, orderedById: s.userId,
+    // ADR 0022: a network test — the patient chooses a network centre; this facility's lab and bill never take it
+    performer: o.performer ?? "in-house",
   }; }) });
   const after = (await tx.composition.findFirst({ where: { id: c.id } }))!;
   return { e, composition: await toCompositionView(tx, after) };
@@ -313,7 +315,7 @@ export async function signComposition(tx: Tx, s: SessionData, id: string, body: 
     throw err(422, "sign_blocked", `${blockers.length}টি সতর্কতা ঠিক করুন — স্বাক্ষর হয়নি`, `Resolve ${blockers.length} warning(s) — not signed`, { blockers: blockers as unknown as Record<string, unknown>[] });
 
   const to = signDocument({ status: dash(c.status), amendsId: c.amendsId, amendReason: c.amendReason });
-  const audit: { action: string; entity: string; entityId: string; detail: Record<string, unknown> }[] = [];
+  const audit: { action: string; entity: string; entityId?: string; patientId?: string | null; basis?: string; detail?: Record<string, unknown> }[] = [];
   // ADR 0003: supersede the version this one amends first (the one-current index allows only one current version).
   if (c.amendsId) {
     const v1 = await tx.composition.findFirst({ where: { id: c.amendsId } });
@@ -334,6 +336,9 @@ export async function signComposition(tx: Tx, s: SessionData, id: string, body: 
   if (drafts.length) {
     const ordered = transition("order", ORDER, "draft", "order");
     await tx.serviceRequest.updateMany({ where: { compositionId: c.id, status: "draft" }, data: { status: under<DbOrder>(ordered), orderedAt: now, statusAt: now } });
+    // ADR 0022: the version's network tests make one portable order; the patient chooses a network centre
+    const { makeFromSign } = await import("./portable.js");
+    audit.push(...(await makeFromSign(tx, s, { id: e.id, patientId: e.patientId }, c.id, now)).audit);
   }
 
   // Decision 31: signing the first version finishes the visit (ENCOUNTER finish), so the A6 bill attaches to it.

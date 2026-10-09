@@ -1,5 +1,5 @@
 /* ADR 0020 — the patient app's calls. Every route is /v1/patient/* with the patient cookie (never the staff one). */
-import type { AccessLog, ApiError, ClaimItem, ClaimList, ClaimProofRequest, ClaimProofResponse, DirectoryView, OtpResponse, PatientMe, PatientReportView, ShareCreate, ShareList, ShareView, Timeline } from "@setu/contracts";
+import type { AccessLog, CentreOffers, ChooseCentreRequest, PortableList, PortableOrderView, ApiError, ClaimItem, ClaimList, ClaimProofRequest, ClaimProofResponse, DirectoryView, OtpResponse, PatientMe, PatientReportView, ShareCreate, ShareList, ShareView, Timeline } from "@setu/contracts";
 import { t } from "@setu/i18n";
 
 /** staging serves the app under /patient (ADR 0021); locally and in CI it is the root */
@@ -43,5 +43,9 @@ export const patient = {
   shares: () => call<ShareList>("GET", "/v1/patient/shares"),
   share: (body: ShareCreate, key: string) => call<ShareView>("POST", "/v1/patient/shares", body, key),
   revoke: (id: string, key: string) => call<ShareView>("POST", `/v1/patient/shares/${encodeURIComponent(id)}/revoke`, {}, key),
+  /* E1 (ADR 0022): the portable lab orders, the centres, the choice */
+  portableOrders: () => call<PortableList>("GET", "/v1/patient/portable-orders"),
+  centres: (id: string, sort: "price" | "turnaround", collection: "centre" | "home") => call<CentreOffers>("GET", `/v1/patient/portable-orders/${encodeURIComponent(id)}/centres?sort=${sort}&collection=${collection}`),
+  choose: (id: string, body: ChooseCentreRequest, key: string) => call<PortableOrderView>("POST", `/v1/patient/portable-orders/${encodeURIComponent(id)}/choose`, body, key),
   accessLog: (before: string | null) => call<AccessLog>("GET", "/v1/patient/access-log" + (before ? "?before=" + encodeURIComponent(before) : "")),
 };

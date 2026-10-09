@@ -131,6 +131,10 @@ model Organization {
   phone                     String?
   /// ADR 0021: joined the Setu network — patients can share their records with this facility's doctors
   networkJoinedAt           DateTime?
+  /// ADR 0022: the network offer — home collection and its fee, the turnaround it promises
+  homeCollection            Boolean            @default(false)
+  homeCollectionFeePaisa    Int                @default(0)
+  networkTurnaroundHours    Int                @default(24)
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -294,6 +298,8 @@ model Patient {
   @@index([tenantId, phone])
   @@index([tenantId, nameBn])
   @@index([tenantId, nameEn])
+  /// ADR 0022: a centre's record made from a network order (its number): name, sex, age and phone only
+  networkOrigin String?
 }
 
 model RelatedPerson {
@@ -990,6 +996,8 @@ model ServiceRequest {
   revokedById       String?
   revokedAt         DateTime?
   revokeReason      String?
+  /// ADR 0022: in-house | network (the patient chooses a network centre; this facility's lab and bill never take it)
+  performer         String        @default("in-house")
 
   @@index([tenantId, encounterId])
   /// the lab worklist: a branch's lab orders, newest first (review: it fetched every order of 30 days)
@@ -1026,6 +1034,8 @@ model ChargeItemDefinition {
   vatRateBp      Int        @default(0)
   sample         Boolean    @default(true)
   active         Boolean    @default(true)
+  /// ADR 0022: a test this facility offers to the Setu network (at this price)
+  network        Boolean    @default(false)
   createdAt      DateTime   @default(now())
 
   @@unique([tenantId, organizationId, code])
@@ -2847,4 +2857,69 @@ model ConsentAccess {
 
   @@index([consentId, at], map: "ConsentAccess_consent_idx")
   @@index([personId, at], map: "ConsentAccess_person_idx")
+}
+
+/// ADR 0022 — a portable lab order: network level (no tenantId). RLS: the ordering tenant reads / writes, the chosen
+/// centre's tenant reads and records its decision, the patient reads theirs (person_has_record).
+model PortableOrder {
+  id                   String              @id @default(cuid())
+  number               String              @unique
+  originTenantId       String
+  originOrganizationId String
+  originPatientId      String
+  originEncounterId    String
+  orderedById          String
+  originFacilityEn     String
+  originFacilityBn     String?
+  doctorEn             String
+  doctorBn             String
+  patientNameEn        String?
+  patientNameBn        String
+  patientSex           String
+  patientAgeYears      Int?
+  patientPhone         String?
+  status               OrderStatus         @default(active)
+  statusAt             DateTime            @default(now())
+  centreTenantId       String?
+  centreOrganizationId String?
+  centreFacilityEn     String?
+  centreFacilityBn     String?
+  /// centre | home
+  collection           String?
+  chosenAt             DateTime?
+  /// patient | desk
+  chosenByKind         String?
+  chosenBy             String?
+  decidedAt            DateTime?
+  decidedById          String?
+  decidedByName        String?
+  centrePatientId      String?
+  centreEncounterId    String?
+  reorderOfId          String?
+  createdAt            DateTime            @default(now())
+  items                PortableOrderItem[] @relation("items")
+
+  @@index([originTenantId, originPatientId, createdAt], map: "PortableOrder_origin_idx")
+  @@index([centreTenantId, centreOrganizationId, status], map: "PortableOrder_centre_idx")
+}
+
+/// ADR 0022 — one test of a portable order: pending until the centre accepts or declines it (a reason, or not offered).
+model PortableOrderItem {
+  id                     String        @id @default(cuid())
+  orderId                String
+  order                  PortableOrder @relation("items", fields: [orderId], references: [id], onDelete: Restrict, map: "PortableOrderItem_order_fkey")
+  originServiceRequestId String
+  testCode               String
+  nameEn                 String
+  nameBn                 String
+  /// pending | accepted | declined
+  status                 String        @default("pending")
+  declineReason          String?
+  notOffered             Boolean       @default(false)
+  unitPaisa              Int?
+  centreServiceRequestId String?
+  reorderedToId          String?
+
+  @@index([orderId], map: "PortableOrderItem_order_idx")
+  @@index([originServiceRequestId], map: "PortableOrderItem_origin_sr_idx")
 }

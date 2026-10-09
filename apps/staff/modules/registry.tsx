@@ -56,6 +56,7 @@ import { BillPkg } from "./bill/Pkg";
 import { IpdDischarge } from "./ipd/Discharge";
 import { IpdSummary } from "./ipd/Summary";
 import { NetShared } from "./net/Shared";
+import { NetLab } from "./net/Lab";
 
 const SCREENS: Record<string, ComponentType> = {
   // slice A1–A3
@@ -111,6 +112,8 @@ const SCREENS: Record<string, ComponentType> = {
   "adm/audit": AdmAudit,
   // Phase 4 slice D4–D6 (ADR 0021): a patient's shared records
   "net/shared": NetShared,
+  // Phase 4 slice E1–E2 (ADR 0022): the portable lab order
+  "net/lab": NetLab,
   // slice B1–B2 (ADR 0014)
   "er/triage": ErTriage,
   "er/orders": ErOrders,

@@ -81,6 +81,19 @@ export async function consentExpireDue(): Promise<number> {
   return rows[0]?.n ?? 0;
 }
 
+/** ADR 0022: the network centres a patient can choose — area, turnaround, home collection and the tests each offers to
+    the network at its own prices (SECURITY DEFINER). */
+export interface NetworkCentre { tenantId: string; organizationId: string; nameEn: string; nameBn: string | null; area: string | null; homeCollection: boolean; homeCollectionFeePaisa: number; turnaroundHours: number; tests: { testCode: string; unitPaisa: number }[] }
+export async function networkCentres(): Promise<NetworkCentre[]> {
+  const rows = await prisma.$queryRaw<{ c: NetworkCentre[] }[]>`SELECT network_centres() AS c`;
+  return rows[0]?.c ?? [];
+}
+/** ADR 0022: the next portable order number (one network sequence) */
+export async function nextPortableNumber(tx: Tx): Promise<number> {
+  const rows = await (tx as PrismaClient).$queryRaw<{ n: bigint }[]>`SELECT nextval('portable_order_seq') AS n`;
+  return Number(rows[0]!.n);
+}
+
 export interface LoginCandidate {
   id: string; tenantId: string; nameBn: string; nameEn: string; phone: string | null; email: string | null; passwordHash: string;
   plan: "clinic" | "lite" | "pro"; roles: { organizationId: string; organizationName: string; role: string }[];

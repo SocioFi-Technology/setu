@@ -4,7 +4,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
-  AuditQuery, BranchCreate, DeactivateRequest, FacilityUpdate, PriceActive, PriceChange, PriceCreate, RoleChange, SettingsUpdate, SmsTestRequest, UserCreate, WardCreate,
+  AuditQuery, BranchCreate, DeactivateRequest, FacilityUpdate, PriceActive, PriceChange, PriceNetwork, PriceCreate, RoleChange, SettingsUpdate, SmsTestRequest, UserCreate, WardCreate,
   type AuditPage, type FacilityView, type PriceHistory, type PriceList, type UserCredentialResponse, type UserList, type UserView,
 } from "@setu/contracts";
 import { authorize } from "@setu/domain";
@@ -12,7 +12,7 @@ import { command, query } from "../command.js";
 import { forbidden } from "../errors.js";
 import {
   addBranch, addWard, auditCsv, auditPage, changePrice, changeRole, createPrice, createUser, facilityView, goLive, priceHistory, priceList, resetPassword, setActive,
-  setPriceActive, smsTest, smsTestConfirm, updateFacility, updateSettings, userList, verifyRegistration,
+  setPriceActive, setPriceNetwork, smsTest, smsTestConfirm, updateFacility, updateSettings, userList, verifyRegistration,
 } from "../modules/admin.js";
 import { requireSession } from "../plugins/session.js";
 
@@ -98,6 +98,12 @@ export async function adminRoutes(app: FastifyInstance) {
     requireAdm(req, "masters");
     const { id } = pid.parse(req.params); const body = PriceActive.parse(req.body ?? {});
     return command(req, reply, async (tx, s) => { const audit = await setPriceActive(tx, s, id, body.active, body.reason); return { status: 200, body: await priceList(tx, s), audit }; });
+  });
+  /* ADR 0022: a test offered to the Setu network */
+  app.post("/v1/admin/prices/:id/network", { config: { ownTx: true } }, async (req, reply): Promise<PriceList> => {
+    requireAdm(req, "masters");
+    const { id } = pid.parse(req.params); const body = PriceNetwork.parse(req.body ?? {});
+    return command(req, reply, async (tx, s) => { const audit = await setPriceNetwork(tx, s, id, body.network); return { status: 200, body: await priceList(tx, s), audit }; });
   });
   app.get("/v1/admin/prices/:id/history", async (req): Promise<PriceHistory> => {
     requireAdm(req, "masters");
