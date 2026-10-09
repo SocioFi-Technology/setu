@@ -26,10 +26,12 @@ export function shareRequestProblems(r: { period: string; scope: ShareScope; gra
   return out;
 }
 
-export interface ShareFacts { status: ConsentState; endsAt: Date; granteeTenantId: string; granteeUserId: string | null; scope: ShareScope }
+/** `kinds`: the item kinds a consent from an access request opens (ADR 0023; empty = every kind — the patient's own
+    share); `hideSensitive`: such a consent never opens an item of a visit with a sensitive condition or medicine */
+export interface ShareFacts { status: ConsentState; endsAt: Date; granteeTenantId: string; granteeUserId: string | null; scope: ShareScope; kinds?: readonly ShareItem["kind"][]; hideSensitive?: boolean }
 /** one record the receiving doctor asks for; `reportChain` = the report's versions up to this one (a corrected report
     stays covered by a share of its first version) */
-export interface ShareItem { tenantId: string; patientId: string; kind: "visit" | "admission" | "report" | "prescription" | "summary"; id: string; encounterId: string | null; reportChain?: string[] }
+export interface ShareItem { tenantId: string; patientId: string; kind: "visit" | "admission" | "report" | "prescription" | "summary"; id: string; encounterId: string | null; reportChain?: string[]; sensitive?: boolean }
 export type ShareRefusal = "expired" | "revoked" | "out-of-scope" | "not-grantee";
 
 export const shareStatusAt = (c: { status: ConsentState; endsAt: Date }, now: Date): ConsentState =>
@@ -44,7 +46,11 @@ export function shareCovers(c: ShareFacts, reader: { tenantId: string; userId: s
   const inScope = s.kind === "all" ? linked.some((l) => l.tenantId === item.tenantId && l.patientId === item.patientId)
     : item.tenantId === s.tenantId && item.patientId === s.patientId
       && (s.kind === "visit" ? item.encounterId === s.encounterId : item.kind === "report" && (item.reportChain ?? [item.id]).includes(s.reportId));
-  return inScope ? { ok: true } : { ok: false, reason: "out-of-scope" };
+  if (!inScope) return { ok: false, reason: "out-of-scope" };
+  if (c.kinds?.length && !c.kinds.includes(item.kind)) return { ok: false, reason: "out-of-scope" };
+  // a sensitive item answers as if it did not exist (never hinted)
+  if (c.hideSensitive && item.sensitive) return { ok: false, reason: "out-of-scope" };
+  return { ok: true };
 }
 
 /** stop sharing: active → revoked; already revoked answers the same (a retried tap); an ended share stays ended */

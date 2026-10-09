@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); week 2 staging sessions 1–2 done (08/10/2026, staging live); Phase 4 slice D1–D3 done (09/10/2026, the patient app); D4–D6 done (09/10/2026: report, share, who viewed; the patient app on staging); gap 16 fixed; E1–E2 done (09/10/2026: the portable lab order); E3 done (10/10/2026: results back); next: see Next)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); week 2 staging sessions 1–2 done (08/10/2026, staging live); Phase 4 slice D1–D3 done (09/10/2026, the patient app); D4–D6 done (09/10/2026: report, share, who viewed; the patient app on staging); gap 16 fixed; E1–E2 done (09/10/2026: the portable lab order); E3 done (10/10/2026: results back); E4 done (10/10/2026: another clinic's view, access requests) — Journey E complete; next: see Next)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -1447,6 +1447,37 @@ current medicines rule).
   collected / released / inbox, the report through the order only + the centre's audit, acknowledge → received + the
   patient's history) and a home-collection bill test in `portable.test.ts`; `journey-e` now E1–E3.
 
+## Done (Phase 4 slice E4, 10/10/2026) — another clinic's view of a patient's history ✅
+ADR 0023 (E4 decisions). Journey E is complete.
+- **Migration** `20261011090000_network_history`: `Patient.bloodGroup` (+ who and when; the eight groups only);
+  `Consent.kinds` + `requestId` (a request's consent: scope "all", the kinds asked); `AccessRequest` (network level, RLS:
+  the requesting tenant makes and reads its own, the person reads and answers theirs; a guard: answered once, nothing
+  else changes); SECURITY DEFINER `person_network_sharing()`.
+- **Domain:** `history.ts` (the sensitive SAMPLE list — ICD-11 prefixes and medicine classes, gap 12; current medicine;
+  active problem = a signed diagnosis of the last 180 days; access request rules; answered once, expires after 7 days);
+  `shareCovers` learns `kinds` and `hideSensitive` (a sensitive item answers out-of-scope — no hint).
+- **API:** `GET /v1/network/history/:patientId` (doctors; only a linked record; network sharing off → nothing; from the
+  OTHER linked facilities, each read in its tenant: active allergies, current medicines, active problems, blood group,
+  with facility / author / date; a visit with a sensitive condition or medicine dropped whole before counting; audited
+  in the owner facility, basis `network-policy`, shown in the patient's "who viewed"); `POST /v1/network/access-requests`
+  (kinds, period 24 h / 30 days, reason ≥ 10; one waiting per doctor and patient; the SMS `sms_access_request`, the
+  facility's name only); `POST /v1/patients/:id/blood-group` (doctor, nurse, lab); the patient's
+  `GET /v1/patient/access-requests`, `POST …/:id/answer` (approve → the Consent to that doctor; deny; expired → 409) and
+  `POST /v1/patient/network-sharing`. Shared reads under a request's consent leave out other kinds and sensitive visits
+  (records, documents, trend points).
+- **Screens:** staff `net/consent?patient=` (opened from the consultation's "Setu history" link, a new tab): not linked /
+  sharing off / the four policy blocks with the provider-verified badge; this record's blood group; "Request access"
+  and the requests' states, a granted one opening `net/shared?consent=`; "By your request" on such a share. Patient app
+  Shares → Requests: the network sharing switch; each request (doctor, facility, what, how long, the reason) with
+  Allow / Decline; a share made from a request says so.
+- **Tests:** domain `history.test.ts` (10) and two `share.test.ts` cases; API `network-history.test.ts` (10: not linked,
+  the policy view with sources and the sensitive visit dropped, the owner's audit and "who viewed", doctors only,
+  sharing off, the request + SMS + one waiting, approve once → kinds-only share without the sensitive visit, deny,
+  expiry and the database guard, blood group roles); `journey-e4` (the policy view, the request, sharing off/on, the
+  patient allows, the doctor opens the share).
+- **Follow-ups:** the clinician's sensitive rules and codes in the catalogue (gap 12); a "resolved" problem status; the
+  doctor told in the inbox when the patient answers; a pushed notice to the patient; break-glass screens.
+
 ## On call (staging) — https://setu.sociofitechnology.com (the shared SocioFi VPS, ADR 0019 addendum)
 **Where things are** (`ssh -l setu sociofi` — the `setu` user runs Setu in **its own rootless Docker daemon**: plain
 `docker` as setu sees Setu's containers, the VPS's shared `docker` group does not; every Setu container is compose
@@ -1578,7 +1609,7 @@ paste them into chat or git.
    product's own domain: `HOSTING_REGION` near Bangladesh, off-server backups, GHCR images, error tracking, smaller
    api / tools images.
 9. **Phase 4 (Journeys D and E):** ~~D1–D3~~ (09/10/2026, ADR 0020) · ~~D4–D6~~ (09/10/2026, ADR 0021) · ~~E1–E2~~ (09/10/2026, ADR 0022) ·
-   ~~E3~~ (10/10/2026, ADR 0023) · E4 (ADR 0023); the desk-proof confirm screen.
+   ~~E3~~ (10/10/2026, ADR 0023) · ~~E4~~ (10/10/2026, ADR 0023); the desk-proof confirm screen.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

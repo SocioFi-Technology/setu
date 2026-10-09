@@ -4,6 +4,7 @@
    ended or was stopped answers "refused" with the reason, and the screen says it. The patient and their facility see
    every look (who, when). */
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { SharedList, SharedRecords, SharedReportView } from "@setu/contracts";
 import { format } from "@setu/domain";
 import { fill } from "@setu/i18n";
@@ -19,7 +20,8 @@ function useN() {
 export function NetShared() {
   const s = useSession(); const N = useN();
   const [list, setList] = useState<SharedList | null>(null); const [failed, setFailed] = useState(false);
-  const [open, setOpen] = useState<string | null>(null);
+  // E4: a granted access request links its share here (?consent=<id>)
+  const [open, setOpen] = useState<string | null>(useSearchParams().get("consent"));
   const load = useCallback(async () => { try { setList(await net.shared()); setFailed(false); } catch { setFailed(true); } }, []);
   useEffect(() => { s.setPatient(null); void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const bn = s.numerals === "bn";
@@ -39,6 +41,7 @@ export function NetShared() {
             <div className="t-small">{i.scope.kind === "all" ? N("scope_all") : i.scope.kind === "visit" ? N("scope_visit", { t: i.scope.at ? format.date(i.scope.at, bn) : "" }) : N("scope_report", { n: i.scope.number ?? "" })}
               {" · "}{N("ends", { t: format.dateTime(i.endsAt, bn) })}</div>
           </div>
+          {i.kinds.length > 0 && <Pill tone="neu" icon="list-filter">{N("by_request")}</Pill>}
           <Pill tone={i.toMe ? "info" : "neu"} icon={i.toMe ? "user-round" : "building-2"}>{i.toMe ? N("to_me") : N("to_facility")}</Pill>
           <Button variant="primary" icon="folder-open" onClick={() => setOpen(i.consentId)}>{N("open")}</Button>
         </Card>

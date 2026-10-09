@@ -46,21 +46,40 @@ orders; the consent-checked read service, Consent and "who viewed" (ADR 0021); b
   report the order names, read in the centre's tenant, audited there (basis `portable-order`, the reader's names) and at
   the ordering facility. Acknowledging the inbox item marks the order received and tells the patient (app).
 
-## Decisions — E4 (built next)
+## Decisions — E4
 - **Only a linked patient:** this clinic's record must be linked to a Person (a claim — the app code, or the network
-  order). Otherwise the network panel says "not linked to Setu" — never a match by name or phone.
-- **By policy** (no request; never when `Person.networkSharing` is off): from every *other* linked facility — active
-  allergies, current medicines (decision 5), active problems (conditions of signed notes, not resolved), blood group
-  (decision 4) — each row with facility, author, date and the provider-verified badge. **Sensitive** rows (the sample
-  ICD-11 list, `@setu/domain` `sensitive.ts`) are dropped before anything is counted or returned.
-- **By consent:** "Request access" — scope (lab reports, discharge summaries, prescriptions, visits), period (today's
-  visit = 24 h, or 30 days), reason ≥ 10 characters → the patient app and an SMS (fixed template); the patient approves
-  (a Consent, ADR 0021, granted to the requesting doctor, scope "all" limited to the requested kinds, sensitive never) or
-  denies; every read through the read service, audited, in "who viewed".
-- **Network sharing off** (patient app setting): nothing by policy; requests still reach the patient.
+  order; `person_of_record()`). Otherwise the panel says "not linked to Setu" — never a match by name or phone.
+- **By policy** (no request; never when `Person.networkSharing` is off — read through the SECURITY DEFINER
+  `person_network_sharing()`): from every *other* linked facility, each read inside that facility's tenant —
+  active allergies, current medicines (decision 5: an outpatient line within its days from the signing, an active
+  inpatient order; newest per medicine), active problems (diagnoses of signed notes of the last 180 days — no
+  "resolved" flag exists yet; newest per code), blood group (decision 4) — each row with facility, author, date and the
+  provider-verified badge. **Doctors only** (screen net/consent; an owner or admin is refused `doctors_only`).
+- **Sensitive, never hinted:** a visit any of whose notes carries a sensitive condition (the sample ICD-11 prefixes,
+  `@setu/domain` `history.ts`) or a medicine of a sensitive class is left out whole — its problems, medicines,
+  allergies, records and trend points — before anything is counted. The sample catalogue (gap 12) has no such code
+  yet; the API test writes one as a facility whose list has it would.
+- **Audit:** each read by policy is an AuditEvent in the owner facility (basis `network-policy`, the reader's names,
+  the counts) and in the reader's; the patient's "who viewed" lists it as a look by another facility.
+- **By consent:** "Request access" (`AccessRequest`, network level: the requesting tenant makes and reads its own, the
+  person reads and answers theirs — RLS) — kinds (lab reports, discharge summaries, prescriptions, visits), period
+  (today's visit = 24 h, or 30 days), a reason of 10+ characters the patient sees; one waiting request per doctor and
+  patient. The patient app lists it and an SMS of a fixed template (the facility's name only) tells them. The patient
+  answers once (a database guard: sent → granted | denied | expired; nothing else changes); unanswered for 7 days it
+  expires. **Approve** makes a Consent (basis `patient-request`, `requestId`, scope "all" with `kinds` = the item
+  kinds asked) to the requesting doctor by name; it is then read through the same consent-checked service (ADR 0021):
+  `shareCovers` refuses another kind, and with `hideSensitive` an item of a sensitive visit answers "not shared"
+  (out-of-scope — no hint). The patient stops it from the shares list like any share.
+- **The patient's own shares (D5) are unchanged:** what the patient chose to share themselves is shown as shared; the
+  sensitive filter applies to what another clinic asks for or sees without asking.
+- **Blood group** is recorded on the record by a doctor, nurse or lab technologist (`POST
+  /v1/patients/:id/blood-group`; who and when; a database check allows the eight groups only).
+- **Network sharing** is the patient app's switch (Shares → Requests): off = nothing by policy; requests still reach
+  the patient.
 - Break-glass stays a follow-up (designed in the consent model).
 
 ## Consequences
 - The order now carries its progress; the lab's post-commit step touches only network-order visits.
 - Follow-ups: Nagad; a patient-started payment with its own reconciliation; a pushed (not only in-app) notice; the
-  clinician's sensitive-category rules (gap 12); break-glass screens.
+  clinician's sensitive-category rules (gap 12) and the codes in the catalogue; a "resolved" problem status; the
+  requesting doctor told in the inbox when the patient answers; break-glass screens.

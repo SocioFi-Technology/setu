@@ -132,11 +132,30 @@ export const ShareView = z.object({
   period: SharePeriodWire, startsAt: z.string(), endsAt: z.string(),
   /** as of now: an active share past its end reads expired */
   status: z.enum(["active", "revoked", "expired"]), revokedAt: z.string().nullable(),
+  /** ADR 0023: made by approving a doctor's request — only these item kinds (empty = every kind) */
+  kinds: z.array(z.string()).default([]),
   opens: z.array(ShareOpen),
 });
 export type ShareView = z.infer<typeof ShareView>;
 export const ShareList = z.object({ items: z.array(ShareView) });
 export type ShareList = z.infer<typeof ShareList>;
+
+/* ── E4 (ADR 0023): a doctor's request to see more; the person answers once; network sharing on or off ── */
+export const PatientAccessRequest = z.object({
+  id: z.string(),
+  facilityEn: z.string(), facilityBn: z.string().nullable(), doctorEn: z.string(), doctorBn: z.string().nullable(),
+  kinds: z.array(z.enum(["reports", "summaries", "prescriptions", "visits"])), period: z.enum(["24h", "30d"]), reason: z.string(),
+  state: z.enum(["sent", "granted", "denied", "expired"]), createdAt: z.string(), answeredAt: z.string().nullable(),
+  /** granted: the share it made (stop it from the shares list) */
+  consentId: z.string().nullable(),
+});
+export type PatientAccessRequest = z.infer<typeof PatientAccessRequest>;
+export const PatientAccessRequests = z.object({ items: z.array(PatientAccessRequest) });
+export type PatientAccessRequests = z.infer<typeof PatientAccessRequests>;
+export const AccessAnswer = z.object({ answer: z.enum(["approve", "deny"]) });
+export type AccessAnswer = z.infer<typeof AccessAnswer>;
+export const NetworkSharingSet = z.object({ on: z.boolean() });
+export type NetworkSharingSet = z.infer<typeof NetworkSharingSet>;
 
 /* ── D6 (ADR 0021): who viewed ── */
 export const AccessEntry = z.object({

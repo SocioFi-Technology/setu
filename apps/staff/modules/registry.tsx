@@ -57,6 +57,7 @@ import { IpdDischarge } from "./ipd/Discharge";
 import { IpdSummary } from "./ipd/Summary";
 import { NetShared } from "./net/Shared";
 import { NetLab } from "./net/Lab";
+import { NetConsent } from "./net/Consent";
 
 const SCREENS: Record<string, ComponentType> = {
   // slice A1–A3
@@ -114,6 +115,8 @@ const SCREENS: Record<string, ComponentType> = {
   "net/shared": NetShared,
   // Phase 4 slice E1–E2 (ADR 0022): the portable lab order
   "net/lab": NetLab,
+  // Phase 4 slice E4 (ADR 0023): another clinic's view of a patient's history
+  "net/consent": NetConsent,
   // slice B1–B2 (ADR 0014)
   "er/triage": ErTriage,
   "er/orders": ErOrders,

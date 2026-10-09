@@ -300,6 +300,10 @@ model Patient {
   @@index([tenantId, nameEn])
   /// ADR 0022: a centre's record made from a network order (its number): name, sex, age and phone only
   networkOrigin String?
+  /// ADR 0023 (decision 4): blood group (A+ … O-), recorded at this facility — who and when
+  bloodGroup     String?
+  bloodGroupAt   DateTime?
+  bloodGroupById String?
 }
 
 model RelatedPerson {
@@ -2831,6 +2835,9 @@ model Consent {
   statusAt              DateTime      @default(now())
   revokedAt             DateTime?
   createdAt             DateTime      @default(now())
+  /// ADR 0023: the item kinds a consent from an access request opens (empty = every kind: the patient's own shares)
+  kinds                 String[]      @default([])
+  requestId             String?
   accesses              ConsentAccess[]
 
   @@index([personId, createdAt], map: "Consent_personId_idx")
@@ -2930,4 +2937,31 @@ model PortableOrderItem {
 
   @@index([orderId], map: "PortableOrderItem_order_idx")
   @@index([originServiceRequestId], map: "PortableOrderItem_origin_sr_idx")
+}
+
+/// ADR 0023 (E4): a doctor's request to see more of a patient's history; the person answers it in the app (once)
+model AccessRequest {
+  id                      String    @id
+  personId                String
+  requesterTenantId       String
+  requesterOrganizationId String
+  requesterUserId         String
+  requesterPatientId      String
+  facilityEn              String
+  facilityBn              String?
+  doctorEn                String
+  doctorBn                String?
+  /// reports | summaries | prescriptions | visits
+  kinds                   String[]
+  /// 24h | 30d
+  period                  String
+  reason                  String
+  /// sent | granted | denied | expired
+  state                   String    @default("sent")
+  answeredAt              DateTime?
+  consentId               String?
+  createdAt               DateTime  @default(now())
+
+  @@index([personId, createdAt], map: "AccessRequest_person_idx")
+  @@index([requesterTenantId, requesterPatientId, createdAt], map: "AccessRequest_requester_idx")
 }

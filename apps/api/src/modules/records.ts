@@ -88,11 +88,12 @@ export async function reportIn(tx: Tx, patientId: string, reportId: string): Pro
 }
 
 /** this patient's released results for these analytes at one facility (validated or corrected, never a withdrawn one) */
-export async function trendIn(tx: Tx, patientId: string, codes: string[]): Promise<{ code: string; at: string; value: number; facilityEn: string | null; facilityBn: string | null; observationId: string }[]> {
+export async function trendIn(tx: Tx, patientId: string, codes: string[], leaveOutVisits?: Set<string>): Promise<{ code: string; at: string; value: number; facilityEn: string | null; facilityBn: string | null; observationId: string }[]> {
   if (!codes.length) return [];
   const released = await tx.diagnosticReportResult.findMany({ where: { report: { patientId } }, select: { observationId: true } });
   const ids = [...new Set(released.map((x) => x.observationId))];
-  const obs = await tx.observation.findMany({ where: { id: { in: ids }, code: { in: codes }, category: "laboratory", status: { in: ["final", "amended"] } }, select: { id: true, code: true, value: true, effectiveAt: true, organizationId: true } });
+  const obs = await tx.observation.findMany({ where: { id: { in: ids }, code: { in: codes }, category: "laboratory", status: { in: ["final", "amended"] } }, select: { id: true, code: true, value: true, effectiveAt: true, organizationId: true, encounterId: true } })
+    .then((rows) => rows.filter((o) => !leaveOutVisits?.has(o.encounterId)));
   const orgs = await tx.organization.findMany({ where: { id: { in: [...new Set(obs.map((o) => o.organizationId))] } }, select: { id: true, name: true, nameBn: true } });
   return obs.map((o) => ({ code: o.code, at: o.effectiveAt.toISOString(), value: o.value, facilityEn: orgs.find((g) => g.id === o.organizationId)?.name ?? null, facilityBn: orgs.find((g) => g.id === o.organizationId)?.nameBn ?? null, observationId: o.id }));
 }

@@ -99,6 +99,11 @@ export async function personOfRecord(tenantId: string, patientId: string): Promi
   const rows = await prisma.$queryRaw<{ p: string | null }[]>`SELECT person_of_record(${tenantId}::text, ${patientId}::text) AS p`;
   return rows[0]?.p ?? null;
 }
+/** ADR 0023 (E4): the person's "network sharing" setting (Person rows are the person's own — SECURITY DEFINER) */
+export async function personNetworkSharing(personId: string): Promise<boolean> {
+  const rows = await prisma.$queryRaw<{ on: boolean }[]>`SELECT person_network_sharing(${personId}::text) AS on`;
+  return rows[0]?.on ?? false;
+}
 
 export interface LoginCandidate {
   id: string; tenantId: string; nameBn: string; nameEn: string; phone: string | null; email: string | null; passwordHash: string;

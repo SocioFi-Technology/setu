@@ -3,12 +3,12 @@
    time; each share lists who opened it and when. The rules are @setu/domain share.ts. Making or stopping a share is
    also written to the audit of each facility whose records it covers (they see that their patient shared them). */
 import type { FastifyReply, FastifyRequest } from "fastify";
-import type { DirectoryView, ShareCreate, ShareList, ShareView } from "@setu/contracts";
-import { shareEndsAt, shareRequestProblems, shareRevoke, shareStatusAt, type ConsentState, type ShareScope } from "@setu/domain";
+import type { AccessAnswer, DirectoryView, PatientAccessRequest, PatientAccessRequests, PatientMe, ShareCreate, ShareList, ShareView } from "@setu/contracts";
+import { ACCESS_PERIODS, ACCESS_REQUEST_WAIT_DAYS, answerRequest, itemKindsFor, shareEndsAt, shareRequestProblems, shareRevoke, shareStatusAt, type AccessKind, type AccessRequestState, type ConsentState, type ShareScope } from "@setu/domain";
 import type { Tx } from "@setu/db";
 import { err } from "../errors.js";
 import { requirePerson, type PersonSession } from "../plugins/patientSession.js";
-import { audit, linkedClaims, personCommand, personQuery } from "./patient.js";
+import { audit, linkedClaims, patientMe, personCommand, personQuery } from "./patient.js";
 
 type ConsentRow = Awaited<ReturnType<Tx["consent"]["findFirstOrThrow"]>> & { accesses: Awaited<ReturnType<Tx["consentAccess"]["findMany"]>> };
 const under = (s: string) => s.replace(/-/g, "_");
@@ -19,7 +19,7 @@ function shareView(c: ConsentRow, now: Date): ShareView {
     grantee: { facilityEn: c.granteeFacilityEn, facilityBn: c.granteeFacilityBn, doctorEn: c.granteeDoctorEn, doctorBn: c.granteeDoctorBn },
     scope: { kind: c.scope, facilityEn: c.scopeFacilityEn, facilityBn: c.scopeFacilityBn, number: c.scopeNumber, at: c.scopeAt?.toISOString() ?? null },
     period: c.period as ShareView["period"], startsAt: c.startsAt.toISOString(), endsAt: c.endsAt.toISOString(),
-    status: st === "revoked" ? "revoked" : st === "active" ? "active" : "expired", revokedAt: c.revokedAt?.toISOString() ?? null,
+    status: st === "revoked" ? "revoked" : st === "active" ? "active" : "expired", revokedAt: c.revokedAt?.toISOString() ?? null, kinds: c.kinds,
     opens: c.accesses.sort((a, b) => b.at.getTime() - a.at.getTime()).map((a) => ({ at: a.at.toISOString(), nameEn: a.userNameEn, nameBn: a.userNameBn, role: a.role, facilityEn: a.facilityEn, facilityBn: a.facilityBn, itemKind: a.itemKind })),
   };
 }
@@ -114,4 +114,54 @@ export async function revokeShare(req: FastifyRequest, reply: FastifyReply, id: 
   });
   if (stopped) await tellFacilities(req, p, stopped, await linkedClaims(req), "revoke");
   return view;
+}
+
+/* ── E4 (ADR 0023): a doctor's request to see more — the person answers once (approve → a share of the kinds asked, to
+   that doctor, for the period asked; sensitive never); unanswered for 7 days it expires ── */
+type RequestRow = Awaited<ReturnType<Tx["accessRequest"]["findFirstOrThrow"]>>;
+const requestState = (r: RequestRow, now: Date): AccessRequestState =>
+  r.state === "sent" && now.getTime() - r.createdAt.getTime() > ACCESS_REQUEST_WAIT_DAYS * 864e5 ? "expired" : (r.state as AccessRequestState);
+const requestView = (r: RequestRow, now: Date): PatientAccessRequest => ({
+  id: r.id, facilityEn: r.facilityEn, facilityBn: r.facilityBn, doctorEn: r.doctorEn, doctorBn: r.doctorBn,
+  kinds: r.kinds as PatientAccessRequest["kinds"], period: r.period as PatientAccessRequest["period"], reason: r.reason,
+  state: requestState(r, now), createdAt: r.createdAt.toISOString(), answeredAt: r.answeredAt?.toISOString() ?? null, consentId: r.consentId,
+});
+export async function listAccessRequests(req: FastifyRequest, now = new Date()): Promise<PatientAccessRequests> {
+  return personQuery(req, async (tx, p) => ({ items: (await tx.accessRequest.findMany({ where: { personId: p.personId }, orderBy: { createdAt: "desc" }, take: 50 })).map((r) => requestView(r, now)) }));
+}
+export async function answerAccessRequest(req: FastifyRequest, reply: FastifyReply, id: string, b: AccessAnswer, now = new Date()): Promise<PatientAccessRequest> {
+  const p = requirePerson(req);
+  let made: ConsentRow | null = null;
+  const view = await personCommand(req, reply, null, async (tx) => {
+    await tx.$queryRaw`SELECT 1 FROM "AccessRequest" WHERE "id" = ${id} FOR UPDATE`;
+    const r = await tx.accessRequest.findFirst({ where: { id, personId: p.personId } });
+    if (!r) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
+    const a = answerRequest(r.state as AccessRequestState, r.createdAt, b.answer, now);
+    if (a.refused === "expired") throw err(409, "request_expired", "এই অনুরোধের মেয়াদ শেষ", "This request has expired");
+    if (a.refused) {
+      // a retried tap with the same answer reads the same; the other answer is refused
+      if ((r.state === "granted" && b.answer === "approve") || (r.state === "denied" && b.answer === "deny")) return { body: requestView(r, now) };
+      throw err(409, "request_answered", "এই অনুরোধের উত্তর আগেই দেওয়া হয়েছে", "This request was already answered");
+    }
+    let consentId: string | null = null;
+    if (a.state === "granted") {
+      const period = r.period as keyof typeof ACCESS_PERIODS;
+      const c = await tx.consent.create({ data: {
+        personId: p.personId, basis: "patient-request", requestId: r.id, kinds: itemKindsFor(r.kinds as AccessKind[]),
+        granteeTenantId: r.requesterTenantId, granteeOrganizationId: r.requesterOrganizationId, granteeUserId: r.requesterUserId,
+        granteeFacilityEn: r.facilityEn, granteeFacilityBn: r.facilityBn, granteeDoctorEn: r.doctorEn, granteeDoctorBn: r.doctorBn,
+        scope: "all", period, startsAt: now, endsAt: new Date(now.getTime() + ACCESS_PERIODS[period] * 3600_000), status: "active", statusAt: now,
+      }, include: { accesses: true } });
+      made = c; consentId = c.id;
+    }
+    const u = await tx.accessRequest.update({ where: { id: r.id }, data: { state: a.state, answeredAt: now, consentId } });
+    return { body: requestView(u, now) };
+  });
+  if (made) await tellFacilities(req, p, made, await linkedClaims(req), "share");
+  return view;
+}
+/* network sharing on / off: off = nothing of this person by policy at another facility; requests still reach them */
+export async function setNetworkSharing(req: FastifyRequest, reply: FastifyReply, on: boolean): Promise<PatientMe> {
+  await personCommand(req, reply, null, async (tx, p) => { await tx.person.update({ where: { id: p.personId }, data: { networkSharing: on } }); return { body: { on } }; });
+  return patientMe(req);
 }

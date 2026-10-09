@@ -1,23 +1,25 @@
 "use client";
 /* D5–D6 (ADR 0021): share records with a doctor or a facility of the Setu network — what (all / one visit / one
    report), with whom, for how long (30 days unless the patient picks 24 h or 7 days); the active shares with who opened
-   them, "Stop sharing" in two taps; and who viewed the patient's records, break-glass labelled. Needs the network. */
+   them, "Stop sharing" in two taps; and who viewed the patient's records, break-glass labelled. Needs the network.
+   E4 (ADR 0023): doctors' requests to see more — who, which facility, what, how long and why; Allow or Decline, once;
+   and the "network sharing" setting (off: other facilities see nothing without the patient's yes). */
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import type { AccessLog, DirectoryView, ShareList, ShareView, TimelineItem } from "@setu/contracts";
+import type { AccessLog, DirectoryView, PatientAccessRequest, PatientAccessRequests, ShareList, ShareView, TimelineItem } from "@setu/contracts";
 import { format } from "@setu/domain";
 import { Icon, Pill } from "@setu/ui";
 import { Shell } from "../../components/Shell";
 import { patient } from "../../lib/api";
 import { errText, useLang } from "../../lib/lang";
 
-type Tab = "new" | "active" | "viewed";
+type Tab = "new" | "active" | "viewed" | "requests";
 export default function SharePage() { return <Suspense><ShareScreen /></Suspense>; }
 
 function ShareScreen() {
   const q = useSearchParams();
   const { T } = useLang();
-  const [tab, setTab] = useState<Tab>("new");
+  const [tab, setTab] = useState<Tab>(q.get("tab") === "requests" ? "requests" : "new");
   const [shares, setShares] = useState<ShareList | null>(null);
   const loadShares = useCallback(() => patient.shares().then(setShares).catch(() => setShares({ items: [] })), []);
   useEffect(() => { void loadShares(); }, [loadShares]);
@@ -25,11 +27,12 @@ function ShareScreen() {
     <Shell>
       <h1 className="pa-h2">{T("share_title")}</h1>
       <div className="pa-tabsbar" role="tablist">
-        {(["new", "active", "viewed"] as const).map((k) => <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{T(k === "new" ? "share_new" : k === "active" ? "share_active" : "share_viewed")}</button>)}
+        {(["new", "active", "viewed", "requests"] as const).map((k) => <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{T(k === "new" ? "share_new" : k === "active" ? "share_active" : k === "viewed" ? "share_viewed" : "share_requests")}</button>)}
       </div>
       {tab === "new" && <NewShare presetClaim={q.get("claim")} presetReport={q.get("report")} onMade={() => { void loadShares(); setTab("active"); }} />}
       {tab === "active" && <Active shares={shares} onChange={(v) => setShares((s) => s && { items: s.items.map((x) => (x.id === v.id ? v : x)) })} />}
       {tab === "viewed" && <Viewed />}
+      {tab === "requests" && <Requests onGranted={() => void loadShares()} />}
     </Shell>
   );
 }
@@ -136,7 +139,8 @@ function ShareCard({ s, onChange }: { s: ShareView; onChange: (v: ShareView) => 
   return (
     <section className="pa-card" data-share={s.status} aria-label={who}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
-        <div style={{ minWidth: 0 }}><b style={{ display: "block" }}>{what}</b><span className="pa-meta">{T("to", { who })}</span></div>
+        <div style={{ minWidth: 0 }}><b style={{ display: "block" }}>{what}</b><span className="pa-meta">{T("to", { who })}</span>
+          {s.kinds.length > 0 && <span className="pa-meta" style={{ display: "block" }}>{T("from_request")}</span>}</div>
         {s.status === "active" ? <Pill tone="ok" icon="share-2">{T("share_active")}</Pill> : <Pill tone="neu" icon="circle-off">{s.status === "revoked" ? T("stopped_at", { t: format.dateTime(s.revokedAt!, bn) }) : T("expired_at", { t: format.dateTime(s.endsAt, bn) })}</Pill>}
       </div>
       {s.status === "active" && <span className="pa-meta">{T("ends", { t: format.dateTime(s.endsAt, bn) })}</span>}
@@ -190,5 +194,67 @@ function Viewed() {
       ))}
       {log.next && <button type="button" className="pa-btn" onClick={more}>{T("more")}</button>}
     </>
+  );
+}
+
+/* E4 (ADR 0023): doctors' requests, answered once; the network sharing setting */
+function Requests({ onGranted }: { onGranted: () => void }) {
+  const { lang, T } = useLang();
+  const [list, setList] = useState<PatientAccessRequests | null>(null);
+  const [sharing, setSharing] = useState<boolean | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    patient.accessRequests().then(setList).catch((e) => setError(errText(lang, e, T)));
+    patient.me().then((m) => setSharing(m.person.networkSharing)).catch(() => {});
+  }, [lang, T]);
+  const toggle = async () => {
+    if (sharing === null) return;
+    setBusy(true); setError(null);
+    try { setSharing((await patient.networkSharing(!sharing, crypto.randomUUID())).person.networkSharing); } catch (e) { setError(errText(lang, e, T)); } finally { setBusy(false); }
+  };
+  const answered = (v: PatientAccessRequest) => { setList((l) => l && { items: l.items.map((x) => (x.id === v.id ? v : x)) }); if (v.state === "granted") onGranted(); };
+  return (
+    <>
+      <section className="pa-card" data-network-sharing={sharing === null ? "" : sharing ? "on" : "off"}>
+        <label style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", minHeight: 44 }}>
+          <span><b style={{ display: "block" }}>{T("ns_title")}</b><span className="pa-meta">{sharing === false ? T("ns_off_hint") : T("ns_on_hint")}</span></span>
+          <input type="checkbox" role="switch" aria-checked={!!sharing} checked={!!sharing} disabled={sharing === null || busy} onChange={toggle} style={{ width: 24, height: 24 }} />
+        </label>
+      </section>
+      {error && <span className="pa-err" role="alert"><Icon name="circle-x" size={16} />{error}</span>}
+      {!list ? <p className="pa-sub">{T("loading")}</p> : !list.items.length ? <p className="pa-sub">{T("req_none")}</p> : list.items.map((r) => <RequestCard key={r.id} r={r} onAnswered={answered} />)}
+    </>
+  );
+}
+
+function RequestCard({ r, onAnswered }: { r: PatientAccessRequest; onAnswered: (v: PatientAccessRequest) => void }) {
+  const { lang, T } = useLang();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const bn = lang === "bn";
+  const nm = (en: string | null, b: string | null) => (bn ? b ?? en : en ?? b) ?? "";
+  const answer = async (a: "approve" | "deny") => {
+    setBusy(true); setError(null);
+    try { onAnswered(await patient.answerRequest(r.id, a, crypto.randomUUID())); } catch (e) { setError(errText(lang, e, T)); } finally { setBusy(false); }
+  };
+  const tone = r.state === "granted" ? "ok" : r.state === "sent" ? "pend" : "neu";
+  return (
+    <section className="pa-card" data-request={r.state} aria-label={nm(r.doctorEn, r.doctorBn)}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+        <div style={{ minWidth: 0 }}><b style={{ display: "block" }}>{nm(r.doctorEn, r.doctorBn)}</b><span className="pa-meta">{nm(r.facilityEn, r.facilityBn)} · {format.dateTime(r.createdAt, bn)}</span></div>
+        <Pill tone={tone}>{T(`req_${r.state}`)}</Pill>
+      </div>
+      <span>{T("req_wants", { what: r.kinds.map((k) => T(`req_kind_${k}`)).join(", "), period: T(`req_p_${r.period}`) })}</span>
+      <span className="pa-meta">{T("req_reason", { r: r.reason })}</span>
+      <span className="pa-note">{T("req_never")}</span>
+      {error && <span className="pa-err" role="alert"><Icon name="circle-x" size={16} />{error}</span>}
+      {r.state === "sent" && (
+        <div className="pa-row" style={{ gap: 8 }}>
+          <button type="button" className="pa-btn pa-btn-primary" disabled={busy} onClick={() => answer("approve")} data-answer="approve"><Icon name="check" size={18} />{T("req_allow")}</button>
+          <button type="button" className="pa-btn" disabled={busy} onClick={() => answer("deny")} data-answer="deny"><Icon name="x" size={18} />{T("req_deny")}</button>
+        </div>
+      )}
+    </section>
   );
 }

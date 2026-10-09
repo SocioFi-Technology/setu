@@ -30,5 +30,6 @@ export * from "./mar.js";
 export * from "./nursing.js";
 export * from "./claim.js";
 export * from "./share.js";
+export * from "./history.js";
 export * from "./labPlain.js";
 export * from "./portable.js";

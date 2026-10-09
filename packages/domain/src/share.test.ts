@@ -68,6 +68,17 @@ describe("shareCovers — every read by the receiving doctor", () => {
     expect(shareCovers(share(), { tenantId: "t_h", userId: "u_doc" }, report(), linked, now)).toEqual({ ok: false, reason: "not-grantee" });
     expect(shareCovers(share({ granteeUserId: null }), { tenantId: "t_g", userId: "u_other" }, report(), linked, now)).toEqual({ ok: true });
   });
+  it("ADR 0023: a consent from an access request opens only the kinds approved", () => {
+    const k = share({ kinds: ["report", "summary"] });
+    expect(shareCovers(k, doc, report(), linked, now)).toEqual({ ok: true });
+    expect(shareCovers(k, doc, { tenantId: "t_a", patientId: "p_a", kind: "prescription", id: "c1", encounterId: "e1" }, linked, now)).toEqual({ ok: false, reason: "out-of-scope" });
+    expect(shareCovers(share({ kinds: [] }), doc, { tenantId: "t_a", patientId: "p_a", kind: "prescription", id: "c1", encounterId: "e1" }, linked, now)).toEqual({ ok: true });
+  });
+  it("ADR 0023: never a sensitive item under such a consent — answered as not shared, no hint; the patient's own share is unchanged", () => {
+    expect(shareCovers(share({ hideSensitive: true }), doc, report({ sensitive: true }), linked, now)).toEqual({ ok: false, reason: "out-of-scope" });
+    expect(shareCovers(share({ hideSensitive: true }), doc, report({ sensitive: false }), linked, now)).toEqual({ ok: true });
+    expect(shareCovers(share(), doc, report({ sensitive: true }), linked, now)).toEqual({ ok: true });
+  });
   it("ends at its end time even before the expiry job runs; a revoked share reads nothing", () => {
     expect(shareCovers(share({ endsAt: h(0) }), doc, report(), linked, now)).toEqual({ ok: false, reason: "expired" });
     expect(shareCovers(share({ status: "expired" }), doc, report(), linked, now)).toEqual({ ok: false, reason: "expired" });

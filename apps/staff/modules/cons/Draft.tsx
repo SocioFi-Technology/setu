@@ -238,6 +238,8 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
         <Pill tone="draft" icon="pen-line">{C("draft_v", { v: draft.version })}</Pill>
         <SyncPill sync={sync} onRetry={() => void save()} />
         <span style={{ marginLeft: "auto" }} />
+        {/* E4 (ADR 0023): the patient's history from their other Setu facilities — a new tab, the note stays open */}
+        <a className="btn btn-sm" href={`/m/net/consent?patient=${encodeURIComponent(view.encounter.patient.id)}`} target="_blank" rel="noopener" data-testid="open-network-history"><Icon name="share-2" size={14} />{C("net_history")}</a>
         <Button size="sm" icon="printer" data-testid="draft-print-preview" onClick={() => setPreview(true)}>{C("print_preview")}</Button>
         <Button size="sm" icon="arrow-left" onClick={() => router.push(nav.list())}>{C("back_to_list")}</Button>
       </div>

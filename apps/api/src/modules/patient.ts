@@ -298,7 +298,8 @@ export async function accessLog(req: FastifyRequest, before: string | null): Pro
       const orgs = await tx.organization.findMany({ where: { tenantId: c.tenantId }, select: { id: true, name: true, nameBn: true } });
       return ev.map((e) => {
         const d = (e.detail ?? {}) as { kind?: string; reader?: { nameEn: string; nameBn: string; role: string; facilityEn: string; facilityBn: string | null }; reason?: string; reviewed?: boolean };
-        const shared = e.basis === "patient-share" && d.reader;
+        // a read by another facility: through a share (ADR 0021) or by policy (ADR 0023) — the reader's names, kept with the row
+        const shared = (e.basis === "patient-share" || e.basis === "network-policy") && d.reader;
         const u = users.find((x) => x.id === e.userId);
         const o = orgs.find((x) => x.id === e.organizationId) ?? orgs[0];
         const what = e.entity === "Composition" && d.kind === "ds" ? "summary" : (WHAT[e.entity] ?? "other");

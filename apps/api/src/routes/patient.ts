@@ -1,13 +1,13 @@
 /* ADR 0020 — the patient app's routes (/v1/patient/*): the patient session only, never a staff one. */
 import type { FastifyInstance } from "fastify";
-import { ClaimProofRequest, OtpRequest, PatientSignInRequest, ShareCreate, TimelineFilter, type AccessLog, type ClaimItem, type ClaimList, type ClaimProofResponse, type DirectoryView, type OtpResponse, type PatientMe, type PatientReportView, type ShareList, type ShareView, type Timeline } from "@setu/contracts";
+import { AccessAnswer, ClaimProofRequest, NetworkSharingSet, OtpRequest, PatientSignInRequest, ShareCreate, TimelineFilter, type PatientAccessRequest, type PatientAccessRequests, type AccessLog, type ClaimItem, type ClaimList, type ClaimProofResponse, type DirectoryView, type OtpResponse, type PatientMe, type PatientReportView, type ShareList, type ShareView, type Timeline } from "@setu/contracts";
 import { z } from "zod";
 import { config } from "../config.js";
 import { fakeMessenger } from "../adapters/messaging/index.js";
 import { counters } from "../adapters/counters.js";
 import { err } from "../errors.js";
 import { accessLog, listClaims, notMine, patientMe, patientPdf, patientReport, proveClaim, sendOtp, timeline, verifyOtp } from "../modules/patient.js";
-import { createShare, directory, listShares, revokeShare } from "../modules/share.js";
+import { answerAccessRequest, createShare, directory, listAccessRequests, listShares, revokeShare, setNetworkSharing } from "../modules/share.js";
 import { PATIENT_COOKIE, PATIENT_COOKIE_OPTIONS, clearPerson, encodePerson } from "../plugins/patientSession.js";
 
 const dbOn = () => { if (!config.dbEnabled) throw err(503, "db_off", "ডাটাবেস চালু নেই", "The database is not running"); };
@@ -69,6 +69,13 @@ export async function patientRoutes(app: FastifyInstance) {
     dbOn();
     return revokeShare(req, reply, z.object({ id }).parse(req.params).id);
   });
+  /* ── E4 (ADR 0023): doctors' requests; network sharing ── */
+  app.get("/v1/patient/access-requests", async (req): Promise<PatientAccessRequests> => { dbOn(); return listAccessRequests(req); });
+  app.post("/v1/patient/access-requests/:id/answer", async (req, reply): Promise<PatientAccessRequest> => {
+    dbOn();
+    return answerAccessRequest(req, reply, z.object({ id }).parse(req.params).id, AccessAnswer.parse(req.body));
+  });
+  app.post("/v1/patient/network-sharing", async (req, reply): Promise<PatientMe> => { dbOn(); return setNetworkSharing(req, reply, NetworkSharingSet.parse(req.body).on); });
   app.get("/v1/patient/access-log", async (req): Promise<AccessLog> => {
     dbOn();
     const before = (req.query as { before?: string }).before;
