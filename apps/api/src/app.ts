@@ -29,6 +29,7 @@ import { ipdRoutes } from "./routes/ipd.js";
 import { ipdBillRoutes } from "./routes/ipdBill.js";
 import { nursingRoutes } from "./routes/nursing.js";
 import { patientRoutes } from "./routes/patient.js";
+import { networkRoutes } from "./routes/network.js";
 import { patientSessionPlugin } from "./plugins/patientSession.js";
 import { queuedPlugin } from "./plugins/queued.js";
 
@@ -89,6 +90,7 @@ export async function buildApp() {
   await app.register(ipdBillRoutes);
   await app.register(nursingRoutes);
   await app.register(patientRoutes);
+  await app.register(networkRoutes);
   await app.register(documentRoutes);
   await app.register(ownerRoutes);
   return app;

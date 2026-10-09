@@ -110,5 +110,7 @@
   "v_not_found_ds": ["এই কোডের কোনো ছাড়পত্র সারাংশ পাওয়া যায়নি", "No discharge summary found for this code"],
   "v_privacy_ds": ["এই পাতায় রোগীর নাম, ফোন বা রোগ নির্ণয় দেখানো হয় না", "This page shows no patient name, phone or diagnosis"],
   "panel_load_failed": ["প্রিন্টের তথ্য আনা যায়নি", "Could not load the print state"],
-  "app_code": ["সেতু অ্যাপে আপনার রেকর্ড দেখার কোড", "Code to see your records in the Setu app"]
+  "app_code": ["সেতু অ্যাপে আপনার রেকর্ড দেখার কোড", "Code to see your records in the Setu app"],
+  "patient_copy": ["রোগীর কপি — Setu অ্যাপ থেকে · প্রতিষ্ঠানের প্রিন্ট নয়", "Patient copy — from the Setu app · not a facility print"],
+  "shared_copy": ["রোগীর অনুমতিতে Setu-র মাধ্যমে দেখা কপি", "Copy seen through the patient's share on Setu"]
 }

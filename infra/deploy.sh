@@ -5,7 +5,7 @@
 #                                     --rollback goes forward again: .previous-tag is always the one before the current)
 # The images exist only for commits CI passed (.github/workflows/images.yml builds them after CI on main); when gh is
 # installed the commit's CI status is checked as well. Steps: pull → migrate:deploy + the setu_app password (once) →
-# rolling restart of the API replicas, then the staff app (each new container must be healthy before an old one goes).
+# rolling restart of the API replicas, then the staff app and the patient app (each new container must be healthy before an old one goes).
 # Never `migrate dev`, never a reset; migrations are additive, so a rollback needs no database step.
 # Local rehearsal: SETU_REGISTRY=setu-local SETU_ENV_FILE=staging.local.env infra/deploy.sh --local <tag>
 # Co-hosted (the SocioFi VPS, infra/compose.cohost.yml): SETU_COMPOSE_EXTRA=compose.cohost.yml adds the overlay,
@@ -28,14 +28,14 @@ DC=(docker compose "${FILES[@]}" --env-file "$SETU_ENV_FILE" "${PROFILES[@]}")
 log() { echo "[deploy $(date -u +%H:%M:%S)] $*"; }
 
 if [[ $LOCAL == 0 && "${SETU_IMAGES:-registry}" == local ]]; then
-  for t in api staff tools; do docker image inspect "$SETU_REGISTRY/setu-$t:$TAG" >/dev/null 2>&1 || { echo "no local image $SETU_REGISTRY/setu-$t:$TAG — build it first"; exit 1; }; done
+  for t in api staff patient tools; do docker image inspect "$SETU_REGISTRY/setu-$t:$TAG" >/dev/null 2>&1 || { echo "no local image $SETU_REGISTRY/setu-$t:$TAG — build it first"; exit 1; }; done
 elif [[ $LOCAL == 0 ]]; then
   if command -v gh >/dev/null; then
     concl=$(gh run list --repo SocioFi-Technology/setu --commit "$TAG" --workflow ci --json conclusion --jq '.[0].conclusion // "no run"' 2>/dev/null) || concl="unknown commit"
     [[ "$concl" == success ]] || { echo "CI is not green for $TAG ($concl) — not deploying"; exit 1; }
   fi
-  for t in api staff tools; do docker manifest inspect "$SETU_REGISTRY/setu-$t:$TAG" >/dev/null || { echo "no image $SETU_REGISTRY/setu-$t:$TAG (CI not green, or not built yet)"; exit 1; }; done
-  log "pulling $TAG"; "${DC[@]}" pull -q api staff migrate
+  for t in api staff patient tools; do docker manifest inspect "$SETU_REGISTRY/setu-$t:$TAG" >/dev/null || { echo "no image $SETU_REGISTRY/setu-$t:$TAG (CI not green, or not built yet)"; exit 1; }; done
+  log "pulling $TAG"; "${DC[@]}" pull -q api staff patient migrate
 fi
 
 current="$(cat "$STATE/.current-tag" 2>/dev/null || true)"
@@ -72,6 +72,7 @@ roll() {
 "${DC[@]}" exec -T caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || { log "caddy: the Caddyfile does not load — fix it; the running config is unchanged"; exit 1; }
 roll api 2
 roll staff 1
+roll patient 1
 [[ -n "$current" && "$current" != "$TAG" ]] && echo "$current" > "$STATE/.previous-tag"
 echo "$TAG" > "$STATE/.current-tag"
 log "deployed $TAG (previous: ${current:-none})"

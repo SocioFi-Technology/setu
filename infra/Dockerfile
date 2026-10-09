@@ -1,7 +1,9 @@
 # syntax=docker/dockerfile:1.7
-# Staging / production images (week 2, ADR 0019). One build, three targets:
+# Staging / production images (week 2, ADR 0019). One build, these targets:
 #   api   — the API bundle (node dist/server.js) with Chromium for the PDFs; one process, tini as PID 1
 #   staff — the staff app's Next standalone server
+#   patient — the patient app's Next standalone server (ADR 0021; its own build stage: the base path and the staging
+#             banner are baked in at build — SETU_PATIENT_BASE_PATH, SETU_STAGE — without rebuilding the shared stage)
 #   tools — migrations and the setu_app password (pnpm --filter @setu/db migrate:deploy; pnpm db:set-app-password)
 # Every image runs as a non-root user; the orchestrator restarts a container whose health check fails.
 ARG NODE=node:22.20-bookworm-slim
@@ -57,6 +59,27 @@ EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 CMD curl -fsS http://127.0.0.1:3000/login -o /dev/null || exit 1
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "apps/staff/server.js"]
+
+# ── patient (ADR 0021) ──────────────────────────────────────────────────────────────────────────────────────────────
+FROM build AS patient-build
+# staging serves it at /patient on the staff host (infra/staging/ship.sh passes /patient and staging); a production
+# build passes neither: no base path, no "STAGING — test data" banner
+ARG SETU_PATIENT_BASE_PATH=""
+ARG SETU_STAGE=""
+RUN cd apps/patient && API_URL=${API_URL} NEXT_PUBLIC_BASE_PATH=${SETU_PATIENT_BASE_PATH} NEXT_PUBLIC_SETU_STAGE=${SETU_STAGE} NEXT_TELEMETRY_DISABLED=1 pnpm exec next build
+
+FROM ${NODE} AS patient
+RUN apt-get update && apt-get install -y --no-install-recommends tini curl && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+ARG SETU_PATIENT_BASE_PATH=""
+COPY --from=patient-build --chown=node:node /repo/apps/patient/.next/standalone ./
+COPY --from=patient-build --chown=node:node /repo/apps/patient/.next/static ./apps/patient/.next/static
+ENV NODE_ENV=production PORT=3001 HOSTNAME=0.0.0.0 NEXT_TELEMETRY_DISABLED=1 SETU_PATIENT_BASE_PATH=${SETU_PATIENT_BASE_PATH}
+USER node
+EXPOSE 3001
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 CMD curl -fsS "http://127.0.0.1:3001${SETU_PATIENT_BASE_PATH}/welcome" -o /dev/null || exit 1
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["node", "apps/patient/server.js"]
 
 # ── tools (migrate) ─────────────────────────────────────────────────────────────────────────────────────────────────
 FROM build AS tools

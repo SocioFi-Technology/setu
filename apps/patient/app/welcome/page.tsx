@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { format } from "@setu/domain";
 import { Icon, Pill } from "@setu/ui";
 import { patient } from "../../lib/api";
+import { StagingBanner } from "../../components/Shell";
 import { errText, useLang } from "../../lib/lang";
 
 const RESEND_SECONDS = 45;
@@ -49,6 +50,7 @@ export default function Welcome() {
 
   return (
     <div className="pa">
+      <StagingBanner />
       <main className="pa-main" style={{ paddingTop: 32 }}>
         {step === 0 && <>
           <h1 className="pa-h1">{T("welcome")}</h1>
@@ -71,6 +73,10 @@ export default function Welcome() {
             <input id="otp" ref={codeRef} className="pa-input" inputMode="numeric" autoComplete="one-time-code" value={n(code)} aria-label="OTP"
               onChange={(e) => { setCode(format.toEn(e.target.value).replace(/\D/g, "").slice(0, 6)); setError(null); }} />
           </>}
+          {/* staging only (ADR 0021): no real SMS there — the tester reads the code the fake gateway "sent" */}
+          {sent && process.env.NEXT_PUBLIC_SETU_STAGE === "staging" && (
+            <button type="button" className="pa-btn pa-btn-link" onClick={() => fetch(`/api/v1/dev/patient-otp?phone=${phone01}`).then((r) => r.json()).then((j: { code?: string }) => j.code && setCode(j.code)).catch(() => {})}>{T("staging_code")}</button>
+          )}
           {error && <span className="pa-err" role="alert"><Icon name="circle-x" size={16} />{error}</span>}
           {!online ? <button type="button" className="pa-btn" disabled>{T("offline_need_net")}</button>
             : !sent ? <button type="button" className="pa-btn pa-btn-primary" disabled={busy} onClick={send}>{T("send_code")}</button>

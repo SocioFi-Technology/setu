@@ -29,3 +29,5 @@ export * from "./ward.js";
 export * from "./mar.js";
 export * from "./nursing.js";
 export * from "./claim.js";
+export * from "./share.js";
+export * from "./labPlain.js";

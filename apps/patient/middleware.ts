@@ -3,7 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 export function middleware(req: NextRequest) {
   const has = req.cookies.has("setu_patient");
   const { pathname } = req.nextUrl;
-  if (!has && pathname !== "/welcome") return NextResponse.redirect(new URL("/welcome", req.url));
+  // nextUrl keeps the base path (/patient on staging)
+  if (!has && pathname !== "/welcome") { const u = req.nextUrl.clone(); u.pathname = "/welcome"; u.search = ""; return NextResponse.redirect(u); }
   return NextResponse.next();
 }
 export const config = { matcher: ["/((?!api|_next|favicon.ico|manifest.webmanifest|icon).*)"] };

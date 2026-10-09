@@ -4,13 +4,15 @@
    patient read and write is audited in the facility's tenant (actor person:<id>, basis patient). */
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import type { ClaimItem, ClaimList, ClaimProofRequest, ClaimProofResponse, PatientMe, Timeline, TimelineItem } from "@setu/contracts";
-import { CLAIM, CLAIM_MAX_TRIES, SUMMARY_KIND, claimAttempt, normalizeClaimCode, transition, type ClaimState } from "@setu/domain";
+import type { AccessLog, ClaimItem, ClaimList, ClaimProofRequest, ClaimProofResponse, PatientMe, PatientReportView, Timeline, TimelineItem } from "@setu/contracts";
+import { CLAIM, CLAIM_MAX_TRIES, claimAttempt, normalizeClaimCode, transition, type ClaimState } from "@setu/domain";
 import type { Tx } from "@setu/db";
 import { counters } from "../adapters/counters.js";
 import { messenger } from "../adapters/messaging/index.js";
 import { err } from "../errors.js";
 import { requirePerson, type PersonSession } from "../plugins/patientSession.js";
+import { copyPdf } from "./documents.js";
+import { itemFacts, markNoticesRead, recordsIn, reportCodes, reportIn, trendIn, unreadNotices, withTrend } from "./records.js";
 
 export const OTP_TTL_MS = 5 * 60_000;
 const OTP_MAX_TRIES = 5, SENDS_PER_PHONE = 3, SENDS_PER_IP = 10, PROOFS_PER_HOUR = 20;
@@ -61,14 +63,16 @@ async function live(tx: Tx, p: PersonSession) {
 }
 /** A write in one facility's tenant by the person: Idempotency-Key required; the change and the stored answer commit
     together (forPersonInTenant); a replay answers the stored response without running again. */
-export async function personCommand<T>(req: FastifyRequest, reply: FastifyReply, tenantId: string, fn: (tx: Tx, p: PersonSession) => Promise<{ status?: number; body: T }>): Promise<T> {
+export async function personCommand<T>(req: FastifyRequest, reply: FastifyReply, tenantId: string | null, fn: (tx: Tx, p: PersonSession) => Promise<{ status?: number; body: T }>): Promise<T> {
   const p = requirePerson(req);
   const key = req.headers["idempotency-key"];
   if (typeof key !== "string" || !key || key.length > 200) throw err(400, "idempotency_key_required", "Idempotency-Key হেডার দরকার", "Idempotency-Key header is required");
   const route = `${req.method} ${(req.url ?? "").split("?")[0]}`;
   const hash = createHash("sha256").update(JSON.stringify(req.body ?? null)).digest("hex");
-  const { forPersonInTenant } = await import("@setu/db");
-  const out = await forPersonInTenant(p.personId, tenantId, async (tx) => {
+  const { forPerson, forPersonInTenant } = await import("@setu/db");
+  // tenantId null: a network-level write (a share, ADR 0021) — the person's rows only
+  const inScope = <R,>(run: (tx: Tx) => Promise<R>) => (tenantId ? forPersonInTenant(p.personId, tenantId, run) : forPerson(p.personId, run));
+  const out = await inScope(async (tx) => {
     await live(tx, p);
     const hit = await tx.personIdempotency.findUnique({ where: { personId_key_route: { personId: p.personId, key, route } } });
     if (hit) {
@@ -86,7 +90,7 @@ export async function personCommand<T>(req: FastifyRequest, reply: FastifyReply,
   return out.body;
 }
 /** An audit row in the facility's tenant for something the person did there. */
-async function audit(tx: Tx, req: FastifyRequest, tenantId: string, p: PersonSession, a: { action: string; entity: string; entityId?: string | null; patientId?: string | null; detail?: object }) {
+export async function audit(tx: Tx, req: FastifyRequest, tenantId: string, p: PersonSession, a: { action: string; entity: string; entityId?: string | null; patientId?: string | null; detail?: object }) {
   await tx.auditEvent.create({ data: { tenantId, action: a.action, entity: a.entity, entityId: a.entityId ?? null, patientId: a.patientId ?? null, basis: "patient", ip: req.ip,
     detail: { actor: `person:${p.personId}`, route: req.routeOptions.url, method: req.method, ...(a.detail ?? {}) } as object } });
 }
@@ -212,38 +216,107 @@ const KIND_OF_FILTER: Record<Timeline["filter"], TimelineItem["kind"][] | null> 
     there. Only signed / released documents; never a draft. */
 export async function timeline(req: FastifyRequest, filter: Timeline["filter"]): Promise<Timeline> {
   const p = requirePerson(req);
-  await personQuery(req, async () => undefined);
-  const { forTenant, personClaims } = await import("@setu/db");
-  const linked = (await personClaims(p.personId)).filter((c) => c.status === "linked" && c.patientId);
+  const linked = await linkedClaims(req);
+  const { forTenant } = await import("@setu/db");
   const items: TimelineItem[] = [];
   for (const c of linked) {
     const got = await forTenant(c.tenantId, async (tx) => {
       const pid = c.patientId!;
-      const [encs, notes, reports] = await Promise.all([
-        tx.encounter.findMany({ where: { patientId: pid, OR: [{ class: { in: ["opd", "er"] }, status: "finished" }, { class: "ipd", status: { notIn: ["cancelled", "entered_in_error"] } }] }, select: { id: true, class: true, arrivedAt: true, createdAt: true, organizationId: true, token: true, practitionerId: true } }),
-        tx.composition.findMany({ where: { patientId: pid, kind: { in: ["consultation-note", SUMMARY_KIND] }, status: { in: ["final", "amended"] }, supersededById: null }, select: { id: true, kind: true, signedAt: true, organizationId: true, signedById: true, encounterId: true } }),
-        tx.diagnosticReport.findMany({ where: { patientId: pid, supersededById: null, status: { in: ["preliminary", "final", "corrected"] } }, select: { id: true, number: true, status: true, releasedAt: true, organizationId: true } }),
-      ]);
-      const orgIds = [...new Set([...encs, ...notes, ...reports].map((x) => x.organizationId))];
-      const userIds = [...new Set([...encs.map((e) => e.practitionerId), ...notes.map((n) => n.signedById)].filter((x): x is string => Boolean(x)))];
-      const [orgs, users] = await Promise.all([
-        tx.organization.findMany({ where: { id: { in: orgIds } }, select: { id: true, name: true, nameBn: true } }),
-        tx.user.findMany({ where: { id: { in: userIds } }, select: { id: true, nameEn: true, nameBn: true } }),
-      ]);
-      const org = (id: string) => orgs.find((o) => o.id === id);
-      const doc = (id: string | null) => (id ? users.find((u) => u.id === id) : undefined);
-      const base = (o: string, d: string | null | undefined) => ({ facilityEn: org(o)?.name ?? null, facilityBn: org(o)?.nameBn ?? null, doctorEn: doc(d ?? null)?.nameEn ?? null, doctorBn: doc(d ?? null)?.nameBn ?? null, source: "provider-verified" as const, claimId: c.id });
-      const out: TimelineItem[] = [
-        ...encs.map((e): TimelineItem => ({ key: `${e.class === "ipd" ? "admission" : "visit"}:${e.id}`, kind: e.class === "ipd" ? "admission" : "visit", at: (e.arrivedAt ?? e.createdAt).toISOString(), visitClass: e.class === "home" ? "opd" : e.class, number: e.token ?? null, status: null, recordId: e.id, ...base(e.organizationId, e.practitionerId) })),
-        ...notes.map((n): TimelineItem => ({ key: `${n.kind === SUMMARY_KIND ? "summary" : "prescription"}:${n.id}`, kind: n.kind === SUMMARY_KIND ? "summary" : "prescription", at: (n.signedAt ?? new Date(0)).toISOString(), visitClass: null, number: null, status: null, recordId: n.id, ...base(n.organizationId, n.signedById) })),
-        ...reports.map((r): TimelineItem => ({ key: `report:${r.id}`, kind: "report", at: r.releasedAt.toISOString(), visitClass: null, number: r.number, status: r.status, recordId: r.id, ...base(r.organizationId, null) })),
-      ];
-      await audit(tx, req, c.tenantId, p, { action: "view", entity: "Patient", entityId: pid, patientId: pid, detail: { purpose: "patient-app-timeline", count: out.length } });
-      return out;
+      const [facts, unread] = await Promise.all([recordsIn(tx, pid), unreadNotices(tx, pid)]);
+      await audit(tx, req, c.tenantId, p, { action: "view", entity: "Patient", entityId: pid, patientId: pid, detail: { purpose: "patient-app-timeline", count: facts.length } });
+      return facts.map((f): TimelineItem => ({ ...f, claimId: c.id, unread: unread.has(f.recordId) }));
     });
     items.push(...got);
   }
   const kinds = KIND_OF_FILTER[filter];
   const shown = items.filter((i) => kinds === null || kinds.includes(i.kind)).sort((a, b) => b.at.localeCompare(a.at));
   return { filter, items: shown, facilities: linked.length };
+}
+/** the person's linked claims (signed-in check included) */
+export async function linkedClaims(req: FastifyRequest) {
+  const p = requirePerson(req);
+  await personQuery(req, async () => undefined);
+  const { personClaims } = await import("@setu/db");
+  return (await personClaims(p.personId)).filter((c) => c.status === "linked" && c.patientId);
+}
+async function linkedClaim(req: FastifyRequest, claimId: string) {
+  const c = (await linkedClaims(req)).find((x) => x.id === claimId);
+  if (!c) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
+  return c;
+}
+
+/* ── D4 (ADR 0021): one report, the original PDF ── */
+export async function patientReport(req: FastifyRequest, claimId: string, reportId: string, now = new Date()): Promise<PatientReportView> {
+  const p = requirePerson(req);
+  const linked = await linkedClaims(req);
+  const c = await linkedClaim(req, claimId);
+  const { forTenant } = await import("@setu/db");
+  const core = await forTenant(c.tenantId, async (tx) => {
+    const r = await reportIn(tx, c.patientId!, reportId);
+    await markNoticesRead(tx, c.patientId!, reportId, now);
+    await audit(tx, req, c.tenantId, p, { action: "view", entity: "DiagnosticReport", entityId: reportId, patientId: c.patientId, detail: { purpose: "patient-app-report", number: r.report.number, version: r.report.version } });
+    return r;
+  });
+  // the trend: the same analytes at every linked facility, each read in its own tenant
+  const codes = reportCodes(core), points = [];
+  for (const l of linked) points.push(...await forTenant(l.tenantId, (tx) => trendIn(tx, l.patientId!, codes)));
+  return { ...withTrend(core, points), claimId };
+}
+export async function patientPdf(req: FastifyRequest, claimId: string, kind: "lr" | "rx" | "ds", id: string, lang: "bn" | "en", now = new Date()): Promise<Uint8Array> {
+  const p = requirePerson(req);
+  const c = await linkedClaim(req, claimId);
+  const { forTenant } = await import("@setu/db");
+  return forTenant(c.tenantId, async (tx) => {
+    // only this person's linked record (a document of another patient is "not found", never a hint)
+    const f = await itemFacts(tx, c.patientId!, kind === "lr" ? "report" : kind === "rx" ? "prescription" : "summary", id);
+    if (!f) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
+    const out = await copyPdf(tx, c.tenantId, kind, id, lang, "patient");
+    await markNoticesRead(tx, c.patientId!, id, now);
+    await audit(tx, req, c.tenantId, p, { action: "print", entity: kind === "lr" ? "DiagnosticReport" : "Composition", entityId: id, patientId: c.patientId, detail: { purpose: "patient-app-copy", kind, label: out.label } });
+    return out.bytes;
+  });
+}
+
+/* ── D6 (ADR 0021): who viewed — every linked facility's audit about the linked patient, the patient's own reads left out ── */
+const SEEN_ACTIONS = ["view", "print", "reprint", "break-glass"];
+const WHAT: Record<string, string> = { Patient: "record", Encounter: "visit", DiagnosticReport: "report", Observation: "report", Composition: "prescription", Invoice: "bill", Receipt: "bill", Admission: "visit" };
+const PAGE = 50;
+export async function accessLog(req: FastifyRequest, before: string | null): Promise<AccessLog> {
+  const linked = await linkedClaims(req);
+  const { forTenant } = await import("@setu/db");
+  const cut = before ? new Date(before) : null;
+  if (cut && Number.isNaN(cut.getTime())) throw err(400, "validation", "তারিখ ঠিক নয়", "Bad cursor", { field: "before" });
+  const all: (AccessLog["items"][number] & { t: number })[] = [];
+  for (const c of linked) {
+    const rows = await forTenant(c.tenantId, async (tx) => {
+      const ev = await tx.auditEvent.findMany({
+        // the patient's own reads (basis patient) left out; staff reads mostly have no basis (NULL): kept, explicitly
+        where: { patientId: c.patientId!, action: { in: SEEN_ACTIONS }, OR: [{ basis: null }, { basis: { not: "patient" } }], ...(cut ? { at: { lt: cut } } : {}) },
+        orderBy: { at: "desc" }, take: PAGE + 1,
+      });
+      const users = await tx.user.findMany({ where: { id: { in: [...new Set(ev.map((e) => e.userId).filter((x): x is string => Boolean(x)))] } }, select: { id: true, nameEn: true, nameBn: true } });
+      const orgs = await tx.organization.findMany({ where: { tenantId: c.tenantId }, select: { id: true, name: true, nameBn: true } });
+      return ev.map((e) => {
+        const d = (e.detail ?? {}) as { kind?: string; reader?: { nameEn: string; nameBn: string; role: string; facilityEn: string; facilityBn: string | null }; reason?: string; reviewed?: boolean };
+        const shared = e.basis === "patient-share" && d.reader;
+        const u = users.find((x) => x.id === e.userId);
+        const o = orgs.find((x) => x.id === e.organizationId) ?? orgs[0];
+        const what = e.entity === "Composition" && d.kind === "ds" ? "summary" : (WHAT[e.entity] ?? "other");
+        return {
+          t: e.at.getTime(), at: e.at.toISOString(),
+          kind: (e.action === "break-glass" || e.basis === "emergency" ? "break-glass" : shared ? "shared" : e.action) as AccessLog["items"][number]["kind"],
+          what,
+          nameEn: shared ? d.reader!.nameEn : u?.nameEn ?? null, nameBn: shared ? d.reader!.nameBn : u?.nameBn ?? null,
+          role: shared ? d.reader!.role : e.role ?? null,
+          facilityEn: shared ? d.reader!.facilityEn : o?.name ?? null, facilityBn: shared ? d.reader!.facilityBn : o?.nameBn ?? null,
+          reason: e.action === "break-glass" || e.basis === "emergency" ? d.reason ?? null : null,
+          reviewed: e.action === "break-glass" || e.basis === "emergency" ? d.reviewed ?? false : null,
+        };
+      });
+    });
+    all.push(...rows);
+  }
+  all.sort((a, b) => b.t - a.t);
+  const page = all.slice(0, PAGE);
+  return { items: page.map(({ t: _t, ...x }) => x), next: all.length > PAGE ? page[page.length - 1]!.at : null };
 }

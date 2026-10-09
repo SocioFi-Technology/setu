@@ -63,7 +63,92 @@ export const TimelineItem = z.object({
   source: TimelineSource,
   /** the claim it came through (the facility) and the record — for opening it (slice D4) */
   claimId: z.string(), recordId: z.string(),
+  /** the facility's "now in the app" notice for it is not yet opened (ADR 0021) */
+  unread: z.boolean(),
+  /** the visit it belongs to (sharing one visit) */
+  encounterId: z.string().nullable(),
 });
 export type TimelineItem = z.infer<typeof TimelineItem>;
 export const Timeline = z.object({ filter: TimelineFilter, items: z.array(TimelineItem), facilities: z.number().int() });
 export type Timeline = z.infer<typeof Timeline>;
+
+/* ── D4 (ADR 0021): one report, in plain language ── */
+export const LabFlagWire = z.enum(["N", "H", "L", "HH", "LL"]);
+/** the plain-language keys (i18n `patientLab`): drafts; none for a critical result (Kamrul 09/10/2026) */
+export const LabPlainWire = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("explained"), draft: z.boolean(), what: z.string(), unit: z.string(), direction: z.string().nullable() }),
+  z.object({ kind: z.literal("critical") }),
+  z.object({ kind: z.literal("none") }),
+]);
+export const TrendPoint = z.object({ at: z.string(), value: z.number(), facilityEn: z.string().nullable(), facilityBn: z.string().nullable(), current: z.boolean() });
+export const PatientResult = z.object({
+  observationId: z.string(), code: z.string(), nameEn: z.string(), nameBn: z.string(),
+  /** as entered (the analyte's decimals) — the app never re-rounds */
+  value: z.number(), decimals: z.number().int(), unit: z.string(),
+  refLow: z.number().nullable(), refHigh: z.number().nullable(), refLabel: z.string().nullable(),
+  flag: LabFlagWire.nullable(), corrected: z.boolean(), withdrawn: z.boolean(),
+  /** 0..1 on the range bar (the range is the middle third); null = no range */
+  position: z.number().nullable(),
+  plain: LabPlainWire,
+  /** this analyte over time at every linked facility, oldest first (this result included, `current`) */
+  trend: z.array(TrendPoint),
+});
+export const PatientReportView = z.object({
+  report: z.object({
+    id: z.string(), number: z.string(), version: z.number().int(), status: z.string(), releasedAt: z.string(),
+    /** a later version replaced this one: open that instead */
+    currentId: z.string(),
+    facilityEn: z.string().nullable(), facilityBn: z.string().nullable(), facilityPhone: z.string().nullable(),
+    pendingCount: z.number().int(), testCount: z.number().int(),
+  }),
+  tests: z.array(z.object({ nameEn: z.string(), nameBn: z.string(), results: z.array(PatientResult) })),
+  claimId: z.string(),
+});
+export type PatientReportView = z.infer<typeof PatientReportView>;
+
+/* ── D5 (ADR 0021): the network directory and shares ── */
+export const DirectoryView = z.object({ facilities: z.array(z.object({
+  tenantId: z.string(), organizationId: z.string(), nameEn: z.string(), nameBn: z.string().nullable(),
+  doctors: z.array(z.object({ userId: z.string(), nameEn: z.string(), nameBn: z.string() })),
+})) });
+export type DirectoryView = z.infer<typeof DirectoryView>;
+export const SharePeriodWire = z.enum(["24h", "7d", "30d"]);
+export const ShareCreate = z.object({
+  period: SharePeriodWire.default("30d"),
+  /** a visit or a report is named through the claim it came from (the server maps it to the facility and record) */
+  scope: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("all") }),
+    z.object({ kind: z.literal("visit"), claimId: z.string(), encounterId: z.string() }),
+    z.object({ kind: z.literal("report"), claimId: z.string(), reportId: z.string() }),
+  ]),
+  grantee: z.object({ organizationId: z.string(), userId: z.string().nullable() }),
+});
+export type ShareCreate = z.infer<typeof ShareCreate>;
+export const ShareOpen = z.object({ at: z.string(), nameEn: z.string(), nameBn: z.string(), role: z.string(), facilityEn: z.string(), facilityBn: z.string().nullable(), itemKind: z.string() });
+export const ShareView = z.object({
+  id: z.string(),
+  grantee: z.object({ facilityEn: z.string(), facilityBn: z.string().nullable(), doctorEn: z.string().nullable(), doctorBn: z.string().nullable() }),
+  scope: z.object({ kind: z.enum(["all", "visit", "report"]), facilityEn: z.string().nullable(), facilityBn: z.string().nullable(), number: z.string().nullable(), at: z.string().nullable() }),
+  period: SharePeriodWire, startsAt: z.string(), endsAt: z.string(),
+  /** as of now: an active share past its end reads expired */
+  status: z.enum(["active", "revoked", "expired"]), revokedAt: z.string().nullable(),
+  opens: z.array(ShareOpen),
+});
+export type ShareView = z.infer<typeof ShareView>;
+export const ShareList = z.object({ items: z.array(ShareView) });
+export type ShareList = z.infer<typeof ShareList>;
+
+/* ── D6 (ADR 0021): who viewed ── */
+export const AccessEntry = z.object({
+  at: z.string(),
+  /** view | print | reprint | shared (a doctor through the patient's share) | break-glass (emergency access) */
+  kind: z.enum(["view", "print", "reprint", "shared", "break-glass"]),
+  /** what was seen: record | visit | report | prescription | summary | bill | other */
+  what: z.string(),
+  nameEn: z.string().nullable(), nameBn: z.string().nullable(), role: z.string().nullable(),
+  facilityEn: z.string().nullable(), facilityBn: z.string().nullable(),
+  /** break-glass: the reason given and whether the hospital reviewed it */
+  reason: z.string().nullable(), reviewed: z.boolean().nullable(),
+});
+export const AccessLog = z.object({ items: z.array(AccessEntry), next: z.string().nullable() });
+export type AccessLog = z.infer<typeof AccessLog>;

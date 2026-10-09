@@ -127,7 +127,12 @@ model Organization {
   /// ADR 0016 samples: shift start hours (Dhaka) and the I/O day start
   shiftStartHours           Int[]              @default([8, 14, 20])
   ioDayStartHour            Int                @default(8)
+  /// ADR 0021: the number a patient is told to call (a critical result in the patient app); the admin sets it
+  phone                     String?
+  /// ADR 0021: joined the Setu network — patients can share their records with this facility's doctors
+  networkJoinedAt           DateTime?
 
+  @@unique([tenantId, id])
   @@index([tenantId])
 }
 
@@ -186,6 +191,7 @@ model User {
 
   @@unique([tenantId, phone])
   @@unique([tenantId, email])
+  @@unique([tenantId, id])
 }
 
 /// Which role a user holds at which facility.
@@ -1552,6 +1558,8 @@ model Communication {
   compositionId     String?
   /// completed and confirmed by the gateway as delivered; false = the gateway only accepted it ("Sent", ADR 0012)
   deliveryConfirmed Boolean              @default(false)
+  /// ADR 0021: a patient_app notice the patient opened in the app
+  readAt            DateTime?
   status            CommunicationStatus  @default(preparation)
   attempts          Int                  @default(0)
   lastError         String?
@@ -2763,3 +2771,80 @@ model PersonIdempotency {
   @@id([personId, key, route])
 }
 
+
+/// CONSENT machine states (@setu/domain machines.ts).
+enum ConsentStatus {
+  proposed
+  active
+  revoked
+  expired
+  ended
+  reviewed
+}
+
+enum ShareScope {
+  all
+  visit
+  report
+}
+
+/// ADR 0021 — a patient's share (basis patient): network level like Person (no tenantId); RLS: the person reads and
+/// writes their own, the grantee tenant reads those given to it. Scope all = every linked record during the period.
+model Consent {
+  id                    String        @id @default(cuid())
+  personId              String
+  basis                 String        @default("patient")
+  granteeTenantId       String
+  granteeOrganizationId String
+  /// a named doctor; null = the facility's doctors
+  granteeUserId         String?
+  /// the names when it was made (the patient's list never reads another tenant for them)
+  granteeFacilityEn     String
+  granteeFacilityBn     String?
+  granteeDoctorEn       String?
+  granteeDoctorBn       String?
+  scope                 ShareScope
+  scopeTenantId         String?
+  scopePatientId        String?
+  /// the encounter (visit) or the DiagnosticReport version shared (later corrected versions stay covered)
+  scopeRecordId         String?
+  /// what was shared, as shown to the patient: the facility, the report number, the visit's or report's date
+  scopeFacilityEn       String?
+  scopeFacilityBn       String?
+  scopeNumber           String?
+  scopeAt               DateTime?
+  /// 24h | 7d | 30d
+  period                String
+  startsAt              DateTime
+  endsAt                DateTime
+  status                ConsentStatus @default(active)
+  statusAt              DateTime      @default(now())
+  revokedAt             DateTime?
+  createdAt             DateTime      @default(now())
+  accesses              ConsentAccess[]
+
+  @@index([personId, createdAt], map: "Consent_personId_idx")
+  @@index([granteeTenantId, status, endsAt], map: "Consent_grantee_idx")
+}
+
+/// ADR 0021 — each read of a share by the receiving doctor (who, role, facility, what, when). Network level.
+model ConsentAccess {
+  id              String   @id @default(cuid())
+  consentId       String
+  consent         Consent  @relation(fields: [consentId], references: [id], onDelete: Restrict)
+  personId        String
+  granteeTenantId String
+  userId          String
+  userNameEn      String
+  userNameBn      String
+  role            String
+  facilityEn      String
+  facilityBn      String?
+  ownerTenantId   String
+  itemKind        String
+  itemId          String
+  at              DateTime @default(now())
+
+  @@index([consentId, at], map: "ConsentAccess_consent_idx")
+  @@index([personId, at], map: "ConsentAccess_person_idx")
+}

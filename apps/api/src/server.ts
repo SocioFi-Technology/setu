@@ -18,6 +18,7 @@ if (config.dbEnabled) {
   const { sweepRefunds } = await import("./modules/refunds.js");
   const { sweepEscalations } = await import("./modules/ward.js");
   const { sweepBedDays } = await import("./modules/ipdBill.js");
+  const { consentExpireDue } = await import("@setu/db");
   // staging (week 2): each sweep in one instance at a time (advisory lock), its run recorded for monitoring
   const { singleRun } = await import("./modules/jobs.js");
   const job = <T extends object>(name: string, run: () => Promise<T>, worth: (r: T) => unknown) =>
@@ -37,6 +38,8 @@ if (config.dbEnabled) {
       // ADR 0017: the bed-day census (00:01 Dhaka), caught up every minute
       await job("bed-days", () => sweepBedDays(new Date()), (r) => r.posted);
       await job("escalations", () => sweepEscalations(new Date()), (r) => r.widened);
+      // ADR 0021: patients' shares past their end → expired (reads check the end time themselves; this keeps the status true)
+      await job("consents", async () => ({ expired: await consentExpireDue() }), (r) => r.expired);
     })().finally(() => { turn = false; });
   }, 60_000);
   sweeps.unref?.();

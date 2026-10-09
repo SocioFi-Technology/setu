@@ -20,6 +20,9 @@ services:
   staff:
     mem_limit: 512m
 
+  patient:
+    mem_limit: 384m
+
   api:
     # the edge nginx, then Caddy
     environment: { TRUST_PROXY: "2" }

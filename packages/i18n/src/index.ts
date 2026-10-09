@@ -20,12 +20,14 @@ import erApp from "../locales/app/erApp.json" with { type: "json" };
 import ipdApp from "../locales/app/ipdApp.json" with { type: "json" };
 import nurApp from "../locales/app/nurApp.json" with { type: "json" };
 import patientApp from "../locales/app/patientApp.json" with { type: "json" };
+import patientLab from "../locales/app/patientLab.json" with { type: "json" };
+import netApp from "../locales/app/netApp.json" with { type: "json" };
 type Table = Record<string, Record<string, string>>;
 const tables: Record<Lang, Table> = { bn: { ...(bn as Table) }, en: { ...(en as Table) } };
 
 /* App strings the design export does not carry, kept as [bn, en] pairs per key (one file per namespace). */
 type Pairs = Record<string, [string, string]>;
-const APP: Record<string, Pairs> = { billingApp: billingApp as unknown as Pairs, labApp: labApp as unknown as Pairs, printApp: printApp as unknown as Pairs, doctorApp: doctorApp as unknown as Pairs, ownerApp: ownerApp as unknown as Pairs, pharmApp: pharmApp as unknown as Pairs, adminApp: adminApp as unknown as Pairs, erApp: erApp as unknown as Pairs, ipdApp: ipdApp as unknown as Pairs, nurApp: nurApp as unknown as Pairs, consultApp: consultApp as unknown as Pairs, frontDeskApp: frontDeskApp as unknown as Pairs, shellApp: shellApp as unknown as Pairs, vitalsApp: vitalsApp as unknown as Pairs, loginApp: loginApp as unknown as Pairs, patientApp: patientApp as unknown as Pairs };
+const APP: Record<string, Pairs> = { billingApp: billingApp as unknown as Pairs, labApp: labApp as unknown as Pairs, printApp: printApp as unknown as Pairs, doctorApp: doctorApp as unknown as Pairs, ownerApp: ownerApp as unknown as Pairs, pharmApp: pharmApp as unknown as Pairs, adminApp: adminApp as unknown as Pairs, erApp: erApp as unknown as Pairs, ipdApp: ipdApp as unknown as Pairs, nurApp: nurApp as unknown as Pairs, consultApp: consultApp as unknown as Pairs, frontDeskApp: frontDeskApp as unknown as Pairs, shellApp: shellApp as unknown as Pairs, vitalsApp: vitalsApp as unknown as Pairs, loginApp: loginApp as unknown as Pairs, patientApp: patientApp as unknown as Pairs, patientLab: patientLab as unknown as Pairs, netApp: netApp as unknown as Pairs };
 for (const [n, pairs] of Object.entries(APP)) {
   tables.bn[n] = Object.fromEntries(Object.entries(pairs).map(([k, v]) => [k, v[0]]));
   tables.en[n] = Object.fromEntries(Object.entries(pairs).map(([k, v]) => [k, v[1]]));

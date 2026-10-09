@@ -434,6 +434,12 @@ async function main() {
   // decision 317: every tenant has its system actor (the migration made them for tenants that existed then)
   await prisma.$executeRaw`INSERT INTO "User" ("id", "tenantId", "nameBn", "nameEn", "passwordHash", "active", "system", "createdAt")
     SELECT 'sys_' || t."id", t."id", 'সেতু (সিস্টেম)', 'Setu (system)', '!', false, true, now() FROM "Tenant" t ON CONFLICT ("id") DO NOTHING`;
+  /* ADR 0021: the demo and E2E facilities are in the Setu network (patients can share with their doctors) and have a
+     phone the patient app shows beside a critical result — sample numbers, set once (an admin's change is kept) */
+  for (const [oid, phone] of [["o_greenlife_mirpur", "01700-000101"], ["o_litedemo", "01700-000102"], [E2E.org, "01700-000103"], [LITE.org, "01700-000104"]] as const) {
+    await prisma.organization.updateMany({ where: { id: oid, phone: null }, data: { phone } });
+    await prisma.organization.updateMany({ where: { id: oid, networkJoinedAt: null }, data: { networkJoinedAt: new Date() } });
+  }
   console.log((process.env.SEED_PASSWORD ? "seeded with the staging password and PIN (SEED_PASSWORD / SEED_PIN). " : "") + "seeded demo tenant: Green Life Clinic, Mirpur — 10 users (password setu1234, PIN 1234), 8 patients (5 share 01711-234567), Mirpur branch, ward 2A; plan demos: Clinic-plan nurse 01722000004, Lite-plan doctor 01733000002; E2E Test Clinic (tests only): 017990000xx; E2E Lite Hospital (tests only, Hospital Lite, wards and beds): 017980000xx; Rahima Khatun's previous visit 12/08/2026 with vitals");
 }
 

@@ -37,6 +37,11 @@ export const config = {
   /** The fake SMS gateway's dev helpers (make the next SMS fail, list what was "sent"). Off unless
       FAKE_MESSAGING_DEV_ROUTE=1, and never in production. */
   fakeMessagingDevRoute: process.env.FAKE_MESSAGING_DEV_ROUTE === "1" && process.env.NODE_ENV !== "production",
+  /** ADR 0021 (Kamrul 09/10/2026): GET /v1/dev/patient-otp — the last sign-in code the FAKE SMS gateway "sent": in dev
+      with FAKE_MESSAGING_DEV_ROUTE=1, and on staging only with SETU_STAGE=staging and the fake SMS (testers have no real
+      SMS there). Never with a real gateway; never in a production deploy (it never sets SETU_STAGE). */
+  patientOtpDevRoute: (process.env.SMS_PROVIDER ?? "fake") === "fake"
+    && ((process.env.FAKE_MESSAGING_DEV_ROUTE === "1" && process.env.NODE_ENV !== "production") || process.env.SETU_STAGE === "staging"),
   /** dev and tests only: POST /v1/dev/rollup/run (ADR 0008) — ROLLUP_DEV_ROUTE=1, never in production. */
   rollupDevRoute: process.env.ROLLUP_DEV_ROUTE === "1" && process.env.NODE_ENV !== "production",
   /** decision 235: the owner may settle a gateway refund by hand only after it has been "processing" this long */

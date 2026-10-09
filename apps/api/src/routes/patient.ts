@@ -1,10 +1,12 @@
 /* ADR 0020 — the patient app's routes (/v1/patient/*): the patient session only, never a staff one. */
 import type { FastifyInstance } from "fastify";
-import { ClaimProofRequest, OtpRequest, PatientSignInRequest, TimelineFilter, type ClaimItem, type ClaimList, type ClaimProofResponse, type OtpResponse, type PatientMe, type Timeline } from "@setu/contracts";
+import { ClaimProofRequest, OtpRequest, PatientSignInRequest, ShareCreate, TimelineFilter, type AccessLog, type ClaimItem, type ClaimList, type ClaimProofResponse, type DirectoryView, type OtpResponse, type PatientMe, type PatientReportView, type ShareList, type ShareView, type Timeline } from "@setu/contracts";
+import { z } from "zod";
 import { config } from "../config.js";
 import { fakeMessenger } from "../adapters/messaging/index.js";
 import { err } from "../errors.js";
-import { listClaims, notMine, patientMe, proveClaim, sendOtp, timeline, verifyOtp } from "../modules/patient.js";
+import { accessLog, listClaims, notMine, patientMe, patientPdf, patientReport, proveClaim, sendOtp, timeline, verifyOtp } from "../modules/patient.js";
+import { createShare, directory, listShares, revokeShare } from "../modules/share.js";
 import { PATIENT_COOKIE, PATIENT_COOKIE_OPTIONS, clearPerson, encodePerson } from "../plugins/patientSession.js";
 
 const dbOn = () => { if (!config.dbEnabled) throw err(503, "db_off", "ডাটাবেস চালু নেই", "The database is not running"); };
@@ -44,9 +46,37 @@ export async function patientRoutes(app: FastifyInstance) {
     return timeline(req, f.data);
   });
 
-  /* dev and tests only: the last sign-in code the fake SMS gateway "sent" to a number (never with a real gateway or in
-     production — the same guard as the other fake-messenger routes) */
-  if (fakeMessenger() && config.fakeMessagingDevRoute) {
+  /* ── D4 (ADR 0021): a report in plain language; the original document as the patient's copy ── */
+  const id = z.string().min(1).max(64);
+  app.get("/v1/patient/reports/:claimId/:reportId", async (req): Promise<PatientReportView> => {
+    dbOn();
+    const p = z.object({ claimId: id, reportId: id }).parse(req.params);
+    return patientReport(req, p.claimId, p.reportId);
+  });
+  app.get("/v1/patient/documents/:claimId/:kind/:docId/pdf", async (req, reply) => {
+    dbOn();
+    const p = z.object({ claimId: id, kind: z.enum(["lr", "rx", "ds"]), docId: id }).parse(req.params);
+    const lang = (req.query as { lang?: string }).lang === "en" ? "en" : "bn";
+    const bytes = await patientPdf(req, p.claimId, p.kind, p.docId, lang);
+    return reply.header("content-type", "application/pdf").header("content-disposition", `inline; filename="setu-${p.kind}.pdf"`).header("cache-control", "no-store").send(Buffer.from(bytes));
+  });
+  /* ── D5–D6: the directory, shares, who viewed ── */
+  app.get("/v1/patient/directory", async (req): Promise<DirectoryView> => { dbOn(); return directory(req); });
+  app.get("/v1/patient/shares", async (req): Promise<ShareList> => { dbOn(); return listShares(req); });
+  app.post("/v1/patient/shares", async (req, reply): Promise<ShareView> => { dbOn(); return createShare(req, reply, ShareCreate.parse(req.body)); });
+  app.post("/v1/patient/shares/:id/revoke", async (req, reply): Promise<ShareView> => {
+    dbOn();
+    return revokeShare(req, reply, z.object({ id }).parse(req.params).id);
+  });
+  app.get("/v1/patient/access-log", async (req): Promise<AccessLog> => {
+    dbOn();
+    const before = (req.query as { before?: string }).before;
+    return accessLog(req, typeof before === "string" && before ? before : null);
+  });
+
+  /* the last sign-in code the fake SMS gateway "sent" to a number: dev / tests, and staging with the fake SMS
+     (config.patientOtpDevRoute — never with a real gateway, never in production) */
+  if (fakeMessenger() && config.patientOtpDevRoute) {
     app.get("/v1/dev/patient-otp", async (req) => {
       const phone = String((req.query as { phone?: string }).phone ?? "");
       const m = fakeMessenger()!.log("network").filter((x) => x.to === phone && x.messageId.startsWith("potp_")).at(-1);

@@ -1026,5 +1026,21 @@
   "shift_note": [
     "নমুনা — পাইলটের আগে ক্লিনিশিয়ান ঠিক করবেন",
     "Sample — a clinician decides before the pilot"
+  ],
+  "org_phone": [
+    "প্রতিষ্ঠানের ফোন",
+    "Facility phone"
+  ],
+  "org_phone_hint": [
+    "রোগীর অ্যাপে জরুরি ফলাফলের পাশে দেখানো হয় (\"এখনই যোগাযোগ করুন\")",
+    "Shown in the patient app beside a critical result (\"contact the facility now\")"
+  ],
+  "org_network": [
+    "সেতু নেটওয়ার্কে যুক্ত হোন",
+    "Join the Setu network"
+  ],
+  "org_network_hint": [
+    "রোগীরা Setu অ্যাপ থেকে তাঁদের রেকর্ড এই প্রতিষ্ঠানের ডাক্তারদের সাথে শেয়ার করতে পারবেন। প্রতিষ্ঠান ও ডাক্তারদের শুধু নাম দেখানো হয়।",
+    "Patients can share their records with this facility's doctors from the Setu app. Only the facility's and doctors' names are listed."
   ]
 }

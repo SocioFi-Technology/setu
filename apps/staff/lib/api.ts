@@ -3,6 +3,7 @@ import type {
   WardList, WardBoard, WardPatientView, WardVitalsRequest, WardVitalsResponse, Escalation, NursingNoteView, MarView, DoseRequest, WitnessList, RoundWorklist, RoundView, SaveRoundRequest, IndentCreate, IndentView, IndentList, IndentIssueRequest, WardStock, BedMoveRequest, WristbandView, BatchLabels, IoView, IoEntryRequest, IoEntryView, CareTaskCreate, CareTaskList, WardHandover, HandoverView, HandoverPatientUpdate,
   AdmissionList, AdmissionView, AdmitRequest, BedActionRequest, BedBoard, BedView, ErArrivalRequest, ErArrivalResponse, ErAssignRequest, ErBoard, ErBoardItem, ErDispositionRequest, ErTriageRequest, ErVisitView,
   RefundableView, RefundRequest, RefundView, RefundDecisionRequest, RefundPayRequest, RefundReleaseRequest, RefundPayResponse, RefundList, RefundVoucherView, RefundVoucherPrintResponse, ReconcileRefundRequest, ResaleRequest,
+  SharedList, SharedRecords, SharedReportView,
   FacilityView, FacilityUpdate, SettingsUpdate, UserList, UserView, UserCreate, UserCredentialResponse, PriceList, PriceCreate, PriceHistory, AuditPage, AuditQuery,
   DispenseQueue, DispenseRequest, DispenseView, OtcCreateRequest, OtcView, RxPhotoRequest, StockList, SupplierList, SupplierLedger, SupplierPaymentRequest,
   PurchaseOrderList, PurchaseOrderView, GoodsReceiptView, GrnLineRequest, StockCountView, CountList, PharmacyApprovals, TransferRequest,
@@ -431,4 +432,12 @@ export const ward = {
   move: (admissionId: string, body: BedMoveRequest, key: string) => call<AdmissionView>("POST", `/v1/ipd/admissions/${enc(admissionId)}/transfer`, body, key),
   arrive: (admissionId: string) => call<AdmissionView>("POST", `/v1/ipd/admissions/${enc(admissionId)}/transfer/arrive`, {}, k()),
   cancelMove: (admissionId: string, reason: string) => call<AdmissionView>("POST", `/v1/ipd/admissions/${enc(admissionId)}/transfer/cancel`, { reason }, k()),
+};
+
+/* ADR 0021: "Shared with you" — a patient's records shared with this doctor or this facility's doctors */
+export const net = {
+  shared: () => call<SharedList>("GET", "/v1/shared"),
+  records: (consentId: string) => call<SharedRecords>("GET", `/v1/shared/${encodeURIComponent(consentId)}`),
+  report: (consentId: string, tenantId: string, reportId: string) => call<SharedReportView>("GET", `/v1/shared/${encodeURIComponent(consentId)}/reports/${encodeURIComponent(tenantId)}/${encodeURIComponent(reportId)}`),
+  pdfUrl: (consentId: string, tenantId: string, kind: "lr" | "rx" | "ds", id: string, lang: "bn" | "en") => `/api/v1/shared/${encodeURIComponent(consentId)}/documents/${encodeURIComponent(tenantId)}/${kind}/${encodeURIComponent(id)}/pdf?lang=${lang}`,
 };

@@ -33,9 +33,9 @@ beforeAll(async () => {
     return r.json() as { patient: { id: string }; encounter?: { id: string } };
   };
   // two people on one phone in the E2E clinic (the shared phone the claim must tell apart), one in the Lite hospital
-  const a = await reg("desk", "Rahima Khatun", "রহিমা খাতুন", true); rahima = a.patient.id;
+  const a = await reg("desk", "Nasrin Akter", "নাসরিন আক্তার", true); rahima = a.patient.id;
   sister = (await reg("desk", "Sumaiya Akter", "সুমাইয়া আক্তার", true)).patient.id;
-  lite = (await reg("liteDesk", "Rahima Khatun", "রহিমা খাতুন", false)).patient.id;
+  lite = (await reg("liteDesk", "Nasrin Akter", "নাসরিন আক্তার", false)).patient.id;
   // Rahima's visit: the doctor signs a prescription (the timeline shows signed documents only)
   const post = (url: string, payload: object) => app.inject({ method: "POST", url, payload, headers: { cookie: staff.doctor!, "idempotency-key": randomUUID() } });
   const v = (await post(`/v1/encounters/${a.encounter!.id}/consultation/open`, {})).json();

@@ -26,6 +26,13 @@ services:
     depends_on: { api: { condition: service_healthy } }
     logging: *logging
 
+  # ADR 0021: the patient app (Caddy sends /patient/* here; its /api calls go to the API like the staff app's)
+  patient:
+    image: ${SETU_REGISTRY:-ghcr.io/sociofi-technology}/setu-patient:${SETU_TAG:?set SETU_TAG to the commit SHA to deploy}
+    restart: unless-stopped
+    depends_on: { api: { condition: service_healthy } }
+    logging: *logging
+
   api:
     image: ${SETU_REGISTRY:-ghcr.io/sociofi-technology}/setu-api:${SETU_TAG:?set SETU_TAG to the commit SHA to deploy}
     restart: unless-stopped

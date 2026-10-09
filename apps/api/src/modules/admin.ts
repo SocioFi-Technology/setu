@@ -67,7 +67,7 @@ export async function facilityView(tx: Tx, s: SessionData): Promise<FacilityView
     tx.location.findMany({ where: { organizationId: s.organizationId, kind: "ward" }, orderBy: { name: "asc" }, include: { _count: { select: { children: { where: { kind: "bed" } } } } } }),
   ]);
   return {
-    id: o.id, name: o.name, nameBn: o.nameBn, address: o.address, licenceNo: o.licenceNo, plan: facts.plan, status: o.status, liveAt: iso(o.liveAt),
+    id: o.id, name: o.name, nameBn: o.nameBn, address: o.address, licenceNo: o.licenceNo, phone: o.phone, networkJoinedAt: iso(o.networkJoinedAt), plan: facts.plan, status: o.status, liveAt: iso(o.liveAt),
     checklist: goLiveChecklist(facts),
     branches: branches.map((b) => ({ id: b.id, name: b.name, nameBn: b.nameBn })),
     wards: wards.map((w) => ({ id: w.id, name: w.name, nameBn: w.nameBn, beds: w._count.children })),
@@ -87,9 +87,12 @@ export async function facilityView(tx: Tx, s: SessionData): Promise<FacilityView
 }
 export async function updateFacility(tx: Tx, s: SessionData, req: FacilityUpdate): Promise<AuditEntry[]> {
   const o = await org(tx, s);
-  const data = { name: req.name, nameBn: req.nameBn || null, address: req.address || null, licenceNo: req.licenceNo || null };
+  const data = { name: req.name, nameBn: req.nameBn || null, address: req.address || null, licenceNo: req.licenceNo || null,
+    // ADR 0021: left out = unchanged; joining keeps the first join time
+    phone: req.phone === undefined ? o.phone : req.phone || null,
+    networkJoinedAt: req.network === undefined ? o.networkJoinedAt : req.network ? (o.networkJoinedAt ?? new Date()) : null };
   await tx.organization.update({ where: { id: o.id }, data });
-  return [{ action: "update", entity: "Organization", entityId: o.id, detail: { before: { name: o.name, nameBn: o.nameBn, address: o.address, licenceNo: o.licenceNo }, after: data } }];
+  return [{ action: "update", entity: "Organization", entityId: o.id, detail: { before: { name: o.name, nameBn: o.nameBn, address: o.address, licenceNo: o.licenceNo, phone: o.phone, network: o.networkJoinedAt !== null }, after: { ...data, network: data.networkJoinedAt !== null } } }];
 }
 export async function addBranch(tx: Tx, s: SessionData, name: string, nameBn: string | undefined) {
   return tx.location.create({ data: { tenantId: s.tenantId, organizationId: s.organizationId, kind: "branch", name, nameBn: nameBn || null } });

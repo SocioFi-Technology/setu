@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); week 2 staging sessions 1–2 done (08/10/2026, staging live); Phase 4 slice D1–D3 done (09/10/2026, the patient app); next: see Next)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); week 2 staging sessions 1–2 done (08/10/2026, staging live); Phase 4 slice D1–D3 done (09/10/2026, the patient app); D4–D6 done (09/10/2026: report, share, who viewed; the patient app on staging); next: see Next)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -1352,6 +1352,48 @@ claim; privacy wording marked draft until the lawyer's terms; guardians later).
   (today's QR is the verify link, so the app offers code + reception only); opening a record (D4); uploads ("mine");
   guardians / dependants; the lawyer's terms; a service worker; the patient app on staging (not in the compose yet).
 
+## Done (Phase 4 slice D4–D6, 09/10/2026) — a report in plain language, sharing with a doctor, revoke, who viewed ✅
+ADR 0021. Kamrul 09/10/2026: shares go to a directory of opted-in Setu facilities and their doctors (names only), are
+time-limited (30 days default; 24 h / 7 days), revocable, scoped to one visit / one report / "all", with "who opened it";
+plain-language wording = drafts marked draft (clinician list, gap 12) and **never** for a critical result (value, flag,
+"contact your doctor / the facility now" + the facility's phone only); who viewed shows staff name, role, facility, and
+break-glass labelled; the patient app on staging with a "STAGING — test data" banner. No external share links.
+- **Database** (`20261009150000_patient_share`, `…151000_consent_names`, `…152000_communication_read_mark`):
+  `Consent` and `ConsentAccess` (network level; person RLS + the grantee tenant reads / records opens; a trigger ties an
+  open to its share), `Organization.phone` / `networkJoinedAt`, `Communication.readAt` (the message guard lets only that
+  through, once, on a patient-app message); SECURITY DEFINER `network_directory()`, `consent_expire_due()`.
+- **Domain:** `share.ts` (periods, scope rules, `shareCovers` — every read decided there, end time checked, not just
+  the status; `shareRevoke` idempotent), `labPlain.ts` (draft keys per analyte; none for LL / HH; `rangePosition`).
+- **API:** patient — `GET /v1/patient/reports/:claimId/:reportId` (flags, range bar, drafts, the trend across every
+  linked facility), `…/documents/:claimId/:kind/:id/pdf` (the patient copy: the facility's template marked "Patient copy",
+  the real verify QR, **no** print copy; the code issued by the system actor), `directory`, `shares` (list / create /
+  revoke), `access-log`. Staff — `GET /v1/shared`, `/v1/shared/:consentId`, `…/reports/:tenantId/:reportId`,
+  `…/documents/:tenantId/:kind/:id/pdf` (screen net/shared; reads only through `modules/network.ts`, the consent-checked
+  read service: audited in both tenants — the owner's row with basis `patient-share` and the reader's names — and as an
+  open the patient sees). The trend through a visit or report share shows nothing outside it. Job `consents` (expiry,
+  in `/health/jobs/ok`). Admin facility screen: phone + "Join the Setu network". Seed: demo + E2E facilities joined,
+  sample phones.
+- **Patient app:** report screen (Results & explanation / Original PDF), history items open (report screen; prescription
+  and summary PDFs) with "New" from the facility's notices, Share (new / active with opens and two-tap stop / who
+  viewed, grouped per person and day). Staff app: `net/shared` "Shared with you".
+- **Staging:** the patient app at `https://setu.sociofitechnology.com/patient` (image `setu-patient`, built with base
+  path `/patient` and the banner; Caddy `/patient*`; rolled like the staff app). `GET /v1/dev/patient-otp` only with the
+  fake SMS and `SETU_STAGE=staging` (config `patientOtpDevRoute`); the staging sign-in screen has "Staging: show the test
+  code".
+- **Tests:** domain `share.test.ts` (13), `labPlain.test.ts` (8); API `share.test.ts` (15: plain language, critical
+  wording-free, trend, the sister's report not found, the PDF not a print copy, directory, refusals, the scoped read,
+  other doctors / receptionist / the owner clinic refused, audits both sides, opens, who viewed incl. break-glass,
+  revoke idempotent then refused, "all" + expiry + the job, the read-mark guard); `e2e/journeys/journey-d.spec.ts` now
+  D1–D6 (a second browser context is the receiving doctor).
+- **Found, not fixed (gap 16, Kamrul to decide):** `lab_actor_ok()` returns NULL when `app.user_id` was never set on a
+  pooled connection, so `IF NOT lab_actor_ok(...)` does not raise — the "who" check of the lab / print / pharmacy /
+  refund / ward guards is skipped for writes that run without a signed-in user on a fresh connection (it works once the
+  connection has carried a user: the setting then reads ''). 144 uses in 33 migrations; fixing it (coalesce to false)
+  needs every system-actor write path set `app.user_id` first — its own change and review.
+- **Follow-ups:** share links for doctors outside Setu; the prescription and summary screens (pictograms, reminders);
+  uploads ("mine"); break-glass itself (Journey E); the desk-proof confirm screen and the claim-code QR (D1–D3);
+  guardians; a service worker.
+
 ## On call (staging) — https://setu.sociofitechnology.com (the shared SocioFi VPS, ADR 0019 addendum)
 **Where things are** (`ssh -l setu sociofi` — the `setu` user runs Setu in **its own rootless Docker daemon**: plain
 `docker` as setu sees Setu's containers, the VPS's shared `docker` group does not; every Setu container is compose
@@ -1396,7 +1438,7 @@ paste them into chat or git.
 3. ~~Password and PIN hashing is dev-only SHA-256~~ — argon2id since external review A2 (07/10/2026), old hashes re-hashed on the next success.
 4. ~~PIN tries should move to Redis~~ — done in external review A3 (07/10/2026) with the login limits (`adapters/counters.ts`; in-memory only without `REDIS_URL`, refused in production). Idempotency keys stay in `IdempotencyKey`.
 5. Home-page figures are sample data; each slice swaps its tiles/rows for live queries.
-6. ~~Patient app (`apps/patient`) is a placeholder until Journey D.~~ — D1–D3 built 09/10/2026 (ADR 0020); not yet on staging.
+6. ~~Patient app (`apps/patient`) is a placeholder until Journey D.~~ — D1–D6 built 09/10/2026 (ADR 0020, 0021); on staging at /patient.
 7. Prisma migrations: create with `--create-only`, append SQL, then apply (see `packages/db/prisma/migrations/README.md`). Never edit an applied migration.
 
 8. Front desk follow-ups (not blocking A4): queue reorder with reason (+ audit), Lab/Billing queue columns, register "Save draft" and the register-screen Compare for an unsaved form (today: "Visit on this record" per candidate), payer/photo/referral fields (need Coverage/Media), records-officer role for review Tasks, branch choice for multi-branch organisations.
@@ -1445,6 +1487,9 @@ paste them into chat or git.
     counts as on duty (the mechanism is built, samples 15 min / every active doctor), controlled-drug register gaps
     (open questions, B3–B4 session 2).
 11. **Patients are per tenant** (decided 02/10/2026, open question 21): one record shared across an owner's branches; between different owners only through Connected Care with consent (Journey E), never by default.
+16. **`lab_actor_ok()` is NULL without `app.user_id`** (found 09/10/2026, D4–D6): the database's "who did it" checks are
+    skipped on a connection that never carried a signed-in user — see "Done (Phase 4 slice D4–D6)". Kamrul to decide
+    when to fix (every system write must then set `app.user_id` to the system actor).
 15. ~~**MAR tests near midnight Dhaka**~~ — fixed 09/10/2026: not a test bug but the MAR range (a dose due just after
     midnight was in its window yet not shown); `marSlotRange` now reaches now + the dose window (ADR 0015 addendum).
 
@@ -1472,8 +1517,8 @@ paste them into chat or git.
    no R2 — ask before any R2 work); ~~(2) the queue and the worklists~~ (08/10/2026, c9246a0: active complete, latest 20 closed; rerun met p95 < 1 s); (3) the lab worklist query; (4) review section C. Later, with the dedicated host and the
    product's own domain: `HOSTING_REGION` near Bangladesh, off-server backups, GHCR images, error tracking, smaller
    api / tools images.
-9. **Phase 4 (Journeys D and E):** ~~D1–D3~~ (09/10/2026, ADR 0020) · D4–D6 (ADR 0021) · E1–E2 (ADR 0022) · E3–E4
-   (ADR 0023); the desk-proof confirm screen; the patient app on staging.
+9. **Phase 4 (Journeys D and E):** ~~D1–D3~~ (09/10/2026, ADR 0020) · ~~D4–D6~~ (09/10/2026, ADR 0021) · E1–E2 (ADR 0022) ·
+   E3–E4 (ADR 0023); the desk-proof confirm screen; gap 16.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

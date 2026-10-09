@@ -14,7 +14,10 @@ import { esc, fonts, qrSvg } from "../receipts/template.js";
 const RX_MARK = `<svg viewBox="0 0 20 24" role="img" aria-label="Rx" fill="none" stroke="#000" stroke-width="2.4" stroke-linecap="square"><path d="M3 22V2h7a5 5 0 0 1 0 10H3"/><path d="M8 12l10 11"/><path d="M12 22l6-6"/></svg>`;
 export type Lang = "both" | "bn" | "en";
 export type Paper = "a5" | "a4";
-export type Mode = "print" | "preview" | "draft";
+/** print: the facility's copy (original / DUPLICATE #n); preview / draft: never printed; patient / shared (ADR 0021):
+    the patient's copy from the app, or the copy a doctor opened through the patient's share — the real verify QR, not
+    a facility print (no copy number) */
+export type Mode = "print" | "preview" | "draft" | "patient" | "shared";
 export interface PrintLine { copy: number; reason: string | null; printedAt: Date; printedBy: { nameBn: string; nameEn: string } }
 export interface Facility { en: string; bn: string | null; address: string | null }
 export interface PatientLine { nameEn: string | null; nameBn: string; facilityNo: string; ageYears: number | null; sex: "female" | "male" | "other" }
@@ -101,6 +104,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:1mm 1.5m
 
 function marks(k: ReturnType<typeof kit>, mode: Mode, print: PrintLine | null) {
   const wm = mode === "draft" ? t("bn", "printApp", "draft_watermark") : mode === "preview" ? t("bn", "printApp", "preview_watermark") : print && print.copy > 0 ? `DUPLICATE #${print.copy}` : null;
+  if (mode === "patient" || mode === "shared") return { wm: null, dup: `<div><span class="dup" data-copy="${mode}">${k.P(mode === "patient" ? "patient_copy" : "shared_copy")}</span></div>` };
   const dup = print && print.copy > 0
     ? `<div><span class="dup">${k.P("duplicate", { n: k.num(print.copy) })}</span> <span class="small">${k.P("reprint_line", { reason: k.L("printApp", `rr_${print.reason}`), name: k.rawName(print.printedBy.nameBn, print.printedBy.nameEn), at: k.dateTime(print.printedAt) })}</span></div>`
     : "";
@@ -108,7 +112,7 @@ function marks(k: ReturnType<typeof kit>, mode: Mode, print: PrintLine | null) {
 }
 
 function qrBlock(k: ReturnType<typeof kit>, verify: { url: string; code: string } | null, mode: Mode) {
-  if (!verify || mode !== "print") return `<div class="small">${mode === "draft" ? k.P("draft_note") : ""}</div>`;
+  if (!verify || mode === "draft" || mode === "preview") return `<div class="small">${mode === "draft" ? k.P("draft_note") : ""}</div>`;
   const grouped = verify.code.match(/.{1,4}/g)!.join("-");
   return `<div class="qr">${qrSvg(verify.url)}<div class="small">${k.P("scan_verify")}<br><span class="code">${esc(grouped)}</span><br>${esc(verify.url.replace(/^https?:\/\//, "").replace(/\/[^/]+$/, "/…"))}</div></div>`;
 }

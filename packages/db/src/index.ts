@@ -64,6 +64,18 @@ export async function personClaims(personId: string): Promise<{ id: string; tena
   return rows[0]?.c ?? [];
 }
 
+/** ADR 0021: the network directory — facilities that joined the network and their active doctors, names only. */
+export interface DirectoryFacility { tenantId: string; organizationId: string; nameEn: string; nameBn: string | null; doctors: { userId: string; nameEn: string; nameBn: string }[] }
+export async function networkDirectory(): Promise<DirectoryFacility[]> {
+  const rows = await prisma.$queryRaw<{ c: DirectoryFacility[] }[]>`SELECT network_directory() AS c`;
+  return rows[0]?.c ?? [];
+}
+/** ADR 0021: active shares past their end → expired (the consents job). SECURITY DEFINER; returns how many. */
+export async function consentExpireDue(): Promise<number> {
+  const rows = await prisma.$queryRaw<{ n: number }[]>`SELECT consent_expire_due() AS n`;
+  return rows[0]?.n ?? 0;
+}
+
 export interface LoginCandidate {
   id: string; tenantId: string; nameBn: string; nameEn: string; phone: string | null; email: string | null; passwordHash: string;
   plan: "clinic" | "lite" | "pro"; roles: { organizationId: string; organizationName: string; role: string }[];

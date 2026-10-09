@@ -37,12 +37,15 @@ async function facility(tx: Tx, s: SessionData) {
 }
 
 /* ───── the documents ───── */
-type Rx = NonNullable<Awaited<ReturnType<typeof rxHere>>>;
+type Rx = NonNullable<Awaited<ReturnType<typeof rxRow>>>;
 async function rxHere(tx: Tx, s: SessionData, id: string) {
   // the visit's branch and the care relationship, as the consultation screens (security review S1: another doctor's
   // note is neither previewed nor printed — a print by someone else would also take its "original")
   await compositionHere(tx, s, id);
-  const c = await tx.composition.findFirst({ where: { id, organizationId: s.organizationId, kind: "consultation-note" },
+  return rxRow(tx, s.organizationId, id);
+}
+async function rxRow(tx: Tx, organizationId: string, id: string) {
+  const c = await tx.composition.findFirst({ where: { id, organizationId, kind: "consultation-note" },
     include: { conditions: { orderBy: { position: "asc" } }, medications: { orderBy: { position: "asc" } }, orders: { orderBy: { createdAt: "asc" } }, patient: true, encounter: { select: { token: true, createdAt: true } } } });
   if (!c) throw notFound();
   return c;
@@ -173,6 +176,35 @@ export async function printView(tx: Tx, s: SessionData, kind: DocKind, id: strin
       previewUrl: `/v1/documents/${kind}/${id}/preview`,
     },
   };
+}
+
+/* ADR 0021: the patient's copy from the app (mode patient), or the copy a doctor opens through the patient's share (mode
+   shared) — the document's real verify QR (its code issued here if the facility never printed it), never a facility
+   print: no DocumentPrint row, the copy count unchanged. Read as the facility itself (its system actor), never as a
+   staff member: the care-relationship rules are for staff; the caller has already checked the claim or the share. */
+export async function copyPdf(tx: Tx, tenantId: string, kind: DocKind, id: string, lang: Lang, mode: "patient" | "shared"): Promise<{ bytes: Uint8Array; patientId: string; label: string }> {
+  const row = kind === "lr" ? await tx.diagnosticReport.findFirst({ where: { id }, select: { organizationId: true } })
+    : await tx.composition.findFirst({ where: { id, kind: kind === "rx" ? "consultation-note" : "discharge-summary" }, select: { organizationId: true } });
+  if (!row) throw notFound();
+  const o = await tx.organization.findFirst({ where: { id: row.organizationId }, select: { name: true, nameBn: true, rxFormat: true } });
+  const s: SessionData = { userId: `sys_${tenantId}`, tenantId, organizationId: row.organizationId, role: "admin", plan: "clinic", nameBn: "সেতু (সিস্টেম)", nameEn: "Setu (system)", organizationName: o?.name ?? "" };
+  let b: { blockers: PrintBlocker[]; patientId: string; label: string };
+  let rx: Rx | null = null;
+  if (kind === "rx") { rx = await rxRow(tx, row.organizationId, id); b = { blockers: rxPrintBlockers(dash<DocState>(rx.status)), patientId: rx.patientId, label: `v${rx.version}` }; }
+  else b = await blockersOf(tx, s, kind, id);
+  if (b.blockers.length) { const k = b.blockers[0]!; throw err(409, k, BLOCKED[k][0], BLOCKED[k][1]); }
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(7007, hashtext(${`${kind}:${id}`}))`;
+  let code = await tx.documentCode.findFirst({ where: { kind, documentId: id } });
+  if (!code) {
+    // the code is issued by the facility's system actor (decision 317): the database's guard takes a code's maker only as
+    // the transaction's user (app.user_id) — here that is the system actor, never a person
+    await tx.$executeRaw`SELECT set_config('app.user_id', ${s.userId}, true)`;
+    code = await tx.documentCode.create({ data: { tenantId, organizationId: row.organizationId, kind, documentId: id, verifyCode: newVerifyCode(), createdById: s.userId } });
+  }
+  const verify = { url: docVerifyUrl(kind, code.verifyCode), code: code.verifyCode };
+  const paper: Paper = kind === "ds" ? "a4" : kind === "rx" ? (o?.rxFormat === "a4" ? "a4" : "a5") : "a4";
+  const html = kind === "rx" ? await rxInput(tx, s, rx!, mode, paper, lang, verify, null) : kind === "ds" ? await dsInput(tx, s, id, mode, lang, verify, null) : await lrInput(tx, s, id, mode, paper, lang, verify, null);
+  return { bytes: await htmlToPdf(html, paper), patientId: b.patientId, label: b.label };
 }
 
 /** The on-screen preview: a draft shows the DRAFT watermark, a printable version "PREVIEW — not a print"; never a QR. */

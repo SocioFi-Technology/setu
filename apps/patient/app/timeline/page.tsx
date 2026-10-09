@@ -59,17 +59,25 @@ export default function TimelinePage() {
       {error && <span className="pa-err" role="alert"><Icon name="circle-x" size={16} />{error}</span>}
       {data === null && !error && <p className="pa-sub">{T("loading")}</p>}
       {data && data.items.length === 0 && <p className="pa-sub">{filter === "mine" ? T("empty_mine") : data.facilities === 0 ? T("empty_history") : T("empty_filter")}</p>}
-      {data?.items.map((i) => (
-        <article key={i.key} className="pa-item" data-src={i.source === "provider-verified" ? "provider" : "patient"} data-kind={i.kind}>
-          <span className="pa-ic"><Icon name={ICON[i.kind]} size={20} /></span>
-          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-            <span className="pa-meta">{format.date(i.at, lang === "bn")}</span>
-            <b>{title(i)}</b>
-            <span className="pa-meta">{fac(i)}{doc(i) ? ` · ${doc(i)}` : ""}{i.status === "amended" || i.status === "corrected" ? ` · ${T("amended")}` : ""}</span>
-            <span>{src(i)}</span>
-          </div>
-        </article>
-      ))}
+      {data?.items.map((i) => {
+        const body = (
+          <>
+            <span className="pa-ic"><Icon name={ICON[i.kind]} size={20} /></span>
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+              <span className="pa-meta">{format.date(i.at, lang === "bn")}{i.unread ? <> · <span className="pa-new">{T("new_badge")}</span></> : null}</span>
+              <b>{title(i)}</b>
+              <span className="pa-meta">{fac(i)}{doc(i) ? ` · ${doc(i)}` : ""}{i.status === "amended" || i.status === "corrected" ? ` · ${T("amended")}` : ""}</span>
+              <span>{src(i)}</span>
+            </div>
+            {(i.kind === "report" || i.kind === "prescription" || i.kind === "summary") && <Icon name="chevron-right" size={20} style={{ alignSelf: "center", color: "var(--text-muted)" }} />}
+          </>
+        );
+        const attrs = { className: "pa-item", "data-src": i.source === "provider-verified" ? "provider" : "patient", "data-kind": i.kind, "data-unread": i.unread ? "1" : undefined } as const;
+        // a report opens its screen; a prescription or a discharge summary opens the patient's copy (their screens: later slices)
+        if (i.kind === "report") return <Link key={i.key} href={`/report/${i.claimId}/${i.recordId}`} {...attrs}>{body}</Link>;
+        if (i.kind === "prescription" || i.kind === "summary") return <a key={i.key} href={patient.pdfUrl(i.claimId, i.kind === "prescription" ? "rx" : "ds", i.recordId, lang)} target="_blank" rel="noopener" {...attrs}>{body}</a>;
+        return <article key={i.key} {...attrs}>{body}</article>;
+      })}
     </Shell>
   );
 }

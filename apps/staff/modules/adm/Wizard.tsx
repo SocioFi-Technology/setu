@@ -19,13 +19,13 @@ export function AdmWizard() {
   const [f, setF] = useState<FacilityView | null>(null); const [failed, setFailed] = useState(false); const [busy, setBusy] = useState(false);
   // one key per kind of write, renewed after the server answers it (success or refusal) — a retry after a lost answer replays
   const [keys] = useState(() => ({ org: crypto.randomUUID(), branch: crypto.randomUUID(), ward: crypto.randomUUID(), prints: crypto.randomUUID(), sms: crypto.randomUUID(), smsOk: crypto.randomUUID(), live: crypto.randomUUID() }));
-  const [org, setOrg] = useState({ name: "", nameBn: "", address: "", licenceNo: "" });
+  const [org, setOrg] = useState({ name: "", nameBn: "", address: "", licenceNo: "", phone: "", network: false });
   const [branch, setBranch] = useState({ name: "", nameBn: "" }); const [ward, setWard] = useState({ name: "", beds: "4" });
   const [prints, setPrints] = useState<{ receiptFormat: "a5" | "thermal"; rxFormat: "a5" | "a4"; paymentMethods: string[] }>({ receiptFormat: "a5", rxFormat: "a5", paymentMethods: [] });
   const [phone, setPhone] = useState("");
   const show = useCallback((x: FacilityView) => {
     setF(x);
-    setOrg({ name: x.name, nameBn: x.nameBn ?? "", address: x.address ?? "", licenceNo: x.licenceNo ?? "" });
+    setOrg({ name: x.name, nameBn: x.nameBn ?? "", address: x.address ?? "", licenceNo: x.licenceNo ?? "", phone: x.phone ?? "", network: x.networkJoinedAt !== null });
     setPrints({ receiptFormat: x.settings.receiptFormat ?? "a5", rxFormat: x.settings.rxFormat ?? "a5", paymentMethods: x.settings.paymentMethods });
   }, []);
   // the first load: a re-run effect (React runs it twice in development) ignores the earlier answer, so a late answer
@@ -82,8 +82,16 @@ export function AdmWizard() {
             <TextField label={A("org_name_bn")} value={org.nameBn} onChange={(e) => setOrg({ ...org, nameBn: e.target.value })} data-testid="org-name-bn" />
             <TextField label={A("org_address")} value={org.address} onChange={(e) => setOrg({ ...org, address: e.target.value })} data-testid="org-address" />
             <TextField label={A("org_licence")} hint={A("org_licence_hint")} value={org.licenceNo} onChange={(e) => setOrg({ ...org, licenceNo: e.target.value })} data-testid="org-licence" />
+            {/* ADR 0021: the number the patient app shows beside a critical result */}
+            <TextField label={A("org_phone")} hint={A("org_phone_hint")} inputMode="tel" value={org.phone} onChange={(e) => setOrg({ ...org, phone: e.target.value })} data-testid="org-phone"
+              error={org.phone.trim() && !/^\+?[0-9][0-9 -]{4,18}$/.test(org.phone.trim()) ? A("phone_invalid") : undefined} />
           </div>
-          <span><Button icon="save" data-testid="org-save" disabled={!s.online || busy || org.name.trim().length < 2} onClick={() => void run("org", (k) => adm.updateFacility({ name: org.name.trim(), nameBn: org.nameBn.trim() || undefined, address: org.address.trim() || undefined, licenceNo: org.licenceNo.trim() || undefined }, k), A("saved"), (x) => setOrg({ name: x.name, nameBn: x.nameBn ?? "", address: x.address ?? "", licenceNo: x.licenceNo ?? "" }))}>{A("save")}</Button></span>
+          {/* ADR 0021: in the network directory — patients can share their records with this facility's doctors */}
+          <label style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+            <input type="checkbox" checked={org.network} onChange={(e) => setOrg({ ...org, network: e.target.checked })} data-testid="org-network" style={{ marginTop: 3 }} />
+            <span><b>{A("org_network")}</b><br /><span className="t-small t-muted">{A("org_network_hint")}</span></span>
+          </label>
+          <span><Button icon="save" data-testid="org-save" disabled={!s.online || busy || org.name.trim().length < 2 || (!!org.phone.trim() && !/^\+?[0-9][0-9 -]{4,18}$/.test(org.phone.trim()))} onClick={() => void run("org", (k) => adm.updateFacility({ name: org.name.trim(), nameBn: org.nameBn.trim() || undefined, address: org.address.trim() || undefined, licenceNo: org.licenceNo.trim() || undefined, phone: org.phone.trim(), network: org.network }, k), A("saved"), (x) => setOrg({ name: x.name, nameBn: x.nameBn ?? "", address: x.address ?? "", licenceNo: x.licenceNo ?? "", phone: x.phone ?? "", network: x.networkJoinedAt !== null }))}>{A("save")}</Button></span>
         </Card>
 
         <Card id="step-branch" style={{ display: "flex", flexDirection: "column", gap: 10, padding: 16 }} data-testid="step-branch">

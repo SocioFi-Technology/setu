@@ -12,6 +12,8 @@ export const GoLiveItem = z.enum(["organization", "branch", "wards", "doctor", "
 export const PaymentMethodKey = z.enum(["cash", "card", "bank", "bkash", "nagad"]);
 export const FacilityView = z.object({
   id: z.string(), name: z.string(), nameBn: z.string().nullable(), address: z.string().nullable(), licenceNo: z.string().nullable(),
+  /** ADR 0021 */
+  phone: z.string().nullable(), networkJoinedAt: z.string().nullable(),
   plan: z.enum(["clinic", "lite", "pro"]), status: z.enum(["setup", "live"]), liveAt: z.string().nullable(),
   checklist: z.array(z.object({ item: GoLiveItem, done: z.boolean(), required: z.boolean() })),
   branches: z.array(z.object({ id: z.string(), name: z.string(), nameBn: z.string().nullable() })),
@@ -33,7 +35,11 @@ export const FacilityView = z.object({
   sms: z.object({ testedAt: z.string().nullable(), phone: z.string().nullable(), sentAt: z.string().nullable(), awaitingConfirm: z.boolean(), error: z.string().nullable() }),
 });
 export type FacilityView = z.infer<typeof FacilityView>;
-export const FacilityUpdate = z.object({ name: z.string().trim().min(2).max(120), nameBn: z.string().trim().max(120).optional(), address: z.string().trim().max(300).optional(), licenceNo: z.string().trim().max(60).optional() });
+export const FacilityUpdate = z.object({ name: z.string().trim().min(2).max(120), nameBn: z.string().trim().max(120).optional(), address: z.string().trim().max(300).optional(), licenceNo: z.string().trim().max(60).optional(),
+  /** ADR 0021: the number the patient app tells a patient to call ("" clears it; left out: unchanged) */
+  phone: z.union([z.literal(""), z.string().trim().regex(/^\+?[0-9][0-9 -]{4,18}$/)]).optional(),
+  /** ADR 0021: joined the Setu network — patients can share their records with this facility's doctors (left out: unchanged) */
+  network: z.boolean().optional() });
 export type FacilityUpdate = z.infer<typeof FacilityUpdate>;
 export const BranchCreate = z.object({ name: z.string().trim().min(2).max(80), nameBn: z.string().trim().max(80).optional() });
 export const WardCreate = z.object({ name: z.string().trim().min(1).max(80), nameBn: z.string().trim().max(80).optional(), beds: z.number().int().min(1).max(100), bedClass: z.string().trim().max(40).default("General") });

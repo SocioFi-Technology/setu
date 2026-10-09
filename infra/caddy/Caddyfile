@@ -2,7 +2,8 @@
 # app behind it. /api/* and /p/* go straight to the API replicas (one hop, so the API runs with TRUST_PROXY=1; Caddy
 # replaces any X-Forwarded-For a client sends): the replicas are looked up every second, a replica that refuses a
 # connection — starting, or stopping in a rolling restart — is retried on another, and one that fails is skipped for
-# 10 s. Everything else goes to the staff app.
+# 10 s. /patient/* is the patient app (ADR 0021: built with that base path, so the path is passed through). Everything
+# else goes to the staff app.
 {
 	# inside the container only (not published): infra/deploy.sh reloads a changed Caddyfile without a restart
 	admin localhost:2019
@@ -48,6 +49,12 @@
 			lb_retries 3
 			lb_try_duration 5s
 			fail_duration 10s
+		}
+	}
+	handle /patient* {
+		reverse_proxy patient:3001 {
+			health_uri /patient/welcome
+			health_interval 15s
 		}
 	}
 	handle {
