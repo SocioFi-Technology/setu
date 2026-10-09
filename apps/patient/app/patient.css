@@ -1,0 +1,44 @@
+/* The patient app: one column, 390–412 px first (ADR 0020). Larger type and 52 px touch targets, as in the prototype. */
+body { margin: 0; background: var(--surface-page); color: var(--text-primary); font-family: var(--font-sans); }
+.pa { max-width: 480px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; }
+.pa-top { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--surface-card); border-bottom: 1px solid var(--border-subtle); }
+.pa-top b { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: 700 16px/24px var(--font-sans); color: var(--brand-primary-text, var(--brand-primary)); }
+.pa-top .pa-btn-link { min-height: 44px; padding: 0 8px; font-size: 14px; flex: none; }
+.pa-main { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.pa-tabs { position: sticky; bottom: 0; display: flex; background: var(--surface-card); border-top: 1px solid var(--border-subtle); }
+.pa-tabs a { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px 10px; min-height: 56px; text-decoration: none; font: 500 13px/18px var(--font-sans); color: var(--text-secondary); }
+.pa-tabs a[aria-current="page"] { color: var(--brand-primary); font-weight: 700; background: var(--surface-selected); }
+.pa-h1 { margin: 0; font: 700 24px/32px var(--font-sans); }
+.pa-h2 { margin: 0; font: 700 19px/26px var(--font-sans); }
+.pa-sub { margin: 0; font: 400 15px/23px var(--font-sans); color: var(--text-secondary); }
+.pa-card { background: var(--surface-card); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.pa-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 18px; border-radius: 14px; font: 600 16px/22px var(--font-sans); cursor: pointer; text-align: center; background: var(--surface-card); border: 1px solid var(--border-default); color: var(--text-primary); text-decoration: none; }
+.pa-btn-primary { background: var(--brand-primary); border-color: var(--brand-primary); color: var(--text-on-primary); }
+.pa-btn:disabled { opacity: .55; cursor: not-allowed; }
+.pa-btn-link { min-height: 44px; border: 0; background: transparent; color: var(--brand-primary); }
+.pa-row { display: flex; gap: 10px; }
+.pa-row > * { flex: 1; }
+.pa-input { min-height: 52px; width: 100%; padding: 0 14px; border: 1px solid var(--border-default); border-radius: 12px; background: var(--surface-card); font: 600 20px/26px var(--font-sans); letter-spacing: .08em; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.pa-input[aria-invalid="true"] { border-color: var(--danger-border); }
+.pa-label { font: 600 15px/22px var(--font-sans); }
+.pa-err { display: flex; gap: 8px; align-items: flex-start; font: 600 14px/20px var(--font-sans); color: var(--danger-fg); }
+.pa-note { font: 400 13px/20px var(--font-sans); color: var(--text-muted); }
+.pa-lock { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 14px; background: var(--danger-bg); border: 1px solid var(--danger-border); color: var(--danger-fg); font: 600 15px/22px var(--font-sans); }
+.pa-why { padding: 12px 14px; border-radius: 14px; background: var(--surface-sunken, var(--neutral-100)); font: 400 14px/22px var(--font-sans); color: var(--text-secondary); }
+.pa-why b { display: block; color: var(--text-primary); margin-bottom: 2px; }
+.pa-privacy { display: flex; gap: 12px; align-items: flex-start; }
+.pa-privacy b { display: block; font: 600 16px/22px var(--font-sans); }
+.pa-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.pa-chip { flex: none; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border-default); background: var(--surface-card); color: var(--text-primary); font: 600 14px/20px var(--font-sans); cursor: pointer; }
+.pa-chip[aria-pressed="true"] { background: var(--brand-primary); border-color: var(--brand-primary); color: var(--text-on-primary); }
+.pa-item { display: flex; gap: 12px; padding: 14px; border-radius: 16px; background: var(--surface-card); border: 1px solid var(--border-subtle); }
+.pa-item[data-src="patient"] { border-style: dashed; background: var(--prov-uploaded-bg); }
+.pa-item .pa-ic { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none; background: var(--prov-verified-bg); color: var(--prov-verified-fg); }
+.pa-item b { font: 600 16px/22px var(--font-sans); }
+.pa-meta { font: 400 14px/20px var(--font-sans); color: var(--text-secondary); }
+.pa-lang { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pa-lang button { min-height: 64px; font-size: 18px; }
+.pa-src { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; border: 1px solid; font: 600 13px/18px var(--font-sans); }
+.pa-src-ver { background: var(--prov-verified-bg); color: var(--prov-verified-fg); border-color: var(--prov-verified-border); }
+.pa-src-upl { background: var(--prov-uploaded-bg); color: var(--prov-uploaded-fg); border-color: var(--prov-uploaded-border); border-style: dashed; }
+.pa-src-rep { background: var(--prov-patient-bg); color: var(--prov-patient-fg); border-color: var(--prov-patient-border); border-style: dashed; }

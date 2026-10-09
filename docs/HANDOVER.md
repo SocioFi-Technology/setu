@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); week 2 staging sessions 1–2 done (08/10/2026, staging live); next: see Next)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); week 2 staging sessions 1–2 done (08/10/2026, staging live); Phase 4 slice D1–D3 done (09/10/2026, the patient app); next: see Next)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -1321,6 +1321,35 @@ this sprint); alarms and off-server backups are deferred to production (ADR 0019
 - **Not done here:** the design round in Claude Design (the prototype catching up with the screens built since the
   handoff) — waiting for Kamrul's call on who runs it; the real providers (Kamrul: before production).
 
+## Done (Phase 4 slice D1–D3, 09/10/2026) — the patient app: sign-in, claiming records, the history ✅
+ADR 0020. Kamrul 09/10/2026: "go with the recommendations" (phone + SMS code person, records only through a proven
+claim; privacy wording marked draft until the lawyer's terms; guardians later).
+- **Database** (`20261009120000_patient_person_claims`): `Person` (network level, RLS on `app.person_id`),
+  `PatientClaim` (tenant RLS), `PersonIdempotency`; `Patient.claimCode` (6 characters, no look-alikes, unique per tenant,
+  backfilled); SECURITY DEFINER `person_upsert`, `person_candidates` (facility + month only), `person_claims`.
+  `@setu/db`: `forPerson`, `forPersonInTenant`. Domain `claim.ts` (`claimAttempt` over the CLAIM machine: 3 wrong → 24 h).
+- **API** `/v1/patient/*` with its own cookie `setu_patient` (never the staff one): `otp` (6 digits, 5 min, 5 tries;
+  3 sends / phone / 15 min, 10 / IP / hour; the same answer for an unknown number), `sign-in`, `sign-out`, `me`,
+  `claims`, `claims/:id/proof` (code | desk; qr accepted by the API), `claims/:id/not-mine`, `timeline?filter=`.
+  Every claim attempt and every history read is audited in the facility's tenant (basis `patient`, actor `person:<id>`).
+  Dev only: `GET /v1/dev/patient-otp?phone=` (fake SMS + `FAKE_MESSAGING_DEV_ROUTE`).
+- **Printed:** the Setu app code on the receipt (`r_app_code`) and the signed prescription (`app_code`), not drafts.
+- **Patient app** (`apps/patient`, Next.js PWA, 390–412 px, Bangla first, `patientApp` i18n namespace): welcome →
+  language → phone → SMS code → three privacy points (**marked draft**); the claim screen (facility + month, "This is
+  mine" / "Not mine", receipt code or reception, tries left, the 24 h lock); the history with source badges and the
+  filters all / reports / prescriptions / visits / mine; the last history seen is kept on the phone for offline reading
+  and removed at sign-out; installable (manifest). Runs on :3301 beside the staff app: `cd apps/patient &&
+  API_URL=http://localhost:4100 pnpm exec next dev -p 3301`; CI starts it too (`PATIENT_URL`).
+- **Tests:** `apps/api/test/patient.test.ts` (8: OTP, session separation, rate limits, minimal disclosure, the sister's
+  record not linked, tries / lock / replay / unlock after 24 h, timeline + filters, desk and not-mine); domain
+  `claim.test.ts`; documents / receipts print the code; `e2e/journeys/journey-d.spec.ts` (@phone, 390 px, the receipt's
+  code from a real paid bill).
+- **Note for local runs:** the per-IP send limit sees every local request as 127.0.0.1 (in staging Caddy passes the
+  real address). If local journeys hit "Too many codes", `docker exec setu-redis redis-cli del potp:ip:127.0.0.1`.
+- **Not built (follow-ups):** the reception screen that confirms a desk proof; a QR with the claim code on the papers
+  (today's QR is the verify link, so the app offers code + reception only); opening a record (D4); uploads ("mine");
+  guardians / dependants; the lawyer's terms; a service worker; the patient app on staging (not in the compose yet).
+
 ## On call (staging) — https://setu.sociofitechnology.com (the shared SocioFi VPS, ADR 0019 addendum)
 **Where things are** (`ssh -l setu sociofi` — the `setu` user runs Setu in **its own rootless Docker daemon**: plain
 `docker` as setu sees Setu's containers, the VPS's shared `docker` group does not; every Setu container is compose
@@ -1364,7 +1393,7 @@ paste them into chat or git.
 3. ~~Password and PIN hashing is dev-only SHA-256~~ — argon2id since external review A2 (07/10/2026), old hashes re-hashed on the next success.
 4. ~~PIN tries should move to Redis~~ — done in external review A3 (07/10/2026) with the login limits (`adapters/counters.ts`; in-memory only without `REDIS_URL`, refused in production). Idempotency keys stay in `IdempotencyKey`.
 5. Home-page figures are sample data; each slice swaps its tiles/rows for live queries.
-6. Patient app (`apps/patient`) is a placeholder until Journey D.
+6. ~~Patient app (`apps/patient`) is a placeholder until Journey D.~~ — D1–D3 built 09/10/2026 (ADR 0020); not yet on staging.
 7. Prisma migrations: create with `--create-only`, append SQL, then apply (see `packages/db/prisma/migrations/README.md`). Never edit an applied migration.
 
 8. Front desk follow-ups (not blocking A4): queue reorder with reason (+ audit), Lab/Billing queue columns, register "Save draft" and the register-screen Compare for an unsaved form (today: "Visit on this record" per candidate), payer/photo/referral fields (need Coverage/Media), records-officer role for review Tasks, branch choice for multi-branch organisations.
@@ -1437,6 +1466,8 @@ paste them into chat or git.
    staging has no alarms; check `/api/ready` and `/api/health/jobs/ok` by hand; WAL-G installed, archiving off); ~~(2) the queue and the worklists~~ (08/10/2026, c9246a0: active complete, latest 20 closed; rerun met p95 < 1 s); (3) the lab worklist query; (4) review section C. Later, with the dedicated host and the
    product's own domain: `HOSTING_REGION` near Bangladesh, off-server backups, GHCR images, error tracking, smaller
    api / tools images.
+9. **Phase 4 (Journeys D and E):** ~~D1–D3~~ (09/10/2026, ADR 0020) · D4–D6 (ADR 0021) · E1–E2 (ADR 0022) · E3–E4
+   (ADR 0023); the desk-proof confirm screen; the patient app on staging.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

@@ -109,5 +109,6 @@
   "v_title_ds": ["ছাড়পত্র সারাংশ যাচাই", "Discharge summary check"],
   "v_not_found_ds": ["এই কোডের কোনো ছাড়পত্র সারাংশ পাওয়া যায়নি", "No discharge summary found for this code"],
   "v_privacy_ds": ["এই পাতায় রোগীর নাম, ফোন বা রোগ নির্ণয় দেখানো হয় না", "This page shows no patient name, phone or diagnosis"],
-  "panel_load_failed": ["প্রিন্টের তথ্য আনা যায়নি", "Could not load the print state"]
+  "panel_load_failed": ["প্রিন্টের তথ্য আনা যায়নি", "Could not load the print state"],
+  "app_code": ["সেতু অ্যাপে আপনার রেকর্ড দেখার কোড", "Code to see your records in the Setu app"]
 }

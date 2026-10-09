@@ -15,3 +15,4 @@ export * from "./refunds.js";
 export * from "./er.js";
 export * from "./ipd.js";
 export * from "./ward.js";
+export * from "./patient.js";

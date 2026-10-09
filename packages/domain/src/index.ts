@@ -28,3 +28,4 @@ export * from "./discharge.js";
 export * from "./ward.js";
 export * from "./mar.js";
 export * from "./nursing.js";
+export * from "./claim.js";

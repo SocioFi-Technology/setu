@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
-import "@setu/ui/tokens/setu-tokens.css";
-export const metadata = { title: "Setu Patient" };
+import "@setu/ui/styles/setu.css";
+import "./patient.css";
+import { LangProvider } from "../lib/lang";
+export const metadata = { title: "Setu হেলথ পাসপোর্ট", manifest: "/manifest.webmanifest" };
+export const viewport = { width: "device-width", initialScale: 1, themeColor: "#0f766e" };
 export default function RootLayout({ children }: { children: ReactNode }) {
-  return <html lang="bn"><body style={{ fontFamily: "var(--font-sans, system-ui)", margin: 0 }}>{children}</body></html>;
+  return <html lang="bn"><body><LangProvider>{children}</LangProvider></body></html>;
 }

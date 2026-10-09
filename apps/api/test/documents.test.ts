@@ -274,6 +274,11 @@ describe("print templates (no database)", () => {
     expect(h).toContain("&lt;script&gt;");
     expect(h).toContain("size:148mm 210mm");
   });
+  it("ADR 0020: the patient-app code is printed (grouped 3-3) — never on a draft", () => {
+    expect(rxHtml({ ...base, claimCode: "7K4Q2M" })).toContain("Code to see your records in the Setu app: <b>7K4-Q2M</b>");
+    expect(rxHtml({ ...base, mode: "draft", verify: null, signedAt: null, claimCode: "7K4Q2M" })).not.toContain("7K4-Q2M");
+    expect(rxHtml(base)).not.toContain("data-claim-code");
+  });
   it("a draft: the DRAFT watermark, no QR, 'Not signed', 'Drafts cannot be printed — sign first'", () => {
     const h = rxHtml({ ...base, mode: "draft", verify: null, signedAt: null });
     expect(h).toContain("খসড়া — বৈধ নয় · DRAFT");

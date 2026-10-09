@@ -29,6 +29,41 @@ export async function forTenant<T>(tenantId: string, fn: (tx: Tx) => Promise<T>,
   }, opts.timeoutMs ? { timeout: opts.timeoutMs, maxWait: 5_000 } : undefined);
 }
 
+/** ADR 0020: a patient-app request — `app.person_id` set, which the Person / PersonIdempotency policies read. A person
+    never reads a tenant's rows here: records are read per tenant with forTenant, only for linked claims. */
+export async function forPerson<T>(personId: string, fn: (tx: Tx) => Promise<T>, opts: { timeoutMs?: number } = {}): Promise<T> {
+  if (!personId) throw new Error("forPerson: personId is required");
+  return prisma.$transaction(async (tx: unknown) => {
+    await (tx as PrismaClient).$executeRaw`SELECT set_config('app.person_id', ${personId}, true)`;
+    return fn(tx as unknown as Tx);
+  }, opts.timeoutMs ? { timeout: opts.timeoutMs, maxWait: 5_000 } : undefined);
+}
+/** A person's write that lands in one facility's tenant (a claim): both settings in one transaction, so the claim and
+    the person's idempotency record commit together. */
+export async function forPersonInTenant<T>(personId: string, tenantId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  if (!personId || !tenantId) throw new Error("forPersonInTenant: personId and tenantId are required");
+  return prisma.$transaction(async (tx: unknown) => {
+    await (tx as PrismaClient).$executeRaw`SELECT set_config('app.person_id', ${personId}, true)`;
+    await (tx as PrismaClient).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+    return fn(tx as unknown as Tx);
+  });
+}
+/** Sign-in (ADR 0020): the Person for a phone (10 digits), made on the first sign-in. SECURITY DEFINER. */
+export async function personUpsert(phone: string): Promise<{ id: string; lang: string; generation: number }> {
+  const rows = await prisma.$queryRaw<{ p: { id: string; lang: string; generation: number } }[]>`SELECT person_upsert(${phone}::text) AS p`;
+  return rows[0]!.p;
+}
+/** The tenants with records on a phone: the facility of the last visit and its month — nothing else. SECURITY DEFINER. */
+export async function personCandidates(phone: string): Promise<{ tenantId: string; facilityEn: string | null; facilityBn: string | null; lastMonth: string }[]> {
+  const rows = await prisma.$queryRaw<{ c: { tenantId: string; facilityEn: string | null; facilityBn: string | null; lastMonth: string }[] }[]>`SELECT person_candidates(${phone}::text) AS c`;
+  return rows[0]?.c ?? [];
+}
+/** A person's claims across tenants: ids and states only (the records are read per tenant). SECURITY DEFINER. */
+export async function personClaims(personId: string): Promise<{ id: string; tenantId: string; status: string; patientId: string | null }[]> {
+  const rows = await prisma.$queryRaw<{ c: { id: string; tenantId: string; status: string; patientId: string | null }[] }[]>`SELECT person_claims(${personId}::text) AS c`;
+  return rows[0]?.c ?? [];
+}
+
 export interface LoginCandidate {
   id: string; tenantId: string; nameBn: string; nameEn: string; phone: string | null; email: string | null; passwordHash: string;
   plan: "clinic" | "lite" | "pro"; roles: { organizationId: string; organizationName: string; role: string }[];

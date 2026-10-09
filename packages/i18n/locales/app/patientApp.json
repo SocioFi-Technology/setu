@@ -1,0 +1,382 @@
+{
+  "_about": [
+    "রোগীর অ্যাপের লেখা (ADR 0020, প্রোটোটাইপ থেকে)",
+    "Patient app strings (ADR 0020, from the prototype)"
+  ],
+  "app_name": [
+    "Setu হেলথ পাসপোর্ট",
+    "Setu Health Passport"
+  ],
+  "welcome": [
+    "স্বাগতম",
+    "Welcome"
+  ],
+  "welcome_sub": [
+    "Setu হেলথ পাসপোর্ট — আপনার ও পরিবারের সব চিকিৎসার তথ্য এক জায়গায়।",
+    "Setu Health Passport — all your and your family's medical records in one place."
+  ],
+  "choose_lang": [
+    "ভাষা বেছে নিন · Choose language",
+    "ভাষা বেছে নিন · Choose language"
+  ],
+  "phone_label": [
+    "আপনার মোবাইল নম্বর",
+    "Your mobile number"
+  ],
+  "phone_bad": [
+    "০১ দিয়ে শুরু ১১ সংখ্যার নম্বর লিখুন",
+    "Type an 11-digit number starting with 01"
+  ],
+  "send_code": [
+    "কোড পাঠান",
+    "Send code"
+  ],
+  "code_sent": [
+    "SMS-এ ৬ সংখ্যার কোড পাঠানো হয়েছে",
+    "A 6-digit code was sent by SMS"
+  ],
+  "code_label": [
+    "SMS কোড",
+    "SMS code"
+  ],
+  "type_6": [
+    "৬ সংখ্যার কোড লিখুন",
+    "Type the 6-digit code"
+  ],
+  "continue": [
+    "এগিয়ে যান",
+    "Continue"
+  ],
+  "resend_in": [
+    "কোড আসেনি? {s} সেকেন্ড পর আবার পাঠান",
+    "No code? Send again in {s} seconds"
+  ],
+  "resend": [
+    "আবার কোড পাঠান",
+    "Send the code again"
+  ],
+  "change_number": [
+    "নম্বর বদলান",
+    "Change number"
+  ],
+  "offline_need_net": [
+    "নেট নেই — সংযোগ হলে চেষ্টা করুন",
+    "No internet — try when you're connected"
+  ],
+  "privacy_title": [
+    "আপনার তথ্য, আপনার নিয়ন্ত্রণে",
+    "Your information, under your control"
+  ],
+  "privacy_draft": [
+    "খসড়া — আইনজীবীর চূড়ান্ত শর্ত আসছে",
+    "Draft — the lawyer's final terms are coming"
+  ],
+  "privacy_1_t": [
+    "আপনার রেকর্ড শুধু আপনার",
+    "Your records are yours alone"
+  ],
+  "privacy_1_d": [
+    "আপনার চিকিৎসার তথ্য আমরা বিক্রি করি না, বিজ্ঞাপনেও ব্যবহার করি না।",
+    "We never sell your medical information or use it for advertising."
+  ],
+  "privacy_2_t": [
+    "আপনি অনুমতি দিলে তবেই শেয়ার",
+    "Shared only when you allow it"
+  ],
+  "privacy_2_d": [
+    "কোন ডাক্তার কতদিন দেখবেন, আপনি ঠিক করবেন। যেকোনো সময় বন্ধ করতে পারবেন।",
+    "You decide which doctor sees it and for how long. You can stop it at any time."
+  ],
+  "privacy_3_t": [
+    "কে দেখেছে, সব জানবেন",
+    "You'll know who looked"
+  ],
+  "privacy_3_d": [
+    "জরুরি অবস্থায় কেউ অনুমতি ছাড়া দেখলে কারণসহ আপনাকে জানানো হবে।",
+    "If someone looks without permission in an emergency, you'll be told, with the reason."
+  ],
+  "privacy_ok": [
+    "বুঝেছি, এগিয়ে যান",
+    "Understood, continue"
+  ],
+  "claim_title": [
+    "কিছু রেকর্ড পাওয়া গেছে যা আপনার হতে পারে",
+    "We found records that may be yours"
+  ],
+  "claim_none": [
+    "এই নম্বরে কোনো ক্লিনিকের রেকর্ড পাওয়া যায়নি।",
+    "No clinic has records on this number."
+  ],
+  "why_title": [
+    "শুধু OTP কেন যথেষ্ট নয়?",
+    "Why isn't the SMS code enough?"
+  ],
+  "why_body": [
+    "একটি ফোন নম্বর অনেক সময় পরিবারের কয়েকজন ব্যবহার করেন। তাই এই রেকর্ড সত্যিই আপনার কিনা, আরেকটি প্রমাণ দিয়ে নিশ্চিত হতে হবে। প্রমাণ দেওয়ার আগে নাম, রোগ বা রিপোর্ট দেখানো হবে না।",
+    "A phone number is often shared by several people in a family. So one more proof is needed that these records are really yours. No name, illness or report is shown before that proof."
+  ],
+  "visit_month": [
+    "ভিজিট: {m}",
+    "Visit: {m}"
+  ],
+  "facility_unknown": [
+    "একটি Setu ক্লিনিক",
+    "A Setu clinic"
+  ],
+  "mine": [
+    "এটা আমার",
+    "This is mine"
+  ],
+  "not_mine": [
+    "আমার না",
+    "Not mine"
+  ],
+  "how_prove": [
+    "কীভাবে প্রমাণ দেবেন?",
+    "How will you prove it?"
+  ],
+  "m_code": [
+    "রসিদের কোড",
+    "Code on the receipt"
+  ],
+  "m_desk": [
+    "রিসেপশনে",
+    "At the reception"
+  ],
+  "code_hint": [
+    "রসিদ বা প্রেসক্রিপশনের নিচে ছাপা ৬ অক্ষরের কোড লিখুন (যেমন 7K4Q2M)।",
+    "Type the 6-character code printed at the bottom of the receipt or prescription (e.g. 7K4Q2M)."
+  ],
+  "claim_code_label": [
+    "Setu অ্যাপ কোড",
+    "Setu app code"
+  ],
+  "code_wrong": [
+    "কোড মেলেনি — আরও {n} বার চেষ্টা করা যাবে",
+    "Code doesn't match — {n} tries left"
+  ],
+  "three_lock": [
+    "৩ বার ভুল হলে নিরাপত্তার জন্য ২৪ ঘণ্টা বন্ধ থাকবে।",
+    "After 3 wrong codes it locks for 24 hours, for your safety."
+  ],
+  "type_6_chars": [
+    "৬ অক্ষর লিখুন",
+    "Type 6 characters"
+  ],
+  "verify": [
+    "যাচাই করুন",
+    "Verify"
+  ],
+  "verify_offline": [
+    "নেট এলে যাচাই হবে",
+    "Verify when online"
+  ],
+  "locked_banner": [
+    "নিরাপত্তার জন্য ২৪ ঘণ্টা বন্ধ",
+    "Locked for 24 hours for your safety"
+  ],
+  "locked_until": [
+    "আবার চেষ্টা করা যাবে {t}",
+    "You can try again at {t}"
+  ],
+  "locked_desk": [
+    "অথবা ক্লিনিকে গেলে রিসেপশনে যাচাই করুন।",
+    "Or verify at the reception when you visit the clinic."
+  ],
+  "desk_go": [
+    "রিসেপশনে যাচাই করুন",
+    "Verify at the reception desk"
+  ],
+  "desk_body": [
+    "পরের বার ক্লিনিকে গেলে রিসেপশনে এই অ্যাপ ও আপনার NID/জন্ম নিবন্ধন দেখান।",
+    "Next time at the clinic, show this app and your NID / birth registration at the reception."
+  ],
+  "st_linked": [
+    "যুক্ত",
+    "Linked"
+  ],
+  "st_not_mine": [
+    "আমার না",
+    "Not mine"
+  ],
+  "st_desk": [
+    "রিসেপশনে যাচাই বাকি",
+    "Waiting for the reception"
+  ],
+  "st_locked": [
+    "২৪ ঘণ্টা বন্ধ · Locked",
+    "২৪ ঘণ্টা বন্ধ · Locked"
+  ],
+  "st_proof": [
+    "প্রমাণ বাকি",
+    "Proof needed"
+  ],
+  "linked_body": [
+    "এই ক্লিনিকের রেকর্ড আপনার ইতিহাসে যুক্ত হয়েছে।",
+    "This clinic's records are now in your history."
+  ],
+  "not_mine_body": [
+    "ঠিক আছে — এটি আপনার প্রোফাইলে যোগ হবে না। ক্লিনিককে জানানো হয়েছে।",
+    "OK — it won't be added to your profile. The clinic has been told."
+  ],
+  "later_home": [
+    "পরে করব · আগে হোমে যান",
+    "Later · go home first"
+  ],
+  "see_history": [
+    "ইতিহাস দেখুন",
+    "See my history"
+  ],
+  "tab_history": [
+    "ইতিহাস",
+    "History"
+  ],
+  "tab_claims": [
+    "রেকর্ড খুঁজুন",
+    "Find records"
+  ],
+  "sign_out": [
+    "সাইন আউট",
+    "Sign out"
+  ],
+  "history_title": [
+    "চিকিৎসার ইতিহাস",
+    "Medical history"
+  ],
+  "f_all": [
+    "সব",
+    "All"
+  ],
+  "f_reports": [
+    "রিপোর্ট",
+    "Reports"
+  ],
+  "f_prescriptions": [
+    "প্রেসক্রিপশন",
+    "Prescriptions"
+  ],
+  "f_visits": [
+    "ভিজিট/ভর্তি",
+    "Visits"
+  ],
+  "f_mine": [
+    "আমার দেওয়া",
+    "Added by me"
+  ],
+  "k_visit_opd": [
+    "ভিজিট · বহির্বিভাগ",
+    "Visit · OPD"
+  ],
+  "k_visit_er": [
+    "ভিজিট · জরুরি বিভাগ",
+    "Visit · Emergency"
+  ],
+  "k_admission": [
+    "ভর্তি",
+    "Admission"
+  ],
+  "k_prescription": [
+    "প্রেসক্রিপশন",
+    "Prescription"
+  ],
+  "k_report": [
+    "ল্যাব রিপোর্ট",
+    "Lab report"
+  ],
+  "k_summary": [
+    "ছাড়পত্র",
+    "Discharge summary"
+  ],
+  "amended": [
+    "সংশোধিত",
+    "Amended"
+  ],
+  "src_verified": [
+    "ডাক্তার/ল্যাব যাচাইকৃত",
+    "Provider verified"
+  ],
+  "src_uploaded": [
+    "আমার আপলোড — যাচাই হয়নি",
+    "My upload — not verified"
+  ],
+  "src_reported": [
+    "আমার দেওয়া তথ্য",
+    "Information I gave"
+  ],
+  "empty_history": [
+    "এখনো কোনো রেকর্ড যুক্ত হয়নি।",
+    "No records linked yet."
+  ],
+  "empty_filter": [
+    "এই ফিল্টারে কিছু নেই।",
+    "Nothing under this filter."
+  ],
+  "empty_mine": [
+    "আপলোড পরের ধাপে আসছে।",
+    "Uploads come in a later step."
+  ],
+  "claim_more": [
+    "{n}টি ক্লিনিকের রেকর্ড দাবি করা বাকি",
+    "{n} clinic(s) with records still to claim"
+  ],
+  "offline_cached": [
+    "অফলাইন — শেষবার দেখা তথ্য ({t})",
+    "Offline — last seen copy ({t})"
+  ],
+  "err_server": [
+    "কিছু একটা ভুল হয়েছে — আবার চেষ্টা করুন",
+    "Something went wrong — try again"
+  ],
+  "loading": [
+    "লোড হচ্ছে…",
+    "Loading…"
+  ],
+  "m01": [
+    "জানুয়ারি",
+    "January"
+  ],
+  "m02": [
+    "ফেব্রুয়ারি",
+    "February"
+  ],
+  "m03": [
+    "মার্চ",
+    "March"
+  ],
+  "m04": [
+    "এপ্রিল",
+    "April"
+  ],
+  "m05": [
+    "মে",
+    "May"
+  ],
+  "m06": [
+    "জুন",
+    "June"
+  ],
+  "m07": [
+    "জুলাই",
+    "July"
+  ],
+  "m08": [
+    "আগস্ট",
+    "August"
+  ],
+  "m09": [
+    "সেপ্টেম্বর",
+    "September"
+  ],
+  "m10": [
+    "অক্টোবর",
+    "October"
+  ],
+  "m11": [
+    "নভেম্বর",
+    "November"
+  ],
+  "m12": [
+    "ডিসেম্বর",
+    "December"
+  ]
+}

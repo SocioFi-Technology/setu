@@ -123,6 +123,7 @@ export function receiptHtml(i: TemplateInput): string {
       <div class="words small">${wordsHtml}</div>
       <div class="small"><b>${esc(L("r_paid_by"))}:</b> ${paidLine}${pendingLine ? ` · ${pendingLine}` : ""}</div>
       ${discLine ? `<div class="small">${discLine}</div>` : ""}
+      ${s.patient.claimCode ? `<div class="small" data-claim-code>${esc(L("r_app_code"))}: <b class="num">${esc(s.patient.claimCode.slice(0, 3))}-${esc(s.patient.claimCode.slice(3))}</b></div>` : ""}
       <footer class="foot small"><div>${esc(L("r_scan"))}</div><div class="sign">${esc(name(s.cashier.nameBn, s.cashier.nameEn))}<br>${esc(L("r_cashier"))}</div></footer>
       <div class="small muted">${reprintLine}</div>`
     : `<style>@page{margin:3mm 4mm 6mm 4mm}body{font-size:9pt;width:72mm}.small{font-size:8pt}h1{font-size:11pt;text-align:center}.qr{width:24mm;height:24mm;margin:3mm auto 1mm}</style>

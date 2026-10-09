@@ -28,6 +28,8 @@ import { erRoutes } from "./routes/er.js";
 import { ipdRoutes } from "./routes/ipd.js";
 import { ipdBillRoutes } from "./routes/ipdBill.js";
 import { nursingRoutes } from "./routes/nursing.js";
+import { patientRoutes } from "./routes/patient.js";
+import { patientSessionPlugin } from "./plugins/patientSession.js";
 import { queuedPlugin } from "./plugins/queued.js";
 
 export async function buildApp() {
@@ -44,6 +46,7 @@ export async function buildApp() {
   // external review A3: the shared counters (Redis) close with the app
   app.addHook("onClose", async () => { await closeCounters(); });
   sessionPlugin(app);
+  patientSessionPlugin(app); // ADR 0020: the patient app's own cookie
   auditPlugin(app);
   // gap 10: a queued write goes on only for the user it was queued under, signed by this device — checked before any
   // stored answer is replayed
@@ -85,6 +88,7 @@ export async function buildApp() {
   await app.register(ipdRoutes);
   await app.register(ipdBillRoutes);
   await app.register(nursingRoutes);
+  await app.register(patientRoutes);
   await app.register(documentRoutes);
   await app.register(ownerRoutes);
   return app;

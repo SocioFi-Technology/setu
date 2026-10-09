@@ -14,9 +14,10 @@ concurrency:
 
 env:
   NODE_VERSION: "22"
-  # the handover's ports (HANDOVER.md › How to run the journeys): API 4100, staff 3300
+  # the handover's ports (HANDOVER.md › How to run the journeys): API 4100, staff 3300, patient 3301
   API_PORT: "4100"
   STAFF_URL: http://localhost:3300
+  PATIENT_URL: http://localhost:3301
 
 jobs:
   check:
@@ -195,17 +196,20 @@ jobs:
           # gap 10: the password goes to Postgres as a SCRAM-SHA-256 verifier, never in clear
           pnpm db:set-app-password
           pnpm db:seed
-      - name: Start the API (4100) and the staff app (3300), the handover's commands
+      - name: Start the API (4100), the staff app (3300) and the patient app (3301), the handover's commands
         run: |
           set -euo pipefail
           set -a; . ./.env; set +a
           mkdir -p var/logs
           (cd apps/api && API_PORT=${API_PORT} nohup pnpm exec tsx src/server.ts > ../../var/logs/api.log 2>&1 &)
           (cd apps/staff && NODE_OPTIONS=--max-old-space-size=3072 API_URL=http://localhost:${API_PORT} nohup pnpm exec next dev -p 3300 > ../../var/logs/staff.log 2>&1 &)
+          (cd apps/patient && API_URL=http://localhost:${API_PORT} nohup pnpm exec next dev -p 3301 > ../../var/logs/patient.log 2>&1 &)
           for i in $(seq 1 60); do curl -sf "http://localhost:${API_PORT}/health" >/dev/null && break; sleep 2; done
           curl -sf "http://localhost:${API_PORT}/health"
           for i in $(seq 1 90); do curl -s -o /dev/null "${STAFF_URL}/login" && break; sleep 2; done
           curl -s -o /dev/null -w "staff %{http_code}\n" "${STAFF_URL}/login"
+          for i in $(seq 1 60); do curl -s -o /dev/null "${PATIENT_URL}/welcome" && break; sleep 2; done
+          curl -s -o /dev/null -w "patient %{http_code}\n" "${PATIENT_URL}/welcome"
       - name: Journeys (global-setup runs the E2E reset; K and L skip without the stand-ins)
         run: |
           set -euo pipefail

@@ -429,6 +429,8 @@ async function main() {
     }
   }
   if (upgraded) console.log(`upgraded ${upgraded} seeded hash(es) to argon2id`);
+  // ADR 0020: the walkthrough's receipt code (Setu Journeys D2) on the E2E clinic's Rahima Khatun — the patient app's claim
+  await prisma.patient.updateMany({ where: { id: "e2e_p_rahima", tenantId: E2E.tenant }, data: { claimCode: "7K4Q2M" } });
   // decision 317: every tenant has its system actor (the migration made them for tenants that existed then)
   await prisma.$executeRaw`INSERT INTO "User" ("id", "tenantId", "nameBn", "nameEn", "passwordHash", "active", "system", "createdAt")
     SELECT 'sys_' || t."id", t."id", 'সেতু (সিস্টেম)', 'Setu (system)', '!', false, true, now() FROM "Tenant" t ON CONFLICT ("id") DO NOTHING`;

@@ -227,7 +227,8 @@ export const ReprintReason = z.enum(["lost", "jam", "corp", "ins"]);
 export const ReceiptSnapshot = z.object({
   seller: z.object({ nameEn: z.string(), nameBn: z.string().nullable(), address: z.string().nullable(), vatBin: z.string().nullable(), vatBinSample: z.boolean() }),
   invoice: z.object({ id: z.string(), number: z.string(), issuedAt: z.string() }),
-  patient: z.object({ nameBn: z.string(), nameEn: z.string().nullable(), facilityNo: z.string() }),
+  /** claimCode (ADR 0020): the patient-app code, on receipts made since D1–D3 */
+  patient: z.object({ nameBn: z.string(), nameEn: z.string().nullable(), facilityNo: z.string(), claimCode: z.string().nullable().optional() }),
   lines: z.array(z.object({
     nameBn: z.string(), nameEn: z.string(), qty: z.number().int(), unitPaisa: Paisa, vatRateBp: z.number().int(),
     grossPaisa: Paisa, discountPaisa: Paisa, netPaisa: Paisa, vatPaisa: Paisa, totalPaisa: Paisa,

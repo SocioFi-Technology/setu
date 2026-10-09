@@ -167,6 +167,12 @@ describe("receipt template", () => {
   };
   const base = { snapshot, number: "RCPT/26/0001", createdAt: new Date("2026-10-03T04:00:00Z"), verifyUrl: "http://x/verify/rc/ABC", format: "a5" as const, lang: "both" as const };
   const printedBy = { nameBn: "ক", nameEn: "C" };
+  it("ADR 0020: a receipt made since D1–D3 carries the patient-app code; an older snapshot prints without it", () => {
+    const pr = { copy: 0, reason: null, printedAt: new Date(), printedBy: { nameBn: "ক", nameEn: "C" } };
+    const withCode = receiptHtml({ ...base, print: pr, snapshot: { ...snapshot, patient: { ...snapshot.patient, claimCode: "7K4Q2M" } } });
+    expect(withCode, withCode.slice(withCode.indexOf("data-claim-code") - 30, withCode.indexOf("data-claim-code") + 200)).toContain('Code to see your records in the Setu app: <b class="num">7K4-Q2M</b>');
+    expect(receiptHtml({ ...base, print: pr })).not.toContain("data-claim-code");
+  });
   it("escapes record text, prints amounts and words from paisa, and marks only duplicates", () => {
     const orig = receiptHtml({ ...base, print: { copy: 0, reason: null, printedAt: new Date(), printedBy } });
     expect(orig).not.toContain("<script>alert(1)</script>");

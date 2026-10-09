@@ -99,8 +99,8 @@ export async function createReceipt(tx: Tx, s: SessionData, invoiceId: string, n
 
   const org = await tx.organization.findFirst({ where: { id: s.organizationId } });
   // A walk-in OTC buyer has no patient record: the receipt names the buyer (or "walk-in customer") and no facility number.
-  const p = inv.patientId ? await tx.patient.findFirst({ where: { id: inv.patientId }, select: { nameBn: true, nameEn: true, facilityNo: true } })
-    : { nameBn: inv.buyerName ?? "কাউন্টার ক্রেতা", nameEn: inv.buyerName ?? "Walk-in customer", facilityNo: "" };
+  const p = inv.patientId ? await tx.patient.findFirst({ where: { id: inv.patientId }, select: { nameBn: true, nameEn: true, facilityNo: true, claimCode: true } })
+    : { nameBn: inv.buyerName ?? "কাউন্টার ক্রেতা", nameEn: inv.buyerName ?? "Walk-in customer", facilityNo: "", claimCode: null };
   const me = await tx.user.findFirst({ where: { id: s.userId }, select: { nameBn: true, nameEn: true } });
   // ADR 0018: an IPD final bill prints its live lines grouped by category (package, bed days, tests, medicines, services)
   const lines = inv.kind === "ipd" ? await ipdReceiptLines(tx, inv.id) : await tx.chargeItem.findMany({ where: { invoiceId: inv.id }, orderBy: { position: "asc" } });
@@ -109,7 +109,7 @@ export async function createReceipt(tx: Tx, s: SessionData, invoiceId: string, n
   const snapshot: ReceiptSnapshot = {
     seller: { nameEn: org!.name, nameBn: org!.nameBn, address: org!.address, vatBin: org!.vatBin, vatBinSample: org!.vatBinSample },
     invoice: { id: inv.id, number: inv.number!, issuedAt: inv.issuedAt!.toISOString() },
-    patient: { nameBn: p!.nameBn, nameEn: p!.nameEn, facilityNo: p!.facilityNo },
+    patient: { nameBn: p!.nameBn, nameEn: p!.nameEn, facilityNo: p!.facilityNo, ...(p!.claimCode ? { claimCode: p!.claimCode } : {}) },
     lines: lines.map((l) => ({ nameBn: l.nameBn, nameEn: l.nameEn, qty: l.qty, unitPaisa: l.unitPaisa ?? 0, vatRateBp: l.vatRateBp, grossPaisa: l.grossPaisa, discountPaisa: l.discountPaisa, netPaisa: l.netPaisa, vatPaisa: l.vatPaisa, totalPaisa: l.totalPaisa, notBilledReason: l.notBilledReason })),
     subtotalPaisa: inv.subtotalPaisa, discountPaisa: inv.discountPaisa, vatPaisa: inv.vatPaisa, totalPaisa: inv.totalPaisa,
     // the bill's net paid (ADR 0018: the excess deposit goes back on its refund voucher)

@@ -269,6 +269,9 @@ model Patient {
   photoKey           String?
   identityConfidence IdentityConfidence   @default(unverified)
   identityMethod     String?
+  /// ADR 0020: the code printed on receipts and prescriptions that proves a patient-app claim (no 0/O/1/I/L);
+  /// made by the database for every new patient
+  claimCode          String?              @default(dbgenerated("gen_claim_code()"))
   linkedToId         String?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
@@ -281,6 +284,7 @@ model Patient {
   @@unique([tenantId, facilityNo])
   /// gap 10: the target of composite (tenantId, id) foreign keys (Encounter.patientId, Patient.linkedToId — raw SQL)
   @@unique([tenantId, id])
+  @@unique([tenantId, claimCode])
   @@index([tenantId, phone])
   @@index([tenantId, nameBn])
   @@index([tenantId, nameEn])
@@ -2699,3 +2703,63 @@ model JobRun {
   runs           Int      @default(0)
   skips          Int      @default(0)
 }
+
+/* ───── ADR 0020: the patient app — the person, claims ───── */
+
+/// The patient app's signed-in person: network level (no tenant — ADR 0020), row-level security on app.person_id.
+/// A Person sees no record until a claim is proven.
+model Person {
+  id                String    @id @default(cuid())
+  /// 10 digits, as Patient.phone (01711234567 → 1711234567)
+  phone             String    @unique
+  lang              String    @default("bn")
+  /// Journey E: off = nothing of this person is shown to another facility, not even by policy
+  networkSharing    Boolean   @default(true)
+  /// sign out everywhere = +1 (as for staff, ADR 0010)
+  sessionGeneration Int       @default(0)
+  createdAt         DateTime  @default(now())
+  lastSignInAt      DateTime?
+}
+
+enum ClaimStatus {
+  candidate
+  proof_pending @map("proof-pending")
+  linked
+  not_mine      @map("not-mine")
+  locked
+}
+
+/// A person's claim on a facility's records (one per tenant): CLAIM machine; proven by the claim code, a QR carrying
+/// it, or at the desk. Lives in the facility's tenant (tenant RLS), so the facility sees who claimed its records.
+model PatientClaim {
+  id          String      @id @default(cuid())
+  tenantId    String
+  personId    String
+  status      ClaimStatus @default(candidate)
+  /// code | qr | desk
+  method      String?
+  tries       Int         @default(0)
+  lockedUntil DateTime?
+  /// the record the proof linked (one per tenant for now; dependants later)
+  patientId   String?
+  linkedAt    DateTime?
+  statusAt    DateTime    @default(now())
+  createdAt   DateTime    @default(now())
+
+  @@unique([tenantId, personId])
+  @@index([tenantId, patientId])
+  @@index([personId])
+}
+
+/// A person's write replayed answers the stored response (the same contract as IdempotencyKey, keyed by the person).
+model PersonIdempotency {
+  personId   String
+  key        String
+  route      String
+  statusCode Int
+  response   Json
+  createdAt  DateTime @default(now())
+
+  @@id([personId, key, route])
+}
+

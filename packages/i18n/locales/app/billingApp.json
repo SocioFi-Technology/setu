@@ -695,5 +695,6 @@
   "show_all": [
     "সব দেখুন",
     "Show all"
-  ]
+  ],
+  "r_app_code": ["সেতু অ্যাপে আপনার রেকর্ড দেখার কোড", "Code to see your records in the Setu app"]
 }
