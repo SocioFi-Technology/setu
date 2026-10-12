@@ -12,6 +12,7 @@ import { useSearchParams } from "next/navigation";
 import type { DoseRecord, MarOrder, MarView, WitnessList } from "@setu/contracts";
 import { FIVE_CHECKS, SLOT_AHEAD_MAX_MS, dhakaDay, doseBlockers, doseTiming, format, scanBlockers, type DoseOutcome, type FiveChecks } from "@setu/domain";
 import { Button, Callout, Card, Dialog, Pill, Segmented, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { ScanField, WardPatientPicker, hhmm, useErr, useN, useWardBanner } from "./common";
@@ -41,7 +42,7 @@ function MarFor({ enc }: { enc: string }) {
   return (
     <div data-screen="nur/mar" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{N("mar_title")}</h1>
+        <ScreenHeader title={N("mar_title")} />
         <span className="t-small t-muted">{format.date(v.day, s.numerals === "bn")} · {N("mar_window", { n: v.windowMin })} · {s.L(v.sample.bn, v.sample.en)}</span>
       </div>
       {!s.online && <Callout tone="warn" icon="cloud-off" data-testid="mar-offline">{N("needs_connection")}</Callout>}

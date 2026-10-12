@@ -11,6 +11,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { InpatientLineInput, InpatientOrder, RoundNote, RoundView, RoundWorklist } from "@setu/contracts";
 import { format, lineProblems, roundNoteBlockers, wardMedicine } from "@setu/domain";
 import { Button, Callout, Card, PageState, Pill, SelectField, TextArea, TextField, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { News2Pill, PinSheet, hhmm, useErr, useLabels, useN, useWardBanner } from "../nur/common";
@@ -33,7 +34,7 @@ function Worklist() {
   const bn = s.lang === "bn";
   return (
     <div data-screen="ipd/rounds" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{N("rounds_title")}</h1>
+      <ScreenHeader title={N("rounds_title")} />
       <span className="t-small t-muted">{N("sample_rule")}: NEWS2 ≥ {s.n(w.rule.threshold)}</span>
       {w.items.length === 0 && <PageState icon="bed-double" title={N("rounds_title")} body={N("rounds_none")} />}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }} data-testid="worklist">
@@ -74,7 +75,7 @@ function RoundFor({ enc }: { enc: string }) {
   return (
     <div data-screen="ipd/rounds" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{N("rounds_title")} · {N("day_n", { n: v.day })}</h1>
+        <ScreenHeader title={<>{N("rounds_title")} · {N("day_n", { n: v.day })}</>} />
         <span style={{ flex: 1 }} />
         {/* ADR 0017: the doctor orders the discharge from the round (the checklist screen) */}
         <a className="btn btn-sm" href={`/m/ipd/discharge?adm=${encodeURIComponent(v.admissionId)}`} data-testid="round-discharge">{s.t("ipdApp", "ds_order_from_round")}</a>

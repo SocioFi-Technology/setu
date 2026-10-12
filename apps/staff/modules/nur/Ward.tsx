@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import type { CountList, Escalation, IndentList, StockCountView, WardBoard, WardBoardBed, WardList, WardStock } from "@setu/contracts";
 import { format, informBlockers } from "@setu/domain";
 import { Button, Callout, Card, Dialog, Icon, Pill, SelectField, TextArea, TextField, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { News2Pill, WristbandButton, hhmm, printLabels, rememberWard, rememberedWard, useErr, useLabels, useN } from "./common";
@@ -42,7 +43,7 @@ export function NurWard() {
   return (
     <div data-screen="nur/ward" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
       <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0, flex: 1 }}>{N("board_title")}</h1>
+        <ScreenHeader title={N("board_title")} />
         <div style={{ minWidth: 220 }}>
           <SelectField label={N("ward")} value={wardId ?? ""} onChange={(e) => pick(e.target.value)} data-testid="ward-pick">
             {wards.wards.map((w) => <option key={w.id} value={w.id}>{bn ? w.nameBn ?? w.name : w.name} · {s.n(w.occupied)}/{s.n(w.beds)}</option>)}

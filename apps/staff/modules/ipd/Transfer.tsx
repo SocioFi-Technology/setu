@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { BedBoard, BedView } from "@setu/contracts";
 import { bedPickable, format } from "@setu/domain";
 import { Button, Callout, Card, PageState, Segmented, TextArea, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, ipd, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useErr, useLabels, useN } from "../nur/common";
@@ -35,7 +36,7 @@ export function IpdTransfer() {
     const occupied = all.filter((b) => b.assignment?.status === "occupied" && b.bedClass !== "ER");
     return (
       <div data-screen="ipd/transfer" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{N("move_title")}</h1>
+        <ScreenHeader title={N("move_title")} />
         <span className="t-small t-muted">{N("pick_patient")}</span>
         {occupied.length === 0 && <PageState icon="bed-double" title={N("move_title")} body={N("rounds_none")} />}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8 }}>
@@ -76,7 +77,7 @@ function MoveForm({ board, current, pending, onDone }: { board: BedBoard; curren
   });
   return (
     <div data-screen="ipd/transfer" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{N("move_title")}</h1>
+      <ScreenHeader title={N("move_title")} />
       <span data-testid="move-from">{N("move_from", { bed: `${wn(current)} · ${current.name}` })}</span>
       {pending && (
         <Card style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14 }} data-testid="move-pending">

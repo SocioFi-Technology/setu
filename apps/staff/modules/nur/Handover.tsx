@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { HandoverPatientView, HandoverView, WardHandover, WardList } from "@setu/contracts";
 import { format } from "@setu/domain";
 import { Button, Callout, Card, Pill, SelectField, TextArea, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { News2Pill, PinSheet, hhmm, rememberWard, rememberedWard, useErr, useLabels, useN } from "./common";
@@ -34,7 +35,7 @@ export function NurHandover() {
   return (
     <div data-screen="nur/handover" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
       <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0, flex: 1 }}>{N("ho_title")}</h1>
+        <ScreenHeader title={N("ho_title")} />
         <div style={{ minWidth: 220 }}>
           <SelectField label={N("ward")} value={wardId ?? ""} onChange={(e) => { rememberWard(e.target.value); if (e.target.value !== wardId) { setWardId(e.target.value); setW(null); } }} data-testid="ward-pick">
             {wards.wards.map((x) => <option key={x.id} value={x.id}>{bn ? x.nameBn ?? x.name : x.name}</option>)}

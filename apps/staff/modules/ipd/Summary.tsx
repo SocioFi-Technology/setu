@@ -11,6 +11,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { DischargeList, SummaryDoc, SummaryView } from "@setu/contracts";
 import { COURSE_MIN, format } from "@setu/domain";
 import { Button, Callout, Card, Dialog, PageState, Pill, TextArea, TextField, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { PrintPanel } from "../../components/PrintPanel";
 import { ApiFailure, discharge, summary } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -52,7 +53,7 @@ function SummaryList() {
   const owed = list.items.filter((x) => x.kind !== "death" && x.summary !== "done");
   return (
     <div data-screen="ipd/summary" data-status="list" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{I("sm_title")}</h1>
+      <ScreenHeader title={I("sm_title")} />
       <span className="t-small t-muted">{I("sm_list_hint")}</span>
       {owed.length === 0 && <PageState icon="file-text" title={I("sm_title")} body={I("sm_list_none")} />}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 8 }} data-testid="summary-list">
@@ -90,7 +91,7 @@ function SummaryScreen({ admissionId }: { admissionId: string }) {
   return (
     <div data-screen="ipd/summary" data-status={status} style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{I("sm_title")}</h1>
+        <ScreenHeader title={I("sm_title")} />
         <span className="num t-muted">{v.admission.number} · {I("ds_day", { n: v.admission.dayNo })}</span>
         {v.discharge?.kind === "lama" && <Pill tone="warn">{I("ds_kind_lama")}</Pill>}
         {v.current && <span data-testid="summary-signed"><Pill tone="ok" icon="badge-check">{I("sm_signed_v", { n: v.current.version })}</Pill></span>}

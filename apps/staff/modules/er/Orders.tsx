@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { Disposition, ErBoard, ErVisitView } from "@setu/contracts";
 import { ADMISSION_CLASSES, DEATH_CHECKS, DISPOSITIONS, dispositionBlockers, format, type DispositionKind } from "@setu/domain";
 import { Button, Callout, Card, Dialog, PageState, Pill, TextArea, TextField, SelectField, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, er } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { BedPicker } from "../ipd/BedPicker";
@@ -26,7 +27,7 @@ function PickVisit() {
   const open = b.items.filter((i) => ["arrived", "triaged", "in-progress"].includes(i.status));
   return (
     <div data-screen="er/orders" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{E("orders_title")}</h1>
+      <ScreenHeader title={E("orders_title")} />
       <span className="t-muted">{E("orders_pick_hint")}</span>
       {open.length === 0 ? <PageState icon="clipboard-list" title={E("orders_none")} actions={<Button icon="siren" onClick={() => router.push("/m/er/triage")}>{E("back_board")}</Button>} /> : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
@@ -81,11 +82,8 @@ function OrdersScreen({ encounterId }: { encounterId: string }) {
   const dateTimeLocal = (iso: string | null | undefined) => { if (!iso) return ""; const d = new Date(iso); const p = (n: number) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
   return (
     <div data-screen="er/orders" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{E("orders_title")}</h1>
-        <span style={{ marginLeft: "auto" }} />
-        <Button icon="siren" onClick={() => router.push("/m/er/triage")}>{E("back_board")}</Button>
-      </div>
+      <ScreenHeader title={E("orders_title")}
+        actions={<><Button icon="siren" onClick={() => router.push("/m/er/triage")}>{E("back_board")}</Button></>} />
       <Card style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "10px 14px" }} data-testid="er-strip">
         <b className="num">{v.item.token}</b>
         <b>{s.lang === "bn" ? v.patient.nameBn : v.patient.nameEn ?? v.patient.nameBn}</b>

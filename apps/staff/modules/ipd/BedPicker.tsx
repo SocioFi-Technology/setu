@@ -30,7 +30,7 @@ export function BedPicker({ beds, value, onPick, classes, cls, onClass, disabled
               const on = b.id === value;
               return (
                 <button key={b.id} type="button" className="card" data-bed={b.name} data-bed-id={b.id} data-bed-state={b.state} data-pickable={b.pickable ? "1" : "0"} aria-pressed={on} disabled={disabled || !b.pickable} onClick={() => onPick(b.id)}
-                  style={{ textAlign: "left", padding: 10, display: "flex", flexDirection: "column", gap: 4, cursor: b.pickable && !disabled ? "pointer" : "not-allowed", opacity: b.pickable ? 1 : 0.6, outline: on ? "2px solid var(--brand-primary)" : undefined, background: on ? "var(--brand-primary-subtle)" : undefined }}>
+                  style={{ textAlign: "left", padding: 10, display: "flex", flexDirection: "column", gap: 4, cursor: b.pickable && !disabled ? "pointer" : "not-allowed", opacity: b.pickable ? 1 : 0.6, background: on ? "var(--surface-selected)" : undefined, boxShadow: on ? "inset var(--select-bar) 0 0 var(--brand-primary)" : undefined }}>
                   <span style={{ display: "flex", justifyContent: "space-between", gap: 6, alignItems: "center" }}><b className="num">{b.name}</b><Pill tone={BED_TONE[b.state] ?? "neu"}>{I(`st_${b.state}`)}</Pill></span>
                   <span className="t-small t-muted">{b.bedClass}{b.pickable ? (b.state === "reserved" ? ` · ${I("reserved_for_you")}` : "") : ` · ${I(`reason_${b.reason ?? b.state}`)}`}</span>
                 </button>

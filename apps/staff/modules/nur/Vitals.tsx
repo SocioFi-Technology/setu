@@ -9,6 +9,7 @@ import { useSearchParams } from "next/navigation";
 import type { WardPatientView, WardVitalsRequest } from "@setu/contracts";
 import { CONSCIOUSNESS, format, informBlockers, news2, shouldEscalate, type Consciousness } from "@setu/domain";
 import { Button, Callout, Card, Pill, Segmented, TextArea, TextField, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { News2Pill, WardPatientPicker, hhmm, useErr, useN, useWardBanner } from "./common";
@@ -59,7 +60,7 @@ function VitalsFor({ enc }: { enc: string }) {
   const open = v.escalations.filter((x) => x.status !== "resolved");
   return (
     <div data-screen="nur/vitals" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{N("vitals_title")}</h1>
+      <ScreenHeader title={N("vitals_title")} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14, alignItems: "start" }}>
         <Card style={{ display: "flex", flexDirection: "column", gap: 12, padding: 16 }} data-testid="vitals-form">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>

@@ -10,6 +10,7 @@ import { LIVE_MS } from "./Map";
 import type { AdmissionItem, AdmissionList, AdmissionView, BedBoard, PatientSummary } from "@setu/contracts";
 import { admissionChecklist, bedPickable, format, parseTaka } from "@setu/domain";
 import { Button, Callout, Card, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, fd, ipd } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { bannerOf, useLabels } from "../fd/common";
@@ -43,7 +44,7 @@ export function IpdAdmit() {
   const name = (p: { nameBn: string; nameEn: string | null }) => (s.lang === "bn" ? p.nameBn : p.nameEn ?? p.nameBn);
   return (
     <div data-screen="ipd/admit" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{I("admit_title")}</h1>
+      <ScreenHeader title={I("admit_title")} />
       <div style={{ display: "grid", gridTemplateColumns: "320px minmax(0, 1fr)", gap: 14, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Card style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14 }} data-testid="requested">
@@ -51,7 +52,7 @@ export function IpdAdmit() {
             {list.requested.length === 0 && <span className="t-small t-muted">{I("requested_none")}</span>}
             {list.requested.map((a) => (
               <button key={a.id} type="button" className="card" data-request={a.id} data-request-patient={a.patient.facilityNo} aria-pressed={req?.id === a.id} onClick={() => { setReq(a); setPatient(null); setDone(null); }}
-                style={{ textAlign: "left", padding: 10, display: "flex", flexDirection: "column", gap: 3, cursor: "pointer", outline: req?.id === a.id ? "2px solid var(--brand-primary)" : undefined }}>
+                style={{ textAlign: "left", padding: 10, display: "flex", flexDirection: "column", gap: 3, cursor: "pointer", background: req?.id === a.id ? "var(--surface-selected)" : undefined, boxShadow: req?.id === a.id ? "inset var(--select-bar) 0 0 var(--brand-primary)" : undefined }}>
                 <b>{name(a.patient)}</b>
                 <span className="t-small t-muted num">{a.patient.facilityNo} · {L.age(a.patient)} {L.sex(a.patient.sex)}</span>
                 <span className="t-small">{a.diagnosis}</span>

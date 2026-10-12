@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { DischargeList, DischargeStepView, DischargeView, WitnessList } from "@setu/contracts";
 import { DEATH_CHECKS, format } from "@setu/domain";
 import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, TextArea, TextField, useToast, type Tone } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, discharge, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { toBanner, useLabels } from "../fd/common";
@@ -174,7 +175,7 @@ export function IpdDischarge() {
   if (adm && v) return (
     <div data-screen="ipd/discharge" data-status={v.discharge.status} style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{I("ds_title")}</h1>
+        <ScreenHeader title={I("ds_title")} />
         <span className="num t-muted">{v.admission.number} · {I("ds_day", { n: v.admission.dayNo })}</span>
         {v.admission.outcome && <span data-testid="outcome"><Pill tone={v.admission.outcome === "deceased" ? "neu" : "warn"}>{I(`ds_outcome_${v.admission.outcome}`)}</Pill></span>}
         {v.admission.visitFinished && <span data-testid="visit-finished"><Pill tone="ok" icon="circle-check">{I("ds_visit_finished")}</Pill></span>}
@@ -202,7 +203,7 @@ export function IpdDischarge() {
   if (!list) return <div aria-busy="true" className="t-muted">{I("loading")}</div>;
   return (
     <div data-screen="ipd/discharge" data-status="list" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{I("ds_title")}</h1>
+      <ScreenHeader title={I("ds_title")} />
       <span className="t-small t-muted">{I("ds_list_hint")}</span>
       {list.items.length === 0 && <PageState icon="clipboard-check" title={I("ds_title")} body={I("ds_list_none")} />}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 8 }} data-testid="discharge-list">
@@ -266,7 +267,7 @@ function OrderForm({ admissionId, label, onDone }: { admissionId: string; label:
   const title = I(kind === "normal" ? "ds_order" : kind === "lama" ? "ds_lama_record" : "ds_death_record");
   return (
     <div data-screen="ipd/discharge" data-status="order" style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 640 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{I("ds_order_title")}</h1>
+      <ScreenHeader title={I("ds_order_title")} />
       <span>{label}</span>
       <Card style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
         <Segmented label={I("ds_kind")} value={kind} onChange={(x) => { setKind(x as typeof kind); key.current = crypto.randomUUID(); }}

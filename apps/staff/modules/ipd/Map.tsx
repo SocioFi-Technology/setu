@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { BedBoard, BedView } from "@setu/contracts";
 import { Button, Callout, Card, Pill, SelectField, TextField, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ipd } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useErr, useLabels, useN } from "../nur/common";
@@ -36,7 +37,7 @@ export function IpdMap() {
   };
   return (
     <div data-screen="ipd/map" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{N("map_title")}</h1>
+      <ScreenHeader title={N("map_title")} />
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }} data-testid="legend">
         <span className="t-small t-secondary">{N("legend")}:</span>
         {STATES.map((st) => <span key={st} data-legend={st} data-count={count(st)}><Pill tone={BED_TONE[st] ?? "neu"}>{N(`bst_${st}`)} · {s.n(count(st))}</Pill></span>)}
@@ -59,7 +60,7 @@ export function IpdMap() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8 }}>
                 {w.beds.filter((b) => b.bedClass !== "ER" && (!stateF || b.state === stateF)).map((b) => (
                   <button key={b.id} type="button" className="card" data-bed={b.name} data-bed-state={b.state} aria-pressed={sel?.id === b.id} onClick={() => setSel(b)}
-                    style={{ textAlign: "left", padding: 10, display: "flex", flexDirection: "column", gap: 4, cursor: "pointer", outline: sel?.id === b.id ? "2px solid var(--brand-primary)" : undefined }}>
+                    style={{ textAlign: "left", padding: 10, display: "flex", flexDirection: "column", gap: 4, cursor: "pointer", boxShadow: sel?.id === b.id ? "inset var(--select-bar) 0 0 var(--brand-primary), 0 0 0 2px var(--brand-primary)" : undefined }}>
                     <span style={{ display: "flex", justifyContent: "space-between", gap: 6 }}><b className="num">{b.name}</b><Pill tone={BED_TONE[b.state] ?? "neu"}>{N(`bst_${b.state}`)}</Pill></span>
                     <span className="t-small t-muted">{b.bedClass}</span>
                     {b.patient && <span className="t-small">{bn ? b.patient.nameBn : b.patient.nameEn || b.patient.nameBn}</span>}

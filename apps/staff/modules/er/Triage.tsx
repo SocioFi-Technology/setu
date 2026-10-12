@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import type { ErArrivalRequest, ErBoard, ErBoardItem, PatientSummary } from "@setu/contracts";
 import { format, paediatricPrompt, triageOverdue } from "@setu/domain";
 import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, er } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { LEVEL_TONE, erBanner, useE, useErr, useLabels, waitedNow } from "./common";
@@ -33,12 +34,9 @@ export function ErTriage() {
   if (!b) return <div aria-busy="true" className="t-muted">{E("loading")}</div>;
   return (
     <div data-screen="er/triage" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{E("board_title")}</h1>
-        <span className="t-small t-muted" data-testid="er-summary">{E("board_summary", { n: b.counts.total, over: b.counts.overTarget })}</span>
-        <span style={{ marginLeft: "auto" }} />
-        <Button variant="primary" icon="plus" onClick={() => setArrival(true)} data-testid="new-arrival">{E("new_arrival")}</Button>
-      </div>
+      <ScreenHeader title={E("board_title")}
+        subtitle={<span className="ck-head-pills"><span className="t-small t-muted" data-testid="er-summary">{E("board_summary", { n: b.counts.total, over: b.counts.overTarget })}</span></span>}
+        actions={<><Button variant="primary" icon="plus" onClick={() => setArrival(true)} data-testid="new-arrival">{E("new_arrival")}</Button></>} />
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }} aria-label={E("col_level")}>
         {b.scale.levels.map((l) => (
           <span key={l.level} data-legend={l.level}><Pill tone={LEVEL_TONE[l.tone] ?? "neu"} icon={l.icon} wrap>{s.lang === "bn" ? l.nameBn : l.nameEn} · {l.targetMinutes ? E("legend_within", { n: l.targetMinutes }) : E("legend_immediate")} {E("legend_count", { n: b.counts.byLevel[String(l.level)] ?? 0 })}</Pill></span>
