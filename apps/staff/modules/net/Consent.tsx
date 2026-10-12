@@ -12,6 +12,7 @@ import type { AccessRequestCreate, NetworkHistory } from "@setu/contracts";
 import { BLOOD_GROUPS, format } from "@setu/domain";
 import { fill } from "@setu/i18n";
 import { Button, Callout, Card, Icon, PageState, Pill, Segmented, SelectField, TextArea, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, net } from "../../lib/api";
 import { useSession } from "../../lib/session";
 
@@ -37,7 +38,7 @@ export function NetConsent() {
   if (!h) return <PageState icon="loader" title="…" />;
   return (
     <div className="module-page" style={{ display: "flex", flexDirection: "column", gap: 12 }} data-screen="net/consent">
-      <h1 className="t-h2" style={{ margin: 0 }}>{N("nh_title")}</h1>
+      <ScreenHeader title={N("nh_title")} />
       {!h.linked && <Callout icon="link-2-off" data-testid="nh-not-linked">{N("nh_not_linked")}</Callout>}
       {h.linked && !h.sharing && <Callout tone="warn" icon="eye-off" data-testid="nh-sharing-off">{N("nh_sharing_off")}</Callout>}
       {h.linked && h.sharing && <Policy h={h} />}

@@ -11,6 +11,7 @@ import type { CentreOffers, PortableOrderView } from "@setu/contracts";
 import { format } from "@setu/domain";
 import { fill } from "@setu/i18n";
 import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, portable } from "../../lib/api";
 import { ReportTable } from "./Shared";
 import { useSession } from "../../lib/session";
@@ -29,7 +30,7 @@ export function NetLab() {
   useEffect(() => { s.setPatient(null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="module-page" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{N("po_title")}</h1>
+      <ScreenHeader title={N("po_title")} />
       <span className="t-small t-muted">{N("po_intro")}</span>
       {!open && <Segmented label={N("po_title")} value={tab} onChange={setTab} options={[{ value: "origin", label: N("po_tab_origin") }, { value: "centre", label: N("po_tab_centre") }]} />}
       {open ? <Detail id={open} mode={tab} onBack={() => setOpen(null)} /> : <List mode={tab} onOpen={setOpen} />}

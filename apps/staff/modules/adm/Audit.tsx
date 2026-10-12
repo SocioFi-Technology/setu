@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AuditPage, AuditQuery } from "@setu/contracts";
 import { Button, Callout, Card, PageState, Pill, SelectField, TextField } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { adm } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useA, useFmt } from "./common";
@@ -29,12 +30,9 @@ export function AdmAudit() {
   const apply = (patch: Partial<AuditQuery>) => { const n = { ...q, ...patch }; Object.keys(n).forEach((k) => { if (!n[k as keyof AuditQuery]) delete n[k as keyof AuditQuery]; }); setQ(n); setPage(null); void load(n); };
   return (
     <div data-screen="adm/audit" style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{A("audit_title")}</h1>
-        <span className="t-small t-secondary">{s.me?.role === "owner" ? A("audit_scope_owner") : A("audit_scope_admin")}</span>
-        <span style={{ marginLeft: "auto" }} />
-        <a className="btn" href={adm.auditCsvHref(q)} data-testid="audit-csv" download>{A("download_csv")}</a>
-      </div>
+      <ScreenHeader title={A("audit_title")}
+        subtitle={<span className="ck-head-pills"><span className="t-small t-secondary">{s.me?.role === "owner" ? A("audit_scope_owner") : A("audit_scope_admin")}</span></span>}
+        actions={<><a className="btn" href={adm.auditCsvHref(q)} data-testid="audit-csv" download>{A("download_csv")}</a></>} />
       <Card style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }} data-testid="audit-filters">
         <TextField label={A("from")} type="date" value={q.from ?? ""} onChange={(e) => apply({ from: e.target.value || undefined })} data-testid="f-from" />
         <TextField label={A("to")} type="date" value={q.to ?? ""} onChange={(e) => apply({ to: e.target.value || undefined })} data-testid="f-to" />

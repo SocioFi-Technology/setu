@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { UserCredentialResponse, UserList, UserView } from "@setu/contracts";
 import { Button, Callout, Card, Dialog, PageState, Pill, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { adm } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { renewKey, useA, useErr, useFmt } from "./common";
@@ -28,12 +29,9 @@ export function AdmUsers() {
 
   return (
     <div data-screen="adm/users" style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{A("users_title")}</h1>
-        <span className="t-small t-secondary">{A("users_count", { n: list.items.filter((u) => u.active).length, approvers: list.activeApprovers })}</span>
-        <span style={{ marginLeft: "auto" }} />
-        <Button variant="primary" icon="user-plus" data-testid="add-user" disabled={!s.online} onClick={() => setAdding(true)}>{A("add_user")}</Button>
-      </div>
+      <ScreenHeader title={A("users_title")}
+        subtitle={<span className="ck-head-pills"><span className="t-small t-secondary">{A("users_count", { n: list.items.filter((u) => u.active).length, approvers: list.activeApprovers })}</span></span>}
+        actions={<><Button variant="primary" icon="user-plus" data-testid="add-user" disabled={!s.online} onClick={() => setAdding(true)}>{A("add_user")}</Button></>} />
       <Card style={{ padding: 0, overflowX: "auto" }}>
         <table className="table" style={{ width: "100%" }} data-testid="user-list">
           <thead><tr><th>{A("name")}</th><th>{A("phone")}</th><th>{A("role")}</th><th>{A("status")}</th><th>{A("registration")}</th><th>{A("last_sign_in")}</th><th /></tr></thead>

@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FacilityView } from "@setu/contracts";
 import { Button, Callout, Card, PageState, Pill, SelectField, TextField, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { adm } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { renewKey, takaToPaisa, useA, useErr, useFmt } from "./common";
@@ -71,11 +72,8 @@ export function AdmWizard() {
       </Card>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <h1 className="t-h2" style={{ margin: 0 }}>{A("wizard_title")}</h1>
-          <Pill tone={live ? "ok" : "warn"} icon={live ? "radio" : "hammer"}>{live ? A("status_live") : A("status_setup")}</Pill>
-          <span className="t-small t-secondary">{A(`plan_${f.plan}`)}</span>
-        </div>
+        <ScreenHeader title={A("wizard_title")}
+          subtitle={<span className="ck-head-pills"><Pill tone={live ? "ok" : "warn"} icon={live ? "radio" : "hammer"}>{live ? A("status_live") : A("status_setup")}</Pill><span className="t-small t-secondary">{A(`plan_${f.plan}`)}</span></span>} />
         {!live && <Callout tone="info" icon="info">{A("setup_note")}</Callout>}
 
         <Card id="step-organization" style={{ display: "flex", flexDirection: "column", gap: 10, padding: 16 }} data-testid="step-organization">

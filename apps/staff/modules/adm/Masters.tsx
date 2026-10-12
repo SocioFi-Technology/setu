@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { FacilityView, PriceHistory, PriceItem, PriceList } from "@setu/contracts";
 import { format, shiftHoursOk } from "@setu/domain";
 import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { adm } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { paisaToInput, pctToBp, renewKey, takaToPaisa, useA, useErr, useFmt } from "./common";
@@ -21,11 +22,8 @@ export function AdmMasters() {
   useEffect(() => { s.setPatient(null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div data-screen="adm/masters" style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{A("masters_title")}</h1>
-        <span style={{ marginLeft: "auto" }} />
-        <Segmented label={A("masters_title")} value={tab} onChange={setTab} options={[{ value: "prices", label: A("tab_prices") }, { value: "limits", label: A("tab_limits") }]} />
-      </div>
+      <ScreenHeader title={A("masters_title")}
+        actions={<><Segmented label={A("masters_title")} value={tab} onChange={setTab} options={[{ value: "prices", label: A("tab_prices") }, { value: "limits", label: A("tab_limits") }]} /></>} />
       {tab === "prices" ? <Prices /> : <><Limits /><EscalationReach /></>}
     </div>
   );

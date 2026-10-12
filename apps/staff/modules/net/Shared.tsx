@@ -9,6 +9,7 @@ import type { SharedList, SharedRecords, SharedReportView } from "@setu/contract
 import { format } from "@setu/domain";
 import { fill } from "@setu/i18n";
 import { Button, Callout, Card, Icon, PageState, Pill } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, net } from "../../lib/api";
 import { useSession } from "../../lib/session";
 
@@ -30,7 +31,7 @@ export function NetShared() {
   if (open) return <Records consentId={open} onBack={() => { setOpen(null); void load(); }} />;
   return (
     <div className="module-page" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{N("title")}</h1>
+      <ScreenHeader title={N("title")} />
       <Callout icon="shield-check">{N("intro")}</Callout>
       {list.items.length === 0 && <PageState icon="inbox" title={N("none")} />}
       {list.items.map((i) => (
@@ -63,7 +64,7 @@ function Records({ consentId, onBack }: { consentId: string; onBack: () => void 
       <span><Button variant="ghost" icon="arrow-left" onClick={report ? () => setReport(null) : onBack}>{N("back")}</Button></span>
       {error && <Callout tone="bad" icon="shield-x" role="alert">{error}</Callout>}
       {r && !report && <>
-        <h1 className="t-h2" style={{ margin: 0 }}>{s.lang === "bn" ? r.patient.nameBn : r.patient.nameEn} · {N("records")}</h1>
+        <ScreenHeader title={<>{s.lang === "bn" ? r.patient.nameBn : r.patient.nameEn} · {N("records")}</>} />
         <span className="t-small t-muted">{N("ends", { t: format.dateTime(r.endsAt, bn) })}</span>
         {r.items.length === 0 && <PageState icon="inbox" title={N("no_records")} />}
         {r.items.map((i) => (
