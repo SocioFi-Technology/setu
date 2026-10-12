@@ -315,3 +315,16 @@ a.ck-stat:hover { border-color: var(--border-default); box-shadow: var(--shadow-
 .kpi-tile:hover { box-shadow: var(--shadow-3); }
 .kpi-tile .v { font: 700 28px/34px var(--font-sans); letter-spacing: -.01em; }
 .kpi-grid-own { gap: 14px; }
+/* nav sections read as sections: a full-width heading row (icon tile, darker label, chevron at the edge) with a divider
+   above, and the section's items indented on a guide line (Kamrul 13/10/2026: groups and items were not distinguishable) */
+.nav-list > div + div, .nav-list > a.home + div { border-top: 1px solid var(--paper-line-soft); margin-top: 8px; padding-top: 6px; }
+.nav-group { width: 100%; box-sizing: border-box; margin-top: 0; height: 40px; padding: 0 8px 0 6px; border-radius: var(--radius-md);
+  font: 800 12px/16px var(--font-sans); letter-spacing: .05em; color: var(--text-primary); }
+.nav-group:hover { background: var(--surface-hover); }
+.nav-group > span:first-child { gap: 10px; }
+.nav-group > span:first-child > svg { width: 28px; height: 28px; padding: 6px; box-sizing: border-box; border-radius: 8px; background: var(--surface-sunken); color: var(--brand-primary-text); }
+.nav-group[aria-expanded="true"] > span:first-child > svg { background: var(--surface-selected); }
+.nav-group > span:last-child { color: var(--text-muted); }
+.nav-list > div > .nav-item { margin-left: 19px; padding-left: 16px; height: 38px; font-size: 14.5px; border-left: 1.5px solid var(--paper-line); border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+.nav-list > div > .nav-item[aria-current="page"] { border-left-color: var(--brand-primary); box-shadow: inset 2.5px 0 0 var(--brand-primary); }
+.nav-list > div > .nav-item.locked { color: var(--text-disabled); }
