@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ReconcileList } from "@setu/contracts";
 import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { bill as api, refunds } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { INVOICE_TONE, PAY_TONE, useB, useErr, useMoney } from "./common";
@@ -48,8 +49,7 @@ export function BillReconcile() {
 
   return (
     <div data-screen="bill/reconcile" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{B("rec_title")}</h1>
-      <span className="t-muted">{B("rec_hint")}</span>
+      <ScreenHeader title={B("rec_title")} subtitle={B("rec_hint")} />
       <Segmented label={B("rec_title")} value={tab} onChange={setTab} options={(["requested", "approved", "rejected"] as const).map((t) => ({ value: t, label: B(`rec_tab_${t}`) }))} />
       {!s.online && <Callout tone="warn" icon="cloud-off">{B("online_needed")}</Callout>}
       {failed ? <Callout tone="warn" icon="triangle-alert">{B("error_generic")}</Callout>

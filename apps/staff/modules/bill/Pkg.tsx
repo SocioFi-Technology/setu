@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import type { PackageList } from "@setu/contracts";
 import { Callout, Card, PageState, Pill } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ipdBill } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useB, useErr, useMoney } from "./common";
@@ -17,7 +18,7 @@ export function BillPkg() {
   const bn = s.lang === "bn";
   return (
     <div data-screen="bill/pkg" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{B("pk_title")}</h1>
+      <ScreenHeader title={B("pk_title")} />
       <span className="t-small t-muted">{B("pk_hint")} · {B("pk_readonly")}</span>
       {list.items.length === 0 && <PageState icon="package" title={B("pk_title")} />}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12 }}>

@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { BillingWorklist, ChargeDefinitionList, InvoiceView } from "@setu/contracts";
 import { DISCOUNT_CATEGORIES, discountToPaisa, parsePercentBp, parseTaka } from "@setu/domain";
 import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { bill as api } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useLabels } from "../fd/common";
@@ -32,8 +33,7 @@ function Worklist() {
   const writer = WRITERS.includes(s.me?.role ?? "");
   return (
     <div data-screen="bill/opd" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{B("wl_title")}</h1>
-      <span className="t-muted">{B("wl_hint")}</span>
+      <ScreenHeader title={B("wl_title")} subtitle={B("wl_hint")} />
       {w.items.length === 0 ? <PageState icon="receipt" title={B("wl_empty")} /> : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
           {w.items.map((i) => {
@@ -174,14 +174,9 @@ function BillView({ id }: { id: string }) {
 
   return (
     <div data-screen="bill/opd" data-invoice-status={inv.status} style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{B("bill_title")}</h1>
-        {inv.number && <b className="num" data-testid="invoice-number">{inv.number}</b>}
-        <Pill tone={INVOICE_TONE[inv.status]}>{B(`st_${inv.status}`)}</Pill>
-        <span className="t-small t-muted">{v.encounter && B("visit_line", { doctor: M.name(v.encounter.practitioner), token: v.encounter.token })}</span>
-        <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="arrow-left" onClick={() => router.push("/m/bill/opd")}>{B("back_to_list")}</Button>
-      </div>
+      <ScreenHeader title={B("bill_title")}
+        subtitle={<span className="ck-head-pills">{inv.number && <b className="num" data-testid="invoice-number">{inv.number}</b>}<Pill tone={INVOICE_TONE[inv.status]}>{B(`st_${inv.status}`)}</Pill><span className="t-small t-muted">{v.encounter && B("visit_line", { doctor: M.name(v.encounter.practitioner), token: v.encounter.token })}</span></span>}
+        actions={<><Button size="sm" icon="arrow-left" onClick={() => router.push("/m/bill/opd")}>{B("back_to_list")}</Button></>} />
       {!s.online && <Callout tone="warn" icon="cloud-off">{B("offline_banner")}</Callout>}
       {!writer && <Callout icon="eye">{B("view_only")}</Callout>}
       {voided && inv.void && (
@@ -336,7 +331,7 @@ function BillView({ id }: { id: string }) {
             </>
           )}
           {payable && WRITERS.includes(s.me?.role ?? "") && s.me?.role !== "receptionist" && (
-            <Button variant="primary" icon="wallet" kbd="F9" data-testid="take-payment" onClick={() => router.push(`/m/bill/pay?inv=${encodeURIComponent(id)}`)}>{B("take_payment")}</Button>
+            <Button variant="key" size="lg" icon="wallet" kbd="F9" data-testid="take-payment" onClick={() => router.push(`/m/bill/pay?inv=${encodeURIComponent(id)}`)}>{B("take_payment")}</Button>
           )}
           {approver && (inv.status === "draft" || inv.status === "issued") && inv.paidPaisa === 0 && (
             voiding ? (

@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { InvoiceView, NewPaymentRequest } from "@setu/contracts";
 import { PAYMENT_METHODS, isWallet, paisaToInput, parseTaka, type PaymentMethod } from "@setu/domain";
 import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { bill as api } from "../../lib/api";
 import { dismissRefused, onOutbox, outboxItems } from "../../lib/outbox";
 import { useSession } from "../../lib/session";
@@ -124,13 +125,9 @@ function PayView({ id }: { id: string }) {
 
   return (
     <div data-screen={`${mod}/pay`} data-invoice-status={inv.status} style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{B("pay_title")}</h1>
-        <b className="num">{inv.number ?? B("bill_draft")}</b>
-        <Pill tone={INVOICE_TONE[inv.status]}>{B(`st_${inv.status}`)}</Pill>
-        <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="arrow-left" data-testid="back-to-bill" onClick={() => router.push(billHome(v))}>{inv.kind === "opd" ? B("bill_title") : B("back_pharmacy")}</Button>
-      </div>
+      <ScreenHeader title={B("pay_title")}
+        subtitle={<span className="ck-head-pills"><b className="num">{inv.number ?? B("bill_draft")}</b><Pill tone={INVOICE_TONE[inv.status]}>{B(`st_${inv.status}`)}</Pill></span>}
+        actions={<><Button size="sm" icon="arrow-left" data-testid="back-to-bill" onClick={() => router.push(billHome(v))}>{inv.kind === "opd" ? B("bill_title") : B("back_pharmacy")}</Button></>} />
       {!s.online && <Callout tone="warn" icon="cloud-off">{B("offline_banner")}</Callout>}
       {inv.status === "draft" && <Callout tone="warn" icon="file-warning">{B("pay_not_issued")}</Callout>}
       {v.reconciling && <Callout tone="bad" icon="scale" data-testid="reconciling">{B("reconciling")}</Callout>}
@@ -248,7 +245,7 @@ function PayView({ id }: { id: string }) {
           {amountPaisa !== null && amountPaisa > openShown && <span className="t-small" style={{ color: "var(--status-bad-fg)" }} data-testid="pay-over">{B("pay_over_hint", { amount: M.tk(openShown) })}</span>}
           {amountPaisa !== null && amountPaisa > 0 && amountPaisa < openShown && <span className="t-small" data-testid="pay-part">{B("pay_part_hint", { amount: M.tk(sum.duePaisa - queuedPaisa - amountPaisa) })}</span>}
           <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <Button variant="primary" icon={isWallet(method) ? "send" : "banknote"} kbd="Ctrl ↵" data-testid="pay-submit" disabled={!canSubmit} onClick={() => void submit()}>
+            <Button variant="key" size="lg" icon={isWallet(method) ? "send" : "banknote"} kbd="Ctrl ↵" data-testid="pay-submit" disabled={!canSubmit} onClick={() => void submit()}>
               {busy ? B("waiting_server") : isWallet(method) ? B("pay_send_link") : method === "cash" ? B("pay_take_cash") : method === "card" ? B("pay_take_card") : B("pay_take_bank")}
             </Button>
             <span className="t-small t-muted">{B("pay_wallet_rule")}</span>

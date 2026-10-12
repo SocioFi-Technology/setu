@@ -9,6 +9,7 @@ import type { ShiftView } from "@setu/contracts";
 import { DENOMINATIONS, DIGITAL_METHODS, countCheck, parseTaka } from "@setu/domain";
 import { fill } from "@setu/i18n";
 import { Button, Callout, Card, PageState, Pill, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, shifts } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useMod, useMoney } from "./common";
@@ -54,7 +55,7 @@ function MyDrawer() {
   const sh = data.shift;
   return (
     <>
-      <h1 className="t-h2" style={{ margin: 0 }}>{O("sh_title")}</h1>
+      <ScreenHeader title={O("sh_title")} />
       {!s.online && <Callout tone="warn" icon="cloud-off">{O("needs_connection")}</Callout>}
       {data.lastApproved?.latestCount && <span className="t-small t-muted" data-testid="last-approved">{O("sh_last", { at: M.dateTime(data.lastApproved.statusAt), variance: M.tk(data.lastApproved.latestCount.variancePaisa) })}</span>}
       {!sh ? (
@@ -197,7 +198,7 @@ function ReviewList() {
   if (!items) return <div aria-busy="true" className="t-muted">{O("loading")}</div>;
   return (
     <>
-      <h1 className="t-h2" style={{ margin: 0 }}>{O("sh_review_title")}</h1>
+      <ScreenHeader title={O("sh_review_title")} />
       {items.length === 0 ? <PageState icon="badge-check" title={O("sh_review_none")} /> : items.map((sh) => <ReviewCard key={sh.id} sh={sh} onDone={load} />)}
     </>
   );

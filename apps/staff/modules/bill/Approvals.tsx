@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ApprovalList } from "@setu/contracts";
 import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { bill as api } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { PharmacyApprovalCards, type PhApprovalKind } from "../ph/Approvals";
@@ -58,7 +59,7 @@ export function BillApprovals() {
 
   return (
     <div data-screen="bill/approvals" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{B("appr_title")}</h1>
+      <ScreenHeader title={B("appr_title")} />
       <Segmented label={B("appr_title")} value={tab} onChange={setTab} options={(["requested", "approved", "rejected"] as const).map((t) => ({ value: t, label: B(`appr_tab_${t}`) }))} />
       <Segmented label={B("appr_kind")} value={kind} onChange={setKind} options={KINDS.map((k) => ({ value: k, label: B(`appr_k_${k}`) }))} />
       {!s.online && <Callout tone="warn" icon="cloud-off">{B("online_needed")}</Callout>}

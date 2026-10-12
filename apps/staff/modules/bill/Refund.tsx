@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { RefundableView, RefundList, RefundVoucherView, RefundView } from "@setu/contracts";
 import { PAYOUT_WAYS, RECIPIENT_RELATIONS, REFUND_CATEGORIES, RETURN_CATEGORIES, isWallet, paisaToInput, parseTaka, partOfLine, returnSplit, sum, type CashReason, type PayoutWay, type RefundCategory } from "@setu/domain";
 import { Button, Callout, Card, PageState, Pill, Segmented, useToast, type Tone } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, refunds as api } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { INVOICE_TONE, useB, useErr, useMod, useMoney } from "./common";
@@ -42,7 +43,7 @@ function RefundListScreen() {
   useEffect(() => { setList(null); api.list({ status: tab }).then((x) => { setList(x); setFailed(false); }).catch(() => setFailed(true)); }, [tab]);
   return (
     <div data-screen={`${mod}/refund`} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{B("rf_title")}</h1>
+      <ScreenHeader title={B("rf_title")} />
       <Segmented label={B("rf_list_title")} value={tab} onChange={setTab} options={(["open", "paid", "all"] as const).map((t) => ({ value: t, label: B(`rf_tab_${t}`) }))} />
       {failed ? <Callout tone="warn" icon="triangle-alert">{B("error_generic")}</Callout>
         : !list ? <div aria-busy="true" className="t-muted">{B("loading")}</div>
@@ -135,12 +136,9 @@ function RequestForm({ invoiceId }: { invoiceId: string }) {
 
   return (
     <div data-screen={`${mod}/refund`} data-kind={kind} style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{B("rf_new_for", { number: v.invoice.number ?? "—" })}</h1>
-        <Pill tone={INVOICE_TONE[v.invoice.status]}>{B(`st_${v.invoice.status}`)}</Pill>
-        <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="arrow-left" onClick={() => router.push(v.invoice.kind === "ipd" ? "/m/bill/ipd" : `/m/${mod}/pay?inv=${encodeURIComponent(invoiceId)}`)}>{B("rf_back_to_pay")}</Button>
-      </div>
+      <ScreenHeader title={B("rf_new_for", { number: v.invoice.number ?? "—" })}
+        subtitle={<span className="ck-head-pills"><Pill tone={INVOICE_TONE[v.invoice.status]}>{B(`st_${v.invoice.status}`)}</Pill></span>}
+        actions={<><Button size="sm" icon="arrow-left" onClick={() => router.push(v.invoice.kind === "ipd" ? "/m/bill/ipd" : `/m/${mod}/pay?inv=${encodeURIComponent(invoiceId)}`)}>{B("rf_back_to_pay")}</Button></>} />
       <span>{v.patient ? <>{M.name(v.patient)} · <span className="num">{v.patient.facilityNo}</span></> : v.buyer?.name ?? B("walk_in")}</span>
       {!s.online && <Callout tone="warn" icon="cloud-off">{B("rf_online_only")}</Callout>}
       {kind === "return" ? <Callout tone="info" icon="package-open" data-testid="return-hint">{(v.invoice.paidPaisa > 0 ? B("rf_kind_return_split_hint") : B("rf_kind_return_hint"))} {B("rf_due_now")}: <b className="num">{M.tk(v.duePaisa)}</b></Callout>
@@ -267,15 +265,9 @@ function RefundScreen({ id }: { id: string }) {
 
   return (
     <div data-screen={`${mod}/refund`} data-refund-status={r.status} data-kind={r.kind} style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{isReturn ? B("rf_kind_return") : B("rf_list_title")}</h1>
-        <b className="num" style={{ fontSize: 20 }} data-testid="rf-amount">{M.tk(r.amountPaisa)}</b>
-        <span data-testid="rf-status"><Pill tone={STATUS_TONE[r.status]}>{label(r)}</Pill></span>
-        {r.selfApproved && <Pill tone="warn" icon="user-check">{B("rf_self_flag")}</Pill>}
-        <span style={{ marginLeft: "auto" }} />
-        {/* ADR 0018: the excess deposit's refund belongs to the IPD final bill */}
-        <Button size="sm" icon="arrow-left" onClick={() => router.push(r.source === "deposit-excess" || v.invoice.kind === "ipd" ? "/m/bill/ipd" : `/m/${mod}/pay?inv=${encodeURIComponent(v.invoice.id)}`)}>{B("rf_bill")} {v.invoice.number ?? "—"}</Button>
-      </div>
+      <ScreenHeader title={isReturn ? B("rf_kind_return") : B("rf_list_title")}
+        subtitle={<span className="ck-head-pills"><b className="num" style={{ fontSize: 20 }} data-testid="rf-amount">{M.tk(r.amountPaisa)}</b><span data-testid="rf-status"><Pill tone={STATUS_TONE[r.status]}>{label(r)}</Pill></span>{r.selfApproved && <Pill tone="warn" icon="user-check">{B("rf_self_flag")}</Pill>}</span>}
+        actions={<>{/* ADR 0018: the excess deposit's refund belongs to the IPD final bill */}<Button size="sm" icon="arrow-left" onClick={() => router.push(r.source === "deposit-excess" || v.invoice.kind === "ipd" ? "/m/bill/ipd" : `/m/${mod}/pay?inv=${encodeURIComponent(v.invoice.id)}`)}>{B("rf_bill")} {v.invoice.number ?? "—"}</Button></>} />
       {r.source === "deposit-excess" && <Callout icon="info" data-testid="rf-deposit-excess">{B("fb_ex_never")}</Callout>}
       <span>{v.patient ? <>{M.name(v.patient)} · <span className="num">{v.patient.facilityNo}</span></> : v.buyer?.name ?? B("walk_in")} · {B(`rf_cat_${r.category}`)} — {r.reason}</span>
       {!s.online && <Callout tone="warn" icon="cloud-off">{B("rf_online_only")}</Callout>}

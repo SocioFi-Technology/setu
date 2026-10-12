@@ -3,7 +3,8 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { Icon } from "./Icon";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "default" | "primary" | "danger" | "ghost";
+  /** "key": the one money-taking action on a screen (mint, ink text; plan 2026-10-13) */
+  variant?: "default" | "primary" | "danger" | "ghost" | "key";
   size?: "sm" | "md" | "lg";
   icon?: string;
   kbd?: string;

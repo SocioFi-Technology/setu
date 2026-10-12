@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { ChargeDefinitionList, ClassPreviewView, DepositReceiptView, DischargeView, IpdBillList, IpdBillView, IpdLine, InterimPrintList, PackageList } from "@setu/contracts";
 import { parseTaka } from "@setu/domain";
 import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, bill, discharge, ipdBill } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { toBanner, useLabels } from "../fd/common";
@@ -39,7 +40,7 @@ function IpdBillListScreen() {
   const bn = s.lang === "bn";
   return (
     <div data-screen="bill/ipd" data-status="list" style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{B("ib_list_title")}</h1>
+      <ScreenHeader title={B("ib_list_title")} />
       <span className="t-small t-muted">{B("ib_list_hint")}</span>
       {list.items.length === 0 ? <PageState icon="receipt-text" title={B("ib_list_title")} body={B("ib_list_none")} /> : (
         <Card style={{ padding: 0, overflowX: "auto" }}>
@@ -110,7 +111,7 @@ function IpdBill({ admissionId }: { admissionId: string }) {
   return (
     <div data-screen="bill/ipd" data-status={v.depositState} style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{B("ib_title")}</h1>
+        <ScreenHeader title={B("ib_title")} />
         <span className="num t-muted">{v.admission.number}</span>
         {v.admission.status === "discharged" && <Pill tone="neu" icon="log-out">{B("ib_discharged", { at: M.dateTime(v.admission.dischargedAt) })}</Pill>}
         <span style={{ flex: 1 }} />
@@ -260,7 +261,7 @@ function DepositForm({ v, init, onClose, onDone }: { v: IpdBillView; init: { met
       {msg && <Callout tone="warn" icon="triangle-alert" data-testid="deposit-error">{msg}</Callout>}
       <div style={{ display: "flex", gap: 8 }}>
         <Button onClick={onClose} disabled={busy}>{B("cancel")}</Button>
-        <Button variant="primary" icon={method === "bkash" ? "send" : "wallet"} disabled={!ok} onClick={() => void go()} data-testid="deposit-submit">{busy ? B("waiting_server") : method === "bkash" ? B("ib_send_link") : B("ib_take_deposit")}</Button>
+        <Button variant="key" size="lg" icon={method === "bkash" ? "send" : "wallet"} disabled={!ok} onClick={() => void go()} data-testid="deposit-submit">{busy ? B("waiting_server") : method === "bkash" ? B("ib_send_link") : B("ib_take_deposit")}</Button>
       </div>
     </div>
   );
@@ -532,7 +533,7 @@ function FinalCard({ v, writer, onChange }: { v: IpdBillView; writer: boolean; o
         </Callout>
       )}
       <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {writer && v.can.pay && !pay && <Button variant="primary" icon="wallet" onClick={() => setPay(true)} disabled={!s.online} data-testid="final-pay">{B("fb_pay")}</Button>}
+        {writer && v.can.pay && !pay && <Button variant="key" size="lg" icon="wallet" onClick={() => setPay(true)} disabled={!s.online} data-testid="final-pay">{B("fb_pay")}</Button>}
         {writer && v.can.receipt && <Button icon="receipt-text" onClick={() => setReceipt(true)} disabled={!s.online} data-testid="final-receipt">{B("fb_receipt_make")}</Button>}
         {/* Kamrul, 2: a charge found wrong after the bill (an errored dose) is settled by a refund, never by editing the bill */}
         {writer && f.netPaidPaisa > 0 && <Button icon="undo-2" onClick={() => router.push(`/m/bill/refund?inv=${encodeURIComponent(v.invoice.id)}`)} data-testid="final-refund">{B("fb_refund")}</Button>}
@@ -573,7 +574,7 @@ function FinalPayForm({ v, onClose, onDone }: { v: IpdBillView; onClose: () => v
       {msg && <Callout tone="warn" icon="triangle-alert" data-testid="final-pay-error">{msg}</Callout>}
       <div style={{ display: "flex", gap: 8 }}>
         <Button onClick={onClose} disabled={busy}>{B("cancel")}</Button>
-        <Button variant="primary" icon={method === "bkash" ? "send" : "wallet"} disabled={!ok} onClick={() => void go()} data-testid="final-pay-submit">{busy ? B("waiting_server") : method === "bkash" ? B("ib_send_link") : B("fb_pay")}</Button>
+        <Button variant="key" size="lg" icon={method === "bkash" ? "send" : "wallet"} disabled={!ok} onClick={() => void go()} data-testid="final-pay-submit">{busy ? B("waiting_server") : method === "bkash" ? B("ib_send_link") : B("fb_pay")}</Button>
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ReceiptList, ReceiptView } from "@setu/contracts";
 import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { bill as api } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { goToBill, useB, useErr, useMod, useMoney } from "./common";
@@ -31,7 +32,7 @@ function ReceiptsOfBill({ invoiceId }: { invoiceId: string }) {
   if (!list) return <div aria-busy="true" className="t-muted">{B("loading")}</div>;
   return (
     <div data-screen={`${mod}/receipt`} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{B("receipts")}</h1>
+      <ScreenHeader title={B("receipts")} />
       {list.items.length === 0 && <PageState icon="printer" title={B("rc_none")} />}
       {list.items.map((r) => (
         <button key={r.id} type="button" className="card" style={{ display: "flex", gap: 12, padding: 12, textAlign: "left", cursor: "pointer" }} onClick={() => router.push(`/m/${mod}/receipt?rc=${encodeURIComponent(r.id)}`)}>
@@ -79,14 +80,9 @@ function ReceiptScreen({ id }: { id: string }) {
   const printed = v.prints.length > 0;
   return (
     <div data-screen={`${mod}/receipt`} style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{B("rc_title")}</h1>
-        <b className="num" data-testid="receipt-number">{r.number}</b>
-        <span className="num t-muted">{M.dateTime(r.createdAt)}</span>
-        {printed && <Pill tone="neu" icon="printer">{s.n(v.prints.length)}</Pill>}
-        <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="arrow-left" onClick={() => void goToBill(router.push, r.invoiceId)}>{B("back_to_bill")}</Button>
-      </div>
+      <ScreenHeader title={B("rc_title")}
+        subtitle={<span className="ck-head-pills"><b className="num" data-testid="receipt-number">{r.number}</b><span className="num t-muted">{M.dateTime(r.createdAt)}</span>{printed && <Pill tone="neu" icon="printer">{s.n(v.prints.length)}</Pill>}</span>}
+        actions={<><Button size="sm" icon="arrow-left" onClick={() => void goToBill(router.push, r.invoiceId)}>{B("back_to_bill")}</Button></>} />
 
       <Card style={{ display: "flex", flexDirection: "column", gap: 6, padding: 16 }} data-testid="receipt-summary">
         <b>{s.lang === "bn" ? snap.seller.nameBn ?? snap.seller.nameEn : snap.seller.nameEn}</b>
