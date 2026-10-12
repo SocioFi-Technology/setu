@@ -69,3 +69,23 @@ body { margin: 0; background: var(--surface-page); color: var(--text-primary); f
 .pa-tabs a[aria-current="page"] { box-shadow: inset 0 3px 0 var(--brand-primary); }
 .pa-btn-primary { box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 2px 6px color-mix(in oklab, var(--brand-primary) 28%, transparent); }
 .pa-brand-lg { display: inline-flex; align-items: center; gap: 10px; font: 800 22px/28px var(--font-sans); letter-spacing: -.02em; color: var(--text-primary); }
+/* Chartis Passport (plan 2026-10-13, wave G): the approved template */
+.pa-top { padding: 12px 16px; gap: 10px; }
+.pa-main { padding: 18px 16px 24px; gap: 14px; }
+.pa-h1 { font-size: 26px; line-height: 34px; letter-spacing: -.01em; }
+.pa-h2 { font-size: 24px; line-height: 32px; letter-spacing: -.01em; }
+.pa-chip { font-weight: 700; }
+.pa-chip[aria-pressed="true"] { background: var(--surface-selected); color: var(--brand-primary-text); border: 1.5px solid var(--brand-primary); }
+.pa-item { border-radius: 18px; padding: 14px; }
+.pa-item .pa-ic { width: 44px; height: 44px; border-radius: 12px; background: var(--surface-selected); color: var(--brand-primary-text); }
+.pa-item[data-kind="report"] .pa-ic { background: var(--warning-bg); color: var(--warning-fg); }
+.pa-item[data-unread="1"] { box-shadow: inset 4px 0 0 var(--brand-primary), var(--shadow-2); }
+.pa-cta { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 18px; background: var(--brand-primary); color: #fff; text-decoration: none; font: 700 16px/22px var(--font-sans); box-shadow: 0 6px 18px color-mix(in oklab, var(--brand-primary) 30%, transparent); }
+.pa-cta-ic { width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,.14); color: var(--mint-300); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.pa-card { border-radius: 18px; padding: 16px; }
+.pa-btn { border-radius: 14px; font-weight: 700; }
+.pa-tabs { box-shadow: 0 -6px 18px rgba(19,32,30,.06); padding: 4px 4px 8px; }
+.pa-tabs a { border-radius: 0 0 12px 12px; font-weight: 600; }
+.pa-tabsbar button { font-weight: 700; }
+.pa-input { border-radius: 14px; }
+.pa-input:focus { outline: 0; border-color: var(--brand-primary); box-shadow: 0 0 0 4px var(--brand-primary-subtle); }

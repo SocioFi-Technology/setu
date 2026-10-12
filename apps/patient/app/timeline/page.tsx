@@ -51,7 +51,7 @@ export default function TimelinePage() {
   return (
     <Shell>
       <h1 className="pa-h2">{T("history_title")}</h1>
-      {toClaim > 0 && <Link className="pa-btn" href="/claim"><Icon name="search" size={18} />{T("claim_more", { n: n(toClaim) })}</Link>}
+      {toClaim > 0 && <Link className="pa-cta" href="/claim"><span className="pa-cta-ic"><Icon name="search" size={20} /></span><span style={{ flex: 1 }}>{T("claim_more", { n: n(toClaim) })}</span><Icon name="chevron-right" size={20} /></Link>}
       <div className="pa-chips" role="group" aria-label={T("history_title")}>
         {FILTERS.map(([k, key]) => <button key={k} type="button" className="pa-chip" aria-pressed={filter === k} onClick={() => setFilter(k)}>{T(key)}</button>)}
       </div>
