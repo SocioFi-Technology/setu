@@ -42,5 +42,19 @@
   "demo_plan": [
     "প্ল্যান",
     "Plan"
-  ]
+  ],
+  "brand_headline": ["প্রতিটি রোগীর চার্ট, এক সুতোয় গাঁথা।", "প্রতিটি রোগীর চার্ট, এক সুতোয় গাঁথা।"],
+  "brand_lead": ["সামনের ডেস্ক থেকে ওয়ার্ড, ওয়ার্ড থেকে রোগীর ফোন — প্রতিটি রেকর্ড এক সূত্রে।", "Every patient's chart, connected — from the front desk to the ward to the patient's phone."],
+  "pt1_title": ["বাংলায় তৈরি", "Bangla first"],
+  "pt1_text": ["অনুবাদ নয়, বাংলাতেই লেখা", "written in Bangla, not translated"],
+  "pt2_title": ["চার্টিস লিংক", "Chartis Link"],
+  "pt2_text": ["রোগীর সম্মতিতে রেকর্ড রোগীর সঙ্গে যায়", "records follow the patient, with consent"],
+  "pt3_title": ["নিরাপদ", "Safe"],
+  "pt3_text": ["প্রতিটি দেখা অডিট হয়, কারণ ছাড়া কিছু দেখানো হয় না", "every view audited, nothing shown without a reason"],
+  "brand_foot_left": ["© চার্টিস হেলথ · ঢাকা", "© Chartis Health · Dhaka"],
+  "brand_foot_right": ["ক্লিনিক · লাইট · প্রো", "Clinic · Lite · Pro"],
+  "show_pw": ["দেখান", "Show"],
+  "hide_pw": ["লুকান", "Hide"],
+  "privacy_note": ["শেয়ার করা কম্পিউটারে কাজ শেষে সাইন আউট করুন। রোগীর গোপনীয়তার জন্য ১৫ মিনিট কাজ না করলে চার্টিস HIS নিজেই সাইন আউট করে।", "Sign out when you finish on a shared computer. For patient privacy, Chartis HIS signs you out after 15 minutes without activity."],
+  "first_kicker": ["প্রথমবার সাইন ইন", "First sign-in"]
 }

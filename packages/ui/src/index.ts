@@ -13,3 +13,4 @@ export * from "./components/PatientHeaderBanner";
 export * from "./components/PageState";
 export * from "./components/OfflineBanner";
 export * from "./components/Brand";
+export * from "./components/Kit";

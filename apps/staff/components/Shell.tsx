@@ -1,7 +1,7 @@
 "use client";
-/* Staff App shell — ported from docs/prototype/Setu Staff App.dc.html.
-   Top bar (56 px): org + branch, global search (F2, /), command palette (Ctrl/⌘+K), sync state, language and numerals toggles, notifications, user.
-   Left nav (232 px): modules filtered by role, plan-locked items stay visible with a lock (from GET /me/capabilities).
+/* Staff App shell — ported from docs/prototype/Setu Staff App.dc.html; Chartis layout (plan 2026-10-13, wave A).
+   Top bar (64 px): org + branch, global search (F2, /), command palette (Ctrl/⌘+K), sync state, language and numerals toggles, notifications, user.
+   Left nav (248 px): modules filtered by role, plan-locked items stay visible with a lock (from GET /me/capabilities).
    Patient banner slot under the top bar; offline banner; the page states live in ../app/(shell)/m. */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
@@ -105,10 +105,10 @@ export function Shell({ children }: { children: ReactNode }) {
         <Segmented value={lang} onChange={s.setLang} options={[{ value: "bn", label: "বাং" }, { value: "en", label: "EN" }]} label="Language" />
         <Segmented value={s.numerals} onChange={s.setNumerals} options={[{ value: "bn", label: "০১২৩" }, { value: "en", label: "0123" }]} label="Numerals" rawDigits />
         <IconButton icon="bell" label={t.notifs} />
-        <div style={{ display: "flex", alignItems: "center", gap: 8, height: 44, padding: "0 8px 0 4px" }}>
-          <span className="avatar avatar-brand" style={{ width: 34, height: 34, font: "600 13px/18px var(--font-sans)" }}>{initials(meName)}</span>
+        <div className="shell-me">
+          <span className="avatar avatar-brand" style={{ width: 36, height: 36, font: "700 13px/18px var(--font-sans)" }}>{initials(meName)}</span>
           <span className="shell-me-text">
-            <span style={{ font: "600 13px/16px var(--font-sans)", whiteSpace: "nowrap" }}>{meName}</span>
+            <span style={{ font: "700 13px/16px var(--font-sans)", whiteSpace: "nowrap" }}>{meName}</span>
             <span className="t-muted" style={{ font: "400 11px/14px var(--font-sans)", whiteSpace: "nowrap" }}>{roleName}</span>
           </span>
           <IconButton icon="log-out" label={t.logout} onClick={() => void s.logout().then((done) => { if (!done) setUnsent(true); })} />
@@ -177,8 +177,8 @@ export function Shell({ children }: { children: ReactNode }) {
             })}
           </div>
           <div className="nav-foot">
-            <span className="plan-tag"><Icon name="package-check" size={12} />{PLAN_NAME[plan]}</span>
-            <span className="t-small t-muted">{hiddenNote}</span>
+            <span className="plan-tag">Chartis HIS <span className="edition">{EDITION[plan].en}</span></span>
+            <span className="t-small t-muted">{PLAN_NAME[plan]} · {hiddenNote}</span>
           </div>
         </nav>
         <div className="shell-main">

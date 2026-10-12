@@ -8,7 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { PayResultOutcome, type PayResultView } from "@setu/contracts";
 import { format, isLinkCode } from "@setu/domain";
 import { t } from "@setu/i18n";
-import { Callout, Card, Icon } from "@setu/ui";
+import { Callout, Card, Icon, PublicFrame } from "@setu/ui";
 import { bill } from "../../../lib/api";
 
 const both = (key: string) => { const bn = t("bn", "billingApp", key), en = t("en", "billingApp", key); return bn === en ? en : `${bn} · ${en}`; };
@@ -32,6 +32,7 @@ function Result() {
   const outcome: PayResultOutcome = isLinkCode(code) ? r?.outcome ?? "pending" : fromUrl;
   const [tone, icon] = TONE[outcome];
   return (
+    <PublicFrame note="bKash">
     <main data-screen="pay-result" data-outcome={outcome} style={{ maxWidth: 480, margin: "32px auto", padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
       <h1 className="t-h2" style={{ margin: 0 }}>{both("pr_title")}</h1>
       <Callout tone={tone} icon={icon} data-testid="pay-result">
@@ -46,6 +47,7 @@ function Result() {
       )}
       <span className="t-small t-muted" style={{ display: "flex", gap: 6, alignItems: "center" }}><Icon name="shield-check" size={14} />{both("pr_privacy")}</span>
     </main>
+    </PublicFrame>
   );
 }
 

@@ -5,7 +5,7 @@ import { use, useEffect, useState } from "react";
 import type { VerifyResponse } from "@setu/contracts";
 import { format } from "@setu/domain";
 import { t } from "@setu/i18n";
-import { Callout, Card, Icon } from "@setu/ui";
+import { Callout, Card, Icon, PublicFrame } from "@setu/ui";
 import { ApiFailure, bill } from "../../../../lib/api";
 
 const both = (key: string) => { const bn = t("bn", "billingApp", key), en = t("en", "billingApp", key); return bn === en ? en : `${bn} · ${en}`; };
@@ -19,6 +19,7 @@ export default function VerifyReceipt({ params }: { params: Promise<{ code: stri
       .catch((e) => setState(e instanceof ApiFailure && e.status === 429 ? "busy" : "missing"));
   }, [code]);
   return (
+    <PublicFrame note="যাচাই · Verification">
     <main data-screen="verify" style={{ maxWidth: 520, margin: "40px auto", padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
       <h1 className="t-h2" style={{ margin: 0 }}>{both("ver_title")}</h1>
       {state === "loading" && <div aria-busy="true" className="t-muted">{both("loading")}</div>}
@@ -35,5 +36,6 @@ export default function VerifyReceipt({ params }: { params: Promise<{ code: stri
         </Card>
       )}
     </main>
+    </PublicFrame>
   );
 }

@@ -6,7 +6,7 @@ import { use, useEffect, useState } from "react";
 import type { RxVerifyResponse } from "@setu/contracts";
 import { format } from "@setu/domain";
 import { t } from "@setu/i18n";
-import { Callout, Card, Icon } from "@setu/ui";
+import { Callout, Card, Icon, PublicFrame } from "@setu/ui";
 import { ApiFailure, docs } from "../../../../lib/api";
 
 const both = (ns: string, key: string, v: Record<string, string> = {}) => {
@@ -24,6 +24,7 @@ export default function VerifyPrescription({ params }: { params: Promise<{ code:
       .catch((e) => setState(e instanceof ApiFailure && e.status === 429 ? "busy" : "missing"));
   }, [code]);
   return (
+    <PublicFrame note="যাচাই · Verification">
     <main data-screen="verify-rx" style={{ maxWidth: 560, margin: "32px auto", padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
       <h1 className="t-h2" style={{ margin: 0 }}>{P("v_title_rx")}</h1>
       {state === "loading" && <div aria-busy="true" className="t-muted">{P("v_loading")}</div>}
@@ -51,5 +52,6 @@ export default function VerifyPrescription({ params }: { params: Promise<{ code:
         </Card>
       )}
     </main>
+    </PublicFrame>
   );
 }

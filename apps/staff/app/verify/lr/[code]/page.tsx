@@ -6,7 +6,7 @@ import { use, useEffect, useState } from "react";
 import type { LrVerifyResponse } from "@setu/contracts";
 import { format } from "@setu/domain";
 import { t } from "@setu/i18n";
-import { Callout, Card, Icon } from "@setu/ui";
+import { Callout, Card, Icon, PublicFrame } from "@setu/ui";
 import { ApiFailure, docs } from "../../../../lib/api";
 
 const both = (ns: string, key: string, v: Record<string, string> = {}) => {
@@ -26,6 +26,7 @@ export default function VerifyLabReport({ params }: { params: Promise<{ code: st
   }, [code]);
   const val = (v: number, d: number) => v.toFixed(d);
   return (
+    <PublicFrame note="যাচাই · Verification">
     <main data-screen="verify-lr" style={{ maxWidth: 640, margin: "32px auto", padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
       <h1 className="t-h2" style={{ margin: 0 }}>{P("v_title_lr")}</h1>
       {state === "loading" && <div aria-busy="true" className="t-muted">{P("v_loading")}</div>}
@@ -59,5 +60,6 @@ export default function VerifyLabReport({ params }: { params: Promise<{ code: st
         </Card>
       )}
     </main>
+    </PublicFrame>
   );
 }
