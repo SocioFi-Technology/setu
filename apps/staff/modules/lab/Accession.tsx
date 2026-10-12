@@ -53,7 +53,7 @@ function AccessionVisit({ encounterId }: { encounterId: string }) {
       <VisitHead v={v} title={T("accession_title")} />
       {!s.online && <Callout tone="warn" icon="cloud-off">{T("offline_collect")}</Callout>}
       {writer && (
-        <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 12px", borderRadius: 8, border: "2px solid var(--brand-primary)", background: "var(--surface-card)" }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "12px 14px", borderRadius: 12, border: "1px solid var(--border-subtle)", background: "var(--surface-selected)", boxShadow: "inset var(--select-bar) 0 0 var(--brand-primary)" }}>
           <label style={{ display: "flex", gap: 10, alignItems: "center", flex: 1 }}>
             <span className="t-small">{T("scan_label")}</span>
             <input className="input num" name="scan" value={scan} onChange={(e) => setScan(e.target.value)} placeholder="S-2610-0001" style={{ flex: 1, fontFamily: "var(--font-mono)" }}

@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { DispenseLine, DispenseView, InvoiceView } from "@setu/contracts";
 import { fill, t as tr } from "@setu/i18n";
 import { Button, Callout, Card, Dialog, PageState, Pill, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, bill, pharm } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { bannerOf, useLabels } from "../fd/common";
@@ -32,7 +33,7 @@ function Queue() {
   if (!q) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
   return (
     <div data-screen="ph/dispense" style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{P("dispense_title")}</h1>
+      <ScreenHeader title={P("dispense_title")} />
       <span className="t-small t-secondary">{P("queue_sub")}</span>
       {q.items.length === 0 && <PageState icon="pill" title={P("queue_empty")} />}
       {q.items.map((i) => (
@@ -121,13 +122,9 @@ function Visit({ encounterId }: { encounterId: string }) {
 
   return (
     <div data-screen="ph/dispense" data-encounter={encounterId} style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{P("dispense_title")}</h1>
-        {v.composition.takeHome && <span data-testid="take-home"><Pill tone="info" icon="home">{P("take_home")}</Pill></span>}
-        <span className="t-small t-secondary">{F.name(v.encounter.practitioner)} · {P("note_version", { n: v.composition.version })} · {P("signed_at", { t: F.dateTime(v.composition.signedAt) })}</span>
-        <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="arrow-left" onClick={() => router.push("/m/ph/dispense")}>{P("queue")}</Button>
-      </div>
+      <ScreenHeader title={P("dispense_title")}
+        subtitle={<span className="ck-head-pills">{v.composition.takeHome && <span data-testid="take-home"><Pill tone="info" icon="home">{P("take_home")}</Pill></span>}<span className="t-small t-secondary">{F.name(v.encounter.practitioner)} · {P("note_version", { n: v.composition.version })} · {P("signed_at", { t: F.dateTime(v.composition.signedAt) })}</span></span>}
+        actions={<><Button size="sm" icon="arrow-left" onClick={() => router.push("/m/ph/dispense")}>{P("queue")}</Button></>} />
       <NeedsServer />
       {v.allergies.length > 0 && (
         <Callout tone="bad" icon="triangle-alert" data-testid="allergy-strip">{P("allergies")}: {v.allergies.map((a) => (s.lang === "bn" ? a.labelBn : a.labelEn)).join(", ")}</Callout>

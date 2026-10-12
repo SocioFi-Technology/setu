@@ -11,6 +11,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { LabReportView } from "@setu/contracts";
 import { isCritical } from "@setu/domain";
 import { Button, Callout, Card, PageState, Pill } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, lab } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { toBanner, useLabels } from "../fd/common";
@@ -51,7 +52,7 @@ export function ReportVersion({ id }: { id: string }) {
   return (
     <div data-screen="lab/report" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{T("report_title")}</h1>
+        <ScreenHeader title={T("report_title")} />
         <span className="num t-muted">{rep.number} · v{s.n(rep.version)}</span>
         <Pill tone={REPORT_TONE[rep.status] ?? "neu"} icon="file-text">{T(`rep_${rep.status}`)}</Pill>
         <span style={{ marginLeft: "auto" }} />

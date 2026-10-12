@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { OtcView, StockList } from "@setu/contracts";
 import { Button, Callout, Card, PageState, Pill, TextField, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { pharm } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { ClassPill, NeedsServer, renewKey, toInt, useErr, useFmt, useP } from "./common";
@@ -26,7 +27,7 @@ function Start() {
   const phoneOk = phone.trim() === "" || /^01[3-9]\d{8}$/.test(phone.trim());
   return (
     <div data-screen="ph/otc" style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 560 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{P("otc_title")}</h1>
+      <ScreenHeader title={P("otc_title")} />
       <NeedsServer />
       <Card style={{ display: "flex", flexDirection: "column", gap: 10, padding: 14 }}>
         <TextField label={P("buyer_name")} hint={P("optional")} value={name} onChange={(e) => setName(e.target.value)} data-testid="buyer-name" />
@@ -84,14 +85,9 @@ function Sale({ id }: { id: string }) {
 
   return (
     <div data-screen="ph/otc" data-invoice={id} data-status={inv.status} style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{P("otc_title")}</h1>
-        <b className="num">{inv.number ?? P("draft")}</b>
-        <Pill tone={draft ? "draft" : inv.status === "balanced" ? "ok" : "warn"}>{P(`bs_${inv.status}`)}</Pill>
-        <span className="t-small t-secondary">{inv.buyer?.name ?? P("walk_in")}{inv.buyer?.phone ? ` · ${s.n(`0${inv.buyer.phone}`)}` : ""}</span>
-        <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="plus" onClick={() => router.push("/m/ph/otc")}>{P("new_sale")}</Button>
-      </div>
+      <ScreenHeader title={P("otc_title")}
+        subtitle={<span className="ck-head-pills"><b className="num">{inv.number ?? P("draft")}</b><Pill tone={draft ? "draft" : inv.status === "balanced" ? "ok" : "warn"}>{P(`bs_${inv.status}`)}</Pill><span className="t-small t-secondary">{inv.buyer?.name ?? P("walk_in")}{inv.buyer?.phone ? ` · ${s.n(`0${inv.buyer.phone}`)}` : ""}</span></span>}
+        actions={<><Button size="sm" icon="plus" onClick={() => router.push("/m/ph/otc")}>{P("new_sale")}</Button></>} />
       <NeedsServer />
 
       {draft && (

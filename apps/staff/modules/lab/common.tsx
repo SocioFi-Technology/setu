@@ -8,6 +8,7 @@ import type { LabResult, LabVisitView } from "@setu/contracts";
 import { TUBES, format, labRoleCan, type LabFlag, type TubeKind } from "@setu/domain";
 import { fill } from "@setu/i18n";
 import { Button, Dialog, Pill, type Tone } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, lab } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { toBanner, useLabels } from "../fd/common";
@@ -124,12 +125,7 @@ export function ReasonDialog({ open, title, body, label, confirm, min = 10, busy
 export function VisitHead({ v, title, right }: { v: LabVisitView; title: string; right?: ReactNode }) {
   const F = useFmt(); const L = useLabels();
   return (
-    <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{title}</h1>
-      <span className="t-muted num">{v.encounter.token} · {v.patient.facilityNo} · {F.name(v.patient)} · {L.age(v.patient)} {L.sex(v.patient.sex)}</span>
-      <span style={{ marginLeft: "auto" }} />
-      {right}
-    </div>
+    <ScreenHeader title={title} subtitle={<span className="num">{v.encounter.token} · {v.patient.facilityNo} · {F.name(v.patient)} · {L.age(v.patient)} {L.sex(v.patient.sex)}</span>} actions={right} />
   );
 }
 /** Whether the signed-in role may do a lab action (the same LAB_ROLES table the API checks; cancel = the lab's roles). */

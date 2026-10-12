@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { CountList, StockCountView } from "@setu/contracts";
 import { Button, Callout, Card, Dialog, PageState, Pill, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { purch } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { MedName, NeedsServer, renewKey, toInt, useErr, useFmt, useP } from "./common";
@@ -26,7 +27,7 @@ function Counts() {
   useEffect(() => { purch.counts().then(setList).catch(() => setList({ items: [] })); }, []);
   return (
     <div data-screen="ph/count" style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{P("count_title")}</h1>
+      <ScreenHeader title={P("count_title")} />
       <NeedsServer />
       <Card style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }}>
         <SelectField label={P("location")} value={loc} onChange={(e) => setLoc(e.target.value as typeof loc)} data-testid="count-location">
@@ -84,13 +85,9 @@ function CountView({ id }: { id: string }) {
   };
   return (
     <div data-screen="ph/count" data-count={c.id} data-status={c.status} style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{P("count_of", { loc: (c.wardName ?? P(`loc_${c.location}`)) })}</h1>
-        <Pill tone={C_TONE[c.status] ?? "neu"}>{P(`cs_${c.status}`)}</Pill>
-        <span className="t-small t-secondary">{F.name(c.createdBy)} · {F.dateTime(c.createdAt)}</span>
-        <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="arrow-left" onClick={() => router.push("/m/ph/count")}>{P("count_title")}</Button>
-      </div>
+      <ScreenHeader title={P("count_of", { loc: (c.wardName ?? P(`loc_${c.location}`)) })}
+        subtitle={<span className="ck-head-pills"><Pill tone={C_TONE[c.status] ?? "neu"}>{P(`cs_${c.status}`)}</Pill><span className="t-small t-secondary">{F.name(c.createdBy)} · {F.dateTime(c.createdAt)}</span></span>}
+        actions={<><Button size="sm" icon="arrow-left" onClick={() => router.push("/m/ph/count")}>{P("count_title")}</Button></>} />
       <NeedsServer />
       <Callout tone="info" icon="info">{P("expected_rule")}</Callout>
       <Card style={{ padding: 0, overflowX: "auto" }}>

@@ -6,6 +6,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { BatchView, StockList } from "@setu/contracts";
 import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextField, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { pharm, refunds } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { BatchState, ClassPill, MedName, NeedsServer, toInt, useErr, useFmt, useP } from "./common";
@@ -25,11 +26,8 @@ export function PhStock() {
   if (failed && !list) return <PageState icon="boxes" title={P("error_generic")} />;
   return (
     <div data-screen="ph/stock" style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{P("stock_title")}</h1>
-        <span style={{ marginLeft: "auto" }} />
-        <Segmented label={P("filter")} value={filter} onChange={(f) => setFilter(f)} options={(["all", "near-expiry", "expired", "low"] as const).map((f) => ({ value: f, label: P(`f_${f}`) }))} />
-      </div>
+      <ScreenHeader title={P("stock_title")}
+        actions={<><Segmented label={P("filter")} value={filter} onChange={(f) => setFilter(f)} options={(["all", "near-expiry", "expired", "low"] as const).map((f) => ({ value: f, label: P(`f_${f}`) }))} /></>} />
       <TextField label={P("find_medicine")} value={q} onChange={(e) => setQ(e.target.value)} data-testid="stock-search" />
       <NeedsServer />
       {!list ? <div aria-busy="true" className="t-muted">{P("loading")}</div> : (

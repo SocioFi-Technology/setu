@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { LabWorklist as Worklist } from "@setu/contracts";
 import { Callout, PageState, Pill } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { lab } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useLabels } from "../fd/common";
@@ -20,7 +21,7 @@ export function LabWorklist({ stage }: { stage: Worklist["stage"] }) {
   if (!w) return <div aria-busy="true" className="t-muted">{T("loading")}</div>;
   return (
     <div data-screen={`lab/${SCREEN[stage]}`} data-worklist={stage} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{T(`wl_${stage}`)}</h1>
+      <ScreenHeader title={T(`wl_${stage}`)} />
       <span className="t-muted">{T(`wl_${stage}_hint`)}</span>
       {w.items.length === 0 ? <PageState icon="test-tube" title={T("wl_empty")} /> : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>

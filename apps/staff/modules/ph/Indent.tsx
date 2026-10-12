@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { DischargeList, DischargeView, IndentList, IndentView } from "@setu/contracts";
 import { format } from "@setu/domain";
 import { Button, Callout, Card, Pill, Segmented, TextField, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, discharge, ward } from "../../lib/api";
 import { DischargeHeader, DischargeSteps } from "../ipd/Discharge";
 import { useSession } from "../../lib/session";
@@ -28,7 +29,7 @@ export function PhIndent() {
   useEffect(() => { void load(); }, [load]);
   return (
     <div data-screen="ph/indent" style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 900 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{N("ph_indent_title")}</h1>
+      <ScreenHeader title={N("ph_indent_title")} />
       <PharmacyClearance />
       <Segmented value={filter} options={(["open", "issued", "cancelled"] as Filter[]).map((f) => ({ value: f, label: N(`filter_${f}`) }))} onChange={(f) => setFilter(f as Filter)} label={N("ph_indent_title")} />
       {failed && <Callout tone="warn" icon="triangle-alert">{failed}</Callout>}

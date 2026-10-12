@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { GoodsReceiptView, PharmacyApprovals, PurchaseOrderList, PurchaseOrderView, SupplierLedger, SupplierList } from "@setu/contracts";
 import { MEDICINES_SAMPLE } from "@setu/domain";
 import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { purch } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { PharmacyApprovalCards } from "./Approvals";
@@ -35,11 +36,8 @@ function Lists() {
   const tabs: Tab[] = approver ? ["approvals", "orders", "suppliers"] : ["orders", "suppliers"];
   return (
     <div data-screen="ph/purchase" style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{P("purchase_title")}</h1>
-        <span style={{ marginLeft: "auto" }} />
-        <Segmented label={P("purchase_title")} value={tab} onChange={(t) => router.push(`/m/ph/purchase?tab=${t}`)} options={tabs.map((t) => ({ value: t, label: P(`tab_${t}`) }))} />
-      </div>
+      <ScreenHeader title={P("purchase_title")}
+        actions={<><Segmented label={P("purchase_title")} value={tab} onChange={(t) => router.push(`/m/ph/purchase?tab=${t}`)} options={tabs.map((t) => ({ value: t, label: P(`tab_${t}`) }))} /></>} />
       <NeedsServer />
       {tab === "orders" && <Orders />}
       {tab === "suppliers" && <Suppliers />}
@@ -99,14 +97,9 @@ function Order({ id }: { id: string }) {
   const openForGoods = o.status === "sent" || o.status === "partially-received";
   return (
     <div data-screen="ph/purchase" data-po={o.id} data-status={o.status} style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{P("po")}</h1>
-        <b className="num" data-testid="po-number">{o.number ?? P("draft")}</b>
-        <Pill tone={PO_TONE[o.status]}>{P(`po_${o.status}`)}</Pill>
-        <span>{o.supplier.name}</span>
-        <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="arrow-left" onClick={() => router.push("/m/ph/purchase?tab=orders")}>{P("tab_orders")}</Button>
-      </div>
+      <ScreenHeader title={P("po")}
+        subtitle={<span className="ck-head-pills"><b className="num" data-testid="po-number">{o.number ?? P("draft")}</b><Pill tone={PO_TONE[o.status]}>{P(`po_${o.status}`)}</Pill><span>{o.supplier.name}</span></span>}
+        actions={<><Button size="sm" icon="arrow-left" onClick={() => router.push("/m/ph/purchase?tab=orders")}>{P("tab_orders")}</Button></>} />
       <NeedsServer />
       {o.endReason && <Callout tone="info" icon="info">{P(o.status === "cancelled" ? "cancelled_why" : "closed_short_why", { reason: o.endReason })}</Callout>}
 
@@ -223,14 +216,9 @@ function Receipt({ id }: { id: string }) {
   const ownerOnly = g.postBlockers.filter((b) => b.endsWith("needs_owner"));
   return (
     <div data-screen="ph/purchase" data-grn={g.id} data-status={g.status} style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{P("grn")}</h1>
-        <b className="num" data-testid="grn-number">{g.number ?? P("checking")}</b>
-        <Pill tone={g.status === "posted" ? "ok" : g.status === "checking" ? "pend" : "off"}>{P(`grn_${g.status}`)}</Pill>
-        <span>{g.supplier.name} · {P("po")} <span className="num">{g.order.number}</span>{g.supplierInvoiceNo ? <> · {P("supplier_invoice")} <span className="num">{g.supplierInvoiceNo}</span></> : null}</span>
-        <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="arrow-left" onClick={() => router.push(`/m/ph/purchase?po=${encodeURIComponent(g.order.id)}`)}>{P("po")}</Button>
-      </div>
+      <ScreenHeader title={P("grn")}
+        subtitle={<span className="ck-head-pills"><b className="num" data-testid="grn-number">{g.number ?? P("checking")}</b><Pill tone={g.status === "posted" ? "ok" : g.status === "checking" ? "pend" : "off"}>{P(`grn_${g.status}`)}</Pill><span>{g.supplier.name} · {P("po")} <span className="num">{g.order.number}</span>{g.supplierInvoiceNo ? <> · {P("supplier_invoice")} <span className="num">{g.supplierInvoiceNo}</span></> : null}</span></span>}
+        actions={<><Button size="sm" icon="arrow-left" onClick={() => router.push(`/m/ph/purchase?po=${encodeURIComponent(g.order.id)}`)}>{P("po")}</Button></>} />
       <NeedsServer />
 
       {checking && po.lines.filter((l) => l.qty - l.receivedQty - here(l.id) > 0).map((l) => {
@@ -346,18 +334,9 @@ function Supplier({ id }: { id: string }) {
   const p = takaToPaisa(amt);
   return (
     <div data-screen="ph/purchase" data-supplier={l.supplier.id} style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{l.supplier.name}</h1>
-        <span>{P("owed")}: <b className="num" data-testid="supplier-owed">{F.tk(l.supplier.owedPaisa)}</b></span>
-        {approver
-          ? <SelectField label={P("supplier_vat")} value={l.supplier.vatTreatment} data-testid="supplier-vat-edit" disabled={!s.online || busy}
-              onChange={async (e) => { setBusy(true); try { setL(await purch.supplierVat(id, e.target.value as "included" | "on-top" | "exempt")); } catch (x) { toast(E(x), "triangle-alert"); } finally { setBusy(false); } }}>
-              {(["included", "on-top", "exempt"] as const).map((x) => <option key={x} value={x}>{P(`vat_${x}`)}</option>)}
-            </SelectField>
-          : <span className="t-small t-muted" data-testid="supplier-vat-shown">{P("supplier_vat")}: {P(`vat_${l.supplier.vatTreatment}`)}</span>}
-        <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="arrow-left" onClick={() => router.push("/m/ph/purchase?tab=suppliers")}>{P("tab_suppliers")}</Button>
-      </div>
+      <ScreenHeader title={l.supplier.name}
+        subtitle={<span className="ck-head-pills"><span>{P("owed")}: <b className="num" data-testid="supplier-owed">{F.tk(l.supplier.owedPaisa)}</b></span>{approver? <SelectField label={P("supplier_vat")} value={l.supplier.vatTreatment} data-testid="supplier-vat-edit" disabled={!s.online || busy}onChange={async (e) => { setBusy(true); try { setL(await purch.supplierVat(id, e.target.value as "included" | "on-top" | "exempt")); } catch (x) { toast(E(x), "triangle-alert"); } finally { setBusy(false); } }}>{(["included", "on-top", "exempt"] as const).map((x) => <option key={x} value={x}>{P(`vat_${x}`)}</option>)}</SelectField>: <span className="t-small t-muted" data-testid="supplier-vat-shown">{P("supplier_vat")}: {P(`vat_${l.supplier.vatTreatment}`)}</span>}</span>}
+        actions={<><Button size="sm" icon="arrow-left" onClick={() => router.push("/m/ph/purchase?tab=suppliers")}>{P("tab_suppliers")}</Button></>} />
       <NeedsServer />
       {approver && (
         <Card style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }}>
