@@ -5,7 +5,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { QueueItem, QueueResponse } from "@setu/contracts";
-import { Button, Callout, Card, Dialog, PageState, Pill, useToast } from "@setu/ui";
+import { Button, Callout, Card, Dialog, PageState, Pill, Skeleton, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, fd } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { bannerOf, useLabels, useT } from "./common";
@@ -72,24 +73,21 @@ export function FrontDeskQueue() {
 
   return (
     <div data-screen="fd/queue" style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{T("queue_title")}</h1>
-        {q && <span className="t-small t-muted">{s.lang === "bn" ? q.branch.nameBn ?? q.branch.name : q.branch.name} · <span className="num">{s.n(q.day.split("-").reverse().join("/"))}</span></span>}
-        <span style={{ marginLeft: "auto" }} />
-        <Button icon="plus" kbd="Alt T" onClick={() => router.push("/m/fd/search")}>{T("new_token")}</Button>
-      </div>
+      <ScreenHeader title={T("queue_title")}
+        subtitle={q ? <>{s.lang === "bn" ? q.branch.nameBn ?? q.branch.name : q.branch.name} · <span className="num">{s.n(q.day.split("-").reverse().join("/"))}</span></> : undefined}
+        actions={<Button variant="primary" size="lg" icon="plus" kbd="Alt T" onClick={() => router.push("/m/fd/search")}>{T("new_token")}</Button>} />
 
-      {state === "loading" && !q && <div aria-busy="true" className="t-muted">{T("queue_loading")}</div>}
+      {state === "loading" && !q && <Skeleton rows={6} label={T("queue_loading")} />}
       {state === "error" && !q && <Callout tone="warn" icon="triangle-alert">{T("error_generic")}</Callout>}
       {q && all.length === 0 && <PageState icon="ticket" title={T("queue_empty_title")} body={T("queue_empty_body")} actions={<Button variant="primary" icon="plus" onClick={() => router.push("/m/fd/search")}>{T("new_token")}</Button>} />}
 
       {q && all.length > 0 && (
         <>
-          <Card style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 14px" }} data-testid="queue-selected">
+          <Card style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 16px", boxShadow: picked ? "inset var(--select-bar) 0 0 var(--brand-primary), var(--shadow-2)" : undefined }} data-testid="queue-selected">
             <span className="t-small t-muted">{T("selected")}:</span>
             {picked ? (
               <>
-                <b className="num" style={{ whiteSpace: "nowrap", fontSize: 18 }} data-testid="selected-token">{picked.token}</b>
+                <b className="ck-token on" style={{ whiteSpace: "nowrap", fontSize: 17 }} data-testid="selected-token">{picked.token}</b>
                 <b>{name(picked)}</b>
                 <span className="t-small t-muted num">{picked.patient.facilityNo} · {L.age(picked.patient)} {L.sex(picked.patient.sex)}</span>
                 {picked.calledAt && <Pill tone="info" icon="megaphone">{T("called_at", { t: s.n(hhmm(picked.calledAt)) })}</Pill>}
@@ -105,7 +103,7 @@ export function FrontDeskQueue() {
           {/* The board fits the screen and each column scrolls on its own, so the action bar above never leaves view. */}
           <div style={{ display: "grid", gridTemplateColumns: `repeat(${q.columns.length}, minmax(190px, 1fr))`, gap: 12, overflowX: "auto", paddingBottom: 4, height: "max(360px, calc(100vh - 300px))" }} aria-label={T("queue_title")}>
             {q.columns.map((col) => (
-              <section key={col.key} data-column={col.key} aria-label={T(`col_${col.key}`)} style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0, minHeight: 0, overflowY: "auto", background: "var(--surface-sunken)", borderRadius: 10, padding: 8 }}>
+              <section key={col.key} data-column={col.key} aria-label={T(`col_${col.key}`)} style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0, minHeight: 0, overflowY: "auto", background: "var(--surface-sunken)", borderRadius: 16, border: "1px solid var(--paper-line)", padding: 8 }}>
                 <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "2px 4px", position: "sticky", top: -8, background: "var(--surface-sunken)", zIndex: 1 }}>
                   <b className="t-small">{T(`col_${col.key}`)}</b><span className="badge-count num">{s.n(col.total)}</span>
                 </header>
@@ -114,7 +112,7 @@ export function FrontDeskQueue() {
                   const pos = col.key === "waiting" ? waiting.findIndex((w) => w.id === i.id) + 1 : 0;
                   return (
                     <button key={i.id} type="button" data-token-id={i.id} data-token={i.token} aria-pressed={on} onClick={() => setSel(i.id)} className="card"
-                      style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 4, padding: 10, cursor: "pointer", outline: on ? "2px solid var(--brand-primary)" : undefined, background: on ? "var(--brand-primary-subtle)" : undefined }}>
+                      style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 4, cursor: "pointer", background: on ? "var(--surface-selected)" : undefined, boxShadow: on ? "inset var(--select-bar) 0 0 var(--brand-primary), var(--shadow-1)" : "var(--shadow-1)", borderRadius: 12, padding: "12px 12px 12px 14px" }}>
                       <span style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         <b className="num" style={{ whiteSpace: "nowrap" }}>{i.token}</b>
                         {justRegistered === i.id && <Pill tone="info" icon="sparkles">{T("just_registered")}</Pill>}

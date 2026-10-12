@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { CompositionView, ConsultationView } from "@setu/contracts";
 import { rxQuantity } from "@setu/domain";
 import { Button, Callout, Card, Dialog, PageState, Pill, type Tone } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, cons, lab } from "../../lib/api";
 import { ReasonDialog } from "../lab/common";
 import { useSession } from "../../lib/session";
@@ -51,14 +52,9 @@ export function ConsultSigned() {
   const draftOpen = view.draft;
   return (
     <div data-screen="cons/signed" style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{C("title_signed")}</h1>
-        <Pill tone="neu" icon="ticket">{C("token", { t: view.encounter.token })}</Pill>
-        {c && <Pill tone={STATUS_TONE[c.status] ?? "neu"} icon="shield-check">{C("v_title", { v: c.version })} · {C(`status_${c.status}`)}</Pill>}
-        <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="history" onClick={() => router.push(consUrl("amended", enc))}>{C("show_history")}</Button>
-        <Button size="sm" icon="arrow-left" onClick={() => router.push(consUrl("draft"))}>{C("back_to_list")}</Button>
-      </div>
+      <ScreenHeader title={C("title_signed")}
+        subtitle={<span className="ck-head-pills"><Pill tone="neu" icon="ticket">{C("token", { t: view.encounter.token })}</Pill>{c && <Pill tone={STATUS_TONE[c.status] ?? "neu"} icon="shield-check">{C("v_title", { v: c.version })} · {C(`status_${c.status}`)}</Pill>}</span>}
+        actions={<><Button size="sm" icon="history" onClick={() => router.push(consUrl("amended", enc))}>{C("show_history")}</Button><Button size="sm" icon="arrow-left" onClick={() => router.push(consUrl("draft"))}>{C("back_to_list")}</Button></>} />
       <AllergyStrip view={view} editable={!view.readOnly} onChanged={load} />
       {!c ? (
         <PageState icon="file-question" title={C("no_note")} actions={draftOpen ? <Button onClick={() => router.push(consUrl("draft", enc))}>{C("open_draft")}</Button> : undefined} />
@@ -188,12 +184,9 @@ export function ConsultAmended() {
     .sort((a, b) => b.version - a.version);
   return (
     <div data-screen="cons/amended" style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{C("title_history")}</h1>
-        <Pill tone="neu" icon="ticket">{C("token", { t: view.encounter.token })}</Pill>
-        <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="file-text" onClick={() => router.push(consUrl("signed", enc))}>{C("show_note")}</Button>
-      </div>
+      <ScreenHeader title={C("title_history")}
+        subtitle={<span className="ck-head-pills"><Pill tone="neu" icon="ticket">{C("token", { t: view.encounter.token })}</Pill></span>}
+        actions={<><Button size="sm" icon="file-text" onClick={() => router.push(consUrl("signed", enc))}>{C("show_note")}</Button></>} />
       {rows.length === 0 ? <PageState icon="history" title={C("no_note")} /> : (
         <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
           {rows.map((h) => (

@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { MatchCandidate, MatchDecisionResponse, PatientMatches, PatientSummary } from "@setu/contracts";
 import { LINK_REASON_MIN, MATCH_FIELDS, concernsOf, format, type FieldStatus, type MatchField } from "@setu/domain";
 import { Button, Callout, Card, Dialog, PageState, Pill, TextArea, TextField, useToast, type Tone } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, fd } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { bannerOf, useLabels, useT } from "./common";
@@ -97,10 +98,8 @@ export function FrontDeskMatch() {
 
   return (
     <div data-screen="fd/match" style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{T("match_title")}</h1>
-        <Button size="sm" icon="arrow-left" onClick={() => router.push("/m/fd/search")}>{T("back_to_search")}</Button>
-      </div>
+      <ScreenHeader title={T("match_title")}
+        actions={<><Button size="sm" icon="arrow-left" onClick={() => router.push("/m/fd/search")}>{T("back_to_search")}</Button></>} />
 
       {linked && data.linkedTo && !decision && (
         <div role="status" className="callout callout-warn" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }} data-testid="linked-note">

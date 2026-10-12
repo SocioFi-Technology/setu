@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import type { PreviewCandidate, RegistrationInput } from "@setu/contracts";
 import { format, normalizePhone, parseDob, validateRegistration, type RegistrationError } from "@setu/domain";
 import { Button, Callout, Card, Pill, Segmented, SelectField, TextField, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, fd } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { PLACES, operatorOf, placeLabel, takePrefill, useLabels, useT } from "./common";
@@ -106,16 +107,12 @@ export function FrontDeskRegister() {
 
   return (
     <div ref={root} data-screen="fd/register" style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0, paddingBottom: 72 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{T("reg_title")}</h1>
-        <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="eraser" onClick={() => { setF(EMPTY); setTried(false); setServerErrors(null); setSave({ st: "idle" }); }}>{T("clear")}</Button>
-      </div>
+      <ScreenHeader title={T("reg_title")} actions={<Button icon="eraser" onClick={() => { setF(EMPTY); setTried(false); setServerErrors(null); setSave({ st: "idle" }); }}>{T("clear")}</Button>} />
 
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(260px, 320px)", gap: 16, alignItems: "start" }} className="fd-split">
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-          <Card style={{ display: "flex", flexDirection: "column", gap: 12, padding: 16 }}>
-            <h3 className="t-h3" style={{ margin: 0 }}>{s.n(1)} · {T("sec_identity")}</h3>
+          <Card style={{ display: "flex", flexDirection: "column", gap: 14, padding: "20px 22px", boxShadow: "var(--shadow-2)" }}>
+            <h3 className="ck-sec-head"><span className="ck-sec-no">{s.n(1)}</span>{T("sec_identity")}</h3>
             <div style={GRID2}>
               <div data-fld="nameBn"><TextField name="nameBn" label={T("name_bn")} lang="bn" value={f.nameBn} onChange={(e) => set("nameBn", e.target.value)} error={errOf("nameBn")} /></div>
               <div data-fld="nameEn"><TextField name="nameEn" label={T("name_en")} value={f.nameEn ?? ""} onChange={(e) => set("nameEn", e.target.value)} /></div>
@@ -147,8 +144,8 @@ export function FrontDeskRegister() {
             )}
           </Card>
 
-          <Card style={{ display: "flex", flexDirection: "column", gap: 12, padding: 16 }}>
-            <h3 className="t-h3" style={{ margin: 0 }}>{s.n(2)} · {T("sec_guardian")}</h3>
+          <Card style={{ display: "flex", flexDirection: "column", gap: 14, padding: "20px 22px", boxShadow: "var(--shadow-2)" }}>
+            <h3 className="ck-sec-head"><span className="ck-sec-no">{s.n(2)}</span>{T("sec_guardian")}</h3>
             <div style={GRID2}>
               <div data-fld="guardianName"><TextField name="guardianName" label={T("guardian_name")} value={f.guardianName} onChange={(e) => set("guardianName", e.target.value)} error={errOf("guardianName")} /></div>
               <div data-fld="guardianRelationship">
@@ -161,8 +158,8 @@ export function FrontDeskRegister() {
             <span className="t-small t-muted">{T("guardian_rule")}</span>
           </Card>
 
-          <Card style={{ display: "flex", flexDirection: "column", gap: 12, padding: 16 }}>
-            <h3 className="t-h3" style={{ margin: 0 }}>{s.n(3)} · {T("sec_contact")}</h3>
+          <Card style={{ display: "flex", flexDirection: "column", gap: 14, padding: "20px 22px", boxShadow: "var(--shadow-2)" }}>
+            <h3 className="ck-sec-head"><span className="ck-sec-no">{s.n(3)}</span>{T("sec_contact")}</h3>
             <div style={GRID2}>
               <div data-fld="phone">
                 <TextField name="phone" label={T("mobile")} inputMode="tel" placeholder="01XXXXXXXXX" value={f.phone ?? ""} onChange={(e) => set("phone", e.target.value)} error={errOf("phone")}
@@ -197,8 +194,8 @@ export function FrontDeskRegister() {
             <TextField name="addressLine" label={T("area")} value={f.addressLine ?? ""} onChange={(e) => set("addressLine", e.target.value)} />
           </Card>
 
-          <Card style={{ display: "flex", flexDirection: "column", gap: 12, padding: 16 }}>
-            <h3 className="t-h3" style={{ margin: 0 }}>{s.n(4)} · {T("sec_id")}</h3>
+          <Card style={{ display: "flex", flexDirection: "column", gap: 14, padding: "20px 22px", boxShadow: "var(--shadow-2)" }}>
+            <h3 className="ck-sec-head"><span className="ck-sec-no">{s.n(4)}</span>{T("sec_id")}</h3>
             <div style={GRID2}>
               <SelectField name="idType" label={T("id_type")} value={f.idType ?? "none"} onChange={(e) => set("idType", e.target.value as Form["idType"])}>
                 {(["none", "nid", "brn", "passport"] as const).map((v) => <option key={v} value={v}>{T(`id_${v}`)}</option>)}
@@ -208,11 +205,11 @@ export function FrontDeskRegister() {
           </Card>
         </div>
 
-        <Card style={{ display: "flex", flexDirection: "column", gap: 10, padding: 16 }} data-testid="dup-box">
+        <Card className="ck-dupbox" data-n={dups.list.length} style={{ display: "flex", flexDirection: "column", gap: 10, padding: 18, position: "sticky", top: 16, boxShadow: "var(--shadow-2)" }} data-testid="dup-box">
           <b>{dups.st === "checking" ? T("dup_box_checking") : dups.list.length ? T("dup_box_n", { n: dups.list.length }) : T("dup_box_none")}</b>
           {dups.list.length > 0 && <span className="t-small t-muted">{T("dup_box_hint")}</span>}
           {dups.list.map((c) => (
-            <div key={c.patient.id} style={{ display: "flex", flexDirection: "column", gap: 4, padding: 8, border: "1px solid var(--border-subtle)", borderRadius: 8 }}>
+            <div key={c.patient.id} style={{ display: "flex", flexDirection: "column", gap: 6, padding: 12, border: "1px solid var(--border-subtle)", borderRadius: 12, background: "var(--surface-card)" }}>
               <b>{c.patient.nameBn}</b>
               {/* Name, patient no., age and sex only (open question 19); the rest is shown on the match screen. */}
               <span className="t-small t-muted">{c.patient.nameEn} · <span className="num">{c.patient.facilityNo}</span> · {c.patient.ageYears == null ? "—" : T(c.patient.ageApprox ? "approx_years_short" : "years_short", { n: c.patient.ageYears })} {L.sex(c.patient.sex)}</span>
@@ -227,14 +224,14 @@ export function FrontDeskRegister() {
         </Card>
       </div>
 
-      <div className="card" style={{ position: "sticky", bottom: 0, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", padding: "10px 16px", zIndex: 2 }}>
+      <div className="card ck-formbar" style={{ position: "sticky", bottom: 12, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "12px 18px", zIndex: 2, boxShadow: "var(--shadow-3)" }}>
         <span className="t-small" role="status" data-testid="save-status" style={{ flex: "1 1 240px" }}>
           {save.st === "saving" ? T("saving") : save.st === "saved" ? T("saved_confirmed", { no: save.no ?? "" }) : save.st === "queued" ? T("saved_offline") : save.st === "failed" ? `${T("not_saved")} · ${T("kept_note")}` : ""}
         </span>
         {showSummary && <Button variant="danger" icon="triangle-alert" role="alert" onClick={() => focusFirst(errors)} data-testid="error-summary">{T("fields_need_attention", { n: nErr })}</Button>}
         {save.st === "saved" && save.patientId && <Button icon="ticket" onClick={() => void visitOn(save.patientId!)}>{T("create_visit")}</Button>}
         <Button icon="save" kbd="Ctrl S" disabled={save.st === "saving"} onClick={() => void submit(false)}>{T("save")}</Button>
-        <Button variant="primary" icon="ticket" kbd="Ctrl Enter" disabled={save.st === "saving"} onClick={() => void submit(true)}>{T("save_and_visit")}</Button>
+        <Button variant="primary" size="lg" icon="ticket" kbd="Ctrl Enter" disabled={save.st === "saving"} onClick={() => void submit(true)}>{T("save_and_visit")}</Button>
       </div>
       {!s.online && <Callout tone="warn" icon="cloud-off">{T("saved_offline")}</Callout>}
     </div>

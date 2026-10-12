@@ -8,6 +8,7 @@ import type { VitalsView, VitalsWorklist } from "@setu/contracts";
 import { assessVitals, format, parseVital, type RbsMode, type VitalAssessment, type VitalField } from "@setu/domain";
 import { fill } from "@setu/i18n";
 import { Button, Callout, Card, PageState, Pill, Segmented, useToast, type Tone } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, vitals as api } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { ageOf, bannerOf, useLabels } from "./common";
@@ -36,7 +37,7 @@ function VitalsWorklistView() {
   if (!w) return <div aria-busy="true" className="t-muted">{V("loading")}</div>;
   return (
     <div data-screen="fd/vitals" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{V("worklist_title")}</h1>
+      <ScreenHeader title={V("worklist_title")} />
       {w.items.length === 0 ? <PageState icon="heart-pulse" title={V("worklist_empty")} /> : (
         <>
           <span className="t-muted">{V("worklist_hint")}</span>
@@ -135,12 +136,9 @@ function VitalsEntry({ encounterId }: { encounterId: string }) {
 
   return (
     <div data-screen="fd/vitals" style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0, paddingBottom: 72 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{V("title")}</h1>
-        <Pill tone="neu" icon="ticket">{V("token", { t: view.encounter.token })}</Pill>
-        <span style={{ marginLeft: "auto" }} />
-        <Button size="sm" icon="arrow-left" onClick={() => router.push("/m/fd/vitals")}>{V("back_to_list")}</Button>
-      </div>
+      <ScreenHeader title={V("title")}
+        subtitle={<span className="ck-head-pills"><Pill tone="neu" icon="ticket">{V("token", { t: view.encounter.token })}</Pill></span>}
+        actions={<><Button size="sm" icon="arrow-left" onClick={() => router.push("/m/fd/vitals")}>{V("back_to_list")}</Button></>} />
       {!s.online && <Callout tone="warn" icon="cloud-off">{V("offline_banner")}</Callout>}
       {closed && <Callout tone="warn" icon="lock">{V("visit_closed")}</Callout>}
       {minor && <Callout icon="baby">{V("adult_ranges")}</Callout>}

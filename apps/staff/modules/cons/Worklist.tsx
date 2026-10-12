@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ConsultWorklist as Worklist } from "@setu/contracts";
 import { Button, Callout, PageState, Pill } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { cons } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useLabels } from "../fd/common";
@@ -24,7 +25,7 @@ export function ConsultWorklist() {
   if (!w) return <div aria-busy="true" className="t-muted">{C("loading")}</div>;
   return (
     <div data-screen="cons/worklist" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <h1 className="t-h2" style={{ margin: 0 }}>{C("title_worklist")}</h1>
+      <ScreenHeader title={C("title_worklist")} />
       {w.items.length === 0 ? <PageState icon="stethoscope" title={C("worklist_empty")} /> : (
         <>
           <span className="t-muted">{C("worklist_hint")}</span>

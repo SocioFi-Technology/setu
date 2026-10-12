@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { ConsultationView, TestList, VitalsView } from "@setu/contracts";
 import { parseComplaint, signBlockers, type SectionKey } from "@setu/domain";
 import { Button, Callout, Card, Dialog, Icon, PageState, Pill, Segmented, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, cons, vitals as vitalsApi } from "../../lib/api";
 import { deviceDraft, dropDeviceDraft, flush, saveDeviceDraft, type DeviceDraft } from "../../lib/outbox";
 import { useSession } from "../../lib/session";
@@ -232,17 +233,23 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
   return (
     <div data-screen={nav.phone ? "doc/consult" : "cons/draft"} style={{ display: "flex", flexDirection: "column", gap: nav.phone ? 12 : 16, minWidth: 0, paddingBottom: nav.phone ? 140 : 72 }}>
       {nav.phone && <PhoneHead view={view} />}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className={nav.phone ? "t-h3" : "t-h2"} style={{ margin: 0 }}>{isAmendment ? C("title_amend_draft") : C("title_draft")}</h1>
-        <Pill tone="neu" icon="ticket">{C("token", { t: view.encounter.token })}</Pill>
-        <Pill tone="draft" icon="pen-line">{C("draft_v", { v: draft.version })}</Pill>
-        <SyncPill sync={sync} onRetry={() => void save()} />
-        <span style={{ marginLeft: "auto" }} />
-        {/* E4 (ADR 0023): the patient's history from their other Setu facilities — a new tab, the note stays open */}
-        <a className="btn btn-sm" href={`/m/net/consent?patient=${encodeURIComponent(view.encounter.patient.id)}`} target="_blank" rel="noopener" data-testid="open-network-history"><Icon name="share-2" size={14} />{C("net_history")}</a>
-        <Button size="sm" icon="printer" data-testid="draft-print-preview" onClick={() => setPreview(true)}>{C("print_preview")}</Button>
-        <Button size="sm" icon="arrow-left" onClick={() => router.push(nav.list())}>{C("back_to_list")}</Button>
-      </div>
+      {nav.phone ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <h1 className={nav.phone ? "t-h3" : "t-h2"} style={{ margin: 0 }}>{isAmendment ? C("title_amend_draft") : C("title_draft")}</h1>
+          <Pill tone="neu" icon="ticket">{C("token", { t: view.encounter.token })}</Pill>
+          <Pill tone="draft" icon="pen-line">{C("draft_v", { v: draft.version })}</Pill>
+          <SyncPill sync={sync} onRetry={() => void save()} />
+          <span style={{ marginLeft: "auto" }} />
+          {/* E4 (ADR 0023): the patient's history from their other Setu facilities — a new tab, the note stays open */}
+          <a className="btn btn-sm" href={`/m/net/consent?patient=${encodeURIComponent(view.encounter.patient.id)}`} target="_blank" rel="noopener" data-testid="open-network-history"><Icon name="share-2" size={14} />{C("net_history")}</a>
+          <Button size="sm" icon="printer" data-testid="draft-print-preview" onClick={() => setPreview(true)}>{C("print_preview")}</Button>
+          <Button size="sm" icon="arrow-left" onClick={() => router.push(nav.list())}>{C("back_to_list")}</Button>
+        </div>
+      ) : (
+        <ScreenHeader title={isAmendment ? C("title_amend_draft") : C("title_draft")}
+          subtitle={<span className="ck-head-pills"><Pill tone="neu" icon="ticket">{C("token", { t: view.encounter.token })}</Pill><Pill tone="draft" icon="pen-line">{C("draft_v", { v: draft.version })}</Pill><SyncPill sync={sync} onRetry={() => void save()} /></span>}
+          actions={<><a className="btn btn-sm" href={`/m/net/consent?patient=${encodeURIComponent(view.encounter.patient.id)}`} target="_blank" rel="noopener" data-testid="open-network-history"><Icon name="share-2" size={14} />{C("net_history")}</a><Button size="sm" icon="printer" data-testid="draft-print-preview" onClick={() => setPreview(true)}>{C("print_preview")}</Button><Button size="sm" icon="arrow-left" onClick={() => router.push(nav.list())}>{C("back_to_list")}</Button></>} />
+      )}
       {!s.online && <Callout tone="warn" icon="cloud-off" data-testid="cons-offline">{C("offline_banner")}</Callout>}
       {view.criticalVitals && <Callout tone="bad" icon="siren" role="alert" data-testid="critical-vitals">{C("critical_banner")}</Callout>}
       {!editable && <Callout icon="lock">{C("read_only")}</Callout>}

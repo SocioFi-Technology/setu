@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { ReviewItem } from "@setu/contracts";
 import { LINK_REASON_MIN } from "@setu/domain";
 import { Button, Callout, Card, Dialog, PageState, Pill, TextArea, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, fd } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useLabels, useT } from "./common";
@@ -52,10 +53,8 @@ export function ReviewQueue() {
 
   return (
     <div data-screen="fd/match-queue" style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="t-h2" style={{ margin: 0 }}>{T("review_queue_title")}</h1>
-        <Button size="sm" icon="search" onClick={() => router.push("/m/fd/search")}>{T("back_to_search")}</Button>
-      </div>
+      <ScreenHeader title={T("review_queue_title")}
+        actions={<><Button size="sm" icon="search" onClick={() => router.push("/m/fd/search")}>{T("back_to_search")}</Button></>} />
       <Callout icon="info">{isAdmin ? T("review_queue_admin_note") : T("review_queue_desk_note")}</Callout>
       {failed && <Callout tone="warn" icon="triangle-alert">{T("error_generic")}</Callout>}
       {items && items.length === 0 && <PageState icon="shield-check" title={T("review_queue_empty")} body={T("no_patient_chosen_body")} />}

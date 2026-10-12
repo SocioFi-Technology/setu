@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { PatientSearchResponse, PatientSummary } from "@setu/contracts";
-import { Button, Callout, Card, Icon, PageState, Pill, useToast } from "@setu/ui";
+import { Button, Callout, Icon, KeyValue, PageState, Panel, Pill, Toolbar, useToast } from "@setu/ui";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, fd } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { PREFILL_KEY, bannerOf, flagsOf, initials, useLabels, useT } from "./common";
@@ -85,18 +86,19 @@ export function FrontDeskSearch() {
 
   return (
     <div data-screen="fd/search" style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <div className="search" style={{ flex: "1 1 420px", display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+      <ScreenHeader subtitle={T("hint_keys")} actions={<>
+        <Button icon="smartphone" onClick={() => setLinking(true)} data-testid="open-desk-claim">{T("desk_open")}</Button>
+        <Button variant="primary" size="lg" icon="user-plus" kbd="Alt N" onClick={() => register()}>{T("new_patient")}</Button>
+      </>} />
+      <Toolbar>
+        <div className="search-field" style={{ height: 48 }}>
           <Icon name="search" size={18} />
-          <input ref={input} autoFocus className="input" style={{ flex: 1, minWidth: 0, height: 44, fontSize: 16 }} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey}
+          <input ref={input} autoFocus style={{ fontSize: 16 }} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey}
             role="combobox" aria-expanded={items.length > 0} aria-controls="fd-results" aria-label={T("search_label")} placeholder={T("search_placeholder")} />
           <Pill tone="neu">{modeLabel}</Pill>
         </div>
-        <Button icon="user-plus" kbd="Alt N" onClick={() => register()}>{T("new_patient")}</Button>
-        <Button icon="smartphone" onClick={() => setLinking(true)} data-testid="open-desk-claim">{T("desk_open")}</Button>
-      </div>
+      </Toolbar>
       {linking && <DeskClaimDialog onClose={() => { setLinking(false); input.current?.focus(); }} />}
-      <span className="t-small t-muted">{T("hint_keys")}</span>
 
       {!q.trim() && <PageState icon="search" title={T("type_to_search_title")} body={T("type_to_search_body")} />}
       {state === "error" && <Callout tone="warn" icon="triangle-alert">{T("search_failed")}</Callout>}
@@ -116,16 +118,16 @@ export function FrontDeskSearch() {
               actions={<Button variant="primary" icon="user-plus" kbd="Alt N" onClick={() => register()}>{T("register_with_q", { q: q.trim() })}</Button>} />
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(280px, 340px)", gap: 16, alignItems: "start" }} className="fd-split">
-              <Card style={{ padding: 0, overflowX: "auto" }}>
+              <Panel flush style={{ overflowX: "auto" }}>
                 <div id="fd-results" role="listbox" aria-label={T("search_label")}>
-                  <div className="t-label t-muted" style={{ display: "grid", gridTemplateColumns: GRID, gap: 8, padding: "8px 12px", borderBottom: "1px solid var(--border-subtle)", minWidth: 640 }}>
+                  <div className="t-label t-muted" style={{ display: "grid", gridTemplateColumns: GRID, gap: 8, padding: "11px 16px", background: "#faf9f6", borderBottom: "1px solid var(--paper-line-soft)", minWidth: 700 }}>
                     <span>{T("col_name")}</span><span>{T("col_age")}</span><span>{T("col_guardian")}</span><span>{T("col_phone")}</span><span>{T("col_last")}</span><span>{T("col_flags")}</span>
                   </div>
                   {items.map((p, i) => (
                     <div key={p.id} role="option" aria-selected={i === sel} data-patient={p.facilityNo} onClick={() => setSel(i)} onDoubleClick={() => void createVisit(p)}
-                      style={{ display: "grid", gridTemplateColumns: GRID, gap: 8, padding: "10px 12px", alignItems: "center", cursor: "pointer", minWidth: 640, borderBottom: "1px solid var(--border-subtle)", background: i === sel ? "var(--brand-primary-subtle)" : undefined }}>
+                      style={{ display: "grid", gridTemplateColumns: GRID, gap: 8, padding: "12px 16px", alignItems: "center", cursor: "pointer", minWidth: 700, borderBottom: "1px solid #f0eee8", background: i === sel ? "var(--surface-selected)" : undefined, boxShadow: i === sel ? "inset var(--select-bar) 0 0 var(--brand-primary)" : undefined }}>
                       <span style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
-                        <span className="avatar" style={{ width: 28, height: 28, flex: "none" }}>{initials(p.nameEn, p.nameBn)}</span>
+                        <span className="avatar" style={{ width: 34, height: 34, flex: "none" }}>{initials(p.nameEn, p.nameBn)}</span>
                         <span style={{ minWidth: 0 }}><b>{nameOf(p)}</b><span className="t-small t-muted" style={{ display: "block" }}>{s.lang === "bn" ? p.nameEn : p.nameBn} · <span className="num">{p.facilityNo}</span></span></span>
                       </span>
                       <span className="num">{L.age(p)} {L.sex(p.sex)}</span>
@@ -136,22 +138,22 @@ export function FrontDeskSearch() {
                     </div>
                   ))}
                 </div>
-                <div className="t-small t-muted" style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", gap: 8, flexWrap: "wrap" }}>
+                <div className="t-small t-muted" style={{ display: "flex", justifyContent: "space-between", padding: "12px 16px", gap: 8, flexWrap: "wrap", background: "#faf9f6" }}>
                   <span>{T("n_found", { n: items.length })}</span><span>{T("never_merge")}</span>
                 </div>
-              </Card>
+              </Panel>
               {picked && (
-                <Card style={{ display: "flex", flexDirection: "column", gap: 12, padding: 16 }} aria-label="selected-patient">
-                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    <span className="avatar" style={{ width: 40, height: 40 }}>{initials(picked.nameEn, picked.nameBn)}</span>
-                    <span><b>{picked.nameBn}</b><span className="t-small t-muted" style={{ display: "block" }}>{picked.nameEn} · {L.age(picked)} {L.sex(picked.sex)}</span></span>
+                <Panel aria-label="selected-patient">
+                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    <span className="avatar avatar-brand" style={{ width: 48, height: 48, font: "700 16px/20px var(--font-sans)" }}>{initials(picked.nameEn, picked.nameBn)}</span>
+                    <span><b style={{ font: "700 19px/26px var(--font-sans)" }}>{picked.nameBn}</b><span className="t-small t-muted" style={{ display: "block" }}>{picked.nameEn} · {L.age(picked)} {L.sex(picked.sex)}</span></span>
                   </div>
-                  <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 12px", margin: 0 }} className="t-small">
-                    <dt className="t-muted">{T("patient_no")}</dt><dd className="num" style={{ margin: 0 }}>{picked.facilityNo}</dd>
-                    <dt className="t-muted">{T("col_guardian")}</dt><dd style={{ margin: 0 }}>{picked.guardian ? `${picked.guardian.name} · ${L.rel(picked.guardian.relationship)}` : "—"}</dd>
-                    <dt className="t-muted">{T("col_last")}</dt><dd className="num" style={{ margin: 0 }}>{picked.lastVisitAt ? s.n(new Date(picked.lastVisitAt).toLocaleDateString("en-GB")) : T("never")}</dd>
-                    <dt className="t-muted">{T("address")}</dt><dd style={{ margin: 0 }}>{[picked.address.upazila, picked.address.district].filter(Boolean).join(", ") || "—"}</dd>
-                  </dl>
+                  <KeyValue items={[
+                    { k: T("patient_no"), v: <span className="num">{picked.facilityNo}</span> },
+                    { k: T("col_guardian"), v: picked.guardian ? `${picked.guardian.name} · ${L.rel(picked.guardian.relationship)}` : "—" },
+                    { k: T("col_last"), v: <span className="num">{picked.lastVisitAt ? s.n(new Date(picked.lastVisitAt).toLocaleDateString("en-GB")) : T("never")}</span> },
+                    { k: T("address"), v: [picked.address.upazila, picked.address.district].filter(Boolean).join(", ") || "—" },
+                  ]} />
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{(flags.get(picked.id) ?? []).map((f) => <Pill key={f.key} tone={f.tone} icon={f.icon}>{T(f.key)}</Pill>)}</div>
                   {picked.identityConfidence === "possible-duplicate" && (
                     <Callout tone="warn" icon="users">
@@ -161,9 +163,9 @@ export function FrontDeskSearch() {
                       </span>
                     </Callout>
                   )}
-                  <Button variant="primary" icon="ticket" kbd="Enter" disabled={busy} onClick={() => void createVisit(picked)}>{T("create_visit")}</Button>
+                  <Button variant="primary" size="lg" icon="ticket" kbd="Enter" disabled={busy} onClick={() => void createVisit(picked)}>{T("create_visit")}</Button>
                   {picked.phone && <Button icon="user-plus" onClick={() => register({ phone: "0" + picked.phone })}>{T("new_family_member")}</Button>}
-                </Card>
+                </Panel>
               )}
             </div>
           )}
@@ -173,4 +175,4 @@ export function FrontDeskSearch() {
     </div>
   );
 }
-const GRID = "minmax(160px, 2fr) 76px minmax(100px, 1.3fr) 112px 84px minmax(120px, 1.3fr)";
+const GRID = "minmax(160px, 2fr) 96px minmax(90px, 1.2fr) 128px 92px minmax(110px, 1.3fr)";
