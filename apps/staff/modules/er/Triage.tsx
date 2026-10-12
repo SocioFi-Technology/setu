@@ -68,7 +68,7 @@ export function ErTriage() {
                   const on = i.id === sel;
                   return (
                     <tr key={i.id} data-er-row={i.id} data-token={i.token} data-level={i.level ?? "none"} data-overdue={over ? "1" : "0"} aria-selected={on} onClick={() => setSel(i.id)}
-                      style={{ cursor: "pointer", background: on ? "var(--surface-selected)" : i.level === 1 ? "var(--result-critical-row)" : undefined, boxShadow: on ? "inset 3px 0 0 var(--brand-primary)" : (i.level ?? 9) <= 2 ? "inset 3px 0 0 var(--danger-solid)" : undefined }}>
+                      style={{ cursor: "pointer", background: on ? "var(--surface-selected)" : i.level === 1 ? "var(--result-critical-row)" : undefined, boxShadow: on ? "inset var(--select-bar, 4px) 0 0 var(--brand-primary)" : (i.level ?? 9) <= 2 ? "inset 3px 0 0 var(--danger-solid)" : undefined }}>
                       <td className="num t-muted">{i.token}</td>
                       <td><b>{name(i)}</b><div className="t-small t-muted num">{i.patient.facilityNo} · {L.age(i.patient)} {L.sex(i.patient.sex)} · {modeLabel(i.arrivalMode)} {format.time(i.arrivedAt, s.numerals === "bn")}</div>{i.provisional && <Pill tone="warn" icon="user-search">{E("identity_provisional")}</Pill>}</td>
                       <td>{levelOf(i.level) ? <Pill tone={LEVEL_TONE[levelOf(i.level)!.tone] ?? "neu"} icon={levelOf(i.level)!.icon} wrap>{s.lang === "bn" ? levelOf(i.level)!.nameBn : levelOf(i.level)!.nameEn}</Pill> : <Pill tone="neu" icon="circle-dashed">{E("untriaged")}</Pill>}</td>

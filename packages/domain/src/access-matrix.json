@@ -1029,8 +1029,8 @@
   },
   {
    "key": "net",
-   "name_bn": "সেতু নেটওয়ার্ক",
-   "name_en": "Setu network",
+   "name_bn": "চার্টিস লিংক",
+   "name_en": "Chartis Link",
    "icon": "share-2",
    "plan": "clinic",
    "roles": [

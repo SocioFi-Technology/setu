@@ -51,4 +51,4 @@ for (const sig of ["SIGTERM", "SIGINT"] as const) process.once(sig, () => {
   clearInterval(sweeps);
   app.close().then(() => process.exit(0), (e) => { app.log.error({ err: e }, "close failed"); process.exit(1); });
 });
-app.log.info(`Setu API on :${config.port} · db ${config.dbEnabled ? "enabled" : "disabled (set DATABASE_URL)"} · adapters ${JSON.stringify(config.adapters)}`);
+app.log.info(`Chartis API on :${config.port} · db ${config.dbEnabled ? "enabled" : "disabled (set DATABASE_URL)"} · adapters ${JSON.stringify(config.adapters)}`);

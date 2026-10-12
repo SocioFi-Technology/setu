@@ -16,12 +16,12 @@
     "Lab strings (slice A8–A11), from the prototype Setu Lab"
   ],
   "sms_access_request": [
-    "{facility}: একজন ডাক্তার আপনার আগের রেকর্ড দেখার অনুমতি চেয়েছেন। Setu অ্যাপে দেখে অনুমতি দিন বা না বলুন।",
-    "{facility}: A doctor asked to see your earlier records. Open the Setu app to answer yes or no."
+    "{facility}: একজন ডাক্তার আপনার আগের রেকর্ড দেখার অনুমতি চেয়েছেন। চার্টিস পাসপোর্টে দেখে অনুমতি দিন বা না বলুন।",
+    "{facility}: A doctor asked to see your earlier records. Open Chartis Passport to answer yes or no."
   ],
   "sms_portable_order": [
-    "{facility}: ডাক্তার আপনার জন্য পরীক্ষা লিখেছেন। Setu অ্যাপে বা রিসেপশনে পরীক্ষার কেন্দ্র বেছে নিন।",
-    "{facility}: Your doctor ordered tests for you. Choose where to have them in the Setu app or at the reception."
+    "{facility}: ডাক্তার আপনার জন্য পরীক্ষা লিখেছেন। চার্টিস পাসপোর্টে বা রিসেপশনে পরীক্ষার কেন্দ্র বেছে নিন।",
+    "{facility}: Your doctor ordered tests for you. Choose where to have them in Chartis Passport or at the reception."
   ],
   "sms_report_ready": [
     "{facility}: আপনার ল্যাব রিপোর্ট তৈরি। অনুগ্রহ করে ল্যাব কাউন্টার থেকে সংগ্রহ করুন।",
@@ -884,7 +884,7 @@
     "Phone"
   ],
   "via_app": [
-    "Setu অ্যাপ",
+    "চার্টিস পাসপোর্ট",
     "App alert"
   ],
   "via_in-person": [

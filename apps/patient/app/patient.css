@@ -63,3 +63,9 @@ body { margin: 0; background: var(--surface-page); color: var(--text-primary); f
 .pa-choice input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--brand-primary); }
 .pa-select { min-height: 48px; width: 100%; padding: 0 12px; border: 1px solid var(--border-default); border-radius: 12px; background: var(--surface-card); font: 500 16px/22px var(--font-sans); color: var(--text-primary); }
 .pa-bg { border-color: var(--danger-border); background: var(--danger-bg); }
+/* Chartis Passport (ADR 0025): the mark beside the name, ink title, lifted cards, the active tab with a pine bar */
+.pa-top .pa-brand { display: inline-flex; align-items: center; gap: 8px; color: var(--text-primary); font-weight: 800; letter-spacing: -.01em; }
+.pa-card, .pa-item { box-shadow: var(--shadow-2); }
+.pa-tabs a[aria-current="page"] { box-shadow: inset 0 3px 0 var(--brand-primary); }
+.pa-btn-primary { box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 2px 6px color-mix(in oklab, var(--brand-primary) 28%, transparent); }
+.pa-brand-lg { display: inline-flex; align-items: center; gap: 10px; font: 800 22px/28px var(--font-sans); letter-spacing: -.02em; color: var(--text-primary); }

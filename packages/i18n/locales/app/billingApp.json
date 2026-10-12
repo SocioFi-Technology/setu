@@ -328,7 +328,7 @@
   "pr_trx": ["বিকাশ TrxID", "bKash TrxID"],
   "pr_privacy": ["এই পাতায় রোগীর কোনো তথ্য নেই।", "This page holds no patient details."],
   "ver_title": ["রসিদ যাচাই", "Receipt check"],
-  "ver_ok": ["এই রসিদ Setu-তে নিবন্ধিত", "This receipt is registered in Setu"],
+  "ver_ok": ["এই রসিদ চার্টিস হেলথে নিবন্ধিত", "This receipt is registered in Chartis Health"],
   "ver_not_found": ["এই কোডের কোনো রসিদ পাওয়া যায়নি", "No receipt found for this code"],
   "ver_facility": ["প্রতিষ্ঠান", "Facility"],
   "ver_number": ["রসিদ নং", "Receipt number"],
@@ -696,6 +696,6 @@
     "সব দেখুন",
     "Show all"
   ],
-  "r_app_code": ["সেতু অ্যাপে আপনার রেকর্ড দেখার কোড", "Code to see your records in the Setu app"],
-  "r_app_qr": ["সেতু অ্যাপে রেকর্ড যুক্ত করতে স্ক্যান করুন", "Scan to add these records in the Setu app"]
+  "r_app_code": ["চার্টিস পাসপোর্টে আপনার রেকর্ড দেখার কোড", "Code to see your records in Chartis Passport"],
+  "r_app_qr": ["চার্টিস পাসপোর্টে রেকর্ড যুক্ত করতে স্ক্যান করুন", "Scan to add these records in Chartis Passport"]
 }

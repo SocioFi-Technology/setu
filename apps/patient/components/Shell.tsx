@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Icon } from "@setu/ui";
+import { ChartisMark, Icon } from "@setu/ui";
 import { BASE, patient } from "../lib/api";
 import { forgetAll } from "../lib/cache";
 import { useLang } from "../lib/lang";
@@ -19,7 +19,7 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="pa">
       <StagingBanner />
       <header className="pa-top">
-        <b>{T("app_name")}</b>
+        <b className="pa-brand"><ChartisMark size={26} />{T("app_name")}</b>
         <button type="button" className="pa-btn pa-btn-link" onClick={() => setLang(lang === "bn" ? "en" : "bn")} aria-label="ভাষা · Language">{lang === "bn" ? "English" : "বাংলা"}</button>
         <button type="button" className="pa-btn pa-btn-link" onClick={signOut}><Icon name="log-out" size={18} />{T("sign_out")}</button>
       </header>

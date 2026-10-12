@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); week 2 staging sessions 1–2 done (08/10/2026, staging live); Phase 4 slice D1–D3 done (09/10/2026, the patient app); D4–D6 done (09/10/2026: report, share, who viewed; the patient app on staging); gap 16 fixed; E1–E2 done (09/10/2026: the portable lab order); E3 done (10/10/2026: results back); E4 done (10/10/2026: another clinic's view, access requests) — Journey E complete; desk proof + claim QR done (12/10/2026) — Phase 4 complete; next: see Next)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); week 2 staging sessions 1–2 done (08/10/2026, staging live); Phase 4 slice D1–D3 done (09/10/2026, the patient app); D4–D6 done (09/10/2026: report, share, who viewed; the patient app on staging); gap 16 fixed; E1–E2 done (09/10/2026: the portable lab order); E3 done (10/10/2026: results back); E4 done (10/10/2026: another clinic's view, access requests) — Journey E complete; desk proof + claim QR done (12/10/2026) — Phase 4 complete; renamed Chartis with the pine & mint design layer (13/10/2026, ADR 0025); next: see Next)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -1499,6 +1499,24 @@ ADR 0024. Phase 4 (Journeys D and E) is complete.
   prescription; not on preview / shared), `patient.test.ts` moved to the claim QR format; `journey-d7`.
 - **Follow-ups:** dependants (a guardian's desk proof); a patient whose phone changed (the facility updates the phone
   first).
+
+## Done (brand, 13/10/2026) — Setu becomes Chartis: product family and the pine & mint design layer ✅
+ADR 0025. Kamrul chose the name (13/10/2026) after a naming round against the competitor Axonic Health; the look was
+settled on the Claude Design board https://claude.ai/artifact/5Pf8ZxvnaNopUWPbXaBn3y.
+- **Names:** Chartis Health (company) · **Chartis HIS** (staff app; the top bar shows the plan as the edition: Clinic /
+  Lite / Pro) · **Chartis Passport** (patient app) · **Chartis Link** (the network). Only user-visible text changed —
+  locales, API messages, SMS ("Chartis: your code…"), receipt/prescription wording for the app code and QR, page titles,
+  PWA manifest + icon, the network module's name, the OpenAPI title. Repo, `@setu/*`, database, keys, env names stay.
+- **Design layer:** `packages/ui/styles/chartis.css` after `setu.css` (pine `#0e5e52`, mint `#2bb596`, ink, warm paper,
+  Plus Jakarta Sans + Anek Bangla self-hosted, radii 8/10/16, controls 36/40/44, softer shadows, pine focus ring;
+  hc/dark variants). Selected rows: mist + a straight 4 px pine bar (`--select-bar`). `ChartisMark` / `ChartisLockup` in
+  `@setu/ui`. Clinical colours untouched; printed documents keep their embedded fonts.
+- **Tests:** API, print and e2e assertions moved to the new wording (SMS, app code/QR, "Chartis test message", the
+  claim-code label, the system user's name); `b1-b2` B2 now finds the lab card by this run's encounter (ER tokens restart
+  daily — an older pending visit held the same token after midnight). Domain 529, API 528 (+3 skipped), e2e 105 + the 7
+  early-run stalls green alone (load ~13 while the fresh dev servers compiled).
+- **Not done:** the prototype (`docs/prototype/`) and the handoff copies still say Setu — Kamrul's Claude Design round;
+  the domain, SMS sender ID and production hosting wait for the domain purchase.
 
 ## On call (staging) — https://setu.sociofitechnology.com (the shared SocioFi VPS, ADR 0019 addendum)
 **Where things are** (`ssh -l setu sociofi` — the `setu` user runs Setu in **its own rootless Docker daemon**: plain

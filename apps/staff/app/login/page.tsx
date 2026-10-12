@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type FormEvent, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button, TextField, Segmented } from "@setu/ui";
+import { Button, ChartisLockup, TextField, Segmented } from "@setu/ui";
 import { api, ApiFailure } from "../../lib/api";
 import { useSession } from "../../lib/session";
 
@@ -21,7 +21,7 @@ function LoginInner() {
     <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--surface-sunken)", padding: 16 }}>
       <form onSubmit={submit} className="card" style={{ width: 400, maxWidth: "100%", padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span className="shell-brand" style={{ padding: 0 }}>Setu</span>
+          <ChartisLockup />
           <Segmented value={s.lang} onChange={s.setLang} options={[{ value: "bn", label: "বাং" }, { value: "en", label: "EN" }]} label="Language" />
         </div>
         <div><h1 className="t-h2">{L("title")}</h1><p className="t-small t-muted" style={{ margin: "4px 0 0" }}>{L("subtitle")}</p></div>

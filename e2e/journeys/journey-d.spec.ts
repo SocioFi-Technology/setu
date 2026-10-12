@@ -132,7 +132,7 @@ test("@phone Journey D1–D6: sign in, claim with the receipt code, the history,
   // the clinic's: "this is mine", a wrong code counts down, the code on her receipt links it
   await clinic.getByRole("button", { name: "এটা আমার" }).click();
   await expect(clinic.getByText("৩ বার ভুল হলে নিরাপত্তার জন্য ২৪ ঘণ্টা বন্ধ থাকবে।")).toBeVisible();
-  const box = clinic.getByLabel("Setu অ্যাপ কোড");
+  const box = clinic.getByLabel("চার্টিস পাসপোর্ট কোড");
   await box.fill((code.startsWith("2") ? "3" : "2") + code.slice(1));
   await clinic.getByRole("button", { name: "যাচাই করুন" }).click();
   await expect(clinic.getByRole("alert")).toHaveText("কোড মেলেনি — আরও ২ বার চেষ্টা করা যাবে");

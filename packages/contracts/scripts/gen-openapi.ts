@@ -234,6 +234,6 @@ r.registerPath({ method: "get", path: "/v1/refunds/{id}/voucher/prints/{printId}
 r.registerPath({ method: "get", path: "/v1/verify/rf/{code}", request: { params: z.object({ code: C.VerifyCode }) }, responses: { 200: { description: "public, rate-limited: facility, voucher number, date, amount only", ...json(C.VerifyResponse) }, 404: err, 429: err } });
 r.registerPath({ method: "post", path: "/v1/pharmacy/resale", request: { headers: idem, body: json(C.ResaleRequest) }, responses: { 201: { description: "returned units from quarantine back to the counter: the pharmacist's 'unopened, resaleable' with a reason (controlled: the owner)", ...json(C.ResaleResponse) }, 400: err, 403: err, 409: err } });
 r.registerPath({ method: "post", path: "/v1/reconciliation/{id}/refund", request: { params: rfid, headers: idem, body: json(C.ReconcileRefundRequest) }, responses: { 201: { description: "resolve a case as 'refund to patient': opens a refund for the case's amount (owner)", ...json(C.RefundView) }, 400: err, 403: err, 409: err, 422: err } });
-const doc = new OpenApiGeneratorV31(r.definitions).generateDocument({ openapi: "3.1.0", info: { title: "Setu Health API", version: "0.0.1" }, servers: [{ url: "/" }] });
+const doc = new OpenApiGeneratorV31(r.definitions).generateDocument({ openapi: "3.1.0", info: { title: "Chartis Health API", version: "0.0.1" }, servers: [{ url: "/" }] });
 writeFileSync(new URL("../openapi.json", import.meta.url), JSON.stringify(doc, null, 2));
 console.log("wrote packages/contracts/openapi.json");

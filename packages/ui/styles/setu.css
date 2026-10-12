@@ -91,7 +91,7 @@ textarea.input { height: auto; padding: 10px 12px; resize: vertical; }
 .nav-list { flex: 1; padding: 10px 8px; display: flex; flex-direction: column; gap: 1px; }
 .nav-item { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px 0 14px; border: 0; border-radius: var(--radius-sm); cursor: pointer; text-align: left; font: 500 13.5px/18px var(--font-sans); background: transparent; color: var(--text-secondary); text-decoration: none; }
 .nav-item.home { height: 38px; padding-left: 10px; font-size: 14px; line-height: 20px; }
-.nav-item[aria-current="page"] { font-weight: 600; background: var(--surface-selected); color: var(--brand-primary-text); box-shadow: inset 3px 0 0 var(--brand-primary); }
+.nav-item[aria-current="page"] { font-weight: 600; background: var(--surface-selected); color: var(--brand-primary-text); box-shadow: inset var(--select-bar, 4px) 0 0 var(--brand-primary); }
 .nav-item.locked { color: var(--text-disabled); }
 .nav-item > span.lbl { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nav-group { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 10px; height: 28px; padding: 0 10px; border: 0; background: transparent; cursor: pointer; font: 600 11px/16px var(--font-sans); text-transform: uppercase; color: var(--text-muted); border-radius: var(--radius-sm); }

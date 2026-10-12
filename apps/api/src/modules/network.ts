@@ -261,7 +261,7 @@ export async function createAccessRequest(tx: Tx, s: SessionData, b: AccessReque
   if (!p) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
   const { personOfRecord } = await import("@setu/db");
   const personId = await personOfRecord(s.tenantId, p.id);
-  if (!personId) throw err(409, "not_linked", "রোগী সেতুতে যুক্ত নন", "This patient is not linked to Setu");
+  if (!personId) throw err(409, "not_linked", "রোগী চার্টিস পাসপোর্টে যুক্ত নন", "This patient is not linked in Chartis Passport");
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(7023, hashtext(${`areq:${p.id}:${s.userId}`}))`;
   const waiting = await tx.accessRequest.findFirst({ where: { requesterPatientId: p.id, requesterUserId: s.userId, state: "sent", createdAt: { gt: new Date(now.getTime() - ACCESS_REQUEST_WAIT_DAYS * 864e5) } } });
   if (waiting) throw err(409, "request_waiting", "আগের অনুরোধের উত্তর এখনো আসেনি", "Your earlier request is still waiting for the patient");

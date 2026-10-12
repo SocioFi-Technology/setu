@@ -3,7 +3,7 @@
    answers nothing else, so the shell shows only this. The rules (8+ characters with a letter and a digit, not the phone
    number; a 4-digit PIN that is not 1111 / 1234) are the server's; the screen says them up front. */
 import { useState } from "react";
-import { Button, Callout, TextField } from "@setu/ui";
+import { Button, Callout, ChartisLockup, TextField } from "@setu/ui";
 import { api } from "../lib/api";
 import { useSession } from "../lib/session";
 import { useA, useErr } from "../modules/adm/common";
@@ -18,7 +18,7 @@ export function FirstSignIn() {
     <div data-screen="first-sign-in" style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 16, background: "var(--surface-sunken)" }}>
       <form className="card" style={{ width: 440, maxWidth: "100%", padding: 24, display: "flex", flexDirection: "column", gap: 14 }}
         onSubmit={async (e) => { e.preventDefault(); if (!ready || busy) return; setBusy(true); setError(null); try { await api.firstSignIn(pw, pin); await s.refresh(); } catch (x) { setError(E(x)); } finally { setBusy(false); } }}>
-        <span className="shell-brand" style={{ padding: 0 }}>Setu</span>
+        <ChartisLockup />
         <h1 className="t-h2" style={{ margin: 0 }}>{A("first_title", { name: s.me ? (s.lang === "bn" ? s.me.nameBn : s.me.nameEn) : "" })}</h1>
         <span className="t-small t-secondary">{A("first_sub")}</span>
         <TextField label={A("new_password")} hint={A("password_rule")} type="password" autoComplete="new-password" name="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />

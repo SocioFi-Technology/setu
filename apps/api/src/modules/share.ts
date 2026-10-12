@@ -52,7 +52,7 @@ export async function createShare(req: FastifyRequest, reply: FastifyReply, b: S
   // the grantee: a facility of the directory, and if named, one of its doctors (names only — ADR 0021)
   const fac = (await networkDirectory()).find((f) => f.organizationId === b.grantee.organizationId);
   const doc = b.grantee.userId ? fac?.doctors.find((d) => d.userId === b.grantee.userId) : null;
-  if (!fac || (b.grantee.userId && !doc)) throw err(400, "grantee", "এই ডাক্তার বা প্রতিষ্ঠান সেতু নেটওয়ার্কে নেই", "This doctor or facility is not in the Setu network", { field: "grantee" });
+  if (!fac || (b.grantee.userId && !doc)) throw err(400, "grantee", "এই ডাক্তার বা প্রতিষ্ঠান চার্টিস লিংকে নেই", "This doctor or facility is not in Chartis Link", { field: "grantee" });
   // the scope: a visit or a report of a linked record, checked in its own facility
   let scope: ShareScope = { kind: "all" };
   let label: { facilityEn: string | null; facilityBn: string | null; number: string | null; at: Date | null } = { facilityEn: null, facilityBn: null, number: null, at: null };

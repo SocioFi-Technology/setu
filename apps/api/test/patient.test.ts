@@ -80,7 +80,7 @@ describe.runIf(db)("D1 sign-in with an SMS code", () => {
     const s = await app.inject({ method: "POST", url: "/v1/patient/otp", remoteAddress: IP, payload: { phone: PHONE, lang: "en" } });
     expect(s.json()).toEqual({ sent: true, expiresInSeconds: 300 });
     const sms = fakeMessenger()!.log("network").filter((m) => m.to === PHONE).at(-1)!;
-    expect(sms.text).toMatch(/^Setu: your code is \d{6}\. It works for 5 minutes\. Never share it\.$/);
+    expect(sms.text).toMatch(/^Chartis: your code is \d{6}\. It works for 5 minutes\. Never share it\.$/);
     const wrong = await app.inject({ method: "POST", url: "/v1/patient/sign-in", payload: { phone: PHONE, code: String((Number(lastCode()) % 899_999) + 100_000 + 1) } });
     expect(wrong.statusCode).toBe(401);
     expect(wrong.json()).toMatchObject({ code: "otp_wrong", triesLeft: 4 });

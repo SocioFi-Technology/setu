@@ -188,7 +188,7 @@ export async function copyPdf(tx: Tx, tenantId: string, kind: DocKind, id: strin
     : await tx.composition.findFirst({ where: { id, kind: kind === "rx" ? "consultation-note" : "discharge-summary" }, select: { organizationId: true } });
   if (!row) throw notFound();
   const o = await tx.organization.findFirst({ where: { id: row.organizationId }, select: { name: true, nameBn: true, rxFormat: true } });
-  const s: SessionData = { userId: `sys_${tenantId}`, tenantId, organizationId: row.organizationId, role: "admin", plan: "clinic", nameBn: "সেতু (সিস্টেম)", nameEn: "Setu (system)", organizationName: o?.name ?? "" };
+  const s: SessionData = { userId: `sys_${tenantId}`, tenantId, organizationId: row.organizationId, role: "admin", plan: "clinic", nameBn: "চার্টিস (সিস্টেম)", nameEn: "Chartis (system)", organizationName: o?.name ?? "" };
   let b: { blockers: PrintBlocker[]; patientId: string; label: string };
   let rx: Rx | null = null;
   if (kind === "rx") { rx = await rxRow(tx, row.organizationId, id); b = { blockers: rxPrintBlockers(dash<DocState>(rx.status)), patientId: rx.patientId, label: `v${rx.version}` }; }

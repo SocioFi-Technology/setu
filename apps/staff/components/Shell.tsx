@@ -9,7 +9,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { CapabilityModule } from "@setu/contracts";
 import { PLAN_NAME, PLAN_RANK, ROLE_NAME, type Plan } from "@setu/domain";
 import { fill } from "@setu/i18n";
-import { Dialog, Icon, IconButton, OfflineBanner, PatientHeaderBanner, Segmented } from "@setu/ui";
+import { ChartisLockup, Dialog, EDITION, Icon, IconButton, OfflineBanner, PatientHeaderBanner, Segmented } from "@setu/ui";
 import { deviceDraftCount } from "../lib/outbox";
 import { useSession } from "../lib/session";
 import { RefusedSync } from "./RefusedSync";
@@ -78,7 +78,7 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
       <header className="shell-top">
-        <span className="shell-brand">Setu</span>
+        <ChartisLockup edition={bn ? EDITION[plan].bn : EDITION[plan].en} />
         <button type="button" className="org-btn" title={S("shell_org_branches")}>
           <Icon name="building-2" size={16} />
           <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}><b>{me?.organizationName ?? "—"}</b><span>{S("shell_org_branch_note")}</span></span>

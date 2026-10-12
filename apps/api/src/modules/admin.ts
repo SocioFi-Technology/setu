@@ -153,7 +153,7 @@ const smsAwaitingConfirm = (o: { smsTestSentAt: Date | null; smsTestedAt: Date |
     confirms delivery) → done; sent (BulkSMSBD: no delivery reports) → done once the admin confirms it arrived. */
 export async function smsTest(tx: Tx, s: SessionData, phone: string, now: Date): Promise<AuditEntry[]> {
   const o = await org(tx, s);
-  const r = await messenger.sendSms({ messageId: `smstest_${o.id}_${now.getTime()}`, to: phone, text: `${smsSafeName(o.name)}: Setu test message. No action needed.`, tenantId: s.tenantId });
+  const r = await messenger.sendSms({ messageId: `smstest_${o.id}_${now.getTime()}`, to: phone, text: `${smsSafeName(o.name)}: Chartis test message. No action needed.`, tenantId: s.tenantId });
   if (r.status === "failed") {
     const [bn, en] = r.reason === "setup"
       ? ["SMS গেটওয়ে নিল না — প্রেরক আইডি, ব্যালান্স ও IP অনুমতি দেখুন", "The SMS gateway refused it — check the sender ID, the balance and the IP whitelist"]

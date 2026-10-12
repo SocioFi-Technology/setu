@@ -1,0 +1,117 @@
+/* Chartis brand layer (ADR 0025) — loaded after the handoff tokens (setu-tokens.css) and overrides only the brand:
+   pine & mint, the warm paper ground, Plus Jakarta Sans + Anek Bangla, softer ink-tinted elevation, rounder corners,
+   touch-safe controls and the selected-row style (mist highlight + a straight pine bar). The clinical colours —
+   allergy, critical, result high/low, draft, statuses, provenance, beds — are deliberately untouched.
+   Brand board: https://claude.ai/artifact/5Pf8ZxvnaNopUWPbXaBn3y */
+
+/* Fonts (SIL OFL 1.1): Plus Jakarta Sans for Latin, Anek Bangla for Bangla — self-hosted, variable weight */
+@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 400 800; font-display: swap;
+  src: url("../fonts/plus-jakarta-sans-latin.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 400 800; font-display: swap;
+  src: url("../fonts/plus-jakarta-sans-latin-ext.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Anek Bangla'; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url("../fonts/anek-bangla-bengali.woff2") format('woff2');
+  unicode-range: U+0951-0952, U+0964-0965, U+0980-09FE, U+1CD0, U+1CD2, U+1CD5-1CD6, U+1CD8, U+1CE1, U+1CEA, U+1CED, U+1CF2, U+1CF5-1CF7, U+200C-200D, U+20B9, U+25CC, U+A8F1, U+11DF0-11DF1; }
+
+:root {
+  /* pine (primary) and mint (the chart line) */
+  --pine-50: #f2f8f6; --pine-100: #e6f2ef; --pine-200: #c7e3dc; --pine-300: #9ccdc0; --pine-400: #5fae9c;
+  --pine-500: #2f8a78; --pine-600: #157062; --pine-700: #0e5e52; --pine-800: #0a4a40; --pine-900: #08362f;
+  --mint-300: #9be3cf; --mint-400: #5fd0b3; --mint-500: #2bb596; --mint-700: #0b6e5a;
+  --paper: #f6f5f1; --paper-sunken: #f2f1ec; --paper-line: #e2dfd6; --paper-line-soft: #eceae3; --ink: #13201e;
+
+  --font-sans: "Plus Jakarta Sans", "Anek Bangla", "Noto Sans Bengali", system-ui, sans-serif;
+  --font-bn: "Anek Bangla", "Noto Sans Bengali", system-ui, sans-serif;
+
+  --radius-sm: 8px; --radius-md: 10px; --radius-lg: 16px; --radius-xl: 20px;
+  --control-sm: 36px; --control-md: 40px; --control-lg: 44px;
+  --shadow-1: 0 1px 2px rgba(19,32,30,.05);
+  --shadow-2: 0 1px 2px rgba(19,32,30,.04), 0 6px 18px rgba(19,32,30,.06);
+  --shadow-3: 0 2px 6px rgba(19,32,30,.06), 0 12px 32px rgba(19,32,30,.12);
+  --shadow-4: 0 4px 12px rgba(19,32,30,.06), 0 24px 56px rgba(19,32,30,.18);
+  --select-bar: 4px;
+}
+
+:root, [data-theme="light"] {
+  --surface-page: var(--paper);
+  --surface-sunken: var(--paper-sunken);
+  --surface-selected: var(--pine-100);
+  --surface-hover: #f4f3ee;
+  --text-primary: var(--ink);
+  --border-subtle: var(--paper-line);
+  --border-default: #d3dad7;
+  --brand-primary: var(--pine-700);
+  --brand-primary-hover: var(--pine-800);
+  --brand-primary-subtle: var(--pine-100);
+  --brand-primary-text: var(--pine-800);
+  --brand-accent: var(--mint-500);
+  --brand-accent-hover: var(--mint-700);
+  --brand-accent-subtle: var(--pine-50);
+  --focus-ring: var(--pine-700);
+  --status-final-bg: var(--pine-700);
+  --status-final-border: var(--pine-700);
+  --focus-shadow: 0 0 0 2px var(--surface-card), 0 0 0 4px var(--focus-ring);
+}
+[data-theme="hc"] {
+  --surface-selected: var(--pine-200);
+  --brand-primary: var(--pine-900);
+  --brand-primary-hover: var(--neutral-950);
+  --brand-primary-text: var(--pine-900);
+  --brand-accent: var(--mint-700);
+  --focus-ring: var(--neutral-950);
+  --status-final-bg: var(--pine-900);
+  --status-final-border: var(--pine-900);
+}
+[data-theme="dark"] {
+  --surface-selected: var(--pine-900);
+  --brand-primary: var(--mint-400);
+  --brand-primary-hover: var(--mint-300);
+  --brand-primary-subtle: var(--pine-900);
+  --brand-primary-text: var(--mint-300);
+  --brand-accent: var(--mint-500);
+  --focus-ring: var(--mint-400);
+  --status-final-bg: var(--mint-400);
+  --status-final-border: var(--mint-400);
+}
+
+/* ---------- component refinements ---------- */
+:lang(bn) { font-family: var(--font-sans); }
+.btn { height: var(--control-md); padding: 0 14px; border-radius: var(--radius-md); font-weight: 700; border-color: var(--border-default); }
+.btn-lg { height: var(--control-lg); padding: 0 18px; }
+.btn-sm { height: var(--control-sm); padding: 0 10px; border-radius: var(--radius-sm); }
+.btn-primary { box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 2px 6px color-mix(in oklab, var(--brand-primary) 28%, transparent); }
+.btn:not(.btn-primary):not(.btn-danger):not(.btn-ghost):not(.btn-icon) { box-shadow: var(--shadow-1); }
+.btn:focus-visible { outline: 0; box-shadow: var(--focus-shadow); }
+.input { height: var(--control-lg); border-radius: var(--radius-md); padding: 0 14px; font-size: 15px; }
+.input:focus { border-color: var(--brand-primary); box-shadow: 0 0 0 4px var(--brand-primary-subtle); }
+.input[aria-invalid="true"] { border-width: 1.5px; background: var(--danger-bg); }
+.seg { border-radius: var(--radius-md); padding: 3px; }
+.seg > button { height: 32px; border-radius: var(--radius-sm); font-weight: 700; }
+.seg > button[aria-checked="true"] { color: var(--brand-primary-text); box-shadow: var(--shadow-2); }
+.card { border-radius: var(--radius-lg); box-shadow: var(--shadow-2); }
+.card-head { padding: 14px 18px; border-bottom-color: var(--paper-line-soft); }
+.callout { border-radius: 14px; }
+.t-label { font-weight: 800; letter-spacing: .06em; }
+
+/* the selected row: a mist highlight and a straight pine bar on the left */
+.row-btn { border-bottom-color: var(--paper-line-soft); }
+.row-btn[aria-pressed="true"], .row-btn[aria-selected="true"], .row-btn[aria-current="true"], .row-btn[aria-current="page"],
+.option[aria-selected="true"] { background: var(--surface-selected); box-shadow: inset var(--select-bar) 0 0 var(--brand-primary); }
+.table tr[aria-selected="true"] > td { background: var(--surface-selected); }
+.table tr[aria-selected="true"] > td:first-child { box-shadow: inset var(--select-bar) 0 0 var(--brand-primary); }
+.table th { background: #faf9f6; font-weight: 800; letter-spacing: .04em; border-bottom-color: var(--paper-line-soft); }
+.table td { border-bottom-color: #f0eee8; }
+[data-theme="dark"] .table th { background: var(--surface-sunken); }
+
+/* shell: a light top bar with the Chartis mark */
+.shell-top { border-bottom-color: var(--paper-line); }
+.shell-brand { display: inline-flex; align-items: center; gap: 9px; font: 800 18px/24px var(--font-sans); letter-spacing: -.02em; color: var(--text-primary); text-decoration: none; }
+.shell-brand .edition { font: 700 11px/16px var(--font-sans); letter-spacing: .02em; color: var(--brand-primary-text); background: var(--brand-primary-subtle); border-radius: var(--radius-pill); padding: 2px 8px; }
+.nav-item { height: 40px; border-radius: var(--radius-md); font-weight: 600; }
+.nav-item[aria-current="page"] { box-shadow: inset var(--select-bar) 0 0 var(--brand-primary); border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+.plan-tag { border-radius: var(--radius-pill); padding: 0 10px; }
+.dialog { border-radius: var(--radius-xl); }
+.toast { border-radius: 14px; background: var(--ink); padding: 12px 16px; }
+.pill { font-weight: 700; }

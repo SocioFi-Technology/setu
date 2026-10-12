@@ -162,12 +162,13 @@ test.describe("Journey B — B1 arrival and triage, B2 orders and disposition, t
   test("B2: the lab's collection list shows the ER visit at the top with STAT", async ({ page }) => {
     await login(page, TECH);
     await page.goto("/m/lab/collect");
-    const card = page.locator(`[data-lab-token="${token}"]`);
+    // this run's visit by its encounter: ER tokens restart each day, so an older pending visit may hold the same token
+    const card = page.locator(`[data-lab-token="${token}"][data-encounter="${encId}"]`);
     await expect(card).toContainText("STAT");
     await expect(card).toContainText("CBC");
     // STAT visits sit above every routine one (another STAT visit may be older than ours)
-    const tokens = await page.locator("[data-lab-token]").evaluateAll((els) => els.map((e) => [e.getAttribute("data-lab-token"), /STAT/.test((e as HTMLElement).innerText)] as [string, boolean]));
-    const idx = tokens.findIndex((t) => t[0] === token);
+    const tokens = await page.locator("[data-lab-token]").evaluateAll((els) => els.map((e) => [e.getAttribute("data-encounter"), /STAT/.test((e as HTMLElement).innerText)] as [string, boolean]));
+    const idx = tokens.findIndex((t) => t[0] === encId);
     expect(idx).toBeGreaterThanOrEqual(0);
     expect(tokens.slice(0, idx).every((t) => t[1])).toBe(true);
     await card.click();

@@ -1036,16 +1036,16 @@
     "Shown in the patient app beside a critical result (\"contact the facility now\")"
   ],
   "org_network": [
-    "সেতু নেটওয়ার্কে যুক্ত হোন",
-    "Join the Setu network"
+    "চার্টিস লিংকে যুক্ত হোন",
+    "Join Chartis Link"
   ],
   "org_network_hint": [
-    "রোগীরা Setu অ্যাপ থেকে তাঁদের রেকর্ড এই প্রতিষ্ঠানের ডাক্তারদের সাথে শেয়ার করতে পারবেন। প্রতিষ্ঠান ও ডাক্তারদের শুধু নাম দেখানো হয়।",
-    "Patients can share their records with this facility's doctors from the Setu app. Only the facility's and doctors' names are listed."
+    "রোগীরা চার্টিস পাসপোর্ট থেকে তাঁদের রেকর্ড এই প্রতিষ্ঠানের ডাক্তারদের সাথে শেয়ার করতে পারবেন। প্রতিষ্ঠান ও ডাক্তারদের শুধু নাম দেখানো হয়।",
+    "Patients can share their records with this facility's doctors from Chartis Passport. Only the facility's and doctors' names are listed."
   ],
-  "network_col": ["সেতু নেটওয়ার্ক", "Setu network"],
+  "network_col": ["চার্টিস লিংক", "Chartis Link"],
   "net_home": ["বাড়ি থেকে নমুনা নেওয়া হয়", "Home sample collection"],
   "net_home_fee": ["বাড়ি থেকে নমুনার ফি (টাকা)", "Home collection fee (taka)"],
   "net_tat": ["রিপোর্টের প্রতিশ্রুত সময় (ঘণ্টা)", "Promised report time (hours)"],
-  "net_offer_hint": ["কোন পরীক্ষা নেটওয়ার্কে দেবেন, তা মূল্য তালিকায় \"সেতু নেটওয়ার্ক\" ঘরে বাছুন।", "Choose which tests you offer to the network in the price list's \"Setu network\" column."]
+  "net_offer_hint": ["কোন পরীক্ষা নেটওয়ার্কে দেবেন, তা মূল্য তালিকায় \"চার্টিস লিংক\" ঘরে বাছুন।", "Choose which tests you offer to the network in the price list's \"Chartis Link\" column."]
 }

@@ -105,7 +105,7 @@ export async function choose(tx: Tx, orderId: string, by: { kind: "patient"; per
   if (!o) throw notFound();
   const { networkCentres } = await import("@setu/db");
   const c = (await networkCentres()).find((x) => x.organizationId === b.organizationId);
-  if (!c) throw err(400, "centre", "এই কেন্দ্র সেতু নেটওয়ার্কে নেই", "This centre is not in the Setu network", { field: "organizationId" });
+  if (!c) throw err(400, "centre", "এই কেন্দ্র চার্টিস লিংকে নেই", "This centre is not in Chartis Link", { field: "organizationId" });
   const offer = centreOffer(o.items.map((i) => ({ id: i.id, testCode: i.testCode })), catalogueOf(c), b.collection);
   if (b.collection === "home" && !c.homeCollection) throw err(400, "no_home_collection", "এই কেন্দ্র বাড়ি থেকে নমুনা নেয় না", "This centre does not collect at home", { field: "collection" });
   const bad = chooseCentreProblems(dash<OrderState>(o.status), offer);

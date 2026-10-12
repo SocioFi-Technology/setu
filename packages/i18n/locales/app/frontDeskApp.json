@@ -987,8 +987,8 @@
     "সব দেখুন",
     "Show all"
   ],
-  "desk_open": ["সেতু অ্যাপ যুক্ত করুন", "Link Setu app"],
-  "desk_title": ["রোগীর সেতু অ্যাপে রেকর্ড যুক্ত করা", "Link a patient's Setu app"],
+  "desk_open": ["চার্টিস পাসপোর্ট যুক্ত করুন", "Link Chartis Passport"],
+  "desk_title": ["রোগীর চার্টিস পাসপোর্টে রেকর্ড যুক্ত করা", "Link a patient's Chartis Passport"],
   "desk_intro": ["রোগী অ্যাপে \"রিসেপশনে যাচাই\" বেছে নিলে অ্যাপে একটি কোড দেখায়। কোডটি লিখুন, NID বা জন্ম নিবন্ধন দেখে মিলিয়ে নিন, তারপর রেকর্ড বাছুন।", "When the patient chose \"verify at the reception\", their app shows a code. Type it, check their NID or birth registration, then pick the record."],
   "desk_code": ["অ্যাপে দেখানো কোড", "Code shown in the app"],
   "desk_find": ["খুঁজুন", "Find"],

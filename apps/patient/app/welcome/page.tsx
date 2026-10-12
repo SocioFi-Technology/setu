@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "@setu/domain";
-import { Icon, Pill } from "@setu/ui";
+import { ChartisMark, Icon, Pill } from "@setu/ui";
 import { patient } from "../../lib/api";
 import { StagingBanner } from "../../components/Shell";
 import { errText, useLang } from "../../lib/lang";
@@ -52,6 +52,7 @@ export default function Welcome() {
     <div className="pa">
       <StagingBanner />
       <main className="pa-main" style={{ paddingTop: 32 }}>
+        <span className="pa-brand-lg"><ChartisMark size={40} />Chartis Passport</span>
         {step === 0 && <>
           <h1 className="pa-h1">{T("welcome")}</h1>
           <p className="pa-sub">{T("welcome_sub")}</p>

@@ -33,7 +33,7 @@ export async function sendOtp(phone01: string, lang: "bn" | "en", ip: string): P
   await c.set(`potp:code:${ph}`, code, OTP_TTL_MS);
   await c.del(`potp:tries:${ph}`);
   // a fixed template (ADR 0006): the code, how long, never share — Latin digits so every phone shows them
-  const text = lang === "bn" ? `সেতু: আপনার কোড ${code}। ৫ মিনিট কাজ করবে। কাউকে বলবেন না।` : `Setu: your code is ${code}. It works for 5 minutes. Never share it.`;
+  const text = lang === "bn" ? `চার্টিস: আপনার কোড ${code}। ৫ মিনিট কাজ করবে। কাউকে বলবেন না।` : `Chartis: your code is ${code}. It works for 5 minutes. Never share it.`;
   const r = await messenger.sendSms({ messageId: `potp_${ph}_${Date.now()}`, to: phone01, text, tenantId: "network" });
   if (r.status === "failed") throw err(502, "otp_not_sent", "কোড পাঠানো গেল না — একটু পরে আবার চেষ্টা করুন", "The code could not be sent — try again shortly");
   return OTP_TTL_MS / 1000;
@@ -145,7 +145,7 @@ const claimOf = async (p: PersonSession, claimId: string) => {
   if (!c) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
   return c;
 };
-const notClaimQr = () => err(400, "not_claim_qr", "এটি সেতু অ্যাপের QR নয় — রসিদে \"সেতু অ্যাপ\" লেখা QR স্ক্যান করুন", "This is not the Setu app QR — scan the QR marked \"Setu app\" on the receipt", { field: "code" });
+const notClaimQr = () => err(400, "not_claim_qr", "এটি চার্টিস পাসপোর্টের QR নয় — রসিদে \"চার্টিস পাসপোর্ট\" লেখা QR স্ক্যান করুন", "This is not the Chartis Passport QR — scan the QR marked \"Chartis Passport\" on the receipt", { field: "code" });
 const same = (a: string, b: string) => { const x = Buffer.from(a), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); };
 
 export async function proveClaim(req: FastifyRequest, reply: FastifyReply, claimId: string, body: ClaimProofRequest, now = new Date()): Promise<ClaimProofResponse> {

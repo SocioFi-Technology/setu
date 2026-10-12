@@ -97,7 +97,7 @@ test("L2: the admin's test SMS waits for 'it arrived' before the checklist count
   const p = await phone_(browser);
   try {
     await p.page.goto(`${INBOX}?n=${phone}`);
-    await expect(p.page.getByTestId("sms").first()).toContainText("Setu test message");
+    await expect(p.page.getByTestId("sms").first()).toContainText("Chartis test message");
   } finally { await p.ctx.close(); }
   await page.getByTestId("sms-arrived").click();
   await expect(item).toHaveAttribute("data-done", "1");

@@ -93,7 +93,7 @@ describe.runIf(db)("decision 317: each tenant's system actor", () => {
     const { buildApp } = await import("../src/app.js");
     const app = await buildApp();
     try {
-      for (const identifier of ["sys_t_e2e", "Setu (system)"]) {
+      for (const identifier of ["sys_t_e2e", "Chartis (system)"]) {
         const r = await app.inject({ method: "POST", url: "/v1/auth/login", payload: { identifier, password: "!" }, remoteAddress: "10.3.3.3" });
         expect([400, 401]).toContain(r.statusCode);
       }
