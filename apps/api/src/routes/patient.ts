@@ -1,12 +1,12 @@
 /* ADR 0020 — the patient app's routes (/v1/patient/*): the patient session only, never a staff one. */
 import type { FastifyInstance } from "fastify";
-import { AccessAnswer, ClaimProofRequest, NetworkSharingSet, OtpRequest, PatientSignInRequest, ShareCreate, TimelineFilter, type PatientAccessRequest, type PatientAccessRequests, type AccessLog, type ClaimItem, type ClaimList, type ClaimProofResponse, type DirectoryView, type OtpResponse, type PatientMe, type PatientReportView, type ShareList, type ShareView, type Timeline } from "@setu/contracts";
+import { AccessAnswer, ClaimProofRequest, ClaimQrRequest, NetworkSharingSet, OtpRequest, PatientSignInRequest, ShareCreate, TimelineFilter, type PatientAccessRequest, type PatientAccessRequests, type AccessLog, type ClaimItem, type ClaimList, type ClaimProofResponse, type DirectoryView, type OtpResponse, type PatientMe, type PatientReportView, type ShareList, type ShareView, type Timeline } from "@setu/contracts";
 import { z } from "zod";
 import { config } from "../config.js";
 import { fakeMessenger } from "../adapters/messaging/index.js";
 import { counters } from "../adapters/counters.js";
 import { err } from "../errors.js";
-import { accessLog, listClaims, notMine, patientMe, patientPdf, patientReport, proveClaim, sendOtp, timeline, verifyOtp } from "../modules/patient.js";
+import { accessLog, listClaims, notMine, proveByQr, patientMe, patientPdf, patientReport, proveClaim, sendOtp, timeline, verifyOtp } from "../modules/patient.js";
 import { answerAccessRequest, createShare, directory, listAccessRequests, listShares, revokeShare, setNetworkSharing } from "../modules/share.js";
 import { PATIENT_COOKIE, PATIENT_COOKIE_OPTIONS, clearPerson, encodePerson } from "../plugins/patientSession.js";
 
@@ -35,6 +35,8 @@ export async function patientRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     return proveClaim(req, reply, id, ClaimProofRequest.parse(req.body));
   });
+  /* ADR 0024: the claim QR printed beside the code (the facility it names picks the claim) */
+  app.post("/v1/patient/claims/qr", async (req, reply): Promise<ClaimProofResponse> => { dbOn(); return proveByQr(req, reply, ClaimQrRequest.parse(req.body)); });
   app.post("/v1/patient/claims/:id/not-mine", async (req, reply): Promise<ClaimItem> => {
     dbOn();
     const { id } = req.params as { id: string };

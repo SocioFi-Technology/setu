@@ -3,6 +3,7 @@
    timeline reads only the linked record of each linked facility, audited there. Every run uses a phone of its own
    (registered in the E2E clinic and the Lite hospital), so no earlier run's person or claims interfere. */
 import { randomInt, randomUUID } from "node:crypto";
+import { claimQrUrl } from "@setu/domain";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
 import { config } from "../src/config.js";
@@ -144,7 +145,7 @@ describe.runIf(db)("D2 claim with the code on the paper", () => {
     const claims = (await as("GET", "/v1/patient/claims")).json().items as { id: string; facilityEn: string }[];
     const ec = claims.find((c) => c.facilityEn === "E2E Test Clinic")!;
     const code = await codeOf(rahima);
-    const r = await as("POST", `/v1/patient/claims/${ec.id}/proof`, { method: "qr", code: `https://setu.example/c/${code}` });
+    const r = await as("POST", `/v1/patient/claims/${ec.id}/proof`, { method: "qr", code: claimQrUrl("https://setu.example/patient", "t_e2e", code) });
     expect(r.json(), r.body).toMatchObject({ outcome: "linked" });
     const o = owner();
     try {

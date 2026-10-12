@@ -241,10 +241,11 @@ export const CONSENT: Table<ConsentState, ConsentEvent> = {
 
 /* Claim: 3 wrong codes → locked for 24 h (round-2 fix #3). The counter lives on the claim row. */
 export type ClaimState = "candidate" | "proof-pending" | "linked" | "not-mine" | "locked";
-export type ClaimEvent = "startProof" | "codeOk" | "codeWrong" | "thirdWrong" | "notMine" | "unlock";
+/** deskOk / deskRefused (ADR 0024): the reception confirmed the person and the record in person, or could not */
+export type ClaimEvent = "startProof" | "codeOk" | "codeWrong" | "thirdWrong" | "notMine" | "unlock" | "deskOk" | "deskRefused";
 export const CLAIM: Table<ClaimState, ClaimEvent> = {
   candidate: { startProof: "proof-pending", notMine: "not-mine" },
-  "proof-pending": { codeOk: "linked", codeWrong: "proof-pending", thirdWrong: "locked", notMine: "not-mine" },
+  "proof-pending": { codeOk: "linked", codeWrong: "proof-pending", thirdWrong: "locked", notMine: "not-mine", deskOk: "linked", deskRefused: "candidate" },
   linked: {}, "not-mine": {},
   locked: { unlock: "proof-pending" },
 };

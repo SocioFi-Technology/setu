@@ -28,3 +28,29 @@ export function claimAttempt(c: ClaimFacts, ok: boolean, now: Date): ClaimAttemp
   if (tries >= CLAIM_MAX_TRIES) return { status: transition("claim", CLAIM, status, "thirdWrong"), tries: CLAIM_MAX_TRIES, lockedUntil: new Date(now.getTime() + CLAIM_LOCK_HOURS * 3600_000), triesLeft: 0 };
   return { status: transition("claim", CLAIM, status, "codeWrong"), tries, lockedUntil: null, triesLeft: CLAIM_MAX_TRIES - tries };
 }
+
+/* ── ADR 0024: proof at the reception desk, and the QR printed beside the code ── */
+/** the desk code the app shows: the claim-code alphabet, 6 characters, valid 7 days (the patient may get a new one) */
+export const DESK_CODE_DAYS = 7;
+export const deskCodeUntil = (from: Date) => new Date(from.getTime() + DESK_CODE_DAYS * 864e5);
+export const DESK_DOCUMENTS = ["nid", "birth-reg"] as const;
+export type DeskDocument = (typeof DESK_DOCUMENTS)[number];
+/** What the reception may do with a claim it found by its desk code: confirm (→ linked) or refuse (→ candidate, the
+    patient chooses again). Only a claim waiting for the desk, with a code still valid. */
+export function deskDecision(c: { status: ClaimState; method: string | null; deskCodeUntil: Date | null }, decision: "confirm" | "refuse", now: Date): { status: ClaimState } | { refused: "not-waiting" | "expired" } {
+  if (c.status !== "proof-pending" || c.method !== "desk") return { refused: "not-waiting" };
+  if (!c.deskCodeUntil || c.deskCodeUntil.getTime() <= now.getTime()) return { refused: "expired" };
+  return { status: transition("claim", CLAIM, c.status, decision === "confirm" ? "deskOk" : "deskRefused") };
+}
+/** The claim QR printed on receipts and prescriptions: the patient app's claim page with the facility and the code. */
+export const claimQrUrl = (patientAppUrl: string, tenantId: string, code: string) =>
+  `${patientAppUrl.replace(/\/+$/, "")}/claim?t=${encodeURIComponent(tenantId)}&c=${code}`;
+/** A scanned QR → the facility and the code, ONLY when it is Setu's claim QR (a document's verify QR is not: reading its
+    tail as a code would cost the patient a try at the wrong facility). */
+export function readClaimQr(raw: string): { tenantId: string; code: string } | null {
+  let u: URL;
+  try { u = new URL(raw.trim()); } catch { return null; }
+  if (!/\/claim\/?$/.test(u.pathname)) return null;
+  const t = u.searchParams.get("t"), c = normalizeClaimCode(u.searchParams.get("c") ?? "");
+  return t && /^[A-Za-z0-9_-]{1,64}$/.test(t) && c ? { tenantId: t, code: c } : null;
+}

@@ -986,5 +986,29 @@
   "show_all": [
     "সব দেখুন",
     "Show all"
-  ]
+  ],
+  "desk_open": ["সেতু অ্যাপ যুক্ত করুন", "Link Setu app"],
+  "desk_title": ["রোগীর সেতু অ্যাপে রেকর্ড যুক্ত করা", "Link a patient's Setu app"],
+  "desk_intro": ["রোগী অ্যাপে \"রিসেপশনে যাচাই\" বেছে নিলে অ্যাপে একটি কোড দেখায়। কোডটি লিখুন, NID বা জন্ম নিবন্ধন দেখে মিলিয়ে নিন, তারপর রেকর্ড বাছুন।", "When the patient chose \"verify at the reception\", their app shows a code. Type it, check their NID or birth registration, then pick the record."],
+  "desk_code": ["অ্যাপে দেখানো কোড", "Code shown in the app"],
+  "desk_find": ["খুঁজুন", "Find"],
+  "desk_cancel": ["বাতিল", "Cancel"],
+  "desk_error": ["কাজটি হয়নি — আবার চেষ্টা করুন", "That did not work — try again"],
+  "desk_phone": ["অ্যাপের ফোন {phone} · কোডের মেয়াদ {t} পর্যন্ত", "App phone {phone} · code valid until {t}"],
+  "desk_pick": ["এই ফোনে আমাদের রেকর্ড — যাঁর সাথে মেলে তাঁকে বাছুন", "Our records on this phone — pick the one who matches"],
+  "desk_no_records": ["এই ফোনে আমাদের কোনো রেকর্ড নেই", "We have no records on this phone"],
+  "desk_age": ["{n} বছর", "{n} y"],
+  "desk_sex_male": ["পুরুষ", "Male"],
+  "desk_sex_female": ["মহিলা", "Female"],
+  "desk_sex_other": ["অন্যান্য", "Other"],
+  "desk_sex_unknown": ["অজানা", "Unknown"],
+  "desk_last": ["শেষ ভিজিট {t}", "last visit {t}"],
+  "desk_doc": ["যে কাগজ দেখে মিলিয়েছেন", "Document checked"],
+  "desk_doc_nid": ["জাতীয় পরিচয়পত্র (NID)", "National ID (NID)"],
+  "desk_doc_birth-reg": ["জন্ম নিবন্ধন", "Birth registration"],
+  "desk_note": ["কাগজের নম্বর রাখা হয় না; কে, কখন যুক্ত করলেন তা অডিটে থাকে।", "The document number is not kept; who linked it and when is in the audit."],
+  "desk_confirm": ["যুক্ত করুন", "Link"],
+  "desk_refuse": ["যাচাই করা যায়নি", "Could not verify"],
+  "desk_linked": ["অ্যাপে যুক্ত হয়েছে · {no}", "Linked to the app · {no}"],
+  "desk_refused_done": ["রোগীর অ্যাপে জানানো হলো: যাচাই হয়নি", "The patient's app shows it was not verified"]
 }

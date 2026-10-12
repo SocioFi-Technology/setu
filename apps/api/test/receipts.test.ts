@@ -173,6 +173,17 @@ describe("receipt template", () => {
     expect(withCode, withCode.slice(withCode.indexOf("data-claim-code") - 30, withCode.indexOf("data-claim-code") + 200)).toContain('Code to see your records in the Setu app: <b class="num">7K4-Q2M</b>');
     expect(receiptHtml({ ...base, print: pr })).not.toContain("data-claim-code");
   });
+  it("ADR 0024: the claim QR beside the code, on A5 and thermal, labelled for the app (the verify QR stays)", () => {
+    const pr = { copy: 0, reason: null, printedAt: new Date(), printedBy: { nameBn: "ক", nameEn: "C" } };
+    const snap = { ...snapshot, patient: { ...snapshot.patient, claimCode: "7K4Q2M" } };
+    for (const format of ["a5", "thermal"] as const) {
+      const h = receiptHtml({ ...base, format, print: pr, snapshot: snap, claimQrUrl: "https://setu.example/patient/claim?t=t_e2e&c=7K4Q2M" });
+      expect(h, format).toContain("data-claim-qr");
+      expect(h, format).toContain("Scan to add these records in the Setu app");
+      expect(h.match(/<svg/g)!.length, format).toBeGreaterThanOrEqual(2);
+    }
+    expect(receiptHtml({ ...base, print: pr, snapshot: snap })).not.toContain("data-claim-qr");
+  });
   it("escapes record text, prints amounts and words from paisa, and marks only duplicates", () => {
     const orig = receiptHtml({ ...base, print: { copy: 0, reason: null, printedAt: new Date(), printedBy } });
     expect(orig).not.toContain("<script>alert(1)</script>");

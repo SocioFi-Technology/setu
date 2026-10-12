@@ -31,6 +31,10 @@ export const ClaimItem = z.object({
   method: z.enum(["code", "qr", "desk"]).nullable(),
   triesLeft: z.number().int(),
   lockedUntil: z.string().nullable(),
+  /** ADR 0024: waiting for the desk — until when its desk code works (the code itself is shown once, when made) */
+  deskCodeUntil: z.string().nullable().default(null),
+  /** the reception could not verify the last desk request (the patient may choose again) */
+  deskRefused: z.boolean().default(false),
 });
 export type ClaimItem = z.infer<typeof ClaimItem>;
 export const ClaimList = z.object({ items: z.array(ClaimItem) });
@@ -43,7 +47,12 @@ export const ClaimProofRequest = z.discriminatedUnion("method", [
   z.object({ method: z.literal("desk") }),
 ]);
 export type ClaimProofRequest = z.infer<typeof ClaimProofRequest>;
-export const ClaimProofResponse = z.object({ claim: ClaimItem, outcome: z.enum(["linked", "wrong-code", "locked", "desk-pending"]) });
+export const ClaimProofResponse = z.object({ claim: ClaimItem, outcome: z.enum(["linked", "wrong-code", "locked", "desk-pending"]),
+  /** desk-pending: the code to show at the reception (only here — the server keeps its hash) */
+  deskCode: z.string().optional() });
+/* POST /v1/patient/claims/qr — the claim QR printed on receipts and prescriptions (ADR 0024): the facility and the code */
+export const ClaimQrRequest = z.object({ qr: z.string().min(1).max(300) });
+export type ClaimQrRequest = z.infer<typeof ClaimQrRequest>;
 export type ClaimProofResponse = z.infer<typeof ClaimProofResponse>;
 
 /* GET /v1/patient/timeline?filter= */

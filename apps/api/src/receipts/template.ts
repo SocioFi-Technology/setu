@@ -12,7 +12,9 @@ import { t } from "@setu/i18n";
 
 export type ReceiptLangMode = "both" | "bn" | "en";
 export interface PrintInfo { copy: number; reason: string | null; printedAt: Date; printedBy: { nameBn: string; nameEn: string } }
-export interface TemplateInput { /** ADR 0005: the bill was voided — every copy says VOID */ voided?: boolean; snapshot: ReceiptSnapshot; number: string; createdAt: Date; verifyUrl: string; format: "a5" | "thermal"; lang: ReceiptLangMode; print: PrintInfo }
+export interface TemplateInput { /** ADR 0005: the bill was voided — every copy says VOID */ voided?: boolean; snapshot: ReceiptSnapshot; number: string; createdAt: Date; verifyUrl: string; format: "a5" | "thermal"; lang: ReceiptLangMode; print: PrintInfo;
+  /** ADR 0024: the claim QR beside the Setu app code (the patient app's claim page with the facility and the code) */
+  claimQrUrl?: string | null }
 
 export const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -33,6 +35,14 @@ export function fonts(): string {
 /* QR: qrcode-generator (no dependencies), drawn as an SVG in black. */
 const require = createRequire(import.meta.url);
 const qrcode = require("qrcode-generator") as (type: number, level: "L" | "M" | "Q" | "H") => { addData(s: string): void; make(): void; createSvgTag(o: { cellSize?: number; margin?: number; scalable?: boolean }): string };
+/** ADR 0020 / 0024: the Setu app code, and beside it a small QR labelled for the app (never mistaken for the verify QR:
+    the app reads only its own claim QR) */
+export function claimCodeBlock(code: string | null, qrUrl: string | null, label: string, qrLabel: string): string {
+  if (!code) return "";
+  const text = `${esc(label)}: <b class="num">${esc(code.slice(0, 3))}-${esc(code.slice(3))}</b>`;
+  if (!qrUrl) return `<div class="small" data-claim-code>${text}</div>`;
+  return `<div class="small" data-claim-code style="display:flex;gap:2mm;align-items:center;margin-top:1mm"><div data-claim-qr style="width:18mm;height:18mm;flex:none">${qrSvg(qrUrl)}</div><div>${text}<br>${esc(qrLabel)}</div></div>`;
+}
 export function qrSvg(text: string): string {
   const q = qrcode(0, "M");
   q.addData(text);
@@ -50,6 +60,7 @@ export function receiptHtml(i: TemplateInput): string {
     const bn = fill(t("bn", "billingApp", key)), en = fill(t("en", "billingApp", key));
     return i.lang === "bn" ? bn : i.lang === "en" ? en : bn === en ? en : `${bn} · ${en}`;
   };
+  const appCode = claimCodeBlock(s.patient.claimCode ?? null, i.claimQrUrl ?? null, L("r_app_code"), L("r_app_qr"));
   /** A sentence in both languages goes on two lines instead of one run-on line. */
   const Ls = (key: string, vars: Record<string, string> = {}) => {
     if (i.lang !== "both") return esc(L(key, vars));
@@ -123,7 +134,7 @@ export function receiptHtml(i: TemplateInput): string {
       <div class="words small">${wordsHtml}</div>
       <div class="small"><b>${esc(L("r_paid_by"))}:</b> ${paidLine}${pendingLine ? ` · ${pendingLine}` : ""}</div>
       ${discLine ? `<div class="small">${discLine}</div>` : ""}
-      ${s.patient.claimCode ? `<div class="small" data-claim-code>${esc(L("r_app_code"))}: <b class="num">${esc(s.patient.claimCode.slice(0, 3))}-${esc(s.patient.claimCode.slice(3))}</b></div>` : ""}
+      ${appCode}
       <footer class="foot small"><div>${esc(L("r_scan"))}</div><div class="sign">${esc(name(s.cashier.nameBn, s.cashier.nameEn))}<br>${esc(L("r_cashier"))}</div></footer>
       <div class="small muted">${reprintLine}</div>`
     : `<style>@page{margin:3mm 4mm 6mm 4mm}body{font-size:9pt;width:72mm}.small{font-size:8pt}h1{font-size:11pt;text-align:center}.qr{width:24mm;height:24mm;margin:3mm auto 1mm}</style>
@@ -139,6 +150,7 @@ export function receiptHtml(i: TemplateInput): string {
       ${discLine ? `<div class="small">${discLine}</div>` : ""}
       ${qr}<div class="c small">${esc(L("r_scan"))}</div>
       <div class="c small">${esc(L("r_cashier"))}: ${esc(name(s.cashier.nameBn, s.cashier.nameEn))}</div>
+      ${appCode ? `<hr>${appCode}` : ""}
       <div class="c small muted">${reprintLine}</div><div class="c small">${esc(L("r_thanks"))}</div>`;
 
   return `<!doctype html><html lang="${i.lang === "en" ? "en" : "bn"}"><head><meta charset="utf-8"><title>${esc(i.number)}</title><style>${fonts()}

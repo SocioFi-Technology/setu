@@ -7,7 +7,7 @@
 import { randomBytes } from "node:crypto";
 import type { DepositReceiptSnapshot, PrintRequest, ReceiptList, ReceiptPrintView, ReceiptSnapshot, ReceiptView } from "@setu/contracts";
 import type { Tx } from "@setu/db";
-import { dhakaDay } from "@setu/domain";
+import { claimQrUrl, dhakaDay } from "@setu/domain";
 import { storage } from "../adapters/storage.js";
 import { config } from "../config.js";
 import { err } from "../errors.js";
@@ -148,6 +148,7 @@ export async function printReceipt(tx: Tx, s: SessionData, receiptId: string, re
   const html = r0.kind === "deposit" ? depositReceiptHtml({ snapshot: r0.snapshot as unknown as DepositReceiptSnapshot, number: r0.number, createdAt: r0.createdAt, verifyUrl: verifyUrl(r0.verifyCode), format: req.format, lang: req.lang,
     print: { copy, reason: req.reason ?? null, printedAt: now, printedBy: { nameBn: me?.nameBn ?? "—", nameEn: me?.nameEn ?? "—" } } }) : receiptHtml({ voided: bill?.status === "entered_in_error",
     snapshot: r0.snapshot as unknown as ReceiptSnapshot, number: r0.number, createdAt: r0.createdAt, verifyUrl: verifyUrl(r0.verifyCode), format: req.format, lang: req.lang,
+    claimQrUrl: (r0.snapshot as unknown as ReceiptSnapshot).patient.claimCode ? claimQrUrl(config.patientAppUrl, s.tenantId, (r0.snapshot as unknown as ReceiptSnapshot).patient.claimCode!) : null,
     print: { copy, reason: req.reason ?? null, printedAt: now, printedBy: { nameBn: me?.nameBn ?? "—", nameEn: me?.nameEn ?? "—" } },
   });
   const pdf = await htmlToPdf(html, req.format);

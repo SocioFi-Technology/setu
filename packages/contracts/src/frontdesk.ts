@@ -204,3 +204,21 @@ export const ReviewQueueResponse = z.object({ items: z.array(ReviewItem) });
 export type ReviewQueueResponse = z.infer<typeof ReviewQueueResponse>;
 export const ReviewOutcomeResponse = z.object({ taskId: z.string().nullable(), subject: PatientSummary, outcome: z.enum(["unlinked", "kept", "reviewed"]) });
 export type ReviewOutcomeResponse = z.infer<typeof ReviewOutcomeResponse>;
+
+/* ── ADR 0024: the reception confirms a patient-app claim in person ── */
+/** the desk code the patient's app shows (typed as seen: any case, a dash) */
+export const DeskCodeBody = z.object({ code: z.string().trim().min(6).max(12) });
+export type DeskCodeBody = z.infer<typeof DeskCodeBody>;
+export const DeskClaimRecord = z.object({ patientId: z.string(), facilityNo: z.string(), nameBn: z.string(), nameEn: z.string().nullable(), sex: z.string(), ageYears: z.number().int().nullable(), lastVisitAt: z.string().nullable() });
+export const DeskClaimView = z.object({
+  claimId: z.string(),
+  /** the app's phone, masked — the records listed are this facility's on that phone */
+  phoneMasked: z.string(),
+  codeUntil: z.string(),
+  records: z.array(DeskClaimRecord),
+});
+export type DeskClaimView = z.infer<typeof DeskClaimView>;
+export const DeskClaimConfirm = DeskCodeBody.extend({ patientId: z.string().min(1).max(64), document: z.enum(["nid", "birth-reg"]) });
+export type DeskClaimConfirm = z.infer<typeof DeskClaimConfirm>;
+export const DeskClaimResult = z.object({ outcome: z.enum(["linked", "refused"]), facilityNo: z.string().nullable() });
+export type DeskClaimResult = z.infer<typeof DeskClaimResult>;

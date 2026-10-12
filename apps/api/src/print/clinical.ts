@@ -7,7 +7,7 @@
    is HTML-escaped (data, never markup). */
 import { format, type Interpretation } from "@setu/domain";
 import { t } from "@setu/i18n";
-import { esc, fonts, qrSvg } from "../receipts/template.js";
+import { claimCodeBlock, esc, fonts, qrSvg } from "../receipts/template.js";
 
 /** ℞ (U+211E) is in neither embedded font (Noto Sans Bengali, IBM Plex Sans), so Chromium printed whatever system font
     had it, or a box (external review C): drawn here instead — an R whose leg is crossed — the same on every printer. */
@@ -40,6 +40,8 @@ export interface RxInput {
   print: PrintLine | null;
   /** ADR 0020: the patient-app code (not on a draft) */
   claimCode?: string | null;
+  /** ADR 0024: the claim QR beside the code */
+  claimQrUrl?: string | null;
 }
 
 export interface LrInput {
@@ -155,7 +157,7 @@ ${i.followUp.trim() ? `<h3>${k.P("follow_up")}</h3><div>${esc(i.followUp)}</div>
 <div class="foot">${qrBlock(k, i.verify, i.mode)}
 <div class="sig">${i.mode === "draft" || !i.signedAt ? `<b>${k.P("not_signed")}</b>` : `<b>${k.P("digitally_signed")}</b><br>${i.doctor ? k.name(i.doctor.bn, i.doctor.en) : ""}<br><span class="small">${k.P("signed_on")} ${k.dateTime(i.signedAt)}</span>`}</div></div>
 <div class="small" style="margin-top:2mm">${i.medicines.some((m) => m.sample) ? k.P("rx_sample") : ""}${i.diagnoses.some((d) => d.sample) ? ` · ${k.P("dx_sample")}` : ""}</div>
-${i.claimCode && i.mode !== "draft" ? `<div class="small" data-claim-code style="margin-top:1mm">${k.P("app_code")}: <b>${esc(i.claimCode.slice(0, 3))}-${esc(i.claimCode.slice(3))}</b></div>` : ""}`;
+${i.mode !== "draft" && i.mode !== "shared" ? claimCodeBlock(i.claimCode ?? null, i.mode === "preview" ? null : i.claimQrUrl ?? null, k.P("app_code"), k.P("app_qr")) : ""}`;
   return frame(i.paper, body, wm);
 }
 

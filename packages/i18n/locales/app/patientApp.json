@@ -246,5 +246,16 @@
   "req_reason": ["কারণ: {r}", "Reason: {r}"],
   "req_never": ["মানসিক স্বাস্থ্য, যৌন ও প্রজনন স্বাস্থ্য এবং এইচআইভি সংক্রান্ত রেকর্ড কখনো শেয়ার হয় না। অনুমতি যেকোনো সময় 'চালু শেয়ার' থেকে বন্ধ করা যায়।", "Mental health, sexual and reproductive health and HIV records are never shared. You can stop it any time from 'Active'."],
   "req_allow": ["অনুমতি দিন", "Allow"],
-  "req_deny": ["না", "Decline"]
+  "req_deny": ["না", "Decline"],
+  "desk_code_title": ["রিসেপশনে এই কোড দেখান", "Show this code at the reception"],
+  "desk_code_until": ["মেয়াদ {t} পর্যন্ত", "Valid until {t}"],
+  "desk_code_lost": ["কোডটি এই ফোনে নেই — নতুন কোড নিন", "The code is not on this phone — get a new one"],
+  "desk_code_new": ["নতুন কোড", "New code"],
+  "desk_refused": ["রিসেপশন আগের বার যাচাই করতে পারেনি। আবার চেষ্টা করুন।", "The reception could not verify you last time. Try again."],
+  "m_qr": ["QR স্ক্যান", "Scan QR"],
+  "qr_hint": ["রসিদ বা প্রেসক্রিপশনে \"সেতু অ্যাপ\" লেখা ছোট QR-টি ক্যামেরার সামনে ধরুন।", "Hold the small QR marked \"Setu app\" on the receipt or prescription in front of the camera."],
+  "qr_start": ["ক্যামেরা চালু করুন", "Start the camera"],
+  "qr_no_camera": ["এই ফোনে অ্যাপের ভেতর স্ক্যান হয় না — ফোনের ক্যামেরা দিয়ে QR স্ক্যান করুন, অথবা কোডটি লিখুন।", "Scanning inside the app does not work on this phone — scan the QR with the phone's camera, or type the code."],
+  "qr_found": ["QR থেকে কোড: {code}", "Code from the QR: {code}"],
+  "qr_use": ["এই কোডে যাচাই করুন", "Verify with this code"]
 }

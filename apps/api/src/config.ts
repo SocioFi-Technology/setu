@@ -22,6 +22,9 @@ export const config = {
       (<origin>/p/<code>), bKash's return (<origin>/api/v1/payments/return/bkash) and the result page (<origin>/pay/result). */
   publicAppUrl: (process.env.PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/+$/, ""),
   get publicApiUrl() { return `${this.publicAppUrl}/api`; },
+  /** ADR 0024: the patient app's public address — what the claim QR on receipts and prescriptions opens
+      (<patient app>/claim?t=<facility>&c=<code>); by default the staff origin's /patient, as on staging */
+  get patientAppUrl() { return (process.env.PATIENT_APP_URL ?? `${this.publicAppUrl}/patient`).replace(/\/+$/, ""); },
   /** staging (week 2, open question 104): how many proxies stand in front of the API (Caddy, then the staff app's /api
       rewrite = 2). Fastify takes the client's address that many hops from the right of X-Forwarded-For — what the
       rate limits and the audit log record. Default 1 (the staff app's rewrite in development). */

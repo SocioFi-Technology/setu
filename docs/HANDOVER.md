@@ -1,4 +1,4 @@
-# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); week 2 staging sessions 1–2 done (08/10/2026, staging live); Phase 4 slice D1–D3 done (09/10/2026, the patient app); D4–D6 done (09/10/2026: report, share, who viewed; the patient app on staging); gap 16 fixed; E1–E2 done (09/10/2026: the portable lab order); E3 done (10/10/2026: results back); E4 done (10/10/2026: another clinic's view, access requests) — Journey E complete; next: see Next)
+# Handover to Claude Code — state of the project on 03/10/2026 (slices A1–A3, A4–A5, A6–A7 + billing follow-ups done; A8–A11 done; A12–A13 done — Journey A complete; phase 2 slice C1–C4 done; pharmacy slice done; admin slice done (04/10/2026); SMS + bKash slice done (04/10/2026) — Phase 2 pilot-clinic slices complete; refunds slice done (05/10/2026); slice B1–B2 done (05/10/2026, two sessions); slice B3–B4 done (06/10/2026, two sessions); slice B5–B6 done (06/10/2026, two sessions); slice B7–B9 done (06/10/2026, two sessions); B10–B12 done (07/10/2026); pilot-readiness track 1 week 1 (A1–A6) done (07/10/2026); week 2 staging sessions 1–2 done (08/10/2026, staging live); Phase 4 slice D1–D3 done (09/10/2026, the patient app); D4–D6 done (09/10/2026: report, share, who viewed; the patient app on staging); gap 16 fixed; E1–E2 done (09/10/2026: the portable lab order); E3 done (10/10/2026: results back); E4 done (10/10/2026: another clinic's view, access requests) — Journey E complete; desk proof + claim QR done (12/10/2026) — Phase 4 complete; next: see Next)
 
 Read this at the start of a session when you need context beyond `CLAUDE.md`. Keep it current: when a slice lands, move it from "Next" to "Done" and update "Known gaps".
 
@@ -1478,6 +1478,28 @@ ADR 0023 (E4 decisions). Journey E is complete.
 - **Follow-ups:** the clinician's sensitive rules and codes in the catalogue (gap 12); a "resolved" problem status; the
   doctor told in the inbox when the patient answers; a pushed notice to the patient; break-glass screens.
 
+## Done (Phase 4 follow-up, 12/10/2026) — proof at the reception desk, and the claim QR ✅
+ADR 0024. Phase 4 (Journeys D and E) is complete.
+- **Migration** `20261012090000_desk_claim`: `PatientClaim` desk code hash + expiry (7 days; only while waiting for the
+  desk), the document checked (`nid` | `birth-reg`, never its number), who and when, the refusal time; SECURITY DEFINER
+  `desk_claim_phone()` (only a claim of the caller's tenant waiting for the desk).
+- **Domain:** CLAIM proof-pending gains `deskOk` → linked and `deskRefused` → candidate (domain-model.md updated);
+  `deskDecision`, `claimQrUrl`, `readClaimQr` (only Setu's claim QR — a verify QR or any other text is refused).
+- **API:** choosing the desk returns a desk code (a new one retires the old; a locked claim may go to the desk);
+  `POST /v1/claims/desk/lookup | confirm | refuse` (receptionist, admin, owner; the code in the body, never a URL;
+  only this facility's records on the app's phone; 10 wrong codes per 10 minutes per receptionist; Provenance source
+  desk-decision + audit); `POST /v1/patient/claims/qr` (the facility in the QR picks the claim; no try spent on a
+  wrong QR). Receipts (A5 and — newly — thermal) and prescriptions print the claim QR beside the code
+  (`PATIENT_APP_URL`, default the public origin's `/patient`); never on a preview or a copy shared with another doctor.
+- **Screens:** front desk Find patient → "Link Setu app" (code → the records on that phone → document → Link / Could
+  not verify). Patient app claim: the desk code shown large with its expiry and "New code"; "the reception could not
+  verify"; "Scan QR" with the phone's barcode reader (Chrome on Android; otherwise the camera app or typing); a claim QR
+  link opens the claim screen with the code (kept through a sign-in).
+- **Tests:** domain `claim.test.ts` +6; API `desk-claim.test.ts` (8), print tests for the QR (receipt A5 + thermal,
+  prescription; not on preview / shared), `patient.test.ts` moved to the claim QR format; `journey-d7`.
+- **Follow-ups:** dependants (a guardian's desk proof); a patient whose phone changed (the facility updates the phone
+  first).
+
 ## On call (staging) — https://setu.sociofitechnology.com (the shared SocioFi VPS, ADR 0019 addendum)
 **Where things are** (`ssh -l setu sociofi` — the `setu` user runs Setu in **its own rootless Docker daemon**: plain
 `docker` as setu sees Setu's containers, the VPS's shared `docker` group does not; every Setu container is compose
@@ -1605,11 +1627,11 @@ paste them into chat or git.
    ~~session 2~~ (08/10/2026): staging live at https://setu.sociofitechnology.com on the shared SocioFi VPS.
    **Next:** ~~(1) the alarms~~ — live 09/10/2026 (UptimeRobot on `/api/ready` and `/api/health/jobs/ok`, one fired on
    purpose; ADR 0019); off-server backups deferred to production by Kamrul 09/10/2026 (WAL-G installed, archiving off,
-   no R2 — ask before any R2 work); ~~(2) the queue and the worklists~~ (08/10/2026, c9246a0: active complete, latest 20 closed; rerun met p95 < 1 s); (3) the lab worklist query; (4) review section C. Later, with the dedicated host and the
+   no R2 — ask before any R2 work); ~~(2) the queue and the worklists~~ (08/10/2026, c9246a0: active complete, latest 20 closed; rerun met p95 < 1 s); ~~(3) the lab worklist query; (4) review section C~~ (09/10/2026, see "Done (pilot-readiness sprint, the rest)"). Later, with the dedicated host and the
    product's own domain: `HOSTING_REGION` near Bangladesh, off-server backups, GHCR images, error tracking, smaller
    api / tools images.
 9. **Phase 4 (Journeys D and E):** ~~D1–D3~~ (09/10/2026, ADR 0020) · ~~D4–D6~~ (09/10/2026, ADR 0021) · ~~E1–E2~~ (09/10/2026, ADR 0022) ·
-   ~~E3~~ (10/10/2026, ADR 0023) · ~~E4~~ (10/10/2026, ADR 0023); the desk-proof confirm screen.
+   ~~E3~~ (10/10/2026, ADR 0023) · ~~E4~~ (10/10/2026, ADR 0023); ~~the desk-proof confirm screen~~ (12/10/2026, ADR 0024) — Phase 4 complete.
 Prompt texts for each are in `docs/CLAUDE-CODE-GUIDE.md`.
 
 ## Conventions worth repeating

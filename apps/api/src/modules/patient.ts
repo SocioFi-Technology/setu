@@ -4,13 +4,14 @@
    patient read and write is audited in the facility's tenant (actor person:<id>, basis patient). */
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import type { AccessLog, ClaimItem, ClaimList, ClaimProofRequest, ClaimProofResponse, PatientMe, PatientReportView, Timeline, TimelineItem } from "@setu/contracts";
-import { CLAIM, CLAIM_MAX_TRIES, claimAttempt, normalizeClaimCode, transition, type ClaimState } from "@setu/domain";
+import type { AccessLog, ClaimItem, ClaimList, ClaimProofRequest, ClaimProofResponse, ClaimQrRequest, PatientMe, PatientReportView, Timeline, TimelineItem } from "@setu/contracts";
+import { CLAIM, CLAIM_MAX_TRIES, claimAttempt, deskCodeUntil, normalizeClaimCode, readClaimQr, transition, type ClaimState } from "@setu/domain";
 import type { Tx } from "@setu/db";
 import { counters } from "../adapters/counters.js";
 import { messenger } from "../adapters/messaging/index.js";
 import { err } from "../errors.js";
 import { requirePerson, type PersonSession } from "../plugins/patientSession.js";
+import { deskCodeHash, newDeskCode } from "./deskClaim.js";
 import { copyPdf } from "./documents.js";
 import { itemFacts, markNoticesRead, recordsIn, reportCodes, reportIn, trendIn, unreadNotices, withTrend } from "./records.js";
 
@@ -106,13 +107,15 @@ export async function patientMe(req: FastifyRequest): Promise<PatientMe> {
 }
 
 /* ── claims ── */
-type ClaimRow = { id: string; status: string; method: string | null; tries: number; lockedUntil: Date | null };
+type ClaimRow = { id: string; status: string; method: string | null; tries: number; lockedUntil: Date | null; deskCodeUntil?: Date | null; deskRefusedAt?: Date | null };
 function claimItem(c: ClaimRow, fac: { facilityEn: string | null; facilityBn: string | null; lastMonth: string }, now: Date): ClaimItem {
   let status = dash<ClaimItem["status"]>(c.status), tries = c.tries, lockedUntil = c.lockedUntil;
   // a lock past its 24 hours shows as open again (the next attempt lifts it — claimAttempt)
   if (status === "locked" && lockedUntil && lockedUntil.getTime() <= now.getTime()) { status = "proof-pending"; tries = 0; lockedUntil = null; }
   const triesLeft = status === "locked" ? 0 : status === "linked" || status === "not-mine" ? 0 : CLAIM_MAX_TRIES - tries;
-  return { id: c.id, ...fac, status, method: (c.method as ClaimItem["method"]) ?? null, triesLeft, lockedUntil: iso(lockedUntil) };
+  const desk = status === "proof-pending" && c.method === "desk";
+  return { id: c.id, ...fac, status, method: (c.method as ClaimItem["method"]) ?? null, triesLeft, lockedUntil: iso(lockedUntil),
+    deskCodeUntil: desk ? iso(c.deskCodeUntil) : null, deskRefused: status === "candidate" && !!c.deskRefusedAt };
 }
 /** One claim per facility with records on the person's phone (made here the first time it is seen) and any the person
     already has; the facility's name and the month of the last visit — nothing else. */
@@ -142,28 +145,38 @@ const claimOf = async (p: PersonSession, claimId: string) => {
   if (!c) throw err(404, "not_found", "পাওয়া যায়নি", "Not found");
   return c;
 };
-/** The code inside a scanned QR: the last 6-character run of the alphabet (the QR carries a URL ending in the code). */
-const codeFromQr = (raw: string) => { const m = raw.toUpperCase().match(/[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}(?=[^A-Z0-9]*$)/); return m ? m[0] : null; };
+const notClaimQr = () => err(400, "not_claim_qr", "এটি সেতু অ্যাপের QR নয় — রসিদে \"সেতু অ্যাপ\" লেখা QR স্ক্যান করুন", "This is not the Setu app QR — scan the QR marked \"Setu app\" on the receipt", { field: "code" });
 const same = (a: string, b: string) => { const x = Buffer.from(a), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); };
 
 export async function proveClaim(req: FastifyRequest, reply: FastifyReply, claimId: string, body: ClaimProofRequest, now = new Date()): Promise<ClaimProofResponse> {
   const p = requirePerson(req);
   const c0 = await claimOf(p, claimId);
+  // ADR 0024: a scanned QR counts only when it is the claim QR of THIS facility — never a try spent on another paper's QR
+  const qr = body.method === "qr" ? readClaimQr(body.code) : null;
+  if (body.method === "qr" && (!qr || qr.tenantId !== c0.tenantId)) throw notClaimQr();
+  const code = body.method === "desk" ? null : body.method === "qr" ? qr!.code : normalizeClaimCode(body.code);
+  if (body.method !== "desk" && !code) throw err(400, "code_format", "কোডটি ৬ অক্ষরের — আবার দেখে লিখুন", "The code has 6 characters — check it and type it again", { field: "code" });
   // review A3-style limit: proofs across every facility, per person, per hour
   if (await counters().incr(`pclaim:${p.personId}`, 3600_000) > PROOFS_PER_HOUR) throw err(429, "rate_limited", "অনেকবার চেষ্টা হয়েছে — পরে আবার করুন", "Too many tries — try again later");
-  const code = body.method === "desk" ? null : body.method === "qr" ? codeFromQr(body.code) : normalizeClaimCode(body.code);
-  if (body.method !== "desk" && !code) throw err(400, "code_format", "কোডটি ৬ অক্ষরের — আবার দেখে লিখুন", "The code has 6 characters — check it and type it again", { field: "code" });
   return personCommand<ClaimProofResponse>(req, reply, c0.tenantId, async (tx) => {
     await tx.$queryRaw`SELECT 1 FROM "PatientClaim" WHERE "id" = ${claimId} FOR UPDATE`;
     const c = (await tx.patientClaim.findUnique({ where: { id: claimId } }))!;
     const facts = { status: dash<ClaimState>(c.status), tries: c.tries, lockedUntil: c.lockedUntil };
     const fac = await facilityOf(tx, c.tenantId, p.phone);
     if (body.method === "desk") {
-      if (facts.status !== "candidate" && facts.status !== "proof-pending") throw err(409, "claim_closed", "এই দাবি আর খোলা নেই", "This claim is no longer open");
-      const status = facts.status === "candidate" ? transition("claim", CLAIM, facts.status, "startProof") : facts.status;
-      const u = await tx.patientClaim.update({ where: { id: c.id }, data: { status: under<DbClaim>(status), method: "desk", statusAt: now } });
+      if (facts.status === "linked" || facts.status === "not-mine") throw err(409, "claim_closed", "এই দাবি আর খোলা নেই", "This claim is no longer open");
+      // a claim locked by wrong codes may still go to the desk (the app offers it): the person is checked in person there
+      const status = facts.status === "candidate" ? transition("claim", CLAIM, facts.status, "startProof") : facts.status === "locked" ? transition("claim", CLAIM, facts.status, "unlock") : facts.status;
+      // ADR 0024: a desk code to show at the reception (a new one each time — the old one stops working); only its hash
+      // is kept, so the app shows it from this answer
+      let deskCode = newDeskCode();
+      for (let n = 0; await tx.patientClaim.findFirst({ where: { tenantId: c.tenantId, deskCodeHash: deskCodeHash(c.tenantId, deskCode), NOT: { id: c.id } }, select: { id: true } }); n++) {
+        if (n > 5) throw err(503, "busy", "আবার চেষ্টা করুন", "Try again");
+        deskCode = newDeskCode();
+      }
+      const u = await tx.patientClaim.update({ where: { id: c.id }, data: { status: under<DbClaim>(status), method: "desk", statusAt: now, tries: 0, lockedUntil: null, deskCodeHash: deskCodeHash(c.tenantId, deskCode), deskCodeUntil: deskCodeUntil(now) } });
       await audit(tx, req, c.tenantId, p, { action: "claim", entity: "PatientClaim", entityId: c.id, detail: { method: "desk", outcome: "desk-pending" } });
-      return { body: { claim: claimItem(u, fac, now), outcome: "desk-pending" as const } };
+      return { body: { claim: claimItem(u, fac, now), outcome: "desk-pending" as const, deskCode } };
     }
     // the code against this facility's records on the person's phone (every one compared, constant time)
     const pts = await tx.patient.findMany({ where: { phone: p.phone, linkedToId: null }, select: { id: true, claimCode: true } });
@@ -177,7 +190,7 @@ export async function proveClaim(req: FastifyRequest, reply: FastifyReply, claim
     }
     const linked = a.status === "linked";
     const u = await tx.patientClaim.update({ where: { id: c.id }, data: {
-      status: under<DbClaim>(a.status), tries: a.tries, lockedUntil: a.lockedUntil, method: body.method, statusAt: now,
+      status: under<DbClaim>(a.status), tries: a.tries, lockedUntil: a.lockedUntil, method: body.method, statusAt: now, deskCodeHash: null, deskCodeUntil: null,
       ...(linked ? { patientId: match, linkedAt: now } : {}),
     } });
     if (linked) await tx.provenance.create({ data: { tenantId: c.tenantId, targetType: "Patient", targetId: match!, activity: "patient-app-claim", agentId: `person:${p.personId}`, onBehalfOf: `person:${p.personId}`, recorded: now, source: "patient_reported", detail: { method: body.method, claimId: c.id } as object } });
@@ -185,6 +198,16 @@ export async function proveClaim(req: FastifyRequest, reply: FastifyReply, claim
     await audit(tx, req, c.tenantId, p, { action: "claim", entity: "PatientClaim", entityId: c.id, patientId: match, detail: { method: body.method, outcome, triesLeft: a.triesLeft } });
     return { body: { claim: claimItem(u, fac, now), outcome } };
   });
+}
+/** ADR 0024: the claim QR (from the in-app scanner or the phone's camera): the person's claim at the facility it names */
+export async function proveByQr(req: FastifyRequest, reply: FastifyReply, b: ClaimQrRequest, now = new Date()): Promise<ClaimProofResponse> {
+  const p = requirePerson(req);
+  const qr = readClaimQr(b.qr);
+  if (!qr) throw notClaimQr();
+  const { personClaims } = await import("@setu/db");
+  const c = (await personClaims(p.personId)).find((x) => x.tenantId === qr.tenantId);
+  if (!c) throw err(404, "no_records_here", "এই প্রতিষ্ঠানে আপনার ফোন নম্বরে কোনো রেকর্ড নেই", "This facility has no records on your phone number");
+  return proveClaim(req, reply, c.id, { method: "qr", code: b.qr }, now);
 }
 export async function notMine(req: FastifyRequest, reply: FastifyReply, claimId: string, now = new Date()): Promise<ClaimItem> {
   const p = requirePerson(req);
@@ -194,7 +217,7 @@ export async function notMine(req: FastifyRequest, reply: FastifyReply, claimId:
     const c = (await tx.patientClaim.findUnique({ where: { id: claimId } }))!;
     const from = dash<ClaimState>(c.status);
     if (from !== "candidate" && from !== "proof-pending") throw err(409, "claim_closed", "এই দাবি আর খোলা নেই", "This claim is no longer open");
-    const u = await tx.patientClaim.update({ where: { id: c.id }, data: { status: under<DbClaim>(transition("claim", CLAIM, from, "notMine")), statusAt: now } });
+    const u = await tx.patientClaim.update({ where: { id: c.id }, data: { status: under<DbClaim>(transition("claim", CLAIM, from, "notMine")), statusAt: now, deskCodeHash: null, deskCodeUntil: null } });
     // the facility learns of it from this row (its audit log): records on its patient's phone someone says are not theirs
     await audit(tx, req, c.tenantId, p, { action: "claim", entity: "PatientClaim", entityId: c.id, detail: { outcome: "not-mine" } });
     return { body: claimItem(u, await facilityOf(tx, c.tenantId, p.phone), now) };

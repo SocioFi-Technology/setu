@@ -1,7 +1,7 @@
 /* ADR 0020 — claiming a facility's records in the patient app: the code as typed, and one attempt against the CLAIM
    machine (3 wrong → locked 24 h; walkthrough issue #3: only the right code links). */
 import { describe, expect, it } from "vitest";
-import { CLAIM_CODE_ALPHABET, claimAttempt, normalizeClaimCode, isClaimCode } from "./claim.js";
+import { CLAIM_CODE_ALPHABET, DESK_CODE_DAYS, claimAttempt, claimQrUrl, deskCodeUntil, deskDecision, normalizeClaimCode, isClaimCode, readClaimQr } from "./claim.js";
 
 const now = new Date("2026-10-09T08:00:00Z");
 const at = (h: number) => new Date(now.getTime() + h * 3600_000);
@@ -50,5 +50,35 @@ describe("claimAttempt — one proof attempt", () => {
   it("a closed claim (linked, not mine) takes no attempt", () => {
     expect(claimAttempt({ status: "linked", tries: 0, lockedUntil: null }, true, now)).toMatchObject({ refused: "closed" });
     expect(claimAttempt({ status: "not-mine", tries: 0, lockedUntil: null }, true, now)).toMatchObject({ refused: "closed" });
+  });
+});
+
+describe("ADR 0024 — the reception desk", () => {
+  const waiting = { status: "proof-pending" as const, method: "desk", deskCodeUntil: deskCodeUntil(now) };
+  it("a desk code lasts 7 days", () => {
+    expect(DESK_CODE_DAYS).toBe(7);
+    expect(deskCodeUntil(now)).toEqual(at(7 * 24));
+  });
+  it("confirm links; refuse sends the claim back so the patient chooses again", () => {
+    expect(deskDecision(waiting, "confirm", now)).toEqual({ status: "linked" });
+    expect(deskDecision(waiting, "refuse", now)).toEqual({ status: "candidate" });
+  });
+  it("only a claim waiting for the desk, with its code still valid", () => {
+    expect(deskDecision({ ...waiting, method: "code" }, "confirm", now)).toEqual({ refused: "not-waiting" });
+    expect(deskDecision({ ...waiting, status: "linked" }, "confirm", now)).toEqual({ refused: "not-waiting" });
+    expect(deskDecision({ ...waiting, deskCodeUntil: at(-1) }, "confirm", now)).toEqual({ refused: "expired" });
+    expect(deskDecision({ ...waiting, deskCodeUntil: null }, "refuse", now)).toEqual({ refused: "expired" });
+  });
+});
+
+describe("ADR 0024 — the claim QR", () => {
+  it("carries the facility and the code to the app's claim page; read back exactly", () => {
+    const url = claimQrUrl("https://setu.example.com/patient/", "t_green", "7K4Q2M");
+    expect(url).toBe("https://setu.example.com/patient/claim?t=t_green&c=7K4Q2M");
+    expect(readClaimQr(url)).toEqual({ tenantId: "t_green", code: "7K4Q2M" });
+  });
+  it("a document's verify QR, a bare code or any other link is not a claim QR (no try is spent on it)", () => {
+    for (const bad of ["https://setu.example.com/verify/rc/7K4Q2M", "7K4Q2M", "https://x.example/claim?c=7K4Q2M", "https://x.example/claim?t=t_a&c=OOOOOO", "https://x.example/other?t=t_a&c=7K4Q2M", "not a url"])
+      expect(readClaimQr(bad), bad).toBeNull();
   });
 });

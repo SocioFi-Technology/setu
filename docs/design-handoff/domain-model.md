@@ -62,7 +62,7 @@ Discharge   initiated → summary-signed → pharmacy-cleared → final-bill →
 MAR dose    scheduled → due → given | held(reason) | refused(reason) | missed(reason)
 Escalation  raised(MEWS≥5) → doctor-informed(logged: who, when, instruction) → resolved
 Consent     proposed → active → revoked | expired      ; emergency: active ≤60 min → ended → reviewed
-Claim       candidate → proof-pending(code | QR | desk) → linked | not-mine ; 3 wrong codes → locked 24 h
+Claim       candidate → proof-pending(code | QR | desk) → linked | not-mine ; 3 wrong codes → locked 24 h ; desk: the reception confirms → linked, or cannot verify → candidate (ADR 0024)
 Referral    draft → sent → accepted/scheduled → seen → note-returned → acknowledged | returned
 OT case     requested → scheduled → sign-in → time-out → sign-out → closed | cancelled
 Shift       open → counted → closed(variance reason) → approved | recount

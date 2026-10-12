@@ -112,5 +112,6 @@
   "panel_load_failed": ["প্রিন্টের তথ্য আনা যায়নি", "Could not load the print state"],
   "app_code": ["সেতু অ্যাপে আপনার রেকর্ড দেখার কোড", "Code to see your records in the Setu app"],
   "patient_copy": ["রোগীর কপি — Setu অ্যাপ থেকে · প্রতিষ্ঠানের প্রিন্ট নয়", "Patient copy — from the Setu app · not a facility print"],
-  "shared_copy": ["রোগীর অনুমতিতে Setu-র মাধ্যমে দেখা কপি", "Copy seen through the patient's share on Setu"]
+  "shared_copy": ["রোগীর অনুমতিতে Setu-র মাধ্যমে দেখা কপি", "Copy seen through the patient's share on Setu"],
+  "app_qr": ["সেতু অ্যাপে রেকর্ড যুক্ত করতে স্ক্যান করুন", "Scan to add these records in the Setu app"]
 }

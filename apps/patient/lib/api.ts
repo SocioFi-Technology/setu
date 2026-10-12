@@ -33,6 +33,8 @@ export const patient = {
   claims: () => call<ClaimList>("GET", "/v1/patient/claims"),
   /** `key`: one per attempt, so a retried request after a dropped network never counts as a second wrong code */
   prove: (id: string, body: ClaimProofRequest, key: string) => call<ClaimProofResponse>("POST", `/v1/patient/claims/${encodeURIComponent(id)}/proof`, body, key),
+  /** ADR 0024: the claim QR (its link as scanned) */
+  proveQr: (qr: string, key: string) => call<ClaimProofResponse>("POST", "/v1/patient/claims/qr", { qr }, key),
   notMine: (id: string, key: string) => call<ClaimItem>("POST", `/v1/patient/claims/${encodeURIComponent(id)}/not-mine`, {}, key),
   timeline: (filter: string) => call<Timeline>("GET", "/v1/patient/timeline?filter=" + encodeURIComponent(filter)),
   /* D4–D6 (ADR 0021) */

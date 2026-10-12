@@ -7,6 +7,7 @@ import { Button, Callout, Card, Icon, PageState, Pill, useToast } from "@setu/ui
 import { ApiFailure, fd } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { PREFILL_KEY, bannerOf, flagsOf, initials, useLabels, useT } from "./common";
+import { DeskClaimDialog } from "./DeskClaim";
 
 export function FrontDeskSearch() {
   const s = useSession(); const T = useT(); const L = useLabels(); const router = useRouter(); const toast = useToast();
@@ -17,6 +18,8 @@ export function FrontDeskSearch() {
   /** -1: nobody chosen yet. The banner and Enter act only on a patient the receptionist picked (never a default). */
   const [sel, setSel] = useState(-1);
   const [busy, setBusy] = useState(false);
+  /** ADR 0024: "Link Setu app" — the patient's desk code from the app */
+  const [linking, setLinking] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const seq = useRef(0);
 
@@ -90,7 +93,9 @@ export function FrontDeskSearch() {
           <Pill tone="neu">{modeLabel}</Pill>
         </div>
         <Button icon="user-plus" kbd="Alt N" onClick={() => register()}>{T("new_patient")}</Button>
+        <Button icon="smartphone" onClick={() => setLinking(true)} data-testid="open-desk-claim">{T("desk_open")}</Button>
       </div>
+      {linking && <DeskClaimDialog onClose={() => { setLinking(false); input.current?.focus(); }} />}
       <span className="t-small t-muted">{T("hint_keys")}</span>
 
       {!q.trim() && <PageState icon="search" title={T("type_to_search_title")} body={T("type_to_search_body")} />}

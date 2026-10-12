@@ -6,7 +6,7 @@
 import { randomBytes } from "node:crypto";
 import type { DocPrintRequest, DocPrintView, DsVerifyResponse, LrVerifyResponse, RxVerifyResponse } from "@setu/contracts";
 import type { Tx } from "@setu/db";
-import { copyCheck, labReportPrintBlockers, patientAgeYears, rxPrintBlockers, rxVerifyStatus, type DocState, type PrintBlocker } from "@setu/domain";
+import { claimQrUrl, copyCheck, labReportPrintBlockers, patientAgeYears, rxPrintBlockers, rxVerifyStatus, type DocState, type PrintBlocker } from "@setu/domain";
 import { storage } from "../adapters/storage.js";
 import { config } from "../config.js";
 import { err } from "../errors.js";
@@ -72,6 +72,7 @@ async function rxInput(tx: Tx, s: SessionData, c: Rx, mode: Mode, paper: Paper, 
     medicines: c.medications.map((m) => ({ brand: m.brand, generic: m.generic, strength: m.strength, form: m.form, dose: m.dose, meal: m.meal, days: m.days, note: m.note, sample: m.sample })),
     replaced: c.status === "superseded" ? "superseded" : c.status === "entered_in_error" ? "withdrawn" : null,
     advice: sec.advice ?? "", followUp: sec.followUp ?? "", verify, print, claimCode: c.patient.claimCode,
+    claimQrUrl: c.patient.claimCode ? claimQrUrl(config.patientAppUrl, s.tenantId, c.patient.claimCode) : null,
   });
 }
 

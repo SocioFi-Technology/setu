@@ -2,7 +2,7 @@
    nav uses), runs in one transaction (command/query) under RLS, and audits what it reveals or changes. */
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import {
-  CreateVisitRequest, MatchDecisionRequest, PatientSearchQuery, QueueActionRequest, RegisterRequest, RegistrationInput, UndoRequest, UnlinkRequest,
+  CreateVisitRequest, DeskClaimConfirm, DeskCodeBody, MatchDecisionRequest, type DeskClaimResult, type DeskClaimView, PatientSearchQuery, QueueActionRequest, RegisterRequest, RegistrationInput, UndoRequest, UnlinkRequest,
   type CreateVisitResponse, type MatchDecisionResponse, type MatchPreviewResponse, type PatientMatches, type ReviewOutcomeResponse, type ReviewQueueResponse, type PatientSearchResponse, type QueueItem, type QueueResponse, type RegisterResponse,
 } from "@setu/contracts";
 import { authorize, dhakaDay, format, validateRegistration } from "@setu/domain";
@@ -11,6 +11,7 @@ import { err, forbidden } from "../errors.js";
 import {
   createVisit, decide, draftToMatchRecord, findCandidates, keepOverride, patientMatches, toPreviewCandidate, queueAction, queueBoard, registerPatient, reviewQueue, searchPatients, toSummary, undoDecision, unlinkPatient,
 } from "../modules/frontdesk.js";
+import { deskConfirm, deskLookup, deskRefuse } from "../modules/deskClaim.js";
 import { requireSession } from "../plugins/session.js";
 
 /** Allowed when the session may use any of the named front desk screens. */
@@ -32,6 +33,24 @@ function requireAdmin(req: FastifyRequest) {
 }
 
 export async function frontDeskRoutes(app: FastifyInstance) {
+  /* ── ADR 0024: "Link Setu app" — the reception confirms a patient-app claim in person (the desk code from the app) ──
+     POST, so the code never sits in a URL or an access log */
+  app.post("/v1/claims/desk/lookup", async (req): Promise<DeskClaimView> => {
+    requireScreen(req, "search");
+    const b = DeskCodeBody.parse(req.body);
+    return query(req, (tx, s) => deskLookup(tx, s, b.code));
+  });
+  app.post("/v1/claims/desk/confirm", async (req, reply): Promise<DeskClaimResult> => {
+    requireScreen(req, "search");
+    const b = DeskClaimConfirm.parse(req.body);
+    return command(req, reply, (tx, s) => deskConfirm(tx, s, b));
+  });
+  app.post("/v1/claims/desk/refuse", async (req, reply): Promise<DeskClaimResult> => {
+    requireScreen(req, "search");
+    const b = DeskCodeBody.parse(req.body);
+    return command(req, reply, (tx, s) => deskRefuse(tx, s, b.code));
+  });
+
   /* Duplicate-review queue: open reviews and "linked with override" links awaiting an admin. */
   app.get("/v1/reviews/duplicates", async (req): Promise<ReviewQueueResponse> => {
     requireScreen(req, "match");

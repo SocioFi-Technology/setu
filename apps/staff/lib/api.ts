@@ -3,7 +3,7 @@ import type {
   WardList, WardBoard, WardPatientView, WardVitalsRequest, WardVitalsResponse, Escalation, NursingNoteView, MarView, DoseRequest, WitnessList, RoundWorklist, RoundView, SaveRoundRequest, IndentCreate, IndentView, IndentList, IndentIssueRequest, WardStock, BedMoveRequest, WristbandView, BatchLabels, IoView, IoEntryRequest, IoEntryView, CareTaskCreate, CareTaskList, WardHandover, HandoverView, HandoverPatientUpdate,
   AdmissionList, AdmissionView, AdmitRequest, BedActionRequest, BedBoard, BedView, ErArrivalRequest, ErArrivalResponse, ErAssignRequest, ErBoard, ErBoardItem, ErDispositionRequest, ErTriageRequest, ErVisitView,
   RefundableView, RefundRequest, RefundView, RefundDecisionRequest, RefundPayRequest, RefundReleaseRequest, RefundPayResponse, RefundList, RefundVoucherView, RefundVoucherPrintResponse, ReconcileRefundRequest, ResaleRequest,
-  SharedList, SharedRecords, SharedReportView, NetworkHistory, AccessRequestCreate, AccessRequestView, PortableList, PortableOrderView, CentreOffers, ChooseCentreRequest, CentreDecisionRequest,
+  DeskClaimView, DeskClaimConfirm, DeskClaimResult, SharedList, SharedRecords, SharedReportView, NetworkHistory, AccessRequestCreate, AccessRequestView, PortableList, PortableOrderView, CentreOffers, ChooseCentreRequest, CentreDecisionRequest,
   FacilityView, FacilityUpdate, SettingsUpdate, UserList, UserView, UserCreate, UserCredentialResponse, PriceList, PriceCreate, PriceHistory, AuditPage, AuditQuery,
   DispenseQueue, DispenseRequest, DispenseView, OtcCreateRequest, OtcView, RxPhotoRequest, StockList, SupplierList, SupplierLedger, SupplierPaymentRequest,
   PurchaseOrderList, PurchaseOrderView, GoodsReceiptView, GrnLineRequest, StockCountView, CountList, PharmacyApprovals, TransferRequest,
@@ -58,6 +58,10 @@ async function write<T>(method: string, path: string, body: unknown, label: stri
 }
 
 export const fd = {
+  /* ADR 0024: "Link Setu app" at the reception (POST — the code stays out of URLs) */
+  deskLookup: (code: string) => call<DeskClaimView>("POST", "/v1/claims/desk/lookup", { code }),
+  deskConfirm: (body: DeskClaimConfirm, key: string) => call<DeskClaimResult>("POST", "/v1/claims/desk/confirm", body, key),
+  deskRefuse: (code: string, key: string) => call<DeskClaimResult>("POST", "/v1/claims/desk/refuse", { code }, key),
   search: (q: string) => call<PatientSearchResponse>("GET", "/v1/patients/search?q=" + encodeURIComponent(q)),
   matches: (id: string) => call<PatientMatches>("GET", `/v1/patients/${encodeURIComponent(id)}/matches`),
   preview: (draft: RegistrationInput) => call<MatchPreviewResponse>("POST", "/v1/patients/match-preview", draft),

@@ -2766,6 +2766,14 @@ model PatientClaim {
   patientId   String?
   linkedAt    DateTime?
   statusAt    DateTime    @default(now())
+  /// ADR 0024: the desk code's hash (the app shows the code; 7 days) and the reception's confirmation
+  deskCodeHash  String?
+  deskCodeUntil DateTime?
+  /// nid | birth-reg — the document checked (its number is not copied)
+  deskDocument  String?
+  deskById      String?
+  deskAt        DateTime?
+  deskRefusedAt DateTime?
   createdAt   DateTime    @default(now())
 
   @@unique([tenantId, personId])

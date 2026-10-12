@@ -7,7 +7,9 @@ import { useLang } from "../lib/lang";
 export default function Home() {
   const router = useRouter(); const { T } = useLang();
   useEffect(() => {
-    patient.me().then((m) => router.replace(m.counts.linked === 0 && m.counts.toClaim > 0 ? "/claim" : "/timeline")).catch(() => router.replace("/timeline"));
+    // a claim QR opened before the sign-in waits on the claim screen (ADR 0024)
+    let qr = false; try { qr = !!sessionStorage.getItem("setu.claimqr"); } catch {}
+    patient.me().then((m) => router.replace(qr || (m.counts.linked === 0 && m.counts.toClaim > 0) ? "/claim" : "/timeline")).catch(() => router.replace("/timeline"));
   }, [router]);
   return <div className="pa"><main className="pa-main"><p className="pa-sub">{T("loading")}</p></main></div>;
 }
