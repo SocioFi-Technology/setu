@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import type { DashboardView, DrillView } from "@setu/contracts";
 import { format } from "@setu/domain";
 import { fill } from "@setu/i18n";
-import { Button, Callout, Card, Dialog, Icon, PageState, Pill, Segmented } from "@setu/ui";
+import { Button, Callout, Card, Icon, PageState, Pill, Segmented, Drawer } from "@setu/ui";
 import { owner } from "../../lib/api";
 import { useSession } from "../../lib/session";
 
@@ -236,8 +236,8 @@ function DrillDialog({ period, what, onClose }: { period: Period; what: DrillVie
   const href = (l: NonNullable<DrillView["rows"][number]["link"]>) => l.kind === "invoice" ? `/m/bill/opd?inv=${encodeURIComponent(l.id)}` : l.kind === "receipt" ? `/m/bill/receipt?id=${encodeURIComponent(l.id)}` : l.kind === "shift" ? "/m/bill/shift" : l.kind === "refund" ? `/m/bill/refund?rf=${encodeURIComponent(l.id)}` : l.kind === "count" ? `/m/ph/count?id=${encodeURIComponent(l.id)}`
     : l.kind === "ipd-bill" ? `/m/bill/ipd?adm=${encodeURIComponent(l.id)}` : l.kind === "ipd-summary" ? `/m/ipd/summary?adm=${encodeURIComponent(l.id)}` : null;
   return (
-    <Dialog open onClose={onClose} label={title} width={760}>
-      <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10, maxHeight: "80vh", overflow: "auto" }} data-testid="drill" data-what={what}>
+    <Drawer open onClose={onClose} label={title} width={720}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }} data-testid="drill" data-what={what}>
         <span style={{ display: "flex", alignItems: "center", gap: 8 }}><b className="t-h3">{title}</b><span style={{ marginLeft: "auto" }} /><Button size="sm" onClick={onClose}>{O("close")}</Button></span>
         <span className="t-small t-muted"><Icon name="eye" size={12} /> {O("drill_logged")}</span>
         {failed && <Callout tone="warn" icon="triangle-alert">{O("error_generic")}</Callout>}
@@ -267,6 +267,6 @@ function DrillDialog({ period, what, onClose }: { period: Period; what: DrillVie
           </>
         ))}
       </div>
-    </Dialog>
+    </Drawer>
   );
 }

@@ -89,3 +89,19 @@ wave is shippable on its own; the app stays usable between waves (old and new sc
   timeline cards (mist icon tiles; unread with the bar), the pine "records to claim" card, tabs with the bar.
 - Tests run against a production build of the staff app (`.next-prod`; the dev server was OOM-killed on this machine);
   the four specs that need the dev-only gateway / SMS controls run against `next dev`.
+
+## Task list — second pass (Kamrul 13/10/2026: commit after each pass, then the next, until all are done; push only at the end)
+Each pass: rebuild the screens' bodies on the kit (panels, list ⇄ detail, key–value grids, checklists, drawers),
+screenshots, its journeys green on a production build (dev-only gateway/SMS specs on `next dev`), commit, next pass.
+- [x] P0 · Nav sections distinguishable; type one step smaller (8b5db7a, 436bdb3)
+- [x] P1 · Side drawer for previews and documents (draft print preview, print panel, receipts, vouchers, IPD receipts and
+      interim bill, owner drill-down)
+- [ ] P2 · Billing and money: OPD worklist + bill, payment, receipt, refunds, shift close, approvals, reconciliation,
+      packages, IPD running/final bill; owner dashboard
+- [ ] P3 · Lab: worklists, collection, accession, result entry, verification, report, delivery
+- [ ] P4 · Pharmacy: dispense, OTC, stock, purchase / goods received, count, indents, approvals
+- [ ] P5 · ER and IPD: triage board, orders, admission + bed picker, bed map, transfer, rounds, discharge, summary
+- [ ] P6 · Nursing: ward board, vitals / NEWS2, MAR, I/O and notes, handover
+- [ ] P7 · Admin and Chartis Link: wizard, users, masters, audit; network history, portable lab, shared records
+- [ ] P8 · Phones: doctor app screens; Chartis Passport tests, report, share, claim
+- [ ] P9 · Close: full suite, HANDOVER + plan, the hosted Claude Design prototype, then ask Kamrul before pushing

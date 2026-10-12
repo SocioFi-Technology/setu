@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ConsultationView, TestList, VitalsView } from "@setu/contracts";
 import { parseComplaint, signBlockers, type SectionKey } from "@setu/domain";
-import { Button, Callout, Card, Dialog, Icon, PageState, Pill, Segmented, useToast } from "@setu/ui";
+import { Button, Callout, Card, Dialog, Icon, PageState, Pill, Segmented, useToast, Drawer } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, cons, vitals as vitalsApi } from "../../lib/api";
 import { deviceDraft, dropDeviceDraft, flush, saveDeviceDraft, type DeviceDraft } from "../../lib/outbox";
@@ -337,9 +337,9 @@ function Editor({ initial, onView }: { initial: ConsultationView; onView: (v: Co
         )}
       </div>
       {preview && (
-        <Dialog open onClose={() => setPreview(false)} label={C("print_preview")} width={760}>
-          <div style={{ padding: 16, maxHeight: "80vh", overflow: "auto" }}><PrintPanel kind="rx" id={id} compact /></div>
-        </Dialog>
+        <Drawer open onClose={() => setPreview(false)} label={C("print_preview")} width={nav.phone ? 420 : 820}>
+          <PrintPanel kind="rx" id={id} compact={nav.phone} embed={!nav.phone} />
+        </Drawer>
       )}
       {signing && (
         <SignSheet view={view} draft={draft} form={form} rev={() => revRef.current} ensureSaved={ensureSaved} onClose={() => { setSigning(false); void refresh().catch(() => {}); }}

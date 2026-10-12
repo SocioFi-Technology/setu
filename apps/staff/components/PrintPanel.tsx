@@ -7,13 +7,14 @@ import { useCallback, useEffect, useState } from "react";
 import type { DocPrintView } from "@setu/contracts";
 import { format } from "@setu/domain";
 import { fill } from "@setu/i18n";
-import { Button, Callout, Card, Segmented, useToast } from "@setu/ui";
+import { Button, Callout, Card, DocFrame, Drawer, Segmented, useToast } from "@setu/ui";
 import { ApiFailure, docs, type DocKindT } from "../lib/api";
 import { useSession } from "../lib/session";
 
 const REASONS = ["lost", "jam", "copy"] as const;
 
-export function PrintPanel({ kind, id, compact = false }: { kind: DocKindT; id: string; compact?: boolean }) {
+/** embed: the panel already sits in a drawer (the draft's print preview) — the preview and the printed copy show inline */
+export function PrintPanel({ kind, id, compact = false, embed = false }: { kind: DocKindT; id: string; compact?: boolean; embed?: boolean }) {
   const s = useSession(); const toast = useToast();
   const P = (key: string, vars: Record<string, string | number> = {}) => fill(s.t("printApp", key), Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, typeof v === "number" ? s.n(v) : v])));
   const [v, setV] = useState<DocPrintView | null>(null);
@@ -24,6 +25,8 @@ export function PrintPanel({ kind, id, compact = false }: { kind: DocKindT; id: 
   const [reason, setReason] = useState<(typeof REASONS)[number] | "">("");
   const [busy, setBusy] = useState(false);
   const [shown, setShown] = useState<string | null>(null);
+  // plan 2026-10-13 (Kamrul): previews open in a side drawer, not inline
+  const [drawer, setDrawer] = useState<"preview" | "pdf" | null>(null);
   const [key, setKey] = useState(() => crypto.randomUUID());
   const load = useCallback(async () => { try { setV(await docs.view(kind, id)); setFailed(false); } catch { setFailed(true); } }, [kind, id]);
   useEffect(() => { void load(); }, [load]);
@@ -74,19 +77,24 @@ export function PrintPanel({ kind, id, compact = false }: { kind: DocKindT; id: 
       ))}
       {blocked === "draft_not_printable" && <Button icon="printer" data-testid="doc-print" disabled>{P("ui_print")}</Button>}
       {/* a phone's browser does not show a PDF inside a page (hands-on test A12–A13): the compact panel opens it */}
-      {shown ? (
-        <>
-          <a href={docs.pdfSrc(shown)} target="_blank" rel="noreferrer" data-testid="doc-open-pdf" className={compact ? "btn btn-primary" : undefined} style={compact ? { justifyContent: "center" } : undefined}>{P("ui_open")}</a>
-          {!compact && <iframe title={P("ui_title")} src={docs.pdfSrc(shown)} style={{ width: "100%", height: 640, border: "1px solid var(--border-subtle)" }} />}
-        </>
+      {embed ? (shown
+        ? <><a href={docs.pdfSrc(shown)} target="_blank" rel="noreferrer" data-testid="doc-open-pdf" className="btn">{P("ui_open")}</a><DocFrame title={P("ui_view_printed")} src={docs.pdfSrc(shown)} /></>
+        : <DocFrame title={P("ui_preview")} data-testid="doc-preview" src={docs.previewSrc(kind, id, paper, lang)} />
+      ) : shown ? (
+        <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {!compact && <Button icon="eye" data-testid="doc-view-pdf" onClick={() => setDrawer("pdf")}>{P("ui_view_printed")}</Button>}
+          <a href={docs.pdfSrc(shown)} target="_blank" rel="noreferrer" data-testid="doc-open-pdf" className={compact ? "btn btn-primary" : "btn"} style={compact ? { justifyContent: "center", flex: 1 } : undefined}>{P("ui_open")}</a>
+        </span>
       ) : compact ? (
         <a href={docs.previewSrc(kind, id, paper, lang)} target="_blank" rel="noreferrer" data-testid="doc-preview" className="btn" style={{ justifyContent: "center" }}>{P("ui_open_preview")}</a>
       ) : (
-        <>
-          <span className="t-small t-muted">{P("ui_preview")}</span>
-          <iframe title={P("ui_preview")} data-testid="doc-preview" src={docs.previewSrc(kind, id, paper, lang)} style={{ width: "100%", height: 640, border: "1px solid var(--border-subtle)" }} />
-        </>
+        <Button icon="eye" data-testid="doc-preview" onClick={() => setDrawer("preview")}>{P("ui_show_preview")}</Button>
       )}
+      <Drawer open={drawer !== null} onClose={() => setDrawer(null)} label={drawer === "pdf" ? P("ui_view_printed") : P("ui_preview")}
+        href={drawer === "pdf" && shown ? docs.pdfSrc(shown) : docs.previewSrc(kind, id, paper, lang)} hrefLabel={P("ui_new_tab")}>
+        {drawer && <DocFrame title={drawer === "pdf" ? P("ui_title") : P("ui_preview")} data-testid={drawer === "pdf" ? "doc-pdf-frame" : "doc-preview-frame"}
+          src={drawer === "pdf" && shown ? docs.pdfSrc(shown) : docs.previewSrc(kind, id, paper, lang)} />}
+      </Drawer>
       {v.verifyUrl && <span className="t-small t-muted">{P("ui_verify")}: <a href={v.verifyUrl} target="_blank" rel="noreferrer" data-testid="doc-verify-url">{v.verifyUrl}</a></span>}
       <span style={{ display: "flex", flexDirection: "column", gap: 2 }} data-testid="doc-print-log">
         <span className="t-small"><b>{P("ui_log")}</b></span>

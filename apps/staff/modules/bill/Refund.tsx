@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { RefundableView, RefundList, RefundVoucherView, RefundView } from "@setu/contracts";
 import { PAYOUT_WAYS, RECIPIENT_RELATIONS, REFUND_CATEGORIES, RETURN_CATEGORIES, isWallet, paisaToInput, parseTaka, partOfLine, returnSplit, sum, type CashReason, type PayoutWay, type RefundCategory } from "@setu/domain";
 import { Button, Callout, Card, PageState, Pill, Segmented, useToast, type Tone } from "@setu/ui";
+import { PdfDrawer } from "../../components/PdfDrawer";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, refunds as api } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -424,7 +425,7 @@ function VoucherPanel({ refundId }: { refundId: string }) {
         </label>
       )}
       <span><Button variant={printed ? "default" : "primary"} icon="printer" data-testid={printed ? "voucher-reprint" : "voucher-print"} disabled={busy || !s.online || (printed && !reason)} onClick={() => void print()}>{busy ? B("waiting_server") : printed ? B("rc_print_duplicate") : B("rc_print")}</Button></span>
-      {shown && <iframe title={v.voucher.number} src={`/api${shown}`} style={{ width: "100%", height: 600, border: "1px solid var(--border-subtle)" }} />}
+      <PdfDrawer src={shown ? `/api${shown}` : null} title={v.voucher.number ?? B("rf_title")} />
       {printed && v.prints.map((p) => (
         <span key={p.id} className="t-small" data-copy={p.copy}>
           {p.copy === 0 ? B("rc_audit_original", { name: M.name(p.printedBy), at: M.dateTime(p.printedAt) }) : B("rc_audit_dup", { n: p.copy, reason: B(`rr_${p.reason}`), name: M.name(p.printedBy), at: M.dateTime(p.printedAt) })}

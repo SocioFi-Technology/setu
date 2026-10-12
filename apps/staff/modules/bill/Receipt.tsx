@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ReceiptList, ReceiptView } from "@setu/contracts";
 import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
+import { PdfDrawer } from "../../components/PdfDrawer";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { bill as api } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -128,12 +129,8 @@ function ReceiptScreen({ id }: { id: string }) {
             </span>
           </Card>
         )}
-        {shown && (
-          <>
-            <a href={`/api${shown}`} target="_blank" rel="noreferrer" data-testid="open-pdf">{B("rc_open_pdf")}</a>
-            <iframe title={r.number} src={`/api${shown}`} style={{ width: "100%", height: 640, border: "1px solid var(--border-subtle)" }} />
-          </>
-        )}
+        {shown && <a href={`/api${shown}`} target="_blank" rel="noreferrer" data-testid="open-pdf">{B("rc_open_pdf")}</a>}
+        <PdfDrawer src={shown ? `/api${shown}` : null} title={r.number ?? B("rc_title")} />
       </Card>
 
       {printed && (

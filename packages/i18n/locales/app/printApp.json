@@ -113,5 +113,8 @@
   "app_code": ["চার্টিস পাসপোর্টে আপনার রেকর্ড দেখার কোড", "Code to see your records in Chartis Passport"],
   "patient_copy": ["রোগীর কপি — চার্টিস পাসপোর্ট থেকে · প্রতিষ্ঠানের প্রিন্ট নয়", "Patient copy — from Chartis Passport · not a facility print"],
   "shared_copy": ["রোগীর অনুমতিতে চার্টিস লিংকের মাধ্যমে দেখা কপি", "Copy seen through the patient's share on Chartis Link"],
-  "app_qr": ["চার্টিস পাসপোর্টে রেকর্ড যুক্ত করতে স্ক্যান করুন", "Scan to add these records in Chartis Passport"]
+  "app_qr": ["চার্টিস পাসপোর্টে রেকর্ড যুক্ত করতে স্ক্যান করুন", "Scan to add these records in Chartis Passport"],
+  "ui_show_preview": ["প্রিভিউ দেখুন", "Preview"],
+  "ui_view_printed": ["প্রিন্ট করা কপি দেখুন", "View the printed copy"],
+  "ui_new_tab": ["নতুন ট্যাবে খুলুন", "Open in a new tab"]
 }

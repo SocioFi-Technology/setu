@@ -11,7 +11,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ChargeDefinitionList, ClassPreviewView, DepositReceiptView, DischargeView, IpdBillList, IpdBillView, IpdLine, InterimPrintList, PackageList } from "@setu/contracts";
 import { parseTaka } from "@setu/domain";
-import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
+import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast, type Tone, Drawer } from "@setu/ui";
+import { PdfDrawer } from "../../components/PdfDrawer";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, bill, discharge, ipdBill } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -282,7 +283,7 @@ function DepositReceiptDialog({ paymentId, onClose }: { paymentId: string; onClo
     catch (e) { toast(E(e), "triangle-alert"); if (renew(e)) key.current = crypto.randomUUID(); } finally { setBusy(false); }
   };
   return (
-    <Dialog open onClose={onClose} label={B("dr_title")} width={720}>
+    <Drawer open onClose={onClose} label={B("dr_title")} width={780}>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 18 }} data-testid="deposit-receipt-dialog">
         {!r ? <span className="t-muted">{B("loading")}</span> : (<>
           <span style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -308,10 +309,10 @@ function DepositReceiptDialog({ paymentId, onClose }: { paymentId: string; onClo
             <Button variant="primary" icon="printer" disabled={busy || !s.online || (prints > 0 && !reason)} onClick={() => void print()} data-testid="deposit-receipt-print">{busy ? B("waiting_server") : prints > 0 ? B("ib_dep_reprint") : B("ib_dep_print")}</Button>
             <Button onClick={onClose}>{B("cancel")}</Button>
           </span>
-          {shown && <iframe title={r.number} src={`/api${shown}`} style={{ width: "100%", height: 480, border: "1px solid var(--border-subtle)" }} />}
+          {shown && <iframe title={r.number} src={`/api${shown}`} className="ck-docframe" />}
         </>)}
       </div>
-    </Dialog>
+    </Drawer>
   );
 }
 
@@ -449,7 +450,7 @@ function InterimCard({ admissionId }: { admissionId: string }) {
       )}
       <span><Button icon="printer" disabled={busy || !s.online || (printed && !reason)} onClick={() => void print()} data-testid="interim-print">{busy ? B("waiting_server") : printed ? B("ib_interim_reprint") : B("ib_interim_print")}</Button></span>
       {last && <span className="t-small t-muted">{last.copy === 0 ? B("rc_audit_original", { name: M.name(last.printedBy), at: M.dateTime(last.printedAt) }) : B("rc_audit_dup", { n: last.copy, reason: B(`rr_${last.reason}`), name: M.name(last.printedBy), at: M.dateTime(last.printedAt) })} · <a href={`/api${last.pdfUrl}`} target="_blank" rel="noreferrer">{B("rc_pdf")}</a></span>}
-      {shown && <iframe title="interim" src={`/api${shown}`} style={{ width: "100%", height: 360, border: "1px solid var(--border-subtle)" }} />}
+      <PdfDrawer src={shown ? `/api${shown}` : null} title={B("ib_interim")} autoOpen />
     </Card>
   );
 }
@@ -595,7 +596,7 @@ function FinalReceiptDialog({ admissionId, onClose }: { admissionId: string; onC
     catch (e) { toast(E(e), "triangle-alert"); if (renew(e)) key.current = crypto.randomUUID(); } finally { setBusy(false); }
   };
   return (
-    <Dialog open onClose={onClose} label={B("fb_receipt")} width={720}>
+    <Drawer open onClose={onClose} label={B("fb_receipt")} width={780}>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 18 }} data-testid="final-receipt-dialog">
         {!r ? <span className="t-muted">{B("loading")}</span> : (<>
           <span style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -619,9 +620,9 @@ function FinalReceiptDialog({ admissionId, onClose }: { admissionId: string; onC
             <Button variant="primary" icon="printer" disabled={busy || !s.online || (prints > 0 && !reason)} onClick={() => void print()} data-testid="final-receipt-print">{busy ? B("waiting_server") : prints > 0 ? B("ib_dep_reprint") : B("ib_dep_print")}</Button>
             <Button onClick={onClose}>{B("cancel")}</Button>
           </span>
-          {shown && <iframe title={r.number} src={`/api${shown}`} style={{ width: "100%", height: 520, border: "1px solid var(--border-subtle)" }} />}
+          {shown && <iframe title={r.number} src={`/api${shown}`} className="ck-docframe" />}
         </>)}
       </div>
-    </Dialog>
+    </Drawer>
   );
 }

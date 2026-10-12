@@ -3,7 +3,7 @@
    filter chips, list ⇄ detail, panels, stat tiles, key–value grids, tabs, checklists, empty / loading states, the
    sticky action bar, token tiles and the sign-in layout. Styles live in styles/chartis.css (.ck-*). Presentation only:
    every component passes data-* / aria props through so screens keep their test hooks. */
-import type { HTMLAttributes, ReactNode } from "react";
+import { useEffect, type HTMLAttributes, type ReactNode } from "react";
 import { Icon } from "./Icon";
 import { ChartisMark } from "./Brand";
 
@@ -192,4 +192,35 @@ export function PublicFrame({ title = "Chartis Health", note, children }: { titl
       {children}
     </div>
   );
+}
+
+/** A side drawer from the right (previews, documents): the screen stays in view behind it; Esc or the scrim closes it.
+   Rendered in place (no portal), like Dialog, so a screen's test hooks around it still find what is inside. */
+export function Drawer({ open, onClose, title, label, width = 760, href, hrefLabel = "Open in new tab", foot, children, ...rest }: {
+  open: boolean; onClose: () => void; title?: ReactNode; label: string; width?: number; href?: string; hrefLabel?: string; foot?: ReactNode; children: ReactNode;
+} & Omit<HTMLAttributes<HTMLDivElement>, "title">) {
+  useEffect(() => {
+    if (!open) return;
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div className="ck-drawer-scrim" onClick={onClose}>
+      <aside role="dialog" aria-modal="true" aria-label={label} className="ck-drawer" style={{ width }} onClick={(e) => e.stopPropagation()} {...rest}>
+        <header className="ck-drawer-head">
+          <b className="ck-drawer-title">{title ?? label}</b>
+          {href && <a className="btn btn-sm" href={href} target="_blank" rel="noreferrer" data-testid="drawer-new-tab"><Icon name="external-link" size={14} />{hrefLabel}</a>}
+          <button type="button" className="btn-icon" aria-label="Close" onClick={onClose}><Icon name="x" size={18} /></button>
+        </header>
+        <div className="ck-drawer-body">{children}</div>
+        {foot && <footer className="ck-drawer-foot">{foot}</footer>}
+      </aside>
+    </div>
+  );
+}
+
+/** A document (PDF or HTML preview) filling a drawer's body. */
+export function DocFrame({ src, title, ...rest }: { src: string; title: string } & HTMLAttributes<HTMLIFrameElement>) {
+  return <iframe className="ck-docframe" src={src} title={title} {...rest} />;
 }
