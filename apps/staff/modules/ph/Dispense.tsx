@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { DispenseLine, DispenseView, InvoiceView } from "@setu/contracts";
 import { fill, t as tr } from "@setu/i18n";
-import { Button, Callout, Card, Dialog, PageState, Pill, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
+import { Button, Callout, Card, Dialog, PageState, Pill, SelectField, TextArea, TextField, useToast, type Tone, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, bill, pharm } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -30,11 +30,10 @@ function Queue() {
   const [q, setQ] = useState<Awaited<ReturnType<typeof pharm.queue>> | null>(null); const [failed, setFailed] = useState(false);
   useEffect(() => { pharm.queue().then(setQ).catch(() => setFailed(true)); }, []);
   if (failed) return <PageState icon="cloud-off" title={P("error_generic")} />;
-  if (!q) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
+  if (!q) return <Skeleton rows={5} label={P("loading")} />;
   return (
     <div data-screen="ph/dispense" style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <ScreenHeader title={P("dispense_title")} />
-      <span className="t-small t-secondary">{P("queue_sub")}</span>
+      <ScreenHeader title={P("dispense_title")} subtitle={P("queue_sub")} />
       {q.items.length === 0 && <PageState icon="pill" title={P("queue_empty")} />}
       {q.items.map((i) => (
         <button key={i.encounter.id} type="button" className="card" data-testid="rx-row" data-encounter={i.encounter.id} data-status={i.status}
@@ -87,7 +86,7 @@ function Visit({ encounterId }: { encounterId: string }) {
 
   const chosen = useMemo(() => (v ? v.lines.filter((l) => picks[l.requestId]?.on && l.remaining > 0) : []), [v, picks]);
   if (failed) return <PageState icon="pill" title={failed === "not_found" ? P("no_prescription") : P("error_generic")} actions={<Button icon="arrow-left" onClick={() => router.push("/m/ph/dispense")}>{P("dispense_title")}</Button>} />;
-  if (!v) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={P("loading")} />;
 
   const set = (id: string, patch: Partial<LinePick>) => setPicks((p) => ({ ...p, [id]: { ...p[id]!, ...patch } }));
   const invalid = chosen.some((l) => { const p = picks[l.requestId]!; const q = toInt(p.qty); return q === null || q <= 0 || q > l.remaining || (p.medicineKey !== l.prescribed.key && p.reason.trim().length < 10); });
@@ -133,8 +132,8 @@ function Visit({ encounterId }: { encounterId: string }) {
 
       {v.lines.map((l) => <LineCard key={l.requestId} l={l} pick={picks[l.requestId]} set={(p) => set(l.requestId, p)} patient={F.name(v.encounter.patient)} onDecline={() => setDeclining(l)} onPrint={l.given.length > 0 && l.label ? () => void print([l]) : undefined} />)}
 
-      <Card style={{ display: "flex", gap: 12, alignItems: "center", padding: 12, flexWrap: "wrap" }}>
-        <Button variant="primary" icon="package-check" data-testid="dispense" disabled={!s.online || busy || !chosen.length || invalid} onClick={dispense}>
+      <Card className="ck-stickybar" style={{ display: "flex", gap: 12, alignItems: "center", padding: 12, flexWrap: "wrap" }}>
+        <Button variant="primary" size="lg" icon="package-check" data-testid="dispense" disabled={!s.online || busy || !chosen.length || invalid} onClick={dispense}>
           {busy ? P("saving") : P("dispense_n", { n: chosen.length })}
         </Button>
         {invalid && <span className="t-small" style={{ color: "var(--danger-fg)" }}>{P("fix_lines")}</span>}

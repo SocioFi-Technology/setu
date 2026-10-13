@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DischargeList, DischargeView, IndentList, IndentView } from "@setu/contracts";
 import { format } from "@setu/domain";
-import { Button, Callout, Card, Pill, Segmented, TextField, useToast } from "@setu/ui";
+import { Button, Callout, Card, Pill, Segmented, TextField, useToast, Toolbar, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, discharge, ward } from "../../lib/api";
 import { DischargeHeader, DischargeSteps } from "../ipd/Discharge";
@@ -31,9 +31,11 @@ export function PhIndent() {
     <div data-screen="ph/indent" style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 900 }}>
       <ScreenHeader title={N("ph_indent_title")} />
       <PharmacyClearance />
+      <Toolbar>
       <Segmented value={filter} options={(["open", "issued", "cancelled"] as Filter[]).map((f) => ({ value: f, label: N(`filter_${f}`) }))} onChange={(f) => setFilter(f as Filter)} label={N("ph_indent_title")} />
+      </Toolbar>
       {failed && <Callout tone="warn" icon="triangle-alert">{failed}</Callout>}
-      {!list ? <div aria-busy="true" className="t-muted">{N("loading")}</div> : list.items.length === 0 ? <span className="t-small t-muted">{N("indent_none")}</span>
+      {!list ? <Skeleton rows={5} label={N("loading")} /> : list.items.length === 0 ? <span className="t-small t-muted">{N("indent_none")}</span>
         : list.items.map((x) => <IndentCard key={x.id} x={x} onIssued={async (v) => { toast(N("issued_toast", { n: v.number }), "package-check"); await load(); }} />)}
       {!s.online && <span className="t-small t-muted">{N("needs_connection")}</span>}
     </div>

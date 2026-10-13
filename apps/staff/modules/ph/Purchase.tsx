@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { GoodsReceiptView, PharmacyApprovals, PurchaseOrderList, PurchaseOrderView, SupplierLedger, SupplierList } from "@setu/contracts";
 import { MEDICINES_SAMPLE } from "@setu/domain";
-import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
+import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast, type Tone, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { purch } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -53,14 +53,14 @@ function Orders() {
   useEffect(() => { purch.orders().then(setList).catch(() => setList({ items: [] })); purch.suppliers().then((x) => { setSups(x); setSupplierId(x.items.find((i) => i.active)?.id ?? ""); }).catch(() => undefined); }, []);
   return (
     <>
-      <Card style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }}>
+      <Card className="ck-filterbar" style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }}>
         <SelectField label={P("supplier")} value={supplierId} onChange={(e) => setSupplierId(e.target.value)} data-testid="po-supplier">
           {sups?.items.filter((x) => x.active).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
         </SelectField>
         <Button variant="primary" icon="file-plus" data-testid="new-po" disabled={!s.online || busy || !supplierId}
           onClick={async () => { setBusy(true); try { const po = await purch.newOrder(supplierId, key); router.push(`/m/ph/purchase?po=${encodeURIComponent(po.id)}`); } catch (e) { toast(E(e), "triangle-alert"); setBusy(false); } }}>{P("new_po")}</Button>
       </Card>
-      {!list ? <div aria-busy="true" className="t-muted">{P("loading")}</div> : list.items.length === 0 ? <PageState icon="clipboard-list" title={P("no_orders")} /> : (
+      {!list ? <Skeleton rows={5} label={P("loading")} /> : list.items.length === 0 ? <PageState icon="clipboard-list" title={P("no_orders")} /> : (
         <Card style={{ padding: 0, overflowX: "auto" }}>
           <table className="table" style={{ width: "100%" }} data-testid="po-list">
             <thead><tr><th>{P("po_no")}</th><th>{P("supplier")}</th><th>{P("status")}</th><th className="num">{P("lines")}</th><th className="num">{P("total")}</th><th>{P("created")}</th></tr></thead>
@@ -89,7 +89,7 @@ function Order({ id }: { id: string }) {
   const load = useCallback(async () => { try { setO(await purch.order(id)); } catch { setFailed(true); } }, [id]);
   useEffect(() => { void load(); }, [load]);
   if (failed) return <PageState icon="clipboard-list" title={P("error_generic")} />;
-  if (!o) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
+  if (!o) return <Skeleton rows={5} label={P("loading")} />;
   const approver = APPROVERS.includes(s.me?.role ?? "");
   const run = async (f: () => Promise<PurchaseOrderView>) => { if (busy) return false; setBusy(true); try { setO(await f()); setKey(crypto.randomUUID()); return true; } catch (e) { toast(E(e), "triangle-alert"); if (renewKey(e)) setKey(crypto.randomUUID()); await load(); return false; } finally { setBusy(false); } };
   const draft = o.status === "draft";
@@ -121,7 +121,7 @@ function Order({ id }: { id: string }) {
       </Card>
 
       {draft && o.approval?.status !== "requested" && (
-        <Card style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }}>
+        <Card className="ck-filterbar" style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }}>
           <SelectField label={P("medicine")} value={med} onChange={(e) => setMed(e.target.value)} data-testid="po-medicine">
             {MEDICINES_SAMPLE.map((m) => <option key={m.id} value={m.id}>{m.brand} {m.strength} · {m.generic}</option>)}
           </SelectField>
@@ -208,7 +208,7 @@ function Receipt({ id }: { id: string }) {
   // after an error) never wipes what the pharmacist has typed
   useEffect(() => { void load().then((o) => { if (!o) return; setForm((old) => ({ ...Object.fromEntries(o.lines.map((l) => { const left = l.qty - l.receivedQty; return [l.id, { batchNo: "", expiry: plusDays(730), invoiced: String(left), received: String(left), cost: String(l.costPaisa / 100), mrp: "", location: "store" as const }]; })), ...old })); }); }, [load]);
   if (failed) return <PageState icon="package" title={P("error_generic")} />;
-  if (!g || !po) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
+  if (!g || !po) return <Skeleton rows={5} label={P("loading")} />;
   const checking = g.status === "checking";
   const approver = APPROVERS.includes(s.me?.role ?? "");
   const run = async (f: () => Promise<GoodsReceiptView>) => { if (busy) return false; setBusy(true); try { setG(await f()); setKey(crypto.randomUUID()); return true; } catch (e) { toast(E(e), "triangle-alert"); if (renewKey(e)) setKey(crypto.randomUUID()); await load(); return false; } finally { setBusy(false); } };
@@ -277,7 +277,7 @@ function Receipt({ id }: { id: string }) {
 
       {checking && ownerOnly.map((b) => <Callout key={b} tone="warn" icon="stamp">{P(`post_b_${b}`)}</Callout>)}
       {checking && (
-        <Card style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }}>
+        <Card className="ck-filterbar" style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }}>
           <TextField label={P("post_note")} hint={P("optional")} value={note} onChange={(e) => setNote(e.target.value)} data-testid="grn-note" />
           {/* decision 181: the supplier's VAT / AIT as printed on the bill — recorded, not added to what is owed */}
           <TextField label={P("supplier_vat_tk")} hint={P("supplier_tax_hint")} inputMode="decimal" style={{ width: 120 }} value={tax.vat} onChange={(e) => setTax((x) => ({ ...x, vat: e.target.value }))} data-testid="grn-vat" />
@@ -299,14 +299,14 @@ function Suppliers() {
   useEffect(() => { void load(); }, [load]);
   return (
     <>
-      <Card style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }}>
+      <Card className="ck-filterbar" style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }}>
         <TextField label={P("new_supplier")} value={name} onChange={(e) => setName(e.target.value)} data-testid="supplier-name" />
         <SelectField label={P("supplier_vat")} value={vat} onChange={(e) => setVat(e.target.value as typeof vat)} data-testid="supplier-vat">
           {(["included", "on-top", "exempt"] as const).map((x) => <option key={x} value={x}>{P(`vat_${x}`)}</option>)}
         </SelectField>
         <Button icon="plus" disabled={!s.online || busy || name.trim().length < 2} onClick={async () => { setBusy(true); try { await purch.newSupplier({ name: name.trim(), vatTreatment: vat }); setName(""); await load(); } catch (e) { toast(E(e), "triangle-alert"); } finally { setBusy(false); } }}>{P("add")}</Button>
       </Card>
-      {!list ? <div aria-busy="true" className="t-muted">{P("loading")}</div> : (
+      {!list ? <Skeleton rows={5} label={P("loading")} /> : (
         <Card style={{ padding: 0, overflowX: "auto" }}>
           <table className="table" style={{ width: "100%" }} data-testid="supplier-list">
             <thead><tr><th>{P("supplier")}</th><th className="num">{P("owed")}</th></tr></thead>
@@ -329,7 +329,7 @@ function Supplier({ id }: { id: string }) {
   const [l, setL] = useState<SupplierLedger | null>(null); const [lFailed, setLFailed] = useState(false); const [amt, setAmt] = useState(""); const [note, setNote] = useState(""); const [busy, setBusy] = useState(false); const [key, setKey] = useState(() => crypto.randomUUID());
   useEffect(() => { purch.supplier(id).then(setL).catch(() => setLFailed(true)); }, [id]);
   if (lFailed) return <PageState icon="truck" title={P("error_generic")} />;
-  if (!l) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
+  if (!l) return <Skeleton rows={5} label={P("loading")} />;
   const approver = APPROVERS.includes(s.me?.role ?? "");
   const p = takaToPaisa(amt);
   return (
@@ -339,7 +339,7 @@ function Supplier({ id }: { id: string }) {
         actions={<><Button size="sm" icon="arrow-left" onClick={() => router.push("/m/ph/purchase?tab=suppliers")}>{P("tab_suppliers")}</Button></>} />
       <NeedsServer />
       {approver && (
-        <Card style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }}>
+        <Card className="ck-filterbar" style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }}>
           <TextField label={P("pay_amount_tk")} inputMode="decimal" value={amt} onChange={(e) => { setAmt(e.target.value); setKey(crypto.randomUUID()); }} data-testid="sup-pay-amount" error={p !== null && p > l.supplier.owedPaisa ? P("over_owed") : undefined} />
           <TextField label={P("pay_note")} hint={P("pay_note_hint")} value={note} onChange={(e) => { setNote(e.target.value); setKey(crypto.randomUUID()); }} data-testid="sup-pay-note" />
           <Button variant="primary" icon="banknote" data-testid="sup-pay" disabled={!s.online || busy || !p || p > l.supplier.owedPaisa || note.trim().length < 4}

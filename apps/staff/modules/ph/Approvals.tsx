@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { PharmacyApprovals } from "@setu/contracts";
-import { Button, Callout, Card, Pill } from "@setu/ui";
+import { Button, Callout, Card, Pill, Skeleton } from "@setu/ui";
 import { purch } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { renewKey, useErr, useFmt, useP } from "./common";
@@ -27,7 +27,7 @@ export function PharmacyApprovalCards({ status, kinds, onCount }: { status: Stat
   const shown = a ? { orders: kinds.includes("purchase-order") ? a.orders : [], receipts: kinds.includes("goods-receipt") ? a.receipts : [], counts: kinds.includes("count") ? a.counts : [] } : null;
   useEffect(() => { if (shown) onCount?.(shown.orders.length + shown.receipts.length + shown.counts.length); }); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <Callout tone="warn" icon="triangle-alert">{P("error_generic")}</Callout>;
-  if (!shown) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
+  if (!shown) return <Skeleton rows={5} label={P("loading")} />;
 
   const act = async (id: string, f: (key: string) => Promise<unknown>) => {
     setBusy(id); setMsg(null);

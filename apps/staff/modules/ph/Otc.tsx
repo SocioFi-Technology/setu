@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { OtcView, StockList } from "@setu/contracts";
-import { Button, Callout, Card, PageState, Pill, TextField, useToast } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, TextField, useToast, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { pharm } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -62,7 +62,7 @@ function Sale({ id }: { id: string }) {
     return () => { stale = true; clearTimeout(t); };
   }, [q]);
   if (failed) return <PageState icon="shopping-cart" title={P("error_generic")} />;
-  if (!v) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={P("loading")} />;
   const inv = v.bill.invoice;
   const draft = inv.status === "draft";
   const run = (f: (rev: number) => Promise<OtcView>) => new Promise<boolean>((done) => {
@@ -147,7 +147,7 @@ function Sale({ id }: { id: string }) {
 
       {draft && v.blockers.filter((b) => b.code !== "no_lines").map((b, i) => <Callout key={i} tone={b.code === "stock_short" ? "warn" : "bad"} icon="triangle-alert">{P(`otc_b_${b.code}`)}</Callout>)}
 
-      <Card style={{ display: "flex", gap: 12, alignItems: "center", padding: 12, flexWrap: "wrap" }}>
+      <Card className="ck-stickybar" style={{ display: "flex", gap: 12, alignItems: "center", padding: 12, flexWrap: "wrap" }}>
         {draft && (
           <Button variant="primary" icon="check-check" data-testid="complete-sale" disabled={!s.online || busy || v.blockers.length > 0}
             onClick={async () => { if (await run((rev) => pharm.otcIssue(id, rev, issueKey))) { setIssueKey(crypto.randomUUID()); toast(P("sale_done"), "check"); } else if (renewKey(lastErr.current)) setIssueKey(crypto.randomUUID()); }}>

@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { CountList, StockCountView } from "@setu/contracts";
-import { Button, Callout, Card, Dialog, PageState, Pill, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
+import { Button, Callout, Card, Dialog, PageState, Pill, SelectField, TextArea, TextField, useToast, type Tone, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { purch } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -29,7 +29,7 @@ function Counts() {
     <div data-screen="ph/count" style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
       <ScreenHeader title={P("count_title")} />
       <NeedsServer />
-      <Card style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }}>
+      <Card className="ck-filterbar" style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }}>
         <SelectField label={P("location")} value={loc} onChange={(e) => setLoc(e.target.value as typeof loc)} data-testid="count-location">
           {(["counter", "store", "fridge"] as const).map((x) => <option key={x} value={x}>{P(`loc_${x}`)}</option>)}
         </SelectField>
@@ -37,7 +37,7 @@ function Counts() {
           onClick={async () => { setBusy(true); try { const c = await purch.newCount(loc, key); router.push(`/m/ph/count?count=${encodeURIComponent(c.id)}`); } catch (e) { toast(E(e), "triangle-alert"); if (renewKey(e)) setKey(crypto.randomUUID()); setBusy(false); } }}>{P("start_count")}</Button>
         <span className="t-small t-secondary">{P("count_rule")}</span>
       </Card>
-      {!list ? <div aria-busy="true" className="t-muted">{P("loading")}</div> : list.items.length === 0 ? <PageState icon="clipboard-check" title={P("no_counts")} /> : (
+      {!list ? <Skeleton rows={5} label={P("loading")} /> : list.items.length === 0 ? <PageState icon="clipboard-check" title={P("no_counts")} /> : (
         <Card style={{ padding: 0, overflowX: "auto" }}>
           <table className="table" style={{ width: "100%" }} data-testid="count-list">
             <thead><tr><th>{P("location")}</th><th>{P("status")}</th><th className="num">{P("batches")}</th><th className="num">{P("differences")}</th><th>{P("by")}</th><th>{P("created")}</th></tr></thead>
@@ -69,7 +69,7 @@ function CountView({ id }: { id: string }) {
   const load = useCallback(async () => { try { show(await purch.count(id)); } catch { setFailed(true); } }, [id, show]);
   useEffect(() => { void load(); }, [load]);
   if (failed) return <PageState icon="clipboard-check" title={P("error_generic")} />;
-  if (!c) return <div aria-busy="true" className="t-muted">{P("loading")}</div>;
+  if (!c) return <Skeleton rows={5} label={P("loading")} />;
   const mine = c.createdBy.id === s.me?.userId;
   const counting = c.status === "counting" && mine;
   const run = async (f: () => Promise<StockCountView>) => { if (busy) return false; setBusy(true); try { show(await f()); setKey(crypto.randomUUID()); return true; } catch (e) { toast(E(e), "triangle-alert"); if (renewKey(e)) setKey(crypto.randomUUID()); await load(); return false; } finally { setBusy(false); } };
@@ -114,7 +114,7 @@ function CountView({ id }: { id: string }) {
           </tbody>
         </table>
       </Card>
-      <Card style={{ display: "flex", gap: 16, alignItems: "center", padding: 12, flexWrap: "wrap" }}>
+      <Card className="ck-stickybar" style={{ display: "flex", gap: 16, alignItems: "center", padding: 12, flexWrap: "wrap" }}>
         <span>{P("variance_value")}: <b className="num" data-testid="variance-value">{F.tk(c.varianceValuePaisa)}</b></span>
         {counting && c.submitBlockers.map((b) => <Pill key={b} tone="warn" icon="triangle-alert">{P(`cb_${b}`)}</Pill>)}
         <span style={{ marginLeft: "auto" }} />

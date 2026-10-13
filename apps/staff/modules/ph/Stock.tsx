@@ -5,7 +5,7 @@
    batch never goes to the counter). Filters: all / near expiry / expired / low at the counter. */
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { BatchView, StockList } from "@setu/contracts";
-import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextField, useToast } from "@setu/ui";
+import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextField, useToast, Toolbar, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { pharm, refunds } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -28,9 +28,11 @@ export function PhStock() {
     <div data-screen="ph/stock" style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
       <ScreenHeader title={P("stock_title")}
         actions={<><Segmented label={P("filter")} value={filter} onChange={(f) => setFilter(f)} options={(["all", "near-expiry", "expired", "low"] as const).map((f) => ({ value: f, label: P(`f_${f}`) }))} /></>} />
-      <TextField label={P("find_medicine")} value={q} onChange={(e) => setQ(e.target.value)} data-testid="stock-search" />
+      <Toolbar>
+        <TextField label={P("find_medicine")} value={q} onChange={(e) => setQ(e.target.value)} data-testid="stock-search" />
+      </Toolbar>
       <NeedsServer />
-      {!list ? <div aria-busy="true" className="t-muted">{P("loading")}</div> : (
+      {!list ? <Skeleton rows={5} label={P("loading")} /> : (
         <Card style={{ padding: 0, overflowX: "auto" }}>
           <table className="table" style={{ width: "100%" }} data-testid="stock-table">
             <thead><tr><th>{P("medicine")}</th><th>{P("class")}</th><th className="num">{P("at_counter")}</th><th className="num">{P("in_store")}</th><th className="num">{P("near_expiry")}</th><th className="num">{P("expired")}</th><th /></tr></thead>
