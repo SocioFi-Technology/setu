@@ -7,7 +7,7 @@
    Writes keep their Idempotency-Key until they succeed (a refusal stores nothing). */
 import { useCallback, useEffect, useState } from "react";
 import type { UserCredentialResponse, UserList, UserView } from "@setu/contracts";
-import { Button, Callout, Card, Dialog, PageState, Pill, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
+import { Button, Callout, Card, Dialog, PageState, Pill, SelectField, TextArea, TextField, useToast, type Tone, Drawer, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { adm } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -24,7 +24,7 @@ export function AdmUsers() {
   const load = useCallback(async () => { try { setList(await adm.users()); } catch { setFailed(true); } }, []);
   useEffect(() => { void load(); s.setPatient(null); }, [load]); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <PageState icon="users" title={A("error_generic")} />;
-  if (!list) return <div aria-busy="true" className="t-muted">{A("loading")}</div>;
+  if (!list) return <Skeleton rows={5} label={A("loading")} />;
   const changed = async (u?: UserView) => { await load(); if (u) setOpen(u); };
 
   return (
@@ -57,9 +57,9 @@ export function AdmUsers() {
       <Dialog open={!!credential} onClose={() => setCredential(null)} label={A("otp_title")} width={480}>
         {credential && <Credential c={credential} onClose={() => setCredential(null)} />}
       </Dialog>
-      <Dialog open={!!open} onClose={() => setOpen(null)} label={open ? F.name(open) : ""} width={560}>
+      <Drawer open={!!open} onClose={() => setOpen(null)} label={open ? F.name(open) : ""} width={600}>
         {open && <Manage key={`${open.id}:${open.active}:${open.role}`} u={open} onChanged={changed} onCredential={(c) => { setOpen(null); setCredential(c); void load(); }} onError={(e) => toast(E(e), "triangle-alert")} />}
-      </Dialog>
+      </Drawer>
     </div>
   );
 }

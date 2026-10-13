@@ -10,7 +10,7 @@ import { useSearchParams } from "next/navigation";
 import type { CentreOffers, PortableOrderView } from "@setu/contracts";
 import { format } from "@setu/domain";
 import { fill } from "@setu/i18n";
-import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, Segmented, useToast, Toolbar } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, portable } from "../../lib/api";
 import { ReportTable } from "./Shared";
@@ -31,7 +31,7 @@ export function NetLab() {
   return (
     <div className="module-page" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <ScreenHeader title={N("po_title")} subtitle={N("po_intro")} />
-      {!open && <Segmented label={N("po_title")} value={tab} onChange={setTab} options={[{ value: "origin", label: N("po_tab_origin") }, { value: "centre", label: N("po_tab_centre") }]} />}
+      {!open && <Toolbar><Segmented label={N("po_title")} value={tab} onChange={setTab} options={[{ value: "origin", label: N("po_tab_origin") }, { value: "centre", label: N("po_tab_centre") }]} /></Toolbar>}
       {open ? <Detail id={open} mode={tab} onBack={() => setOpen(null)} /> : <List mode={tab} onOpen={setOpen} />}
     </div>
   );

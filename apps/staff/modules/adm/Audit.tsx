@@ -6,7 +6,7 @@
    go-live. Opening this list is recorded too. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AuditPage, AuditQuery } from "@setu/contracts";
-import { Button, Callout, Card, PageState, Pill, SelectField, TextField } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, SelectField, TextField, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { adm } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -33,7 +33,7 @@ export function AdmAudit() {
       <ScreenHeader title={A("audit_title")}
         subtitle={<span className="ck-head-pills"><span className="t-small t-secondary">{s.me?.role === "owner" ? A("audit_scope_owner") : A("audit_scope_admin")}</span></span>}
         actions={<><a className="btn" href={adm.auditCsvHref(q)} data-testid="audit-csv" download>{A("download_csv")}</a></>} />
-      <Card style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }} data-testid="audit-filters">
+      <Card className="ck-filterbar" style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: 12, flexWrap: "wrap" }} data-testid="audit-filters">
         <TextField label={A("from")} type="date" value={q.from ?? ""} onChange={(e) => apply({ from: e.target.value || undefined })} data-testid="f-from" />
         <TextField label={A("to")} type="date" value={q.to ?? ""} onChange={(e) => apply({ to: e.target.value || undefined })} data-testid="f-to" />
         <SelectField label={A("action")} value={q.action ?? ""} onChange={(e) => apply({ action: e.target.value || undefined })} data-testid="f-action">
@@ -44,7 +44,7 @@ export function AdmAudit() {
         </label>
       </Card>
       {failed ? <Callout tone="warn" icon="triangle-alert">{A("error_generic")}</Callout>
-        : !page ? <div aria-busy="true" className="t-muted">{A("loading")}</div>
+        : !page ? <Skeleton rows={5} label={A("loading")} />
         : page.items.length === 0 ? <PageState icon="scroll-text" title={A("audit_empty")} />
         : (
           <Card style={{ padding: 0, overflowX: "auto" }}>

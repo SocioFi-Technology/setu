@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FacilityView, PriceHistory, PriceItem, PriceList } from "@setu/contracts";
 import { format, shiftHoursOk } from "@setu/domain";
-import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast } from "@setu/ui";
+import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast, Drawer, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { adm } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -37,12 +37,12 @@ function Prices() {
   const load = useCallback(async () => { try { setList(await adm.prices()); } catch { setFailed(true); } }, []);
   useEffect(() => { void load(); }, [load]);
   if (failed) return <PageState icon="tag" title={A("error_generic")} />;
-  if (!list) return <div aria-busy="true" className="t-muted">{A("loading")}</div>;
+  if (!list) return <Skeleton rows={5} label={A("loading")} />;
   const rows = list.items.filter((i) => kind === "all" || i.kind === kind);
   return (
     <>
       {list.doctorsWithoutFee.length > 0 && <Callout tone="warn" icon="user-round" data-testid="no-fee">{A("no_fee", { names: list.doctorsWithoutFee.map((d) => F.name(d)).join(", ") })}</Callout>}
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+      <div className="ck-toolbar" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <Segmented label={A("kind")} value={kind} onChange={setKind} options={(["all", "consultation", "test", "service"] as const).map((k) => ({ value: k, label: A(`kind_${k}`) }))} />
         <span style={{ marginLeft: "auto" }} />
         <Button variant="primary" icon="plus" data-testid="add-price" disabled={!s.online} onClick={() => setAdding(true)}>{A("add_price")}</Button>
@@ -76,9 +76,9 @@ function Prices() {
       <Dialog open={!!editing} onClose={() => setEditing(null)} label={A("change_price")} width={520}>
         {editing && <ChangePrice i={editing} onDone={async (l) => { setList(l); setEditing(null); toast(A("saved"), "check"); }} onError={(e) => toast(E(e), "triangle-alert")} />}
       </Dialog>
-      <Dialog open={!!history} onClose={() => setHistory(null)} label={A("history")} width={560}>
+      <Drawer open={!!history} onClose={() => setHistory(null)} label={A("history")} width={600}>
         {history && <History i={history} />}
-      </Dialog>
+      </Drawer>
       <Dialog open={adding} onClose={() => setAdding(false)} label={A("add_price")} width={520}>
         {adding && <AddPrice list={list} onDone={async (l) => { setList(l); setAdding(false); toast(A("saved"), "check"); }} onError={(e) => toast(E(e), "triangle-alert")} />}
       </Dialog>
@@ -118,7 +118,7 @@ function History({ i }: { i: PriceItem }) {
   const A = useA(); const F = useFmt();
   const [h, setH] = useState<PriceHistory | null>(null);
   useEffect(() => { adm.priceHistory(i.id).then(setH).catch(() => setH({ items: [] })); }, [i.id]);
-  if (!h) return <div aria-busy="true" className="t-muted">{A("loading")}</div>;
+  if (!h) return <Skeleton rows={5} label={A("loading")} />;
   return (
     <table className="table" style={{ width: "100%" }} data-testid="history-table">
       <thead><tr><th>{A("when")}</th><th>{A("by")}</th><th className="num">{A("from")}</th><th className="num">{A("to")}</th><th>{A("reason")}</th></tr></thead>
@@ -180,7 +180,7 @@ function Limits() {
   // a re-run effect (React runs it twice in development) ignores the earlier answer — it must never reset what was typed
   useEffect(() => { let stale = false; adm.facility().then((x) => { if (!stale) show(x); }).catch(() => { if (!stale) setFailed(true); }); return () => { stale = true; }; }, []); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <PageState icon="sliders-horizontal" title={A("error_generic")} />;
-  if (!f) return <div aria-busy="true" className="t-muted">{A("loading")}</div>;
+  if (!f) return <Skeleton rows={5} label={A("loading")} />;
   const cashier = takaToPaisa(v.cashier), approver = takaToPaisa(v.approver), pct = pctToBp(v.pct);
   const w = /^\d+$/.test(v.w) ? Number(v.w) : null, h = /^\d+$/.test(v.h) ? Number(v.h) : null;
   const limitsChanged = cashier !== f.settings.cashierLimitPaisa || pct !== f.settings.cashierLimitBp || approver !== f.settings.approverLimitPaisa;

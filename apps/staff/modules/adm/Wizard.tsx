@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FacilityView } from "@setu/contracts";
-import { Button, Callout, Card, PageState, Pill, SelectField, TextField, useToast } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, SelectField, TextField, useToast, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { adm } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -40,7 +40,7 @@ export function AdmWizard() {
     return () => { stale = true; };
   }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <PageState icon="building-2" title={A("error_generic")} />;
-  if (!f) return <div aria-busy="true" className="t-muted">{A("loading")}</div>;
+  if (!f) return <Skeleton rows={5} label={A("loading")} />;
   /** a write: the answer updates the checklist and lists; `refill` re-reads only that step's own form (typing in the
       other steps is kept — screen review) */
   const run = async (k: keyof typeof keys, fn: (key: string) => Promise<FacilityView>, ok?: string, refill?: (x: FacilityView) => void) => {
@@ -188,7 +188,7 @@ function Step({ n, title, ok, optional }: { n: number; title: string; ok: boolea
   const A = useA(); const F = useFmt();
   return (
     <span style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-      <b className="num" style={{ width: 24, height: 24, borderRadius: 999, display: "inline-grid", placeItems: "center", background: "var(--surface-sunken)" }}>{F.n(n)}</b>
+      <b className="num ck-stepdot" data-ok={ok ? "1" : optional ? "na" : "0"}>{F.n(n)}</b>
       <b>{title}</b>
       <Pill tone={ok ? "ok" : optional ? "off" : "pend"} icon={ok ? "check" : optional ? "minus" : "circle"}>{ok ? A("done") : optional ? A("not_needed") : A("to_do")}</Pill>
     </span>

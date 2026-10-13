@@ -421,3 +421,8 @@ a.ck-stat:hover { border-color: var(--border-default); box-shadow: var(--shadow-
 [data-step][data-step-status="done"] { background: color-mix(in oklab, var(--surface-selected) 45%, var(--surface-card)); }
 [data-testid="er-strip"] { padding: 14px 18px !important; box-shadow: var(--shadow-2); border-left: 4px solid var(--brand-primary); }
 [data-testid="legend"] { padding: 10px 12px; background: var(--surface-card); border: 1px solid var(--border-subtle); border-radius: 12px; }
+/* P7 · the go-live checklist's step numbers as status dots */
+.ck-stepdot { width: 26px; height: 26px; border-radius: 999px; display: inline-grid; place-items: center; border: 1.5px solid #c9d1ce; font-size: 13px; color: var(--text-muted); box-sizing: border-box; }
+.ck-stepdot[data-ok="1"] { background: var(--brand-primary); border-color: var(--brand-primary); color: var(--text-on-primary); }
+.ck-stepdot[data-ok="na"] { border-style: dashed; }
+[data-testid="checklist"] { box-shadow: var(--shadow-2); }
