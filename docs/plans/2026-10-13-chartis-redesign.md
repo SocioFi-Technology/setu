@@ -100,7 +100,7 @@ screenshots, its journeys green on a production build (dev-only gateway/SMS spec
       packages, IPD running/final bill; owner dashboard
 - [x] P3 · Lab: worklists, collection, accession, result entry, verification, report, delivery
 - [x] P4 · Pharmacy: dispense, OTC, stock, purchase / goods received, count, indents, approvals
-- [ ] P5 · ER and IPD: triage board, orders, admission + bed picker, bed map, transfer, rounds, discharge, summary
+- [x] P5 · ER and IPD: triage board, orders, admission + bed picker, bed map, transfer, rounds, discharge, summary
 - [ ] P6 · Nursing: ward board, vitals / NEWS2, MAR, I/O and notes, handover
 - [ ] P7 · Admin and Chartis Link: wizard, users, masters, audit; network history, portable lab, shared records
 - [ ] P8 · Phones: doctor app screens; Chartis Passport tests, report, share, claim

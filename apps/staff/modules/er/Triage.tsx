@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ErArrivalRequest, ErBoard, ErBoardItem, PatientSummary } from "@setu/contracts";
 import { format, paediatricPrompt, triageOverdue } from "@setu/domain";
-import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast } from "@setu/ui";
+import { Button, Callout, Card, Dialog, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, er } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -31,7 +31,7 @@ export function ErTriage() {
   const levelOf = (n: number | null) => b?.scale.levels.find((l) => l.level === n);
 
   if (failed && !b) return <Callout tone="warn" icon="triangle-alert">{E("error_generic")}</Callout>;
-  if (!b) return <div aria-busy="true" className="t-muted">{E("loading")}</div>;
+  if (!b) return <Skeleton rows={5} label={E("loading")} />;
   return (
     <div data-screen="er/triage" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
       <ScreenHeader title={E("board_title")}

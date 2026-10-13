@@ -10,7 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { InpatientLineInput, InpatientOrder, RoundNote, RoundView, RoundWorklist } from "@setu/contracts";
 import { format, lineProblems, roundNoteBlockers, wardMedicine } from "@setu/domain";
-import { Button, Callout, Card, PageState, Pill, SelectField, TextArea, TextField, useToast } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, SelectField, TextArea, TextField, useToast, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -30,7 +30,7 @@ function Worklist() {
   const [w, setW] = useState<RoundWorklist | null>(null); const [failed, setFailed] = useState<string | null>(null);
   useEffect(() => { ward.rounds().then(setW).catch((e) => setFailed(err(e))); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <Callout tone="warn" icon="triangle-alert">{failed}</Callout>;
-  if (!w) return <div aria-busy="true" className="t-muted">{N("loading")}</div>;
+  if (!w) return <Skeleton rows={5} label={N("loading")} />;
   const bn = s.lang === "bn";
   return (
     <div data-screen="ipd/rounds" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -64,7 +64,7 @@ function RoundFor({ enc }: { enc: string }) {
   useEffect(() => { void load(); }, [load]);
   useWardBanner(v?.patient, v?.allergies, v?.bed ? `${v.bed.ward} · ${v.bed.name}` : null);
   if (failed) return <Callout tone="warn" icon="triangle-alert">{failed}</Callout>;
-  if (!v) return <div aria-busy="true" className="t-muted">{N("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={N("loading")} />;
   const bn = s.lang === "bn"; const bnNum = s.numerals === "bn";
   const startRound = async () => { try { setV(await ward.openRound(enc)); } catch (e) { toast(err(e), "triangle-alert"); } };
   const amend = async (n: RoundNote) => {

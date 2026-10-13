@@ -94,8 +94,7 @@ export function WardPatientPicker({ screen, title }: { screen: string; title: st
   if (!beds) return <div aria-busy="true" className="t-muted">{N("loading")}</div>;
   return (
     <div data-screen={screen} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <ScreenHeader title={title} />
-      <span className="t-small t-muted">{N("pick_patient")}</span>
+      <ScreenHeader title={title} subtitle={N("pick_patient")} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8 }}>
         {beds.map((b) => (
           <a key={b.bed.id} className="card" href={`/m/${screen}?enc=${encodeURIComponent(b.encounterId!)}`} data-pick-bed={b.bed.name} style={{ padding: 12, display: "flex", flexDirection: "column", gap: 4, textDecoration: "none", color: "inherit" }}>

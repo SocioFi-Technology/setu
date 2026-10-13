@@ -64,8 +64,7 @@ function Records({ consentId, onBack }: { consentId: string; onBack: () => void 
       <span><Button variant="ghost" icon="arrow-left" onClick={report ? () => setReport(null) : onBack}>{N("back")}</Button></span>
       {error && <Callout tone="bad" icon="shield-x" role="alert">{error}</Callout>}
       {r && !report && <>
-        <ScreenHeader title={<>{s.lang === "bn" ? r.patient.nameBn : r.patient.nameEn} · {N("records")}</>} />
-        <span className="t-small t-muted">{N("ends", { t: format.dateTime(r.endsAt, bn) })}</span>
+        <ScreenHeader title={<>{s.lang === "bn" ? r.patient.nameBn : r.patient.nameEn} · {N("records")}</>} subtitle={N("ends", { t: format.dateTime(r.endsAt, bn) })} />
         {r.items.length === 0 && <PageState icon="inbox" title={N("no_records")} />}
         {r.items.map((i) => (
           <Card key={i.key} style={{ display: "flex", gap: 12, alignItems: "center", padding: 12, flexWrap: "wrap" }} data-testid="shared-record" data-kind={i.kind}>

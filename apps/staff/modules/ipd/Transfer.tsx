@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { BedBoard, BedView } from "@setu/contracts";
 import { bedPickable, format } from "@setu/domain";
-import { Button, Callout, Card, PageState, Segmented, TextArea, useToast } from "@setu/ui";
+import { Button, Callout, Card, PageState, Segmented, TextArea, useToast, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, ipd, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -30,14 +30,13 @@ export function IpdTransfer() {
   }, [current?.id, s.lang]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => s.setPatient(null), []); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <Callout tone="warn" icon="triangle-alert">{failed}</Callout>;
-  if (!board) return <div aria-busy="true" className="t-muted">{N("loading")}</div>;
+  if (!board) return <Skeleton rows={5} label={N("loading")} />;
   const bn = s.lang === "bn";
   if (!enc || !current) {
     const occupied = all.filter((b) => b.assignment?.status === "occupied" && b.bedClass !== "ER");
     return (
       <div data-screen="ipd/transfer" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <ScreenHeader title={N("move_title")} />
-        <span className="t-small t-muted">{N("pick_patient")}</span>
+        <ScreenHeader title={N("move_title")} subtitle={N("pick_patient")} />
         {occupied.length === 0 && <PageState icon="bed-double" title={N("move_title")} body={N("rounds_none")} />}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8 }}>
           {occupied.map((b) => (

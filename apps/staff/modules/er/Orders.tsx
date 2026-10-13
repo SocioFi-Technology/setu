@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Disposition, ErBoard, ErVisitView } from "@setu/contracts";
 import { ADMISSION_CLASSES, DEATH_CHECKS, DISPOSITIONS, dispositionBlockers, format, type DispositionKind } from "@setu/domain";
-import { Button, Callout, Card, Dialog, PageState, Pill, TextArea, TextField, SelectField, useToast } from "@setu/ui";
+import { Button, Callout, Card, Dialog, PageState, Pill, TextArea, TextField, SelectField, useToast, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, er } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -23,12 +23,11 @@ function PickVisit() {
   const [b, setB] = useState<ErBoard | null>(null); const [failed, setFailed] = useState(false);
   useEffect(() => { s.setPatient(null); er.board().then(setB).catch(() => setFailed(true)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <Callout tone="warn" icon="triangle-alert">{E("error_generic")}</Callout>;
-  if (!b) return <div aria-busy="true" className="t-muted">{E("loading")}</div>;
+  if (!b) return <Skeleton rows={5} label={E("loading")} />;
   const open = b.items.filter((i) => ["arrived", "triaged", "in-progress"].includes(i.status));
   return (
     <div data-screen="er/orders" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <ScreenHeader title={E("orders_title")} />
-      <span className="t-muted">{E("orders_pick_hint")}</span>
+      <ScreenHeader title={E("orders_title")} subtitle={E("orders_pick_hint")} />
       {open.length === 0 ? <PageState icon="clipboard-list" title={E("orders_none")} actions={<Button icon="siren" onClick={() => router.push("/m/er/triage")}>{E("back_board")}</Button>} /> : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
           {open.map((i) => (
@@ -61,7 +60,7 @@ function OrdersScreen({ encounterId }: { encounterId: string }) {
   useEffect(() => { if (v) s.setPatient(erBanner(v.item, L, v.allergies, s.lang)); }, [v?.item.id, v?.item.bay?.id, v?.allergies.length, s.lang, s.numerals]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => s.setPatient(null), []); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <Callout tone="warn" icon="triangle-alert">{E("error_generic")}</Callout>;
-  if (!v) return <div aria-busy="true" className="t-muted">{E("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={E("loading")} />;
   const signed = v.note.status !== "draft";
   // the desk cancelled the admit request: the disposition is open again (signed as an amendment, v2)
   const dispLocked = signed && !v.canRedispose;

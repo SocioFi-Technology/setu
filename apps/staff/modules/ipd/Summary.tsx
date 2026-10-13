@@ -10,7 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { DischargeList, SummaryDoc, SummaryView } from "@setu/contracts";
 import { COURSE_MIN, format } from "@setu/domain";
-import { Button, Callout, Card, Dialog, PageState, Pill, TextArea, TextField, useToast } from "@setu/ui";
+import { Button, Callout, Card, Dialog, PageState, Pill, TextArea, TextField, useToast, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { PrintPanel } from "../../components/PrintPanel";
 import { ApiFailure, discharge, summary } from "../../lib/api";
@@ -49,12 +49,11 @@ function SummaryList() {
   const [list, setList] = useState<DischargeList | null>(null); const [failed, setFailed] = useState<string | null>(null);
   useEffect(() => { discharge.list().then(setList).catch((e) => setFailed(e instanceof ApiFailure ? s.L(e.body.message_bn, e.body.message_en) : I("error_generic"))); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <Callout tone="warn" icon="triangle-alert">{failed}</Callout>;
-  if (!list) return <div aria-busy="true" className="t-muted">{I("loading")}</div>;
+  if (!list) return <Skeleton rows={5} label={I("loading")} />;
   const owed = list.items.filter((x) => x.kind !== "death" && x.summary !== "done");
   return (
     <div data-screen="ipd/summary" data-status="list" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <ScreenHeader title={I("sm_title")} />
-      <span className="t-small t-muted">{I("sm_list_hint")}</span>
+      <ScreenHeader title={I("sm_title")} subtitle={I("sm_list_hint")} />
       {owed.length === 0 && <PageState icon="file-text" title={I("sm_title")} body={I("sm_list_none")} />}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 8 }} data-testid="summary-list">
         {owed.map((x) => (
@@ -85,7 +84,7 @@ function SummaryScreen({ admissionId }: { admissionId: string }) {
   }, [v?.patient.id, s.lang]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => s.setPatient(null), []); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <Callout tone="warn" icon="triangle-alert">{failed}</Callout>;
-  if (!v) return <div aria-busy="true" className="t-muted">{I("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={I("loading")} />;
   const doctor = s.me?.role === "doctor";
   const status = v.draft ? "draft" : v.current ? "signed" : "none";
   return (

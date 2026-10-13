@@ -410,3 +410,14 @@ a.ck-stat:hover { border-color: var(--border-default); box-shadow: var(--shadow-
 .ck-filterbar { background: var(--surface-card); border-radius: 14px !important; padding: 12px 14px !important; box-shadow: none !important; }
 .ck-stickybar { position: sticky; bottom: 12px; z-index: 3; padding: 12px 18px !important; box-shadow: var(--shadow-3) !important; border-color: var(--pine-200) !important; }
 .ck-toolbar .field { flex: 1 1 280px; }
+/* P5 · the discharge checklist: each step's number is its status dot */
+[data-testid="discharge-steps"] { gap: 10px !important; }
+[data-step] { padding: 14px 16px !important; box-shadow: var(--shadow-1); }
+[data-step] > span.num:first-child { width: 28px; height: 28px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; padding: 0 !important; border: 1.5px solid #c9d1ce; font-size: 13px; color: var(--text-muted); box-sizing: border-box; }
+[data-step][data-step-status="done"] > span.num:first-child { background: var(--brand-primary); border-color: var(--brand-primary); color: var(--text-on-primary); }
+[data-step][data-step-status="in-progress"] > span.num:first-child { border-color: var(--warning-border); background: var(--warning-bg); color: var(--warning-fg); }
+[data-step][data-step-status="blocking"] > span.num:first-child { border-color: var(--danger-solid); color: var(--danger-fg); }
+[data-step][data-step-status="blocking"] { box-shadow: inset 4px 0 0 var(--danger-solid), var(--shadow-1); }
+[data-step][data-step-status="done"] { background: color-mix(in oklab, var(--surface-selected) 45%, var(--surface-card)); }
+[data-testid="er-strip"] { padding: 14px 18px !important; box-shadow: var(--shadow-2); border-left: 4px solid var(--brand-primary); }
+[data-testid="legend"] { padding: 10px 12px; background: var(--surface-card); border: 1px solid var(--border-subtle); border-radius: 12px; }

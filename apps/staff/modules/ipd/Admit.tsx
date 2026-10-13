@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LIVE_MS } from "./Map";
 import type { AdmissionItem, AdmissionList, AdmissionView, BedBoard, PatientSummary } from "@setu/contracts";
 import { admissionChecklist, bedPickable, format, parseTaka } from "@setu/domain";
-import { Button, Callout, Card, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, Segmented, SelectField, TextArea, TextField, useToast, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, fd, ipd } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -40,7 +40,7 @@ export function IpdAdmit() {
   useEffect(() => { s.setPatient(subject ? { ...bannerOf(subject as PatientSummary, L), allergies: null } : null); }, [subject?.id, s.lang, s.numerals]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => s.setPatient(null), []); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <Callout tone="warn" icon="triangle-alert">{I("error_generic")}</Callout>;
-  if (!list || !board) return <div aria-busy="true" className="t-muted">{I("loading")}</div>;
+  if (!list || !board) return <Skeleton rows={5} label={I("loading")} />;
   const name = (p: { nameBn: string; nameEn: string | null }) => (s.lang === "bn" ? p.nameBn : p.nameEn ?? p.nameBn);
   return (
     <div data-screen="ipd/admit" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>

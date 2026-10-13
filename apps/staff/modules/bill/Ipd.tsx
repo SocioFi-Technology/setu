@@ -41,8 +41,7 @@ function IpdBillListScreen() {
   const bn = s.lang === "bn";
   return (
     <div data-screen="bill/ipd" data-status="list" style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <ScreenHeader title={B("ib_list_title")} />
-      <span className="t-small t-muted">{B("ib_list_hint")}</span>
+      <ScreenHeader title={B("ib_list_title")} subtitle={B("ib_list_hint")} />
       {list.items.length === 0 ? <PageState icon="receipt-text" title={B("ib_list_title")} body={B("ib_list_none")} /> : (
         <Card style={{ padding: 0, overflowX: "auto" }}>
           <table className="table" style={{ width: "100%", minWidth: 760 }} data-testid="ipd-bill-list">

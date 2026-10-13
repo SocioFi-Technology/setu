@@ -30,8 +30,7 @@ export function NetLab() {
   useEffect(() => { s.setPatient(null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="module-page" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <ScreenHeader title={N("po_title")} />
-      <span className="t-small t-muted">{N("po_intro")}</span>
+      <ScreenHeader title={N("po_title")} subtitle={N("po_intro")} />
       {!open && <Segmented label={N("po_title")} value={tab} onChange={setTab} options={[{ value: "origin", label: N("po_tab_origin") }, { value: "centre", label: N("po_tab_centre") }]} />}
       {open ? <Detail id={open} mode={tab} onBack={() => setOpen(null)} /> : <List mode={tab} onOpen={setOpen} />}
     </div>

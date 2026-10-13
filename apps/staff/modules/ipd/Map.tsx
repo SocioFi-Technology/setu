@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { BedBoard, BedView } from "@setu/contracts";
-import { Button, Callout, Card, Pill, SelectField, TextField, useToast } from "@setu/ui";
+import { Button, Callout, Card, Pill, SelectField, TextField, useToast, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ipd } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -26,7 +26,7 @@ export function IpdMap() {
   // ADR 0018 (B12): live bed state — a patient leaving puts the bed to cleaning, "Bed ready" makes it vacant elsewhere too
   useEffect(() => { void load(); const t = setInterval(() => { if (document.visibilityState === "visible") void load(true); }, LIVE_MS); return () => clearInterval(t); }, [load]);
   if (failed) return <Callout tone="warn" icon="triangle-alert">{failed}</Callout>;
-  if (!board) return <div aria-busy="true" className="t-muted">{N("loading")}</div>;
+  if (!board) return <Skeleton rows={5} label={N("loading")} />;
   const bn = s.lang === "bn";
   const count = (st: string) => (st === "discharge-pending" ? board.counts.dischargePending : board.counts[st as keyof BedBoard["counts"]]);
   const wards = board.wards.filter((w) => w.beds.some((b) => b.bedClass !== "ER")).filter((w) => !wardF || w.id === wardF);
