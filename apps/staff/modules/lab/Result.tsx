@@ -10,7 +10,7 @@ import { useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { LabOrder, LabResult, LabVisitView } from "@setu/contracts";
 import { deltaOf, isCritical, labFlag, parseLabValue } from "@setu/domain";
-import { Button, Callout, Card, PageState, Pill, useToast } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, useToast, Skeleton } from "@setu/ui";
 import { ApiFailure, lab } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { FlagPill, RESULT_TONE, RangeText, ReasonDialog, VisitHead, isLabWriter, useErr, useFmt, useLabVisit, useLb } from "./common";
@@ -29,7 +29,7 @@ function ResultVisit({ encounterId }: { encounterId: string }) {
   const [correct, setCorrect] = useState<LabResult | null>(null);
   const [withdraw, setWithdraw] = useState<LabOrder | null>(null);
   if (failed) return failed === "not_found" ? <PageState icon="search-x" title={T("not_found")} /> : <Callout tone="warn" icon="triangle-alert">{T("error_generic")}</Callout>;
-  if (!v) return <div aria-busy="true" className="t-muted">{T("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={T("loading")} />;
   const writer = isLabWriter(s.me?.role, "enter");
   const deltaHits = v.orders.flatMap((o) => current(o)).filter((r) => r.status === "preliminary" && r.delta?.hit);
 

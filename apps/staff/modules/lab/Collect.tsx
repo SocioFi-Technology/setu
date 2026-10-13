@@ -9,7 +9,7 @@ import { useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { LabVisitView } from "@setu/contracts";
 import { REJECT_REASONS, TUBES, type TubeKind } from "@setu/domain";
-import { Button, Callout, Card, Dialog, PageState, Pill, useToast } from "@setu/ui";
+import { Button, Callout, Card, Dialog, PageState, Pill, useToast, Skeleton } from "@setu/ui";
 import { lab } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useLabels } from "../fd/common";
@@ -34,7 +34,7 @@ function CollectVisit({ encounterId }: { encounterId: string }) {
   const done = (k: string) => { delete keys.current[k]; };
 
   if (failed) return failed === "not_found" ? <PageState icon="search-x" title={T("not_found")} /> : <Callout tone="warn" icon="triangle-alert">{T("error_generic")}</Callout>;
-  if (!v) return <div aria-busy="true" className="t-muted">{T("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={T("loading")} />;
   const writer = isLabWriter(s.me?.role, "collect");
   const orderName = (id: string) => v.orders.find((o) => o.id === id)?.nameEn ?? "—";
   // results entered from this tube are withdrawn on the result screen first (clinical review H2)
@@ -65,7 +65,7 @@ function CollectVisit({ encounterId }: { encounterId: string }) {
       {!s.online && <Callout tone="warn" icon="cloud-off">{T("offline_collect")}</Callout>}
       <span className="t-small t-muted">{v.bill ? T("bill_status", { status: s.t("billingApp", `st_${v.bill.status}`) }) : T("bill_none")} · {T("bill_not_required")}</span>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-start" }}>
+      <div className="ck-cols" style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0, flex: "999 1 520px" }}>
           <Card style={{ padding: 0, overflowX: "auto" }}>
             <table className="table" data-testid="tests">

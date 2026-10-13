@@ -174,15 +174,9 @@ export function IpdDischarge() {
   }
   if (adm && v) return (
     <div data-screen="ipd/discharge" data-status={v.discharge.status} style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <ScreenHeader title={I("ds_title")} />
-        <span className="num t-muted">{v.admission.number} · {I("ds_day", { n: v.admission.dayNo })}</span>
-        {v.admission.outcome && <span data-testid="outcome"><Pill tone={v.admission.outcome === "deceased" ? "neu" : "warn"}>{I(`ds_outcome_${v.admission.outcome}`)}</Pill></span>}
-        {v.admission.visitFinished && <span data-testid="visit-finished"><Pill tone="ok" icon="circle-check">{I("ds_visit_finished")}</Pill></span>}
-        <span style={{ flex: 1 }} />
-        {v.discharge.kind !== "death" && <Button size="sm" icon="file-text" onClick={() => router.push(`/m/ipd/summary?adm=${encodeURIComponent(v.admission.id)}`)} data-testid="go-summary">{I("ds_open_summary")}</Button>}
-        <Button size="sm" icon="arrow-left" onClick={() => router.push("/m/ipd/discharge")}>{I("ds_back")}</Button>
-      </div>
+      <ScreenHeader title={I("ds_title")}
+        subtitle={<span className="ck-head-pills"><span className="num t-muted">{v.admission.number} · {I("ds_day", { n: v.admission.dayNo })}</span>{v.admission.outcome && <span data-testid="outcome"><Pill tone={v.admission.outcome === "deceased" ? "neu" : "warn"}>{I(`ds_outcome_${v.admission.outcome}`)}</Pill></span>}{v.admission.visitFinished && <span data-testid="visit-finished"><Pill tone="ok" icon="circle-check">{I("ds_visit_finished")}</Pill></span>}</span>}
+        actions={<>{v.discharge.kind !== "death" && <Button size="sm" icon="file-text" onClick={() => router.push(`/m/ipd/summary?adm=${encodeURIComponent(v.admission.id)}`)} data-testid="go-summary">{I("ds_open_summary")}</Button>}<Button size="sm" icon="arrow-left" onClick={() => router.push("/m/ipd/discharge")}>{I("ds_back")}</Button></>} />
       <DischargeHeader v={v} />
       <Card style={{ padding: 12, display: "flex", flexDirection: "column", gap: 4 }}>
         <span className="t-small"><b>{I(v.discharge.kind === "lama" ? "ds_lama_reason" : v.discharge.kind === "death" ? "ds_death_cause" : "ds_advice_label")}:</b> {v.discharge.advice}</span>

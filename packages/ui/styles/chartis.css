@@ -400,3 +400,9 @@ a.ck-stat:hover { border-color: var(--border-default); box-shadow: var(--shadow-
 [data-testid="ipd-strip"] { padding: 14px 18px !important; gap: 24px !important; box-shadow: var(--shadow-2); border-left: 4px solid var(--brand-primary); }
 .ipd-bill-grid > .card, .ipd-bill-grid > div > .card { box-shadow: var(--shadow-2); }
 .ck-bill-layout > .ck-bill-side { align-items: stretch !important; }
+/* every screen's top-level cards sit on the page as panels */
+.module-page [data-screen] > .card, .module-page [data-screen] > .ck-cols > .card, .module-page [data-screen] > .ck-cols > div > .card { box-shadow: var(--shadow-2); }
+/* P3 · lab: side-by-side columns; the report as a paper document */
+.ck-cols { gap: 18px !important; }
+.ck-paper { background: #fff !important; border-top: 4px solid var(--brand-primary) !important; box-shadow: var(--shadow-3) !important; border-radius: 14px !important; }
+[data-screen^="lab/"] .table td { vertical-align: middle; }

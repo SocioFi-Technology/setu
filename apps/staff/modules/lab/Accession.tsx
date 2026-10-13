@@ -5,7 +5,7 @@
    ("Not yet synced", decision D8). */
 import { useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button, Callout, Card, PageState, Pill, useToast } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, useToast, Skeleton } from "@setu/ui";
 import { lab } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { RejectDialog } from "./Collect";
@@ -26,7 +26,7 @@ function AccessionVisit({ encounterId }: { encounterId: string }) {
   const key = (k: string) => (keys.current[k] ??= crypto.randomUUID());
   const done = (k: string) => { delete keys.current[k]; };
   if (failed) return failed === "not_found" ? <PageState icon="search-x" title={T("not_found")} /> : <Callout tone="warn" icon="triangle-alert">{T("error_generic")}</Callout>;
-  if (!v) return <div aria-busy="true" className="t-muted">{T("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={T("loading")} />;
   const writer = isLabWriter(s.me?.role, "collect");
   const orderName = (id: string) => v.orders.find((o) => o.id === id)?.nameEn ?? "—";
   // results entered from this tube are withdrawn on the result screen first (clinical review H2)

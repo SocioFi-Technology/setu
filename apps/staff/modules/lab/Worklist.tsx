@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { LabWorklist as Worklist } from "@setu/contracts";
-import { Callout, PageState, Pill } from "@setu/ui";
+import { Callout, PageState, Pill, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { lab } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -18,11 +18,10 @@ export function LabWorklist({ stage }: { stage: Worklist["stage"] }) {
   const [w, setW] = useState<Worklist | null>(null); const [failed, setFailed] = useState(false);
   useEffect(() => { s.setPatient(null); setW(null); lab.worklist(stage).then(setW).catch(() => setFailed(true)); }, [stage]); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <Callout tone="warn" icon="triangle-alert">{T("error_generic")}</Callout>;
-  if (!w) return <div aria-busy="true" className="t-muted">{T("loading")}</div>;
+  if (!w) return <Skeleton rows={5} label={T("loading")} />;
   return (
     <div data-screen={`lab/${SCREEN[stage]}`} data-worklist={stage} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <ScreenHeader title={T(`wl_${stage}`)} />
-      <span className="t-muted">{T(`wl_${stage}_hint`)}</span>
+      <ScreenHeader title={T(`wl_${stage}`)} subtitle={T(`wl_${stage}_hint`)} />
       {w.items.length === 0 ? <PageState icon="test-tube" title={T("wl_empty")} /> : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
           {w.items.map((i) => (

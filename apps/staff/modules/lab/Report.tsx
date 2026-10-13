@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { LabReportView } from "@setu/contracts";
 import { isCritical } from "@setu/domain";
-import { Button, Callout, Card, PageState, Pill } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, lab } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -31,7 +31,7 @@ function CurrentOf({ encounterId }: { encounterId: string }) {
   const [id, setId] = useState<string | null>(null); const [none, setNone] = useState(false);
   useEffect(() => { lab.visit(encounterId).then((v) => { const c = v.reports.find((r) => r.status !== "superseded"); if (c) setId(c.id); else setNone(true); }).catch(() => setNone(true)); }, [encounterId]);
   if (none) return <PageState icon="file-x" title={T("no_report")} />;
-  return id ? <ReportVersion id={id} /> : <div aria-busy="true" className="t-muted">{T("loading")}</div>;
+  return id ? <ReportVersion id={id} /> : <Skeleton rows={5} label={T("loading")} />;
 }
 
 export function ReportVersion({ id }: { id: string }) {
@@ -44,21 +44,17 @@ export function ReportVersion({ id }: { id: string }) {
     return () => s.setPatient(null);
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return failed === "not_found" ? <PageState icon="search-x" title={T("not_found")} /> : <Callout tone="warn" icon="triangle-alert">{T("error_generic")}</Callout>;
-  if (!r) return <div aria-busy="true" className="t-muted">{T("loading")}</div>;
+  if (!r) return <Skeleton rows={5} label={T("loading")} />;
   const rep = r.report;
   const status = rep.status === "superseded" ? T("rep_superseded") : rep.status === "preliminary" ? T("wm_preliminary", { n: rep.pendingCount, m: rep.testCount })
     : rep.status === "corrected" ? (rep.pendingCount ? `${T("wm_corrected")} · ${T("wm_preliminary", { n: rep.pendingCount, m: rep.testCount })}` : T("wm_corrected")) : T("wm_final");
   const criticalCalls = r.tests.flatMap((t) => t.results).filter((x) => isCritical(x.flag)).flatMap((x) => x.callbacks.filter((c) => c.outcome === "reached").map((c) => ({ x, c })));
   return (
     <div data-screen="lab/report" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <ScreenHeader title={T("report_title")} />
-        <span className="num t-muted">{rep.number} · v{s.n(rep.version)}</span>
-        <Pill tone={REPORT_TONE[rep.status] ?? "neu"} icon="file-text">{T(`rep_${rep.status}`)}</Pill>
-        <span style={{ marginLeft: "auto" }} />
-        <Button icon="send" onClick={() => router.push(`/m/lab/delivery?enc=${encodeURIComponent(r.encounter.id)}`)}>{T("go_delivery")}</Button>
-      </div>
-      <Card style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12, position: "relative", maxWidth: 860 }} data-report-status={rep.status}>
+      <ScreenHeader title={T("report_title")}
+        subtitle={<span className="ck-head-pills"><span className="num t-muted">{rep.number} · v{s.n(rep.version)}</span><Pill tone={REPORT_TONE[rep.status] ?? "neu"} icon="file-text">{T(`rep_${rep.status}`)}</Pill></span>}
+        actions={<><Button icon="send" onClick={() => router.push(`/m/lab/delivery?enc=${encodeURIComponent(r.encounter.id)}`)}>{T("go_delivery")}</Button></>} />
+      <Card className="ck-paper" style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12, position: "relative", maxWidth: 860 }} data-report-status={rep.status}>
         <div data-testid="report-banner" style={{ border: "2px solid currentColor", borderRadius: 8, padding: "6px 10px", fontWeight: 700, color: rep.status === "final" ? "var(--text-primary)" : rep.status === "superseded" ? "var(--text-muted)" : "var(--danger-fg, #b91c1c)" }}>
           {status}{rep.supersededById ? ` · ${T("replaced_by_newer")}` : ""}
         </div>

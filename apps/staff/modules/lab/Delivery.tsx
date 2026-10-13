@@ -10,7 +10,7 @@ import { SMS_MAYBE_SENT } from "@setu/domain";
 import { useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { CommunicationItem, LabVisitView } from "@setu/contracts";
-import { Button, Callout, Card, PageState, Pill, useToast } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, useToast, Skeleton } from "@setu/ui";
 import { lab } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useLabels } from "../fd/common";
@@ -29,7 +29,7 @@ function DeliveryVisit({ encounterId }: { encounterId: string }) {
   const keys = useRef<Record<string, string>>({});
   const key = (k: string) => (keys.current[k] ??= crypto.randomUUID());
   if (failed) return failed === "not_found" ? <PageState icon="search-x" title={T("not_found")} /> : <Callout tone="warn" icon="triangle-alert">{T("error_generic")}</Callout>;
-  if (!v) return <div aria-busy="true" className="t-muted">{T("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={T("loading")} />;
   const cur = v.reports.find((r) => r.status !== "superseded") ?? null;
   const writer = isLabWriter(s.me?.role, "deliver");
   const forCur = (kind: string) => (cur ? [...v.communications].reverse().find((c) => c.reportId === cur.id && c.kind === kind) ?? null : null);

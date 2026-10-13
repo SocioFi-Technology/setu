@@ -111,13 +111,9 @@ function IpdBill({ admissionId }: { admissionId: string }) {
   const reason = (r: string) => B(`ib_reason_${["class-change", "package", "census", "order", "charge"].includes(r) ? r : "other"}`);
   return (
     <div data-screen="bill/ipd" data-status={v.depositState} style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <ScreenHeader title={B("ib_title")} />
-        <span className="num t-muted">{v.admission.number}</span>
-        {v.admission.status === "discharged" && <Pill tone="neu" icon="log-out">{B("ib_discharged", { at: M.dateTime(v.admission.dischargedAt) })}</Pill>}
-        <span style={{ flex: 1 }} />
-        <Button size="sm" icon="arrow-left" onClick={() => router.push("/m/bill/ipd")}>{B("ib_back")}</Button>
-      </div>
+      <ScreenHeader title={B("ib_title")}
+        subtitle={<span className="ck-head-pills"><span className="num t-muted">{v.admission.number}</span>{v.admission.status === "discharged" && <Pill tone="neu" icon="log-out">{B("ib_discharged", { at: M.dateTime(v.admission.dischargedAt) })}</Pill>}</span>}
+        actions={<><Button size="sm" icon="arrow-left" onClick={() => router.push("/m/bill/ipd")}>{B("ib_back")}</Button></>} />
       <Card style={{ padding: 12, display: "flex", gap: 18, flexWrap: "wrap" }} data-testid="ipd-strip">
         <span className="t-small"><span className="t-muted">{B("ib_admitted")}:</span> <span className="num">{M.dateTime(v.admission.admittedAt)}</span> · {B("ib_day", { n: v.admission.dayNo })}</span>
         <span className="t-small"><span className="t-muted">{B("ib_bed")}:</span> {v.admission.bed ? `${v.admission.bed.ward} · ${v.admission.bed.name}` : "—"} · {clsName}</span>

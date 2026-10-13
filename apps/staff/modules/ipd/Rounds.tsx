@@ -74,12 +74,8 @@ function RoundFor({ enc }: { enc: string }) {
   };
   return (
     <div data-screen="ipd/rounds" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <ScreenHeader title={<>{N("rounds_title")} · {N("day_n", { n: v.day })}</>} />
-        <span style={{ flex: 1 }} />
-        {/* ADR 0017: the doctor orders the discharge from the round (the checklist screen) */}
-        <a className="btn btn-sm" href={`/m/ipd/discharge?adm=${encodeURIComponent(v.admissionId)}`} data-testid="round-discharge">{s.t("ipdApp", "ds_order_from_round")}</a>
-      </div>
+      <ScreenHeader title={<>{N("rounds_title")} · {N("day_n", { n: v.day })}</>}
+        actions={<>{/* ADR 0017: the doctor orders the discharge from the round (the checklist screen) */}<a className="btn btn-sm" href={`/m/ipd/discharge?adm=${encodeURIComponent(v.admissionId)}`} data-testid="round-discharge">{s.t("ipdApp", "ds_order_from_round")}</a></>} />
       <span className="t-small">{v.diagnosis}</span>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.3fr)", gap: 14, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

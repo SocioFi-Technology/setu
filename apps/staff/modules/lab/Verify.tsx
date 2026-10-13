@@ -11,7 +11,7 @@ import { useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { LabOrder, LabResult, LabVisitView } from "@setu/contracts";
 import { CALLBACK_RECIPIENTS, CALLBACK_VIA, format, isCritical } from "@setu/domain";
-import { Button, Callout, Card, PageState, Pill, useToast } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, useToast, Skeleton } from "@setu/ui";
 import { ApiFailure, lab } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { DeltaBanner, ResultsTable } from "./Result";
@@ -42,7 +42,7 @@ function VerifyVisit({ encounterId }: { encounterId: string }) {
   const { v, show, failed } = useLabVisit(encounterId);
   const [sendBack, setSendBack] = useState<LabOrder | null>(null);
   if (failed) return failed === "not_found" ? <PageState icon="search-x" title={T("not_found")} /> : <Callout tone="warn" icon="triangle-alert">{T("error_generic")}</Callout>;
-  if (!v) return <div aria-busy="true" className="t-muted">{T("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={T("loading")} />;
   const live = v.orders.filter((o) => o.status !== "revoked");
   const prelim = live.flatMap(cur).filter((r) => r.status === "preliminary");
   const verified = live.flatMap(cur).filter((r) => r.status === "verified");
@@ -53,7 +53,7 @@ function VerifyVisit({ encounterId }: { encounterId: string }) {
       <VisitHead v={v} title={T("verify_title")} />
       {!s.online && <Callout tone="warn" icon="cloud-off">{T("online_needed")}</Callout>}
       {prelim.some((r) => r.delta?.hit) && <DeltaBanner hits={prelim.filter((r) => r.delta?.hit)} />}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-start" }}>
+      <div className="ck-cols" style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0, flex: "999 1 560px" }}>
           <VerifyStep v={v} results={prelim} show={show} />
           <ValidateStep v={v} results={verified} show={show} onSendBack={setSendBack} />

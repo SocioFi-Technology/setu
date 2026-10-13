@@ -90,14 +90,9 @@ function SummaryScreen({ admissionId }: { admissionId: string }) {
   const status = v.draft ? "draft" : v.current ? "signed" : "none";
   return (
     <div data-screen="ipd/summary" data-status={status} style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <ScreenHeader title={I("sm_title")} />
-        <span className="num t-muted">{v.admission.number} · {I("ds_day", { n: v.admission.dayNo })}</span>
-        {v.discharge?.kind === "lama" && <Pill tone="warn">{I("ds_kind_lama")}</Pill>}
-        {v.current && <span data-testid="summary-signed"><Pill tone="ok" icon="badge-check">{I("sm_signed_v", { n: v.current.version })}</Pill></span>}
-        <span style={{ flex: 1 }} />
-        <Button size="sm" icon="clipboard-check" onClick={() => router.push(`/m/ipd/discharge?adm=${encodeURIComponent(admissionId)}`)}>{I("sm_checklist")}</Button>
-      </div>
+      <ScreenHeader title={I("sm_title")}
+        subtitle={<span className="ck-head-pills"><span className="num t-muted">{v.admission.number} · {I("ds_day", { n: v.admission.dayNo })}</span>{v.discharge?.kind === "lama" && <Pill tone="warn">{I("ds_kind_lama")}</Pill>}{v.current && <span data-testid="summary-signed"><Pill tone="ok" icon="badge-check">{I("sm_signed_v", { n: v.current.version })}</Pill></span>}</span>}
+        actions={<><Button size="sm" icon="clipboard-check" onClick={() => router.push(`/m/ipd/discharge?adm=${encodeURIComponent(admissionId)}`)}>{I("sm_checklist")}</Button></>} />
       {v.stale && <Callout tone="warn" icon="history" data-testid="summary-stale">{I("sm_stale")}</Callout>}
       {v.draftBy && <Callout icon="pen-line" data-testid="summary-draft-by">{I("sm_draft_by", { name: s.lang === "bn" ? v.draftBy.nameBn : v.draftBy.nameEn })}</Callout>}
       {!v.needed && <Callout icon="info" data-testid="summary-not-needed">{v.discharge ? I("sm_none_death") : I("sm_no_discharge")}</Callout>}
