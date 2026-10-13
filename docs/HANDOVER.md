@@ -1518,6 +1518,22 @@ settled on the Claude Design board https://claude.ai/artifact/5Pf8ZxvnaNopUWPbXa
 - **Not done:** the prototype (`docs/prototype/`) and the handoff copies still say Setu — Kamrul's Claude Design round;
   the domain, SMS sender ID and production hosting wait for the domain purchase.
 
+## Done (redesign, 13/10/2026) — the whole app on the Chartis kit (local commits, not pushed) ✅
+Plan and task list: `docs/plans/2026-10-13-chartis-redesign.md`. Templates approved by Kamrul on the brand board.
+- **Kit** (`packages/ui/src/components/Kit.tsx`, `.ck-*` in `chartis.css`): PageHeader, Toolbar, FilterChips, SplitView,
+  Panel, StatTile, KeyValue, Tabs, Checklist, EmptyState, Skeleton, ActionBar, TokenTile, AuthLayout, PublicFrame,
+  Drawer, DocFrame; Button variant `key` (mint) for the one money-taking action. Staff `ScreenHeader` (crumb + title
+  from the capability names), `PdfDrawer`.
+- **Waves A–G** (sign-in, shell, home, public pages; front desk, consultation, doctor app; billing; lab and pharmacy;
+  ER, IPD, nursing; admin, Chartis Link; Chartis Passport), then **P0–P8**: nav sections distinguishable, type one step
+  smaller, previews and documents in a side drawer, and a second pass on each area's bodies (two-column bill with a
+  sticky summary, payment tiles and panel, the receipt as a slip, discharge and go-live checklists with status dots,
+  sticky pharmacy action bars, header actions for ward pickers, state edges on the patient app's cards, skeletons).
+- **Tests:** every journey green — 111 on a production build of the staff app (`.next-prod`; `next dev` was OOM-killed
+  on this machine) + the dev-only gateway / SMS specs (a6-a7, a6-followups, a8-a11, g1-g4) 23/23 on `next dev`.
+- **Not done:** the hosted Claude Design prototype has the Chartis colours and names but not the new layouts; push and
+  staging wait for Kamrul ("push when every page is redesigned").
+
 ## On call (staging) — https://setu.sociofitechnology.com (the shared SocioFi VPS, ADR 0019 addendum)
 **Where things are** (`ssh -l setu sociofi` — the `setu` user runs Setu in **its own rootless Docker daemon**: plain
 `docker` as setu sees Setu's containers, the VPS's shared `docker` group does not; every Setu container is compose

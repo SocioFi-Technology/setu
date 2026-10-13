@@ -104,4 +104,5 @@ screenshots, its journeys green on a production build (dev-only gateway/SMS spec
 - [x] P6 · Nursing: ward board, vitals / NEWS2, MAR, I/O and notes, handover
 - [x] P7 · Admin and Chartis Link: wizard, users, masters, audit; network history, portable lab, shared records
 - [x] P8 · Phones: doctor app screens; Chartis Passport tests, report, share, claim
-- [ ] P9 · Close: full suite, HANDOVER + plan, the hosted Claude Design prototype, then ask Kamrul before pushing
+- [x] P9 · Close: full suite (111 on a production build + 23/23 dev-only specs), HANDOVER + plan; the hosted Claude
+      Design prototype keeps the brand pass only (its layouts are not regenerated); ask Kamrul before pushing
