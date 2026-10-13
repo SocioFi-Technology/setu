@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CareTaskList, IoEntryRequest, IoView } from "@setu/contracts";
 import { IO_ROUTES, careTaskTextOk, format, type IoSide } from "@setu/domain";
-import { Button, Callout, Card, Pill, SelectField, TextArea, TextField, useToast } from "@setu/ui";
+import { Button, Callout, Card, Pill, SelectField, TextArea, TextField, useToast, Skeleton } from "@setu/ui";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { hhmm, useErr, useN } from "./common";
@@ -31,7 +31,7 @@ export function IoPanel({ enc }: { enc: string }) {
   };
   const n = /^\d+$/.test(format.toEn(ml)) ? Number(format.toEn(ml)) : null;
   const markError = async (id: string) => { try { await ward.ioError(id, reason.trim()); setErrOpen(null); setReason(""); await load(); } catch (e) { toast(err(e), "triangle-alert"); } };
-  if (!v) return <div aria-busy="true" className="t-muted">{N("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={N("loading")} />;
   const bnNum = s.numerals === "bn"; const mlS = (x: number) => N("io_ml_n", { n: x });
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }} data-testid="io-panel">
@@ -89,7 +89,7 @@ export function CarePanel({ enc }: { enc: string }) {
   const run = async (f: () => Promise<CareTaskList>) => { setBusy(true); try { setL(await f()); } catch (e) { toast(err(e), "triangle-alert"); } finally { setBusy(false); } };
   const everyN = every.trim() === "" ? null : /^\d+$/.test(format.toEn(every)) ? Number(format.toEn(every)) : NaN;
   const canAdd = careTaskTextOk(text) && (everyN === null || (Number.isInteger(everyN) && everyN >= 1 && everyN <= 24)) && s.online && !busy;
-  if (!l) return <div aria-busy="true" className="t-muted">{N("loading")}</div>;
+  if (!l) return <Skeleton rows={5} label={N("loading")} />;
   const bnNum = s.numerals === "bn";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }} data-testid="care-panel">

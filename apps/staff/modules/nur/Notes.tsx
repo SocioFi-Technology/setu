@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { NursingNoteView, WardPatientView } from "@setu/contracts";
 import { noteOk } from "@setu/domain";
-import { Button, Callout, Card, Pill, Segmented, TextArea } from "@setu/ui";
+import { Button, Callout, Card, Pill, Segmented, TextArea, Toolbar, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -30,7 +30,7 @@ function NotesFor({ enc, tab0 }: { enc: string; tab0: "io" | "notes" | "care" })
   useEffect(() => { void load(); }, [load]);
   useWardBanner(v?.patient, v?.allergies, v?.bed ? `${v.bed.ward} · ${v.bed.name}` : null);
   if (failed) return <Callout tone="warn" icon="triangle-alert">{failed}</Callout>;
-  if (!v) return <div aria-busy="true" className="t-muted">{N("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={N("loading")} />;
   const add = async () => {
     if (!noteOk(text) || busy) return; setBusy(true); setMsg(null);
     try {
@@ -43,7 +43,9 @@ function NotesFor({ enc, tab0 }: { enc: string; tab0: "io" | "notes" | "care" })
   return (
     <div data-screen="nur/io" style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 820 }}>
       <ScreenHeader title={N(tab === "io" ? "io_tab" : tab === "care" ? "care_tab" : "notes_title")} />
+      <Toolbar>
       <Segmented value={tab} options={(["io", "notes", "care"] as const).map((x) => ({ value: x, label: N(`${x}_tab`) }))} onChange={(x) => setTab(x as typeof tab)} label={N("notes_title")} />
+      </Toolbar>
       {tab === "io" && <IoPanel enc={enc} />}
       {tab === "care" && <CarePanel enc={enc} />}
       {tab === "notes" && (<>

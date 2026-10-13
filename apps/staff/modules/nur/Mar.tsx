@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { DoseRecord, MarOrder, MarView, WitnessList } from "@setu/contracts";
 import { FIVE_CHECKS, SLOT_AHEAD_MAX_MS, dhakaDay, doseBlockers, doseTiming, format, scanBlockers, type DoseOutcome, type FiveChecks } from "@setu/domain";
-import { Button, Callout, Card, Dialog, Pill, Segmented, SelectField, TextArea, TextField, useToast, type Tone } from "@setu/ui";
+import { Button, Callout, Card, Dialog, Pill, Segmented, SelectField, TextArea, TextField, useToast, type Tone, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -36,15 +36,12 @@ function MarFor({ enc }: { enc: string }) {
   useEffect(() => { void load(); const t = setInterval(() => void load(), 60_000); return () => clearInterval(t); }, [load]);
   useWardBanner(v?.patient, v?.allergies, v?.bed ? `${v.bed.ward} · ${v.bed.name}` : null);
   if (failed && !v) return <Callout tone="warn" icon="triangle-alert">{failed}</Callout>;
-  if (!v) return <div aria-busy="true" className="t-muted">{N("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={N("loading")} />;
   const active = v.orders.filter((o) => o.status === "active");
   const ended = v.orders.filter((o) => o.status !== "active");
   return (
     <div data-screen="nur/mar" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-      <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
-        <ScreenHeader title={N("mar_title")} />
-        <span className="t-small t-muted">{format.date(v.day, s.numerals === "bn")} · {N("mar_window", { n: v.windowMin })} · {s.L(v.sample.bn, v.sample.en)}</span>
-      </div>
+      <ScreenHeader title={N("mar_title")} subtitle={<>{format.date(v.day, s.numerals === "bn")} · {N("mar_window", { n: v.windowMin })} · {s.L(v.sample.bn, v.sample.en)}</>} />
       {!s.online && <Callout tone="warn" icon="cloud-off" data-testid="mar-offline">{N("needs_connection")}</Callout>}
       {active.map((o) => <OrderRow key={o.id} o={o} day={v.day} onPick={(slot) => setPick({ order: o, slot })} onVial={() => setVialFor(o)} />)}
       {ended.map((o) => <OrderRow key={o.id} o={o} day={v.day} onPick={() => undefined} onVial={() => undefined} />)}

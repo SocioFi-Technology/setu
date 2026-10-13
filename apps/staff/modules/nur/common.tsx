@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { AllergyView, BatchLabels, News2, PatientSummary, WristbandView } from "@setu/contracts";
 import { format, normaliseScan } from "@setu/domain";
 import { fill } from "@setu/i18n";
-import { Button, Callout, Dialog, Pill, TextField, useToast, type BannerPatient } from "@setu/ui";
+import { Button, Callout, Dialog, Pill, TextField, useToast, type BannerPatient, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -91,7 +91,7 @@ export function WardPatientPicker({ screen, title }: { screen: string; title: st
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   if (msg) return <Callout tone="warn" icon="triangle-alert">{msg}</Callout>;
-  if (!beds) return <div aria-busy="true" className="t-muted">{N("loading")}</div>;
+  if (!beds) return <Skeleton rows={5} label={N("loading")} />;
   return (
     <div data-screen={screen} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <ScreenHeader title={title} subtitle={N("pick_patient")} />

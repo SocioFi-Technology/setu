@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { WardPatientView, WardVitalsRequest } from "@setu/contracts";
 import { CONSCIOUSNESS, format, informBlockers, news2, shouldEscalate, type Consciousness } from "@setu/domain";
-import { Button, Callout, Card, Pill, Segmented, TextArea, TextField, useToast } from "@setu/ui";
+import { Button, Callout, Card, Pill, Segmented, TextArea, TextField, useToast, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -35,7 +35,7 @@ function VitalsFor({ enc }: { enc: string }) {
   useEffect(() => { void load(); }, [load]);
   useWardBanner(v?.patient, v?.allergies, v?.bed ? `${v.bed.ward} · ${v.bed.name}` : null);
   if (failed) return <Callout tone="warn" icon="triangle-alert">{failed}</Callout>;
-  if (!v) return <div aria-busy="true" className="t-muted">{N("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={N("loading")} />;
   const bnNum = s.numerals === "bn";
   const live = news2({ rr: num(f.rr), spo2: num(f.spo2), onOxygen: f.onOxygen, sbp: num(f.sbp), pulse: num(f.pulse), tempF: num(f.temp), consciousness: f.consciousness || undefined });
   const anyValue = [f.rr, f.spo2, f.sbp, f.pulse, f.temp].some((x) => x.trim() !== "") || f.consciousness !== "";

@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { CountList, Escalation, IndentList, StockCountView, WardBoard, WardBoardBed, WardList, WardStock } from "@setu/contracts";
 import { format, informBlockers } from "@setu/domain";
-import { Button, Callout, Card, Dialog, Icon, Pill, SelectField, TextArea, TextField, useToast } from "@setu/ui";
+import { Button, Callout, Card, Dialog, Icon, Pill, SelectField, TextArea, TextField, useToast, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -34,7 +34,7 @@ export function NurWard() {
   // every 20 s: live enough for a bed freed by a discharge (ADR 0018)
   useEffect(() => { void load(); const t = setInterval(() => void load(), 20_000); return () => clearInterval(t); }, [load]);
   if (failed && !board) return <Callout tone="warn" icon="triangle-alert">{failed}</Callout>;
-  if (!wards) return <div aria-busy="true" className="t-muted">{N("loading")}</div>;
+  if (!wards) return <Skeleton rows={5} label={N("loading")} />;
   const bn = s.lang === "bn";
   const pick = (id: string) => { rememberWard(id); if (id === wardId) return; setWardId(id); setBoard(null); };
   const go = (screen: string, encounterId: string) => router.push(`/m/${screen}?enc=${encodeURIComponent(encounterId)}`);
@@ -42,15 +42,14 @@ export function NurWard() {
   const arrive = async (admissionId: string) => { try { await ward.arrive(admissionId); toast(N("arrived"), "badge-check"); await load(); } catch (e) { toast(err(e), "triangle-alert"); } };
   return (
     <div data-screen="nur/ward" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-      <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-        <ScreenHeader title={N("board_title")} />
+      <ScreenHeader title={N("board_title")} actions={<>
         <div style={{ minWidth: 220 }}>
           <SelectField label={N("ward")} value={wardId ?? ""} onChange={(e) => pick(e.target.value)} data-testid="ward-pick">
             {wards.wards.map((w) => <option key={w.id} value={w.id}>{bn ? w.nameBn ?? w.name : w.name} · {s.n(w.occupied)}/{s.n(w.beds)}</option>)}
           </SelectField>
         </div>
-      </div>
-      {!board ? <div aria-busy="true" className="t-muted">{N("loading")}</div> : (<>
+      </>} />
+      {!board ? <Skeleton rows={5} label={N("loading")} /> : (<>
         <span className="t-small t-muted" data-testid="occupancy">{N("beds_occupied", { occ: occupied, n: board.beds.length })} · {N("sample_rule")}: NEWS2 ≥ {s.n(board.rule.threshold)}{board.onDuty ? ` · ${N("ho_on_duty", { name: bn ? board.onDuty.nurse.nameBn : board.onDuty.nurse.nameEn, t: hhmm(board.onDuty.since, s.numerals === "bn") })}` : ""}</span>
         <div><Button size="sm" icon="repeat" onClick={() => router.push("/m/nur/handover")} data-testid="open-handover">{N("ho_link")}</Button></div>
         {board.escalations.map((x) => (

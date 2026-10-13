@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HandoverPatientView, HandoverView, WardHandover, WardList } from "@setu/contracts";
 import { format } from "@setu/domain";
-import { Button, Callout, Card, Pill, SelectField, TextArea, useToast } from "@setu/ui";
+import { Button, Callout, Card, Pill, SelectField, TextArea, useToast, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, ward } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -24,7 +24,7 @@ export function NurHandover() {
   const load = useCallback(async () => { if (!wardId) return; try { setW(await ward.handover(wardId)); setFailed(null); } catch (e) { setFailed(err(e)); } }, [wardId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { void load(); }, [load]);
   if (failed && !w) return <Callout tone="warn" icon="triangle-alert">{failed}</Callout>;
-  if (!wards) return <div aria-busy="true" className="t-muted">{N("loading")}</div>;
+  if (!wards) return <Skeleton rows={5} label={N("loading")} />;
   const bn = s.lang === "bn"; const bnNum = s.numerals === "bn";
   const start = async () => {
     if (!wardId) return;
@@ -34,15 +34,14 @@ export function NurHandover() {
   const h = w?.handover ?? null;
   return (
     <div data-screen="nur/handover" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-      <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-        <ScreenHeader title={N("ho_title")} />
+      <ScreenHeader title={N("ho_title")} actions={<>
         <div style={{ minWidth: 220 }}>
           <SelectField label={N("ward")} value={wardId ?? ""} onChange={(e) => { rememberWard(e.target.value); if (e.target.value !== wardId) { setWardId(e.target.value); setW(null); } }} data-testid="ward-pick">
             {wards.wards.map((x) => <option key={x.id} value={x.id}>{bn ? x.nameBn ?? x.name : x.name}</option>)}
           </SelectField>
         </div>
-      </div>
-      {!w ? <div aria-busy="true" className="t-muted">{N("loading")}</div> : (<>
+      </>} />
+      {!w ? <Skeleton rows={5} label={N("loading")} /> : (<>
         <span className="t-small t-muted" data-testid="ho-shift">{N("ho_shift", { d: format.date(w.shift.day, bnNum), t: hhmm(w.shift.start, bnNum) })}{w.onDuty ? ` · ${N("ho_on_duty", { name: bn ? w.onDuty.nurse.nameBn : w.onDuty.nurse.nameEn, t: hhmm(w.onDuty.since, bnNum) })}` : ""}</span>
         {!h ? (
           <Card style={{ display: "flex", flexDirection: "column", gap: 8, padding: 16 }}>
