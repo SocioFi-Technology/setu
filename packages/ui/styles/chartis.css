@@ -359,3 +359,44 @@ a.ck-stat:hover { border-color: var(--border-default); box-shadow: var(--shadow-
 @keyframes ck-slide { from { transform: translateX(32px); opacity: .6; } to { transform: none; opacity: 1; } }
 @keyframes ck-fade { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 600px) { .ck-drawer { width: 100vw !important; } .ck-drawer-body { padding: 10px; } }
+/* P2 · a bill: the lines on the left, a sticky summary column (totals and actions first, then the discount) on the right */
+.ck-bill-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 400px); gap: 18px; align-items: start; }
+.ck-bill-layout > * { grid-column: 1; min-width: 0; }
+.ck-bill-layout > .ck-bill-side { grid-column: 2; grid-row: 1 / span 3; display: flex !important; flex-direction: column; gap: 16px; position: sticky; top: 16px; }
+.ck-bill-side > [data-testid="bill-totals"], .ck-bill-side > [data-testid="ib-totals"] { order: -1; }
+.ck-bill-side > .card { padding: 18px !important; box-shadow: var(--shadow-2); }
+.ck-bill-layout > .card { box-shadow: var(--shadow-2); }
+[data-testid="bill-totals"] [data-total="total"] { font-size: 22px !important; padding-top: 10px !important; margin-top: 4px; }
+[data-testid="bill-totals"] [data-total="due"] b { color: var(--brand-primary-text); font-size: 17px; }
+@media (max-width: 1100px) { .ck-bill-layout { grid-template-columns: minmax(0, 1fr); } .ck-bill-layout > .ck-bill-side { grid-column: 1; grid-row: auto; position: static; } }
+/* P2 · payment: the four figures as stat tiles (due emphasised), the add-payment panel as the screen's focus */
+[data-testid="pay-summary"] { gap: 14px !important; }
+[data-testid="pay-summary"] > .card { padding: 16px 18px !important; box-shadow: var(--shadow-2); }
+[data-testid="pay-summary"] > .card b { font-size: 24px !important; line-height: 30px; letter-spacing: -.01em; }
+[data-testid="pay-summary"] > [data-sum="due"] { border-color: var(--brand-primary); box-shadow: inset 4px 0 0 var(--brand-primary), var(--shadow-2); }
+[data-testid="pay-summary"] > [data-sum="confirmed"] b { color: var(--success-fg); }
+[data-testid="pay-form"] { padding: 20px 22px !important; border-color: var(--pine-200); box-shadow: var(--shadow-3); }
+[data-testid="pay-form"] > b { font-size: 17px; }
+[data-testid="pay-form"] .seg { align-self: flex-start; }
+[data-testid="pay-form"] .seg > button { height: 42px; padding: 0 18px; font-size: 14px; }
+[data-testid="pay-form"] .input { height: 48px; font-size: 18px; font-weight: 700; }
+[data-testid="pay-change"] { font-size: 15px; }
+[data-payment] { padding: 16px 18px !important; border-bottom-color: #f0eee8 !important; }
+[data-payment][data-status="confirmed"] { box-shadow: inset 4px 0 0 var(--success-solid); }
+[data-testid="paid-by"], [data-testid="pay-refunds"] { box-shadow: var(--shadow-2); }
+[data-testid="bill-lines"] th:first-child, [data-testid="bill-lines"] td:first-child { padding-left: 18px; }
+/* P2 · receipt: the receipt as a paper slip on the left, printing on the right */
+.ck-receipt-layout { display: grid; grid-template-columns: minmax(0, 560px) minmax(300px, 1fr); gap: 18px; align-items: start; }
+.ck-receipt-layout > * { min-width: 0; }
+[data-testid="receipt-summary"] { padding: 22px 24px !important; background: #fff; border-top: 4px solid var(--brand-primary); box-shadow: var(--shadow-3); font-variant-numeric: tabular-nums; }
+[data-testid="receipt-summary"] > b:first-child { font-size: 17px; }
+@media (max-width: 1100px) { .ck-receipt-layout { grid-template-columns: minmax(0, 1fr); } }
+.ck-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.ck-grid-2 > * { min-width: 0; box-shadow: var(--shadow-2); }
+@media (max-width: 1000px) { .ck-grid-2 { grid-template-columns: minmax(0, 1fr); } }
+.ck-grid-21 { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr); gap: 16px; align-items: start; }
+.ck-grid-21 > * { min-width: 0; box-shadow: var(--shadow-2); }
+@media (max-width: 1100px) { .ck-grid-21 { grid-template-columns: minmax(0, 1fr); } }
+[data-testid="ipd-strip"] { padding: 14px 18px !important; gap: 24px !important; box-shadow: var(--shadow-2); border-left: 4px solid var(--brand-primary); }
+.ipd-bill-grid > .card, .ipd-bill-grid > div > .card { box-shadow: var(--shadow-2); }
+.ck-bill-layout > .ck-bill-side { align-items: stretch !important; }

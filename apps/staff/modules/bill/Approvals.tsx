@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ApprovalList } from "@setu/contracts";
-import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, Segmented, useToast, Toolbar, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { bill as api } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -60,11 +60,13 @@ export function BillApprovals() {
   return (
     <div data-screen="bill/approvals" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <ScreenHeader title={B("appr_title")} />
+      <Toolbar>
       <Segmented label={B("appr_title")} value={tab} onChange={setTab} options={(["requested", "approved", "rejected"] as const).map((t) => ({ value: t, label: B(`appr_tab_${t}`) }))} />
       <Segmented label={B("appr_kind")} value={kind} onChange={setKind} options={KINDS.map((k) => ({ value: k, label: B(`appr_k_${k}`) }))} />
+      </Toolbar>
       {!s.online && <Callout tone="warn" icon="cloud-off">{B("online_needed")}</Callout>}
       {failed ? <Callout tone="warn" icon="triangle-alert">{B("error_generic")}</Callout>
-        : !list ? <div aria-busy="true" className="t-muted">{B("loading")}</div>
+        : !list ? <Skeleton rows={5} label={B("loading")} />
         : items.length === 0 && (phKinds.length === 0 || phCount === 0) ? <PageState icon="badge-check" title={B("appr_empty")} />
         : items.map((a) => {
           const pct = a.subtotalPaisa > 0 ? Math.round((a.amountPaisa * 1000) / a.subtotalPaisa) / 10 : 0;

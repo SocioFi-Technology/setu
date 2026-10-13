@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ReceiptList, ReceiptView } from "@setu/contracts";
-import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, Segmented, useToast, Skeleton } from "@setu/ui";
 import { PdfDrawer } from "../../components/PdfDrawer";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { bill as api } from "../../lib/api";
@@ -30,7 +30,7 @@ function ReceiptsOfBill({ invoiceId }: { invoiceId: string }) {
   const [list, setList] = useState<ReceiptList | null>(null);
   const [key] = useState(() => crypto.randomUUID());
   useEffect(() => { api.receipts(invoiceId).then(setList).catch(() => setList({ items: [] })); }, [invoiceId]);
-  if (!list) return <div aria-busy="true" className="t-muted">{B("loading")}</div>;
+  if (!list) return <Skeleton rows={5} label={B("loading")} />;
   return (
     <div data-screen={`${mod}/receipt`} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <ScreenHeader title={B("receipts")} />
@@ -76,7 +76,7 @@ function ReceiptScreen({ id }: { id: string }) {
   };
 
   if (failed) return <Callout tone="warn" icon="triangle-alert">{B("error_generic")}</Callout>;
-  if (!v) return <div aria-busy="true" className="t-muted">{B("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={B("loading")} />;
   const r = v.receipt; const snap = r.snapshot;
   const printed = v.prints.length > 0;
   return (
@@ -85,6 +85,7 @@ function ReceiptScreen({ id }: { id: string }) {
         subtitle={<span className="ck-head-pills"><b className="num" data-testid="receipt-number">{r.number}</b><span className="num t-muted">{M.dateTime(r.createdAt)}</span>{printed && <Pill tone="neu" icon="printer">{s.n(v.prints.length)}</Pill>}</span>}
         actions={<><Button size="sm" icon="arrow-left" onClick={() => void goToBill(router.push, r.invoiceId)}>{B("back_to_bill")}</Button></>} />
 
+      <div className="ck-receipt-layout">
       <Card style={{ display: "flex", flexDirection: "column", gap: 6, padding: 16 }} data-testid="receipt-summary">
         <b>{s.lang === "bn" ? snap.seller.nameBn ?? snap.seller.nameEn : snap.seller.nameEn}</b>
         <span className="t-small">{B("r_bill_no")} <span className="num">{snap.invoice.number}</span> · {M.name(snap.patient)} · <span className="num">{snap.patient.facilityNo}</span></span>
@@ -132,6 +133,7 @@ function ReceiptScreen({ id }: { id: string }) {
         {shown && <a href={`/api${shown}`} target="_blank" rel="noreferrer" data-testid="open-pdf">{B("rc_open_pdf")}</a>}
         <PdfDrawer src={shown ? `/api${shown}` : null} title={r.number ?? B("rc_title")} />
       </Card>
+      </div>
 
       {printed && (
         <Card style={{ display: "flex", flexDirection: "column", gap: 4, padding: 16 }} data-testid="print-audit">

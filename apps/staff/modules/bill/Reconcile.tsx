@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ReconcileList } from "@setu/contracts";
-import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, Segmented, useToast, Toolbar, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { bill as api, refunds } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -50,10 +50,12 @@ export function BillReconcile() {
   return (
     <div data-screen="bill/reconcile" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <ScreenHeader title={B("rec_title")} subtitle={B("rec_hint")} />
+      <Toolbar>
       <Segmented label={B("rec_title")} value={tab} onChange={setTab} options={(["requested", "approved", "rejected"] as const).map((t) => ({ value: t, label: B(`rec_tab_${t}`) }))} />
+      </Toolbar>
       {!s.online && <Callout tone="warn" icon="cloud-off">{B("online_needed")}</Callout>}
       {failed ? <Callout tone="warn" icon="triangle-alert">{B("error_generic")}</Callout>
-        : !list ? <div aria-busy="true" className="t-muted">{B("loading")}</div>
+        : !list ? <Skeleton rows={5} label={B("loading")} />
         : list.items.length === 0 ? <PageState icon="scale" title={B("rec_empty")} />
         : list.items.map((i) => {
           const note = notes[i.taskId] ?? "";

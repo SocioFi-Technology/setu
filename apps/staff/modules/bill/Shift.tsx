@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ShiftView } from "@setu/contracts";
 import { DENOMINATIONS, DIGITAL_METHODS, countCheck, parseTaka } from "@setu/domain";
 import { fill } from "@setu/i18n";
-import { Button, Callout, Card, PageState, Pill, useToast } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, useToast, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, shifts } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -51,7 +51,7 @@ function MyDrawer() {
     try { await shifts.open(p, key); setKey(crypto.randomUUID()); await load(); } catch (e) { toast(errText(e, s.lang), "triangle-alert"); } finally { setBusy(false); }
   };
   if (failed) return <Callout tone="warn" icon="triangle-alert">{O("error_generic")}</Callout>;
-  if (!data) return <div aria-busy="true" className="t-muted">{O("loading")}</div>;
+  if (!data) return <Skeleton rows={5} label={O("loading")} />;
   const sh = data.shift;
   return (
     <>
@@ -97,6 +97,7 @@ function CountForm({ sh, onDone }: { sh: ShiftView; onDone: () => Promise<void> 
   return (
     <>
       {lastRecount && <Callout tone="warn" icon="rotate-ccw" data-testid="recount-banner">{O("sh_recount", { by: M.name(lastRecount.by), note: lastRecount.note ?? "" })}</Callout>}
+      <div className="ck-grid-2">
       <Card style={{ padding: 16, display: "flex", flexDirection: "column", gap: 6 }} data-testid="shift-live">
         <span className="t-small t-muted">{O("sh_opened", { at: M.dateTime(sh.openedAt), float: M.tk(sh.openingFloatPaisa) })}</span>
         <span className="t-small t-muted">{O("sh_payments", { n: live.payments })}</span>
@@ -131,6 +132,7 @@ function CountForm({ sh, onDone }: { sh: ShiftView; onDone: () => Promise<void> 
         <span className="t-small t-muted">{O("sh_count_final")}</span>
         <span><Button variant="primary" icon="lock" data-testid="shift-handover" disabled={busy || !check.ok || !s.online} onClick={() => void submit()}>{busy ? O("sh_waiting") : O("sh_submit_count")}</Button></span>
       </Card>
+      </div>
     </>
   );
 }
@@ -195,7 +197,7 @@ function ReviewList() {
   const load = useCallback(async () => { try { setItems((await shifts.list("closed")).items); setFailed(false); } catch { setFailed(true); } }, []);
   useEffect(() => { void load(); }, [load]);
   if (failed) return <Callout tone="warn" icon="triangle-alert">{O("error_generic")}</Callout>;
-  if (!items) return <div aria-busy="true" className="t-muted">{O("loading")}</div>;
+  if (!items) return <Skeleton rows={5} label={O("loading")} />;
   return (
     <>
       <ScreenHeader title={O("sh_review_title")} />

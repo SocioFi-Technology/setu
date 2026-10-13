@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { RefundableView, RefundList, RefundVoucherView, RefundView } from "@setu/contracts";
 import { PAYOUT_WAYS, RECIPIENT_RELATIONS, REFUND_CATEGORIES, RETURN_CATEGORIES, isWallet, paisaToInput, parseTaka, partOfLine, returnSplit, sum, type CashReason, type PayoutWay, type RefundCategory } from "@setu/domain";
-import { Button, Callout, Card, PageState, Pill, Segmented, useToast, type Tone } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, Segmented, useToast, type Tone, Toolbar, Skeleton } from "@setu/ui";
 import { PdfDrawer } from "../../components/PdfDrawer";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ApiFailure, refunds as api } from "../../lib/api";
@@ -45,9 +45,11 @@ function RefundListScreen() {
   return (
     <div data-screen={`${mod}/refund`} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <ScreenHeader title={B("rf_title")} />
+      <Toolbar>
       <Segmented label={B("rf_list_title")} value={tab} onChange={setTab} options={(["open", "paid", "all"] as const).map((t) => ({ value: t, label: B(`rf_tab_${t}`) }))} />
+      </Toolbar>
       {failed ? <Callout tone="warn" icon="triangle-alert">{B("error_generic")}</Callout>
-        : !list ? <div aria-busy="true" className="t-muted">{B("loading")}</div>
+        : !list ? <Skeleton rows={5} label={B("loading")} />
         : list.items.length === 0 ? <PageState icon="undo-2" title={B("rf_none")} />
         : list.items.map((r) => (
           <button key={r.id} type="button" className="card" data-refund={r.id} data-status={r.status} onClick={() => router.push(`/m/${mod}/refund?rf=${encodeURIComponent(r.id)}`)}
@@ -116,7 +118,7 @@ function RequestForm({ invoiceId }: { invoiceId: string }) {
   const cats = kind === "return" ? RETURN_CATEGORIES : REFUND_CATEGORIES.filter((c) => c !== "overpayment");
 
   if (failed) return <Callout tone="warn" icon="triangle-alert">{B("error_generic")}</Callout>;
-  if (!v) return <div aria-busy="true" className="t-muted">{B("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={B("loading")} />;
   const blocked = kind === "refund" && v.blockers.length > 0;
   const gatewayOne = way === "gateway" && chosenPays.length > 1;
   const canSend = s.online && !busy && !blocked && parts.length > 0 && parts.every((x) => x.part) && total > 0 && category !== "" && reason.trim().length >= 10
@@ -145,6 +147,7 @@ function RequestForm({ invoiceId }: { invoiceId: string }) {
       {kind === "return" ? <Callout tone="info" icon="package-open" data-testid="return-hint">{(v.invoice.paidPaisa > 0 ? B("rf_kind_return_split_hint") : B("rf_kind_return_hint"))} {B("rf_due_now")}: <b className="num">{M.tk(v.duePaisa)}</b></Callout>
         : blocked && <Callout tone="warn" icon="circle-alert" data-testid="rf-blockers">{v.blockers.map((b) => B(`rf_b_${b}`)).join(" ")}</Callout>}
 
+      <div className="ck-grid-21">
       <Card style={{ padding: 0, overflowX: "auto" }}>
         <table className="table" data-testid="rf-lines" style={{ width: "100%" }}>
           <thead><tr><th /><th>{B("rf_col_line")}</th><th>{B("rf_col_status")}</th><th className="num">{B("rf_col_left")}</th><th className="num">{B("rf_col_amount")}</th></tr></thead>
@@ -223,6 +226,7 @@ function RequestForm({ invoiceId }: { invoiceId: string }) {
         <span><Button variant="primary" icon="send" data-testid="rf-request" disabled={!canSend} onClick={() => void send()}>{busy ? B("waiting_server") : B("rf_request")}</Button></span>
         <span className="t-small t-muted">{B("rf_requested_hint")}</span>
       </Card>
+      </div>
     </div>
   );
 }
@@ -254,7 +258,7 @@ function RefundScreen({ id }: { id: string }) {
   };
 
   if (failed) return <Callout tone="warn" icon="triangle-alert">{B("error_generic")}</Callout>;
-  if (!v) return <div aria-busy="true" className="t-muted">{B("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={B("loading")} />;
   const r = v.refund;
   const isReturn = r.kind === "return";
   const mine = r.requestedBy.id === s.me?.userId;

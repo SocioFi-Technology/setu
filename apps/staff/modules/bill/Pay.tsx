@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { InvoiceView, NewPaymentRequest } from "@setu/contracts";
 import { PAYMENT_METHODS, isWallet, paisaToInput, parseTaka, type PaymentMethod } from "@setu/domain";
-import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, Segmented, useToast, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { bill as api } from "../../lib/api";
 import { dismissRefused, onOutbox, outboxItems } from "../../lib/outbox";
@@ -112,7 +112,7 @@ function PayView({ id }: { id: string }) {
   };
 
   if (failed) return <Callout tone="warn" icon="triangle-alert">{B("error_generic")}</Callout>;
-  if (!v) return <div aria-busy="true" className="t-muted">{B("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={B("loading")} />;
   const inv = v.invoice;
   const sum = v.summary;
   // decision 221: a bill whose medicine all came back unpaid has nothing left to take

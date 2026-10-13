@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { BillingWorklist, ChargeDefinitionList, InvoiceView } from "@setu/contracts";
 import { DISCOUNT_CATEGORIES, discountToPaisa, parsePercentBp, parseTaka } from "@setu/domain";
-import { Button, Callout, Card, PageState, Pill, Segmented, useToast } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, Segmented, useToast, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { bill as api } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -29,7 +29,7 @@ function Worklist() {
   const [showAll, setShowAll] = useState(false); // settled bills: the latest few unless asked (ADR 0019 load check)
   useEffect(() => { s.setPatient(null); api.worklist(showAll).then(setW).catch(() => setFailed(true)); }, [showAll]); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <Callout tone="warn" icon="triangle-alert">{B("error_generic")}</Callout>;
-  if (!w) return <div aria-busy="true" className="t-muted">{B("loading")}</div>;
+  if (!w) return <Skeleton rows={5} label={B("loading")} />;
   const writer = WRITERS.includes(s.me?.role ?? "");
   return (
     <div data-screen="bill/opd" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -76,7 +76,7 @@ function OpenBill({ encounterId }: { encounterId: string }) {
   }, [encounterId]); // eslint-disable-line react-hooks/exhaustive-deps
   return error
     ? <div style={{ display: "flex", flexDirection: "column", gap: 12 }}><Callout tone="warn" icon="triangle-alert">{error}</Callout><Button icon="arrow-left" onClick={() => router.push("/m/bill/opd")}>{B("back_to_list")}</Button></div>
-    : <div aria-busy="true" className="t-muted">{B("loading")}</div>;
+    : <Skeleton rows={5} label={B("loading")} />;
 }
 
 type Disc = { mode: "amount" | "percent"; value: string; category: string; reason: string };
@@ -150,7 +150,7 @@ function BillView({ id }: { id: string }) {
   }, [d.mode, d.value, v]);
 
   if (failed) return <Callout tone="warn" icon="triangle-alert">{B("error_generic")}</Callout>;
-  if (!v) return <div aria-busy="true" className="t-muted">{B("loading")}</div>;
+  if (!v) return <Skeleton rows={5} label={B("loading")} />;
   const inv = v.invoice;
   const reasonOk = d.reason.trim().length >= 10 && Boolean(d.category);
   const overBill = discPaisa !== null && discPaisa > inv.subtotalPaisa;
@@ -194,6 +194,7 @@ function BillView({ id }: { id: string }) {
       {stale && s.online && <Callout tone="warn" icon="refresh-cw" data-testid="bill-stale">{B("bill_stale", { at: M.time(updatedAt) })}</Callout>}
       <span className="t-small t-muted">{B("sample_prices")}</span>
 
+      <div className="ck-bill-layout">
       <Card style={{ padding: 0, overflowX: "auto" }}>
         <table className="table" data-testid="bill-lines">
           <thead><tr>
@@ -245,7 +246,7 @@ function BillView({ id }: { id: string }) {
       </Card>
 
       {draft && writer && (
-        <div style={{ position: "relative", maxWidth: 520, display: "flex", flexDirection: "column", gap: 4 }}>
+        <div className="ck-bill-add" style={{ position: "relative", maxWidth: 520, display: "flex", flexDirection: "column", gap: 4 }}>
           <label className="t-small" htmlFor="add-service">{B("add_service")}</label>
           <input id="add-service" ref={search} className="input" value={q} placeholder={B("add_placeholder")} disabled={!editable} onChange={(e) => setQ(e.target.value)} />
           {!editable && v.invoice.discountPaisa > 0 && <span className="t-small t-muted">{B("disc_locked")}</span>}
@@ -262,7 +263,7 @@ function BillView({ id }: { id: string }) {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16, alignItems: "start" }}>
+      <div className="ck-bill-side" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16, alignItems: "start" }}>
         <Card style={{ display: "flex", flexDirection: "column", gap: 10, padding: 16 }} data-testid="discount-panel">
           <b>{B("disc_title")}</b>
           {inv.discount ? (
@@ -350,6 +351,7 @@ function BillView({ id }: { id: string }) {
           )}
           {inv.paidPaisa > 0 && WRITERS.includes(s.me?.role ?? "") && <Button icon="printer" onClick={() => router.push(`/m/bill/receipt?inv=${encodeURIComponent(id)}`)}>{B("receipts")}</Button>}
         </Card>
+      </div>
       </div>
     </div>
   );

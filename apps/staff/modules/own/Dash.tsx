@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import type { DashboardView, DrillView } from "@setu/contracts";
 import { format } from "@setu/domain";
 import { fill } from "@setu/i18n";
-import { Button, Callout, Card, Icon, PageState, Pill, Segmented, Drawer } from "@setu/ui";
+import { Button, Callout, Card, Icon, PageState, Pill, Segmented, Drawer, PageHeader, Skeleton } from "@setu/ui";
 import { owner } from "../../lib/api";
 import { useSession } from "../../lib/session";
 
@@ -49,16 +49,12 @@ export function OwnerDash({ home = false }: { home?: boolean } = {}) {
         <Icon name={pct > 0 ? "arrow-up" : pct < 0 ? "arrow-down" : "minus"} size={12} /> {F.num(`${pct > 0 ? "+" : ""}${pct}%`)} · {O(`j_${judgement}`)}</span>;
   return (
     <div data-screen="own/dash" style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        {home ? <span style={{ display: "flex", flexDirection: "column" }}><h1 className="t-h2" style={{ margin: 0 }}>{O("home_greeting") + first}</h1><span className="t-small t-muted">{O("dash_title")}</span></span>
-          : <h1 className="t-h2" style={{ margin: 0 }}>{O("dash_title")}</h1>}
-        <span style={{ marginLeft: "auto" }} />
-        <Segmented label={O("dash_title")} value={period} onChange={(p) => setPeriod(p as Period)} options={(["today", "7d", "30d"] as const).map((p) => ({ value: p, label: O(`p_${p}`) }))} />
-      </div>
+      <PageHeader title={home ? O("home_greeting") + first : O("dash_title")} subtitle={home ? O("dash_title") : undefined}
+        actions={<Segmented label={O("dash_title")} value={period} onChange={(p) => setPeriod(p as Period)} options={(["today", "7d", "30d"] as const).map((p) => ({ value: p, label: O(`p_${p}`) }))} />} />
       {v && <span className="t-small t-muted" data-testid="dash-compare">{v.uptoHour !== null ? O("vs_today", { h: F.num(v.uptoHour + 1) }) : O("vs_period", { n: v.days.length })} · {O("as_of", { at: F.dateTime(v.asOf) })}</span>}
       {!s.online && <Callout tone="warn" icon="cloud-off">{O("needs_connection")}</Callout>}
       {failed && <Callout tone="warn" icon="triangle-alert">{O("error_generic")} <Button size="sm" onClick={() => void load(period)}>↻</Button></Callout>}
-      {!failed && !v && <div aria-busy="true" className="t-muted">{O("loading")}</div>}
+      {!failed && !v && <Skeleton rows={6} label={O("loading")} />}
       {v && (
         <>
           {(v.pending.approvals > 0 || v.pending.shifts > 0 || v.pending.reconcile > 0 || v.pending.staleShifts > 0) && <Pending v={v} />}

@@ -96,7 +96,7 @@ screenshots, its journeys green on a production build (dev-only gateway/SMS spec
 - [x] P0 · Nav sections distinguishable; type one step smaller (8b5db7a, 436bdb3)
 - [x] P1 · Side drawer for previews and documents (draft print preview, print panel, receipts, vouchers, IPD receipts and
       interim bill, owner drill-down)
-- [ ] P2 · Billing and money: OPD worklist + bill, payment, receipt, refunds, shift close, approvals, reconciliation,
+- [x] P2 · Billing and money: OPD worklist + bill, payment, receipt, refunds, shift close, approvals, reconciliation,
       packages, IPD running/final bill; owner dashboard
 - [ ] P3 · Lab: worklists, collection, accession, result entry, verification, report, delivery
 - [ ] P4 · Pharmacy: dispense, OTC, stock, purchase / goods received, count, indents, approvals

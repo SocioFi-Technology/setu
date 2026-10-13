@@ -3,7 +3,7 @@
    and what it includes and excludes; samples pending sign-off. Editing and the owner's publish step come later. */
 import { useEffect, useState } from "react";
 import type { PackageList } from "@setu/contracts";
-import { Callout, Card, PageState, Pill } from "@setu/ui";
+import { Callout, Card, PageState, Pill, Skeleton } from "@setu/ui";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ipdBill } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -14,7 +14,7 @@ export function BillPkg() {
   const [list, setList] = useState<PackageList | null>(null); const [failed, setFailed] = useState<string | null>(null);
   useEffect(() => { ipdBill.packages().then(setList).catch((e) => setFailed(E(e))); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   if (failed) return <Callout tone="warn" icon="triangle-alert">{failed}</Callout>;
-  if (!list) return <div aria-busy="true" className="t-muted">{B("loading")}</div>;
+  if (!list) return <Skeleton rows={5} label={B("loading")} />;
   const bn = s.lang === "bn";
   return (
     <div data-screen="bill/pkg" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
