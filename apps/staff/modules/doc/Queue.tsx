@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ConsultWorklist } from "@setu/contracts";
-import { Button, Callout, PageState, Pill } from "@setu/ui";
+import { Button, Callout, PageState, Pill, Skeleton } from "@setu/ui";
 import { cons } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useLabels } from "../fd/common";
@@ -43,7 +43,7 @@ export function DocQueue() {
     <DocFrame tab="queue">
       <h1 className="t-h2" style={{ margin: 0 }}>{D("q_title")}</h1>
       {failed && <Callout tone="warn" icon="triangle-alert">{D("error_generic")}</Callout>}
-      {!failed && !w && <div aria-busy="true" className="t-muted">{D("loading")}</div>}
+      {!failed && !w && <Skeleton rows={4} label={D("loading")} />}
       {w && w.items.length === 0 && <PageState icon="ticket" title={D("q_empty")} />}
       {now.length > 0 && <section data-group="now" style={{ display: "flex", flexDirection: "column", gap: 8 }}><span className="t-small t-secondary"><b>{D("q_now")}</b></span>{now.map((i) => card(i, true))}</section>}
       {waiting.length > 0 && <section data-group="waiting" style={{ display: "flex", flexDirection: "column", gap: 8 }}><span className="t-small t-secondary"><b>{D("q_waiting")}</b> · <span className="num">{s.n(waiting.length)}</span></span>{waiting.map((i) => card(i))}</section>}

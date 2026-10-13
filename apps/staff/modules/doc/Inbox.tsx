@@ -7,7 +7,7 @@
 import { SMS_MAYBE_SENT } from "@setu/domain";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { InboxItem, InboxView } from "@setu/contracts";
-import { Button, Callout, Card, Icon, PageState, Pill, useToast } from "@setu/ui";
+import { Button, Callout, Card, Icon, PageState, Pill, useToast, Skeleton } from "@setu/ui";
 import { ApiFailure, doctor, docs } from "../../lib/api";
 import { onOutbox, outboxItems } from "../../lib/outbox";
 import { useSession } from "../../lib/session";
@@ -71,7 +71,7 @@ export function DocInbox() {
       </span>
       <span className="t-small t-muted">{D("i_sub")}</span>
       {failed && <Callout tone="warn" icon="triangle-alert">{D("error_generic")} <Button size="sm" onClick={() => void load()}>{D("retry")}</Button></Callout>}
-      {!failed && !v && <div aria-busy="true" className="t-muted">{D("loading")}</div>}
+      {!failed && !v && <Skeleton rows={4} label={D("loading")} />}
       {v && v.items.length === 0 && <PageState icon="inbox" title={D("i_empty")} />}
       {v?.items.map((x) => <InboxCard key={x.id} item={x} queued={queued.get(x.id)} busy={busy === x.id} onAck={(n) => void ack(x, n)} />)}
     </DocFrame>

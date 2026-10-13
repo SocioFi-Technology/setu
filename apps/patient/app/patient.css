@@ -89,3 +89,12 @@ body { margin: 0; background: var(--surface-page); color: var(--text-primary); f
 .pa-tabsbar button { font-weight: 700; }
 .pa-input { border-radius: 14px; }
 .pa-input:focus { outline: 0; border-color: var(--brand-primary); box-shadow: 0 0 0 4px var(--brand-primary-subtle); }
+/* P8 · the state of a card shows on its edge: claims, share requests, active shares, portable orders */
+.pa-card[data-claim], .pa-card[data-request], .pa-card[data-share], .pa-card[data-portable], .pa-card[data-claim-qr] { border-left-width: 1px; }
+.pa-card[data-claim="linked"], .pa-card[data-request="granted"], .pa-card[data-share="active"] { box-shadow: inset 4px 0 0 var(--success-solid), var(--shadow-2); }
+.pa-card[data-claim-qr], .pa-card[data-request="sent"] { box-shadow: inset 4px 0 0 var(--brand-primary), var(--shadow-3); }
+.pa-card[data-claim="locked"], .pa-card[data-request="declined"] { box-shadow: inset 4px 0 0 var(--danger-solid), var(--shadow-2); }
+.pa-card[data-network-sharing="on"] { background: color-mix(in oklab, var(--surface-selected) 55%, var(--surface-card)); }
+.pa-meta { color: var(--text-muted); }
+.pa-label { font-weight: 700; }
+.pa-select { min-height: 48px; border-radius: 12px; border: 1px solid var(--border-default); padding: 0 12px; background: var(--surface-card); font: 600 15px/20px var(--font-sans); }

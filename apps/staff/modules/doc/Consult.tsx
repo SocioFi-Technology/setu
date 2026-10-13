@@ -6,7 +6,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ConsultationView } from "@setu/contracts";
-import { Button, Callout, Card, PageState, Pill } from "@setu/ui";
+import { Button, Callout, Card, PageState, Pill, Skeleton } from "@setu/ui";
 import { PrintPanel } from "../../components/PrintPanel";
 import { cons } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -40,7 +40,7 @@ function SignedView({ encounterId }: { encounterId: string }) {
   const open = !!v && (!!v.draft || !v.current);
   useEffect(() => { if (open) router.replace(PHONE_NAV.draft(encounterId)); }, [open, encounterId, router]);
   if (failed) return <Callout tone="warn" icon="triangle-alert">{D("error_generic")}</Callout>;
-  if (!v || open) return <div aria-busy="true" className="t-muted">{D("loading")}</div>;
+  if (!v || open) return <Skeleton rows={4} label={D("loading")} />;
   const c = v.current!;
   return (
     <div data-screen="doc/signed" style={{ display: "flex", flexDirection: "column", gap: 12 }}>

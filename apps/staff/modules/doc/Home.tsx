@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ConsultWorklist, InboxView } from "@setu/contracts";
-import { Button, Callout, Card, Pill } from "@setu/ui";
+import { Button, Callout, Card, Pill, Skeleton } from "@setu/ui";
 import { cons, doctor } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { DocFrame, docUrl, rememberUnread, useD, useDF } from "./common";
@@ -31,19 +31,19 @@ export function DocHome() {
       <h1 className="t-h2" style={{ margin: 0 }}>{D("hello", { name: s.lang === "bn" ? s.me?.nameBn ?? "" : s.me?.nameEn ?? "" })}</h1>
       <span className="t-small t-muted">{s.me?.organizationName ?? ""}</span>
       {failed && <Callout tone="warn" icon="triangle-alert">{D("error_generic")}</Callout>}
-      {!failed && !w && <div aria-busy="true" className="t-muted">{D("loading")}</div>}
+      {!failed && !w && <Skeleton rows={4} label={D("loading")} />}
       {w && inbox && (
         <>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }} data-testid="doc-tiles">
             {tiles.map((t) => (
-              <Card key={t.k} data-tile={t.k} style={{ padding: 12, display: "flex", flexDirection: "column", gap: 2 }}>
+              <Card key={t.k} data-tile={t.k} className="ck-stat" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 4 }}>
                 <span className="t-small t-secondary">{t.label}</span>
-                <b className="num" style={{ fontSize: 26, lineHeight: "32px" }}>{s.n(t.n)}</b>
+                <b className="num ck-stat-value">{s.n(t.n)}</b>
                 {t.k === "results" && inbox.counts.critical > 0 && <span data-testid="home-critical"><Pill tone="crit" icon="siren">{D("h_critical", { n: inbox.counts.critical })}</Pill></span>}
               </Card>
             ))}
           </div>
-          <Button variant="primary" icon="ticket" onClick={() => router.push(docUrl("queue"))}>{D("h_open_queue")}</Button>
+          <Button variant="primary" size="lg" icon="ticket" onClick={() => router.push(docUrl("queue"))}>{D("h_open_queue")}</Button>
           <Button icon="file-text" onClick={() => router.push(docUrl("inbox"))}>{D("h_open_inbox")}</Button>
           <span className="t-small t-muted">{D("h_live")}</span>
         </>

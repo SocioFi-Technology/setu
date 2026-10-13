@@ -426,3 +426,7 @@ a.ck-stat:hover { border-color: var(--border-default); box-shadow: var(--shadow-
 .ck-stepdot[data-ok="1"] { background: var(--brand-primary); border-color: var(--brand-primary); color: var(--text-on-primary); }
 .ck-stepdot[data-ok="na"] { border-style: dashed; }
 [data-testid="checklist"] { box-shadow: var(--shadow-2); }
+/* P8 · doctor app: the greeting and tiles on a phone */
+.doc-frame > h1.t-h2 { font-size: 24px; line-height: 32px; }
+.doc-frame [data-testid="doc-tiles"] { gap: 12px !important; }
+.doc-frame .ck-stat-value { font-size: 28px; line-height: 32px; }
